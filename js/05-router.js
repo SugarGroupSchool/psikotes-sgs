@@ -106,8 +106,10 @@ function renderTestSelection() {
         return;
       }
   
-      appState.selectedTests = selected;
-      localStorage.setItem('selectedTests', JSON.stringify(selected));
+     appState.selectedTests = selected;
+// ✅ Hanya simpan kalau identity sudah ada
+if (appState.identity?.name) {
+  localStorage.setItem('selectedTests', JSON.stringify(selected));
   
       // Reset status completed untuk tes yang dipilih
       appState.completed = appState.completed || {};
