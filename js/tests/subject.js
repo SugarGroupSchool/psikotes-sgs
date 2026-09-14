@@ -417,7 +417,6 @@
    
    function logoutDiskualifikasi() {
      localStorage.setItem('usedPragas', '1');
-     localStorage.removeItem('identity');
      setTimeout(() => location.reload(), 250);
    }
    
