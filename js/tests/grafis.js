@@ -374,6 +374,7 @@
     THANK YOU
     ========================================================= */
  function renderGrafisThankYou() {
+     window.__inTestView = false;
    ensureGrafisStyles();
    const app = document.getElementById("app");
  
