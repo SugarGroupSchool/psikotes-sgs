@@ -1,73 +1,92 @@
 /* =========================================================
-   AUTHENTICATION — Password Screen
+   AUTHENTICATION — Lock Control + Fresh/Used password
    ========================================================= */
 
-function getActivePassword() {
-  const K = APP_CONFIG.STORAGE_KEYS;
-  const used = localStorage.getItem(K.USED_PRAGAS) === '1';
-
-  // 🔐 Pakai password acak (fungsi dari 00b-admin.js)
-  if (typeof window.getFreshPassword === 'function' && typeof window.getUsedPassword === 'function') {
-    return used ? window.getUsedPassword() : window.getFreshPassword();
-  }
-
-  // Fallback ke hardcoded (kalau 00b-admin.js belum load)
-  return used ? APP_CONFIG.PASSWORDS.USED : APP_CONFIG.PASSWORDS.FRESH;
-}
-
+/* ============================================================
+   CHECK PASSWORD — Login utama
+   ============================================================ */
 function checkPassword() {
   const input = document.getElementById('passwordInput');
   const error = document.getElementById('passwordError');
   const value = (input.value || '').trim();
 
-  if (value === getActivePassword()) {
-    error.textContent = '';
-    playFuturisticSound();
-
-    document.getElementById('welcomeMessage').classList.add('show');
-    document.getElementById('passwordLogo').classList.add('small');
-    document.getElementById('passwordForm').style.opacity = '0';
-    document.getElementById('passwordForm').style.pointerEvents = 'none';
-
-setTimeout(() => {
-  document.getElementById('passwordScreen').classList.add('hidden');
-
-  // ✅ Cek: apakah identity sudah ada?
-  let identitySaved = null;
-  try {
-    const raw = localStorage.getItem('identity');
-    if (raw) identitySaved = JSON.parse(raw);
-  } catch (e) {}
-
-  const hasValidIdentity =
-    identitySaved &&
-    typeof identitySaved === 'object' &&
-    typeof identitySaved.name === 'string' &&
-    identitySaved.name.trim().length > 0;
-
-  if (hasValidIdentity) {
-    // → RESUME MODE: kandidat lanjut setelah diskualifikasi
-    console.log('[AUTH] 🔄 Identity ditemukan — langsung ke home');
-    if (typeof window.renderHome === 'function') {
-      window.renderHome();
-    } else {
-      renderIdentityForm();
-    }
-  } else {
-    // → FRESH MODE: kandidat baru
-    console.log('[AUTH] 🆕 Fresh kandidat — tampilkan form identity');
-    renderIdentityForm();
+  /* ---------- CEK 1: LOCK AKTIF? ---------- */
+  if (typeof window.getLockState === 'function' && window.getLockState()) {
+    error.textContent = '🔒 Login sedang dikunci oleh admin. Hubungi panitia.';
+    error.style.color = '#ff6b6b';
+    input.value = '';
+    input.focus();
+    return;
   }
-}, APP_CONFIG.TIMING.SPLASH_DELAY);
 
-  } else {
+  /* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
+  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+    error.textContent = 'Perangkat ini sudah menyelesaikan tes. Hubungi admin.';
+    error.style.color = '#ff6b6b';
+    input.value = '';
+    input.focus();
+    return;
+  }
+
+  /* ---------- CEK 3: TENTUKAN PASSWORD YANG BERLAKU ---------- */
+  const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
+  const validPwd = used
+    ? (typeof window.getUsedPwd === 'function' ? window.getUsedPwd() : APP_CONFIG.DEFAULT_USED_PWD)
+    : (typeof window.getFreshPwd === 'function' ? window.getFreshPwd() : APP_CONFIG.DEFAULT_FRESH_PWD);
+
+  /* ---------- CEK 4: PASSWORD COCOK? ---------- */
+  if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
     runWrongPasswordEffects();
     input.focus();
     input.select();
+    return;
   }
+
+  /* ---------- LOGIN SUKSES ---------- */
+  error.textContent = '';
+  playFuturisticSound();
+
+  document.getElementById('welcomeMessage').classList.add('show');
+  document.getElementById('passwordLogo').classList.add('small');
+  document.getElementById('passwordForm').style.opacity = '0';
+  document.getElementById('passwordForm').style.pointerEvents = 'none';
+
+  setTimeout(() => {
+    document.getElementById('passwordScreen').classList.add('hidden');
+
+    /* Cek identity: kalau sudah ada → resume, kalau belum → form */
+    let identitySaved = null;
+    try {
+      const raw = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.IDENTITY);
+      if (raw) identitySaved = JSON.parse(raw);
+    } catch (e) {}
+
+    const hasValidIdentity =
+      identitySaved &&
+      typeof identitySaved === 'object' &&
+      typeof identitySaved.name === 'string' &&
+      identitySaved.name.trim().length > 0;
+
+    if (hasValidIdentity) {
+      console.log('[AUTH] 🔄 Resume — langsung ke home');
+      window.appState = window.appState || {};
+      window.appState.identity = identitySaved;
+      if (typeof window.renderHome === 'function') {
+        window.renderHome();
+      } else {
+        renderIdentityForm();
+      }
+    } else {
+      console.log('[AUTH] 🆕 Fresh — tampilkan form identity');
+      renderIdentityForm();
+    }
+  }, APP_CONFIG.TIMING.SPLASH_DELAY);
 }
 
+/* ============================================================
+   EFFECTS
+   ============================================================ */
 function passwordWrongImageEffect() {
   const screen = document.getElementById('passwordScreen');
   document.querySelectorAll('img').forEach(img => {
@@ -88,7 +107,7 @@ function passwordWrongImageEffect() {
 
 function runWrongPasswordEffects() {
   passwordWrongImageEffect();
-  playWrongPasswordAlarm();
+  if (typeof playWrongPasswordAlarm === 'function') playWrongPasswordAlarm();
 }
 
 function resetToLogin() {
@@ -103,29 +122,22 @@ function resetToLogin() {
   setTimeout(() => document.getElementById('passwordInput')?.focus(), 150);
 }
 
-/* Event bindings */
+/* ============================================================
+   EVENT BINDINGS
+   ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('passwordInput');
-  const btn = document.querySelector('.password-submit');
-
   if (input) {
     input.addEventListener('keypress', e => {
-      if (e.key === 'Enter') checkPassword();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkPassword();
+      }
     });
     setTimeout(() => input.focus(), 100);
   }
-
-  btn?.addEventListener('click', () => {
-    setTimeout(() => {
-      const err = document.getElementById('passwordError');
-      if (err && err.textContent.trim() !== '') {
-        // efek sudah dijalankan oleh checkPassword
-      }
-    }, 100);
-  });
 });
 
-/* Cegah drag gambar & context menu */
 document.addEventListener('dragstart', e => {
   if (e.target instanceof HTMLImageElement) e.preventDefault();
 });
