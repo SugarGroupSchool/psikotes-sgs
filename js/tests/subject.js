@@ -428,32 +428,18 @@ function onSubjectBlur() {
    biarkan identity + completed + answers tetap utuh.
    ========================================================= */
 function logoutDiskualifikasi() {
-  /* ============================================================
-     1. Set flag → password aktif jadi SGS-HC-Talent27
-     ============================================================ */
-  localStorage.setItem('usedPragas', '1');
+  /* Diskualifikasi: set usedPragas = "1" supaya password aktif = USED
+     Data jawaban tetap tersimpan di memory */
+  try {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
+  } catch (e) {}
 
-  /* ============================================================
-     2. JANGAN hapus identity, completed, selectedTests
-        (data jawaban tetap di memory → PDF lengkap nanti)
-     ============================================================ */
-
-  /* ============================================================
-     3. Reset flag view supaya tidak stuck
-     ============================================================ */
   window.__inTestView = false;
-
-  /* ============================================================
-     4. Reset state subject saja (bukan seluruh jawaban)
-     ============================================================ */
   appState.subjectSelected = null;
   appState.subjectDisqualified = false;
   subjectCheatFlag = false;
   allowTabOutSubject = false;
 
-  /* ============================================================
-     5. Tampilkan password screen TANPA reload
-     ============================================================ */
   const pwdScreen = document.getElementById('passwordScreen');
   const pwdForm = document.getElementById('passwordForm');
   const pwdInput = document.getElementById('passwordInput');
@@ -473,27 +459,14 @@ function logoutDiskualifikasi() {
     if (pwdLogo) pwdLogo.classList.remove('small');
   }
 
-  /* ============================================================
-     6. Refresh password aktif (SGS-REC → SGS-HC)
-     ============================================================ */
-  if (typeof window.__refreshActivePassword === 'function') {
-    window.__refreshActivePassword();
-  }
-
-  /* ============================================================
-     7. Bersihkan #app supaya tidak tampil halaman diskualifikasi
-     ============================================================ */
   const appEl = document.getElementById('app');
   if (appEl) appEl.innerHTML = '';
 
-  /* ============================================================
-     8. Focus input password
-     ============================================================ */
   setTimeout(() => {
     if (pwdInput) pwdInput.focus();
   }, 150);
 
-  console.log('[SUBJECT] Diskualifikasi — data jawaban tetap tersimpan di memory. Harap hubungi tim rekrutmen');
+  console.log('[SUBJECT] Diskualifikasi — pakai password USED untuk lanjut');
 }
 
 console.log('[TEST-SUBJECT] ✓ Loaded — 9 fungsi');
