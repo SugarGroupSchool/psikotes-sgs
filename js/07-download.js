@@ -245,16 +245,24 @@
       window.open(formURL, '_blank', 'noopener,noreferrer');
     } catch (e) {}
   
-// Auto logout setelah 1.5 detik
 setTimeout(() => {
-  // ✅ HAPUS DATA KANDIDAT (fresh untuk kandidat berikutnya)
-  localStorage.removeItem('identity');
-  localStorage.removeItem('completed');
-  localStorage.removeItem('selectedTests');
+  /* 1. Tandai device sudah selesai — tidak bisa login lagi */
+  try {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
+  } catch (e) {}
 
-  // ✅ TETAP set usedPragas = "1" (biar password jadi Talent27)
-  // Kandidat sebelumnya tidak bisa retake
-  localStorage.setItem('usedPragas', '1');
+  /* 2. Set usedPragas = "1" — supaya kalau admin reset device,
+        password yang aktif = USED */
+  try {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
+  } catch (e) {}
+
+  /* 3. Hapus data kandidat */
+  try {
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+  } catch (e) {}
 
   try { sessionStorage.removeItem('dlClick'); } catch (e) {}
 
