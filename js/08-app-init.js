@@ -72,12 +72,17 @@
      3. CEK STATE "SUDAH LOGOUT" (usedPragas === '1')
      → kalau iya, ganti password aktif ke SGS-HC-Talent27
      ============================================================ */
-  function refreshActivePassword() {
-    const used = localStorage.getItem('usedPragas') === '1';
-    if (typeof PASSWORD !== 'undefined') {
-      window.PASSWORD = used ? "SGS-HC-Talent27" : "SGS-REC-Assessment84";
-    }
+function refreshActivePassword() {
+  // 🔐 Pakai password acak dari 00b-admin.js
+  if (typeof window.getActivePassword === 'function') {
+    window.PASSWORD = window.getActivePassword();
+    return;
   }
+
+  // Fallback
+  const used = localStorage.getItem('usedPragas') === '1';
+  window.PASSWORD = used ? "SGS-HC-Talent27" : "SGS-REC-Assessment84";
+}
 
   /* ============================================================
      4. HELPER: BLANK COMPLETED STATE
