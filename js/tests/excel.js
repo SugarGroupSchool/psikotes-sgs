@@ -10,6 +10,7 @@
      THANK YOU
      ========================================================= */
   function renderExcelThankYou() {
+     window.__inTestView = false;
     ensureExamStyles();
     const app = document.getElementById('app');
     app.innerHTML = `
