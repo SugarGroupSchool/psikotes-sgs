@@ -1,38 +1,40 @@
 /* =========================================================
-   KONFIGURASI GLOBAL
+   KONFIGURASI GLOBAL — Admin Control System
    ========================================================= */
 
-// Shim jsPDF
 if (typeof window !== 'undefined' && window.jspdf && window.jspdf.jsPDF) {
   window.jsPDF = window.jspdf.jsPDF;
 } else {
-  console.warn('[CONFIG] jsPDF belum ke-load — cek CDN di index.html');
+  console.warn('[CONFIG] jsPDF belum ke-load');
 }
 
 const APP_CONFIG = {
   ASSETS: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main',
   LOGO:   'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
 
-  PASSWORDS: {
-    // Password lama (fallback, jarang dipakai lagi)
-    FRESH: 'SGS-REC-Assessment84',
-    USED:  'SGS-HC-Talent27',
-  },
+  /* ============================================================
+     DEFAULT PASSWORDS (dipakai kalau belum ada di localStorage)
+     ============================================================ */
+  DEFAULT_FRESH_PWD: 'SGS-REC-Assessment84',
+  DEFAULT_USED_PWD:  'SGS-HC-Talent27',
 
+  /* ============================================================
+     STORAGE KEYS
+     ============================================================ */
   STORAGE_KEYS: {
     USED_PRAGAS:   'usedPragas',
     IDENTITY:      'identity',
     COMPLETED:     'completed',
     SELECTED_TESTS:'selectedTests',
     DL_CLICK:      'dlClick',
-    // 🔐 Password acak
-    PWD_FRESH:     '_sgs_f',
-    PWD_USED:      '_sgs_u',
-    PWD_CREATED:   '_sgs_pwc',
+    DEVICE_FINISHED: '_sgs_finished',
+    // 🔐 Admin control
+    LOCK_ALL:      '_sgs_lock',         // "1" = semua login ditolak
+    PWD_FRESH:     '_sgs_pwd_fresh',    // password untuk kandidat baru
+    PWD_USED:      '_sgs_pwd_used',     // password setelah logout/disqualified
   },
 
   ADMIN_KEY: 'adminsgs111',
-
   FORM_FINAL_URL: 'https://forms.gle/G69K56TRfxNnBXtr9',
 
   KRAEPLIN: {
@@ -51,8 +53,6 @@ const APP_CONFIG = {
 
   /* ============================================================
      GENERATOR PASSWORD ACAK
-     - Format: SGS-F-XXXXXXXX (fresh) / SGS-U-XXXXXXXX (used)
-     - Karakter: tanpa 0, O, I, L, 1 biar tidak bingung
      ============================================================ */
   generateRandomPassword(prefix) {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -66,4 +66,4 @@ const APP_CONFIG = {
 
 window.__inTestView = false;
 
-console.log('[CONFIG] ✓ Loaded — password acak + admin URL aktif');
+console.log('[CONFIG] ✓ Loaded');
