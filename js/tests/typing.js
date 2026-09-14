@@ -221,6 +221,7 @@
      THANK YOU
      ============================================================ */
   function renderTypingThankYou() {
+     window.__inTestView = false;
     const app = document.getElementById('app');
     app.innerHTML = `
       <div class="card" style="
