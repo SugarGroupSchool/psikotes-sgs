@@ -179,20 +179,44 @@ function renderHome() {
 
     if (selectedMeta.length > 0) {
       html += `<div class="test-selection" style="padding:0 24px;">`;
+
       selectedMeta.forEach(test => {
         const isCompleted = appState.completed[test.id] === true;
-        html += `
-          <div class="test-card ${isCompleted ? 'completed' : ''}"
-               onclick="${isCompleted ? '' : `startTest('${test.id}')`}"
-               style="${isCompleted ? 'opacity:0.7;cursor:default;' : ''}">
-            <div class="test-icon">${test.icon}</div>
-            <h3>${test.label}</h3>
-            <p>${test.desc}</p>
-            <div class="time">Waktu: ${test.time}</div>
-            <div class="status">${isCompleted ? '✓ Selesai' : 'Belum dikerjakan'}</div>
-          </div>
-        `;
+
+        if (isCompleted) {
+          // 🔒 KARTU TERKUNCI — tidak ada onclick, tidak bisa diklik
+          html += `
+            <div class="test-card completed locked"
+                 data-test-id="${test.id}"
+                 title="Tes sudah selesai — tidak dapat diulang"
+                 aria-disabled="true">
+              <div class="test-icon">${test.icon}</div>
+              <h3>${test.label}</h3>
+              <p>${test.desc}</p>
+              <div class="time">Waktu: ${test.time}</div>
+              <div class="status">
+                <span class="status-locked">🔒 Selesai — Terkunci</span>
+              </div>
+            </div>
+          `;
+        } else {
+          // ✅ KARTU AKTIF — bisa diklik
+          html += `
+            <div class="test-card"
+                 data-test-id="${test.id}"
+                 onclick="startTest('${test.id}')"
+                 role="button"
+                 tabindex="0">
+              <div class="test-icon">${test.icon}</div>
+              <h3>${test.label}</h3>
+              <p>${test.desc}</p>
+              <div class="time">Waktu: ${test.time}</div>
+              <div class="status">Belum dikerjakan</div>
+            </div>
+          `;
+        }
       });
+
       html += `</div>`;
     }
 
