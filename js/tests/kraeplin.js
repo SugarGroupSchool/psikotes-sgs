@@ -150,7 +150,7 @@
      clearInterval(appState.timer);
      markTestCompleted('KRAEPLIN');
    
-     window.__inTestView = true;
+     window.__inTestView = false;
      const app = document.getElementById('app');
    
      app.innerHTML = `
