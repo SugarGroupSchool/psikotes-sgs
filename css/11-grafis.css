@@ -1,0 +1,491 @@
+/* =========================================================
+   GRAFIS TEST STYLES
+   ========================================================= */
+
+   .grafis-page, .grafis-page * { box-sizing: border-box; }
+
+   .grafis-page {
+     width: 100%;
+     min-height: 100vh;
+     min-height: 100dvh;
+     padding: 38px 20px 65px;
+     background: radial-gradient(circle at top left, rgba(37,99,235,.075), transparent 32%),
+                 radial-gradient(circle at top right, rgba(16,185,129,.065), transparent 30%),
+                 linear-gradient(180deg, #f8fafc 0%, #f2f6f9 100%);
+     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+   }
+   
+   .grafis-container {
+     width: 100%;
+     max-width: 880px;
+     margin: 0 auto;
+   }
+   
+   .grafis-card {
+     position: relative;
+     overflow: hidden;
+     background: #fff;
+     border: 1px solid #e4ebf1;
+     border-radius: 26px;
+     box-shadow: 0 18px 50px rgba(15,23,42,.075);
+   }
+   
+   .grafis-accent {
+     width: 100%;
+     height: 5px;
+     background: linear-gradient(90deg, #2563eb, #14b8a6, #22c55e);
+   }
+   
+   .grafis-header {
+     display: flex;
+     align-items: center;
+     gap: 22px;
+     padding: 31px 38px;
+     border-bottom: 1px solid #edf1f5;
+   }
+   
+   .grafis-logo-wrapper {
+     width: 76px; height: 76px;
+     min-width: 76px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 8px;
+     background: linear-gradient(135deg, #f8fafc, #eef6ff);
+     border: 1px solid #e1eaf4;
+     border-radius: 19px;
+     overflow: hidden;
+   }
+   
+   .grafis-logo {
+     width: 100%;
+     height: 100%;
+     object-fit: contain;
+     display: block;
+   }
+   
+   .grafis-title { min-width: 0; }
+   
+   .grafis-eyebrow {
+     margin-bottom: 6px;
+     color: #64748b;
+     font-size: 10px;
+     font-weight: 850;
+     letter-spacing: 1.8px;
+     line-height: 1.3;
+   }
+   
+   .grafis-title h2 {
+     margin: 0;
+     color: #0f172a;
+     font-size: 28px;
+     font-weight: 800;
+     line-height: 1.25;
+     letter-spacing: -.45px;
+   }
+   
+   .grafis-title p {
+     margin: 7px 0 0;
+     color: #64748b;
+     font-size: 13px;
+     line-height: 1.55;
+   }
+   
+   .grafis-content {
+     padding: 32px 38px 38px;
+   }
+   
+   .grafis-prep-grid {
+     display: grid;
+     grid-template-columns: minmax(0, 1fr) minmax(275px, 310px);
+     gap: 24px;
+     align-items: stretch;
+   }
+   
+   .grafis-box {
+     padding: 20px 21px;
+     background: linear-gradient(135deg, #f8fbff, #f7fbfa);
+     border: 1px solid #dfe9f0;
+     border-radius: 18px;
+   }
+   
+   .grafis-box + .grafis-box { margin-top: 16px; }
+   
+   .grafis-box-title {
+     display: flex;
+     align-items: center;
+     gap: 11px;
+     margin-bottom: 15px;
+   }
+   
+   .grafis-box-icon {
+     width: 35px; height: 35px;
+     min-width: 35px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     border-radius: 10px;
+     background: linear-gradient(135deg, #2563eb, #14b8a6);
+     color: #fff;
+     font-size: 14px;
+     font-weight: 850;
+   }
+   
+   .grafis-box-title strong {
+     color: #1e293b;
+     font-size: 15px;
+     font-weight: 800;
+     line-height: 1.35;
+   }
+   
+   .grafis-detail-list {
+     margin: 0;
+     padding-left: 22px;
+     color: #475569;
+     font-size: 13.5px;
+     line-height: 1.78;
+   }
+   
+   .grafis-detail-list li { padding-left: 3px; }
+   .grafis-detail-list li + li { margin-top: 6px; }
+   .grafis-detail-list b { color: #334155; font-weight: 750; }
+   
+   .grafis-example-card {
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: flex-start;
+     padding: 18px;
+     background: #fff;
+     border: 1px solid #e3eaf0;
+     border-radius: 18px;
+     box-shadow: 0 7px 22px rgba(15,23,42,.045);
+   }
+   
+   .grafis-example-label {
+     width: 100%;
+     margin-bottom: 12px;
+     text-align: center;
+     color: #334155;
+     font-size: 13px;
+     font-weight: 800;
+   }
+   
+   .grafis-example-image-wrap {
+     width: 100%;
+     height: 270px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 10px;
+     background: linear-gradient(145deg, #f8fafc, #f1f6fa);
+     border: 1px solid #e8eef2;
+     border-radius: 15px;
+     overflow: hidden;
+   }
+   
+   .grafis-example-image {
+     display: block;
+     max-width: 100%;
+     max-height: 245px;
+     width: auto;
+     height: auto;
+     object-fit: contain;
+     border-radius: 10px;
+   }
+   
+   .grafis-example-note {
+     margin-top: 11px;
+     color: #94a3b8;
+     font-size: 10.5px;
+     line-height: 1.5;
+     text-align: center;
+   }
+   
+   .grafis-notice {
+     margin-top: 17px;
+     padding: 13px 15px;
+     border: 1px solid #fde2b8;
+     border-radius: 14px;
+     background: #fffaf0;
+     color: #92400e;
+     font-size: 11.5px;
+     line-height: 1.6;
+   }
+   
+   .grafis-instruction {
+     padding: 21px 22px;
+     background: linear-gradient(135deg, #f8fbff, #f5fbfa);
+     border: 1px solid #dfe9f0;
+     border-radius: 18px;
+   }
+   
+   .grafis-instruction .grafis-detail-list { font-size: 14px; line-height: 1.8; }
+   .grafis-instruction .grafis-detail-list li + li { margin-top: 7px; }
+   
+   .grafis-timer-area {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 13px;
+     flex-wrap: wrap;
+     margin-top: 23px;
+   }
+   
+   .grafis-timer-chip {
+     display: inline-flex;
+     align-items: center;
+     gap: 8px;
+     padding: 9px 16px;
+     border: 1.6px solid #b7dfff;
+     border-radius: 999px;
+     background: #fff;
+     color: #1b4f8f;
+     font-size: 13px;
+     font-weight: 850;
+     box-shadow: 0 4px 18px rgba(44,123,229,.07);
+   }
+   
+   .grafis-upload-info {
+     padding: 18px 20px;
+     border: 1px solid #dfe9f0;
+     border-radius: 17px;
+     background: linear-gradient(135deg, #f8fbff, #f5fbfa);
+   }
+   
+   .grafis-upload-info .grafis-detail-list { font-size: 13.5px; }
+   
+   .grafis-drop {
+     margin-top: 19px;
+     padding: 27px 20px;
+     text-align: center;
+     background: #f8fcff;
+     border: 2px dashed #73aeea;
+     border-radius: 18px;
+     cursor: pointer;
+     color: #355;
+     transition: background .15s, transform .06s, box-shadow .15s;
+   }
+   
+   .grafis-drop:hover {
+     transform: translateY(-1px);
+     box-shadow: 0 8px 22px rgba(44,123,229,.09);
+   }
+   
+   .grafis-drop-icon {
+     margin-bottom: 6px;
+     color: #2563eb;
+     font-size: 28px;
+     line-height: 1;
+   }
+   
+   .grafis-drop-main {
+     color: #1e5faf;
+     font-size: 14px;
+     font-weight: 800;
+   }
+   
+   .grafis-drop-note {
+     margin-top: 4px;
+     color: #94a3b8;
+     font-size: 10.5px;
+   }
+   
+   .grafis-preview { margin-top: 13px; }
+   .grafis-preview img {
+     max-width: 150px;
+     max-height: 150px;
+     border: 2px solid #e6f0ff;
+     border-radius: 14px;
+     box-shadow: 0 6px 18px rgba(0,0,0,.06);
+   }
+   
+   .grafis-time-warning {
+     margin-top: 12px;
+     text-align: center;
+     color: #b45309;
+     font-size: 11.5px;
+   }
+   
+   .grafis-actions {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+     gap: 12px;
+     flex-wrap: wrap;
+     margin-top: 25px;
+   }
+   
+   .grafis-btn {
+     min-width: 200px;
+     padding: 13px 25px;
+     border: none;
+     border-radius: 13px;
+     color: #fff;
+     background: linear-gradient(135deg, #16a34a, #059669);
+     font-family: inherit;
+     font-size: 13.5px;
+     font-weight: 800;
+     line-height: 1.35;
+     cursor: pointer;
+     box-shadow: 0 10px 24px rgba(5,150,105,.18);
+     transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+   }
+   
+   .grafis-btn:hover {
+     transform: translateY(-2px);
+     box-shadow: 0 14px 30px rgba(5,150,105,.24);
+   }
+   
+   .grafis-btn:active { transform: scale(.98); }
+   .grafis-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+   
+   .grafis-modal-overlay {
+     position: fixed;
+     inset: 0;
+     z-index: 99999;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 20px;
+     background: rgba(15,23,42,.48);
+     backdrop-filter: blur(5px);
+     -webkit-backdrop-filter: blur(5px);
+   }
+   
+   .grafis-modal {
+     width: 100%;
+     max-width: 510px;
+     background: #fff;
+     border-radius: 22px;
+     overflow: hidden;
+     box-shadow: 0 25px 70px rgba(15,23,42,.22);
+     animation: grafisModalIn .18s ease-out;
+   }
+   
+   @keyframes grafisModalIn {
+     from { opacity: 0; transform: translateY(10px) scale(.98); }
+     to { opacity: 1; transform: translateY(0) scale(1); }
+   }
+   
+   .grafis-modal-top {
+     height: 5px;
+     background: linear-gradient(90deg, #2563eb, #14b8a6, #22c55e);
+   }
+   
+   .grafis-modal-body { padding: 28px 28px 24px; }
+   
+   .grafis-modal-icon {
+     width: 46px; height: 46px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     margin: 0 auto 14px;
+     border-radius: 14px;
+     background: #fff7ed;
+     color: #ea580c;
+     font-size: 22px;
+     font-weight: 800;
+   }
+   
+   .grafis-modal h3 {
+     margin: 0 0 10px;
+     color: #0f172a;
+     text-align: center;
+     font-size: 19px;
+     font-weight: 800;
+     line-height: 1.35;
+   }
+   
+   .grafis-modal-text {
+     color: #475569;
+     font-size: 13px;
+     line-height: 1.7;
+     text-align: center;
+   }
+   
+   .grafis-modal-highlight {
+     margin-top: 14px;
+     padding: 13px 15px;
+     background: #f8fbff;
+     border: 1px solid #dceaf5;
+     border-radius: 13px;
+     color: #334155;
+     font-size: 12px;
+     line-height: 1.65;
+   }
+   
+   .grafis-modal-actions {
+     display: flex;
+     justify-content: center;
+     gap: 10px;
+     flex-wrap: wrap;
+     margin-top: 21px;
+   }
+   
+   .grafis-final {
+     padding: 28px 22px;
+     text-align: center;
+     background: linear-gradient(135deg, #f0fdf4, #f8fffb);
+     border: 1px solid #c8f1d6;
+     border-radius: 18px;
+   }
+   
+   .grafis-final-icon {
+     margin-bottom: 10px;
+     color: #16a34a;
+     font-size: 36px;
+     line-height: 1;
+   }
+   
+   .grafis-final h3 {
+     margin: 0 0 7px;
+     color: #166534;
+     font-size: 20px;
+     font-weight: 800;
+     line-height: 1.3;
+   }
+   
+   .grafis-final p {
+     max-width: 560px;
+     margin: 0 auto;
+     color: #64748b;
+     font-size: 13px;
+     line-height: 1.6;
+   }
+   
+   .grafis-thank {
+     max-width: 820px;
+     margin: 34px auto;
+     padding: 34px 28px;
+     border-radius: 22px;
+     background: linear-gradient(135deg, #f5fff8 86%, #e8fff1 100%);
+     box-shadow: 0 10px 34px #c7f4da55;
+     border: 1.6px solid #c8f1d6;
+     text-align: center;
+   }
+   
+   .grafis-thank-icon { margin-bottom: 10px; font-size: 3rem; line-height: 1; }
+   .grafis-thank h2 { margin: 6px 0 8px; color: #13693a; font-size: 26px; font-weight: 900; line-height: 1.3; }
+   .grafis-thank p { max-width: 620px; margin: 0 auto; color: #475569; font-size: 13px; line-height: 1.65; }
+   
+   @media (max-width: 760px) {
+     .grafis-page { padding: 24px 16px 50px; }
+     .grafis-header { padding: 28px 26px; }
+     .grafis-content { padding: 27px 26px 32px; }
+     .grafis-prep-grid { grid-template-columns: 1fr; }
+     .grafis-example-image-wrap { height: 250px; }
+   }
+   
+   @media (max-width: 540px) {
+     .grafis-page { padding: 16px 10px 36px; }
+     .grafis-card { border-radius: 20px; }
+     .grafis-header { padding: 24px 18px; gap: 14px; align-items: flex-start; }
+     .grafis-logo-wrapper { width: 57px; height: 57px; min-width: 57px; padding: 6px; border-radius: 15px; }
+     .grafis-eyebrow { font-size: 9px; letter-spacing: 1.4px; }
+     .grafis-title h2 { font-size: 21px; letter-spacing: -.3px; }
+     .grafis-title p { margin-top: 6px; font-size: 11.5px; line-height: 1.5; }
+     .grafis-content { padding: 22px 16px 28px; }
+     .grafis-box { padding: 17px 16px; }
+     .grafis-btn { width: 100%; min-width: 0; }
+   }

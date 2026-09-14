@@ -1,0 +1,168 @@
+/* =========================================================
+   PASSWORD SCREEN
+   ========================================================= */
+   .password-screen {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg,#1a2a6c 0%,#2c3e50 100%);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    z-index: 1000;
+    transition: all .8s cubic-bezier(.65,0,.35,1);
+    padding: 20px;
+  }
+  .password-screen.hidden {
+    opacity: 0; pointer-events: none; transform: translateY(-30px);
+  }
+  
+  .password-logo {
+    width: 300px; height: 250px;
+    margin-bottom: 30px;
+    transition: var(--transition);
+    will-change: transform, opacity;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,.3));
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0) }
+    50%     { transform: translateY(-15px) }
+  }
+  .password-logo.small { width: 150px; height: 125px; margin-bottom: 15px; }
+  
+  .password-form {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 15px;
+    width: 100%; max-width: 400px;
+    transition: var(--transition);
+  }
+  .password-input {
+    padding: 15px 25px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 12px;
+    font-size: 16px; width: 100%;
+    text-align: center;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    transition: var(--transition);
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,.1);
+    font-family: inherit;
+  }
+  .password-input:focus {
+    outline: none;
+    border-color: var(--secondary);
+    background: rgba(255,255,255,.2);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  }
+  .password-input::placeholder { color: rgba(255,255,255,.7); }
+  
+  .password-submit {
+    padding: 15px 35px;
+    background: linear-gradient(135deg,var(--secondary) 0%,#2980b9 100%);
+    color: #fff; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    width: 100%;
+    box-shadow: 0 4px 15px rgba(0,0,0,.15);
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    font-family: inherit;
+  }
+  .password-submit:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.2);
+    background: linear-gradient(135deg,#2980b9 0%,var(--secondary) 100%);
+  }
+  
+  .password-error {
+    color: #ff6b6b;
+    margin-top: 10px;
+    height: 20px;
+    font-weight: 500;
+    text-align: center;
+  }
+  
+  .welcome-message {
+    font-size: 28px; color: #fff;
+    margin-bottom: 30px;
+    text-align: center;
+    opacity: 0; transform: translateY(20px);
+    transition: all .6s ease .3s;
+    font-weight: 600;
+    text-shadow: 0 2px 10px rgba(0,0,0,.3);
+    max-width: 800px; line-height: 1.4;
+  }
+  .welcome-message.show { opacity: 1; transform: translateY(0); }
+  
+  /* Error state */
+  .password-image-error {
+    animation: passwordImageError .9s cubic-bezier(.36,.07,.19,.97);
+    filter: brightness(.65) saturate(2.8)
+            drop-shadow(0 0 10px rgba(255,0,0,1))
+            drop-shadow(0 0 25px rgba(255,0,0,.95))
+            drop-shadow(0 0 45px rgba(255,0,0,.75));
+  }
+  @keyframes passwordImageError {
+    0%   { transform: translateX(0) scale(1) }
+    8%   { transform: translateX(-16px) scale(1.03) }
+    16%  { transform: translateX(16px)  scale(1.03) }
+    24%  { transform: translateX(-14px) scale(1.025) }
+    32%  { transform: translateX(14px)  scale(1.025) }
+    40%  { transform: translateX(-12px) scale(1.02) }
+    48%  { transform: translateX(12px)  scale(1.02) }
+    56%  { transform: translateX(-9px)  scale(1.015) }
+    64%  { transform: translateX(9px)   scale(1.015) }
+    72%  { transform: translateX(-6px)  scale(1.01) }
+    80%  { transform: translateX(6px)   scale(1.01) }
+    90%  { transform: translateX(-3px)  scale(1) }
+    100% { transform: translateX(0)     scale(1) }
+  }
+  
+  .password-screen-error { animation: passwordScreenError .9s ease-out; }
+  @keyframes passwordScreenError {
+    0%   { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0) }
+    10%  { background-color: rgba(255,0,0,.48);  box-shadow: inset 0 0 160px rgba(255,0,0,.85), inset 0 0 320px rgba(255,0,0,.65) }
+    22%  { background-color: rgba(150,0,0,.58);  box-shadow: inset 0 0 100px rgba(255,0,0,1), inset 0 0 260px rgba(255,0,0,.9), inset 0 0 500px rgba(255,0,0,.55) }
+    38%  { background-color: rgba(255,0,0,.35);  box-shadow: inset 0 0 180px rgba(255,0,0,.95), inset 0 0 360px rgba(255,0,0,.7) }
+    55%  { background-color: rgba(255,0,0,.20);  box-shadow: inset 0 0 120px rgba(255,0,0,.75), inset 0 0 300px rgba(255,0,0,.55) }
+    75%  { background-color: rgba(255,0,0,.10);  box-shadow: inset 0 0 80px rgba(255,0,0,.45), inset 0 0 220px rgba(255,0,0,.3) }
+    100% { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0) }
+  }
+  .password-screen-error::before {
+    content: ""; position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none; z-index: 9999;
+    background: radial-gradient(ellipse at center, rgba(255,0,0,.05) 0%, rgba(255,0,0,.18) 45%, rgba(255,0,0,.55) 100%);
+    animation: passwordRedOverlay .9s ease-out;
+  }
+  @keyframes passwordRedOverlay {
+    0%{opacity:0} 12%{opacity:1} 25%{opacity:.95} 45%{opacity:.72}
+    65%{opacity:.42} 82%{opacity:.18} 100%{opacity:0}
+  }
+  .password-screen-error::after {
+    content: ""; position: fixed; inset: 0;
+    pointer-events: none; z-index: 10000;
+    border: 6px solid rgba(255,0,0,0);
+    box-sizing: border-box;
+    animation: passwordBorderFlash .9s ease-out;
+  }
+  @keyframes passwordBorderFlash {
+    0%  { border-color: rgba(255,0,0,0);   box-shadow: inset 0 0 0 rgba(255,0,0,0) }
+    12% { border-color: rgba(255,0,0,.95); box-shadow: inset 0 0 45px rgba(255,0,0,.75) }
+    30% { border-color: rgba(255,0,0,.85); box-shadow: inset 0 0 70px rgba(255,0,0,.65) }
+    60% { border-color: rgba(255,0,0,.35); box-shadow: inset 0 0 35px rgba(255,0,0,.35) }
+    100%{ border-color: rgba(255,0,0,0);   box-shadow: inset 0 0 0 rgba(255,0,0,0) }
+  }
+  .password-screen-error .password-error { animation: passwordErrorText .9s ease-out; }
+  @keyframes passwordErrorText {
+    0%  { color: inherit; text-shadow: 0 0 0 rgba(255,0,0,0) }
+    15% { color: #ff0000; text-shadow: 0 0 8px  rgba(255,0,0,1), 0 0 18px rgba(255,0,0,.8) }
+    35% { color: #ff2020; text-shadow: 0 0 12px rgba(255,0,0,1), 0 0 25px rgba(255,0,0,.9) }
+    100%{ text-shadow: 0 0 0 rgba(255,0,0,0) }
+  }
+  
+  @media (max-width: 480px) {
+    .password-logo { width: 220px; height: 180px; }
+    .welcome-message { font-size: 22px; }
+  }

@@ -1,0 +1,164 @@
+/* =========================================================
+   PAPI KOSTICK TEST STYLES
+   ========================================================= */
+
+   .papi-question-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+  }
+  
+  .papi-question-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid #e3e6ee;
+    border-radius: 18px;
+    padding: 18px;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(15,23,42,.035);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  
+  .papi-question-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(91,92,240,.28);
+    box-shadow: 0 12px 28px rgba(15,23,42,.055);
+  }
+  
+  .papi-question-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 46px;
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: rgba(91,92,240,.09);
+    border: 1px solid rgba(91,92,240,.16);
+    color: var(--ist-primary, #5b5cf0);
+    font-size: .75rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    margin-bottom: 13px;
+  }
+  
+  .papi-question-text {
+    color: #172033;
+    font-size: 1rem;
+    line-height: 1.55;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  
+  .papi-option-list {
+    display: grid;
+    gap: 10px;
+  }
+  
+  .papi-option-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-height: 58px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e3e6ee;
+    color: #334056;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+  
+  .papi-option-box:hover {
+    transform: translateY(-1px);
+    border-color: rgba(91,92,240,.35);
+    background: #fbfbff;
+    box-shadow: 0 7px 18px rgba(15,23,42,.045);
+  }
+  
+  .papi-option-box input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .papi-option-letter {
+    flex: 0 0 auto;
+    width: 34px; height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #f2f4fa;
+    color: #68738a;
+    border: 1px solid #e4e7ef;
+    font-weight: 850;
+    transition: background .18s ease, color .18s ease, border-color .18s ease;
+  }
+  
+  .papi-option-text {
+    flex: 1;
+    min-width: 0;
+    font-size: .94rem;
+    line-height: 1.45;
+    font-weight: 620;
+    color: #334056;
+  }
+  
+  .papi-check-indicator {
+    flex: 0 0 auto;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid #cbd1df;
+    background: #fff;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+  }
+  
+  .papi-option-box.selected {
+    border-color: rgba(91,92,240,.52);
+    background: linear-gradient(90deg, rgba(91,92,240,.075), rgba(124,58,237,.045));
+    box-shadow: 0 0 0 3px rgba(91,92,240,.07), 0 10px 22px rgba(91,92,240,.06);
+  }
+  
+  .papi-option-box.selected .papi-option-letter {
+    background: linear-gradient(135deg, var(--ist-primary, #5b5cf0), var(--ist-primary-2, #7c3aed));
+    color: #fff;
+    border-color: transparent;
+  }
+  
+  .papi-option-box.selected .papi-check-indicator {
+    border: 5px solid var(--ist-primary, #5b5cf0);
+    box-shadow: 0 0 0 3px rgba(91,92,240,.08);
+  }
+  
+  .papi-helper-box {
+    margin-top: 18px;
+    padding: 13px 16px;
+    border-radius: 14px;
+    background: #f8f9fc;
+    border: 1px solid #e8eaf0;
+    color: #667085;
+    font-size: .9rem;
+    line-height: 1.55;
+  }
+  
+  .papi-helper-box strong { color: #475467; }
+  
+  .papi-error {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #fff4f4;
+    border: 1px solid #fecaca;
+    color: #c62828;
+    text-align: center;
+    font-size: .91rem;
+    font-weight: 650;
+  }
+  
+  @media (max-width: 760px) {
+    .papi-question-grid { grid-template-columns: 1fr; }
+    .papi-question-card { padding: 16px; }
+    .papi-question-text { font-size: .95rem; }
+  }

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Psikotes Sugar Group Schools</title>
+
+  <!-- Favicon -->
+  <link
+    rel="icon"
+    type="image/png"
+    href="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png"
+  >
+
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <!-- ============================================================
+       CSS — URUT DARI VARIABEL KE KOMPONEN
+       ============================================================ -->
+  <link rel="stylesheet" href="./css/01-variables.css">
+  <link rel="stylesheet" href="./css/02-global.css">
+  <link rel="stylesheet" href="./css/03-auth.css">
+  <link rel="stylesheet" href="./css/04-identity.css">
+  <link rel="stylesheet" href="./css/05-home.css">
+  <link rel="stylesheet" href="./css/06-ist.css">
+  <link rel="stylesheet" href="./css/07-kraeplin.css">
+  <link rel="stylesheet" href="./css/08-disc.css">
+  <link rel="stylesheet" href="./css/09-papi.css">
+  <link rel="stylesheet" href="./css/10-bigfive.css">
+  <link rel="stylesheet" href="./css/11-grafis.css">
+  <link rel="stylesheet" href="./css/12-subject.css">
+  <link rel="stylesheet" href="./css/13-admin.css">
+  <link rel="stylesheet" href="./css/14-utilities.css">
+
+  <style>
+    /* =========================================
+       MENCEGAH SEMUA GAMBAR DI-DRAG
+       ========================================= */
+    img {
+      -webkit-user-drag: none;
+      user-drag: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+      pointer-events: auto;
+    }
+
+    /* =========================================
+       ANIMASI LOGO
+       ========================================= */
+    .password-logo {
+      animation:
+        logoJumpIn 1s ease-out both,
+        logoFloating 2.5s ease-in-out 1s infinite;
+      transform-origin: center bottom;
+      will-change: transform, opacity;
+    }
+
+    @keyframes logoJumpIn {
+      0%   { opacity: 0; transform: translateY(70px) scale(0.75); }
+      42%  { opacity: 1; transform: translateY(-25px) scale(1.08); }
+      62%  { transform: translateY(8px) scale(0.97); }
+      80%  { transform: translateY(-10px) scale(1.03); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes logoFloating {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-12px); }
+    }
+
+    /* =========================================
+       EFEK LOGO SAAT PASSWORD SALAH
+       ========================================= */
+    .password-image-error {
+      animation: passwordImageError 0.9s cubic-bezier(.36,.07,.19,.97);
+      filter:
+        brightness(0.65)
+        saturate(2.8)
+        drop-shadow(0 0 10px rgba(255, 0, 0, 1))
+        drop-shadow(0 0 25px rgba(255, 0, 0, 0.95))
+        drop-shadow(0 0 45px rgba(255, 0, 0, 0.75));
+    }
+
+    @keyframes passwordImageError {
+      0%   { transform: translateX(0) scale(1); }
+      8%   { transform: translateX(-16px) scale(1.03); }
+      16%  { transform: translateX(16px)  scale(1.03); }
+      24%  { transform: translateX(-14px) scale(1.025); }
+      32%  { transform: translateX(14px)  scale(1.025); }
+      40%  { transform: translateX(-12px) scale(1.02); }
+      48%  { transform: translateX(12px)  scale(1.02); }
+      56%  { transform: translateX(-9px)  scale(1.015); }
+      64%  { transform: translateX(9px)   scale(1.015); }
+      72%  { transform: translateX(-6px)  scale(1.01); }
+      80%  { transform: translateX(6px)   scale(1.01); }
+      90%  { transform: translateX(-3px)  scale(1); }
+      100% { transform: translateX(0)     scale(1); }
+    }
+
+    .password-screen-error {
+      animation: passwordScreenError 0.9s ease-out;
+    }
+
+    @keyframes passwordScreenError {
+      0% {
+        background-color: rgba(255, 0, 0, 0);
+        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
+      }
+      10% {
+        background-color: rgba(255, 0, 0, 0.48);
+        box-shadow:
+          inset 0 0 160px rgba(255, 0, 0, 0.85),
+          inset 0 0 320px rgba(255, 0, 0, 0.65);
+      }
+      22% {
+        background-color: rgba(150, 0, 0, 0.58);
+        box-shadow:
+          inset 0 0 100px rgba(255, 0, 0, 1),
+          inset 0 0 260px rgba(255, 0, 0, 0.9),
+          inset 0 0 500px rgba(255, 0, 0, 0.55);
+      }
+      38% {
+        background-color: rgba(255, 0, 0, 0.35);
+        box-shadow:
+          inset 0 0 180px rgba(255, 0, 0, 0.95),
+          inset 0 0 360px rgba(255, 0, 0, 0.7);
+      }
+      55% {
+        background-color: rgba(255, 0, 0, 0.20);
+        box-shadow:
+          inset 0 0 120px rgba(255, 0, 0, 0.75),
+          inset 0 0 300px rgba(255, 0, 0, 0.55);
+      }
+      75% {
+        background-color: rgba(255, 0, 0, 0.10);
+        box-shadow:
+          inset 0 0 80px rgba(255, 0, 0, 0.45),
+          inset 0 0 220px rgba(255, 0, 0, 0.30);
+      }
+      100% {
+        background-color: rgba(255, 0, 0, 0);
+        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
+      }
+    }
+
+    .password-screen-error::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      background:
+        radial-gradient(
+          ellipse at center,
+          rgba(255, 0, 0, 0.05) 0%,
+          rgba(255, 0, 0, 0.18) 45%,
+          rgba(255, 0, 0, 0.55) 100%
+        );
+      animation: passwordRedOverlay 0.9s ease-out;
+    }
+
+    @keyframes passwordRedOverlay {
+      0%   { opacity: 0; }
+      12%  { opacity: 1; }
+      25%  { opacity: 0.95; }
+      45%  { opacity: 0.72; }
+      65%  { opacity: 0.42; }
+      82%  { opacity: 0.18; }
+      100% { opacity: 0; }
+    }
+
+    .password-screen-error::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10000;
+      border: 6px solid rgba(255, 0, 0, 0);
+      box-sizing: border-box;
+      animation: passwordBorderFlash 0.9s ease-out;
+    }
+
+    @keyframes passwordBorderFlash {
+      0% {
+        border-color: rgba(255, 0, 0, 0);
+        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
+      }
+      12% {
+        border-color: rgba(255, 0, 0, 0.95);
+        box-shadow: inset 0 0 45px rgba(255, 0, 0, 0.75);
+      }
+      30% {
+        border-color: rgba(255, 0, 0, 0.85);
+        box-shadow: inset 0 0 70px rgba(255, 0, 0, 0.65);
+      }
+      60% {
+        border-color: rgba(255, 0, 0, 0.35);
+        box-shadow: inset 0 0 35px rgba(255, 0, 0, 0.35);
+      }
+      100% {
+        border-color: rgba(255, 0, 0, 0);
+        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
+      }
+    }
+
+    .password-screen-error .password-error {
+      animation: passwordErrorText 0.9s ease-out;
+    }
+
+    @keyframes passwordErrorText {
+      0% {
+        color: inherit;
+        text-shadow: 0 0 0 rgba(255, 0, 0, 0);
+      }
+      15% {
+        color: #ff0000;
+        text-shadow:
+          0 0 8px rgba(255, 0, 0, 1),
+          0 0 18px rgba(255, 0, 0, 0.8);
+      }
+      35% {
+        color: #ff2020;
+        text-shadow:
+          0 0 12px rgba(255, 0, 0, 1),
+          0 0 25px rgba(255, 0, 0, 0.9);
+      }
+      100% {
+        text-shadow: 0 0 0 rgba(255, 0, 0, 0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .password-screen-error::before,
+      .password-screen-error::after,
+      .password-screen-error,
+      .password-image-error {
+        animation-duration: 0.5s;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- =========================================
+       HALAMAN PASSWORD
+       ========================================= -->
+  <div class="password-screen" id="passwordScreen">
+
+    <img
+      src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png"
+      alt="Logo Psikotes Sugar Group Schools"
+      class="password-logo"
+      id="passwordLogo"
+      draggable="false"
+    >
+
+    <div class="welcome-message" id="welcomeMessage">
+      Selamat datang di Psikotes Sugar Group Schools
+    </div>
+
+    <div class="password-form" id="passwordForm">
+
+      <input
+        type="password"
+        class="password-input"
+        id="passwordInput"
+        placeholder="Masukkan Kode Akses"
+        autocomplete="off"
+      >
+
+      <button
+        type="button"
+        class="password-submit"
+        onclick="checkPassword()"
+      >
+        Masuk
+      </button>
+
+      <div class="password-error" id="passwordError"></div>
+
+    </div>
+
+  </div>
+
+  <!-- =========================================
+       TEMPAT APLIKASI UTAMA
+       ========================================= -->
+  <div id="app"></div>
+
+  <!-- =========================================
+       CANVAS GRAFIK DISC (HIDDEN)
+       ========================================= -->
+  <canvas id="discMost"   width="170"  height="420" style="display: none;"></canvas>
+  <canvas id="discLeast"  width="170"  height="420" style="display: none;"></canvas>
+  <canvas id="discChange" width="170"  height="420" style="display: none;"></canvas>
+
+  <!-- =========================================
+       CANVAS GRAFIK KRAEPLIN (HIDDEN)
+       ========================================= -->
+  <canvas id="kraeplinGraph" width="1000" height="320" style="display: none;"></canvas>
+
+  <!-- ============================================================
+       LIBRARIES (dari CDN)
+       ============================================================ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- ============================================================
+       CORE UTILITIES — Tanpa dependensi
+       ============================================================ -->
+  <script src="./js/00-config.js"></script>
+  <script src="./js/01-state.js"></script>
+  <script src="./js/02-utils.js"></script>
+  <script src="./js/03-audio.js"></script>
+
+ <!-- ✅ BENAR -->
+<script src="./js/data/ist-data.js"></script>
+<script src="./js/data/ist-keys.js"></script>
+<script src="./js/data/ist-norms.js"></script>
+<script src="./js/data/disc-data.js"></script>
+<script src="./js/data/disc-implications.js"></script>
+<script src="./js/data/disc-roles.js"></script>
+<script src="./js/data/papi-data.js"></script>
+<script src="./js/data/papi-kamus.js"></script>
+<script src="./js/data/bigfive-data.js"></script>
+<script src="./js/data/bigfive-position-analysis.js"></script>
+<script src="./js/data/grafis-data.js"></script>
+<script src="./js/data/subject-data.js"></script>
+<script src="./js/data/kraeplin-data.js"></script>
+
+<!-- INI HARUS PALING BAWAH -->
+<script src="./js/data/tests-global.js"></script>
+
+  <!-- ============================================================
+       AUTH & CORE
+       ============================================================ -->
+  <script src="./js/04-auth.js"></script>
+  <script src="./js/core/identity.js"></script>
+
+  <!-- ============================================================
+       TESTS — Semua modul tes
+       ============================================================ -->
+  <script src="./js/tests/ist.js"></script>
+  <script src="./js/tests/kraeplin.js"></script>
+  <script src="./js/tests/disc.js"></script>
+  <script src="./js/tests/papi.js"></script>
+  <script src="./js/tests/bigfive.js"></script>
+  <script src="./js/tests/grafis.js"></script>
+  <script src="./js/tests/subject.js"></script>
+  <script src="./js/tests/excel.js"></script>
+  <script src="./js/tests/typing.js"></script>
+
+  <!-- ============================================================
+       PDF GENERATOR
+       ============================================================ -->
+  <script src="./js/core/pdf.js"></script>
+<!-- INI HARUS ADA DI SINI ↓ -->
+<script src="./js/05-router.js"></script>
+<script src="./js/06-timer.js"></script>
+<script src="./js/07-download.js"></script>
+<script src="./js/08-app-init.js"></script>
+
+</body>
+</html>
