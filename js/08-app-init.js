@@ -21,39 +21,36 @@
      Cara pakai untuk kandidat baru:
        https://site.com/?fresh=1
      ============================================================ */
- (function handleFreshParam() {
+(function handleFreshParam() {
   try {
     const url = new URL(window.location.href);
     if (url.searchParams.get('fresh') === '1') {
+      const deviceId = localStorage.getItem('_sgs_device_id');
+      const finishedFlag = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED);
+      const lockState = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL);
+      const freshPwd = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH);
+      const usedPwd = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_USED);
+
       localStorage.clear();
       sessionStorage.clear();
-      console.log('[INIT] ?fresh=1 → semua state direset');
 
-      /* ✅ FIX: Hapus ?fresh=1 dari URL — handle double slash */
-      let cleanPath = url.pathname;
-      
-      // Pastikan pathname tidak mulai dengan '//' 
-      // (penyebab SecurityError di GitHub Pages)
-      cleanPath = cleanPath.replace(/^\/+/, '/');
-      
-      // Hapus parameter fresh
+      // Restore admin & device state (jangan hilang)
+      if (deviceId) localStorage.setItem('_sgs_device_id', deviceId);
+      if (finishedFlag) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, finishedFlag);
+      if (lockState) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL, lockState);
+      if (freshPwd) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH, freshPwd);
+      if (usedPwd) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_USED, usedPwd);
+
+      console.log('[INIT] ?fresh=1 → state direset (admin & device tetap)');
+
+      let cleanPath = url.pathname.replace(/^\/+/, '/');
       url.searchParams.delete('fresh');
-      
-      // Build clean URL
       const cleanSearch = url.searchParams.toString() ? '?' + url.searchParams.toString() : '';
-      const cleanHash = url.hash || '';
-      const cleanUrl = cleanPath + cleanSearch + cleanHash;
-
+      const cleanUrl = cleanPath + cleanSearch + (url.hash || '');
       window.history.replaceState({}, '', cleanUrl);
-      console.log('[INIT] URL dibersihkan:', cleanUrl);
     }
   } catch (e) {
-    console.warn('[INIT] Gagal proses ?fresh=1:', e);
-    // Fallback: reload tanpa parameter
-    try {
-      const base = window.location.href.split('?')[0].split('#')[0];
-      window.location.replace(base);
-    } catch (e2) {}
+    console.warn('[INIT] Gagal ?fresh=1:', e);
   }
 })();
 
@@ -91,15 +88,12 @@
      → kalau iya, ganti password aktif ke SGS-HC-Talent27
      ============================================================ */
 function refreshActivePassword() {
-  // 🔐 Pakai password acak dari 00b-admin.js
-  if (typeof window.getActivePassword === 'function') {
-    window.PASSWORD = window.getActivePassword();
-    return;
+  const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
+  if (used) {
+    window.PASSWORD = (typeof window.getUsedPwd === 'function') ? window.getUsedPwd() : APP_CONFIG.DEFAULT_USED_PWD;
+  } else {
+    window.PASSWORD = (typeof window.getFreshPwd === 'function') ? window.getFreshPwd() : APP_CONFIG.DEFAULT_FRESH_PWD;
   }
-
-  // Fallback
-  const used = localStorage.getItem('usedPragas') === '1';
-  window.PASSWORD = used ? "SGS-HC-Talent27" : "SGS-REC-Assessment84";
 }
 
   /* ============================================================
