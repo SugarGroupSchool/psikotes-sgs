@@ -245,16 +245,19 @@
       window.open(formURL, '_blank', 'noopener,noreferrer');
     } catch (e) {}
   
-    // Auto logout setelah 1.5 detik
+// Auto logout setelah 1.5 detik
 setTimeout(() => {
-  // ✅ HAPUS SEMUA state — fresh total
-  try {
-    localStorage.removeItem('identity');
-    localStorage.removeItem('completed');
-    localStorage.removeItem('selectedTests');
-    localStorage.removeItem('usedPragas');
-    sessionStorage.removeItem('dlClick');
-  } catch (e) {}
+  // ✅ HAPUS DATA KANDIDAT (fresh untuk kandidat berikutnya)
+  localStorage.removeItem('identity');
+  localStorage.removeItem('completed');
+  localStorage.removeItem('selectedTests');
+
+  // ✅ TETAP set usedPragas = "1" (biar password jadi Talent27)
+  // Kandidat sebelumnya tidak bisa retake
+  localStorage.setItem('usedPragas', '1');
+
+  try { sessionStorage.removeItem('dlClick'); } catch (e) {}
+
   window.downloadClickCount = 0;
   location.reload();
 }, 1500);
