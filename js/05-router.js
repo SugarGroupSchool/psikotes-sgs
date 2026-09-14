@@ -1,7 +1,7 @@
 /* ============================================================
    js/05-router.js
    - Routing antar halaman: pilih tes, home, instruksi, startTest
-   - Dependensi: appState, tests, markTestCompleted (opsional)
+   - Guard pintar untuk __inTestView (anti stuck)
    ============================================================ */
 
 /* ============================================================
@@ -99,17 +99,9 @@ function renderTestSelection() {
    HOME
    ============================================================ */
 function renderHome() {
-  /* ============================================================
-     🔒 GUARD PINTAR
-     
-     Hanya blokir renderHome() kalau user BENAR-BENAR di dalam tes.
-     Ciri-cirinya: ada UI tes di DOM (canvas, panel IST, dll).
-     
-     Kalau hanya flag yang tersisa (misal dari sesi sebelumnya)
-     tapi tidak ada UI tes, maka flag di-reset dan home dirender.
-     ============================================================ */
+  /* Guard pintar: cek UI tes di DOM, bukan hanya flag */
   const inTestUI = document.querySelector(
-    '.kraeplin-card, .ist-shell, .ist-question-panel, .ist-panel, ' +
+    '.kraeplin-card, .ist-shell, .ist-question-panel, ' +
     '.card.exam, .grafis-page, .subject-test-page'
   );
 
@@ -118,20 +110,23 @@ function renderHome() {
     return;
   }
 
-  // Keluar dari test view → reset flag
   if (window.__inTestView === true && !inTestUI) {
     console.warn('[ROUTER] __inTestView di-reset (flag basi tanpa UI tes)');
     window.__inTestView = false;
   }
 
-  setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
-  ...
+  setTimeout(function () {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, 20);
+
   window.appState = window.appState || {};
   appState.completed = appState.completed || {};
   appState.selectedTests = appState.selectedTests ||
     JSON.parse(localStorage.getItem('selectedTests') || '[]');
 
-  const nickname = appState.identity?.nickname || "Peserta";
+  const nickname = appState.identity && appState.identity.nickname
+    ? appState.identity.nickname
+    : "Peserta";
   const selectedTests = appState.selectedTests;
 
   let greetingHTML = '';
@@ -199,21 +194,19 @@ function renderHome() {
 
     const selectedMeta = selectedTests
       .filter(id => allTestMeta[id])
-      .map(id => ({ id, ...allTestMeta[id] }));
+      .map(id => ({ id: id, meta: allTestMeta[id] }));
 
     if (selectedMeta.length > 0) {
-      html += `<div class="test-selection" style="padding:0 24px;">`;
+      html += '<div class="test-selection" style="padding:0 24px;">';
 
-      selectedMeta.forEach(test => {
-        const isCompleted = appState.completed[test.id] === true;
+      selectedMeta.forEach(function (item) {
+        const test = item.meta;
+        const testId = item.id;
+        const isCompleted = appState.completed[testId] === true;
 
         if (isCompleted) {
-          // 🔒 KARTU TERKUNCI — tidak ada onclick, tidak bisa diklik
           html += `
-            <div class="test-card completed locked"
-                 data-test-id="${test.id}"
-                 title="Tes sudah selesai — tidak dapat diulang"
-                 aria-disabled="true">
+            <div class="test-card completed locked" data-test-id="${testId}" title="Tes sudah selesai — tidak dapat diulang">
               <div class="test-icon">${test.icon}</div>
               <h3>${test.label}</h3>
               <p>${test.desc}</p>
@@ -224,13 +217,8 @@ function renderHome() {
             </div>
           `;
         } else {
-          // ✅ KARTU AKTIF — bisa diklik
           html += `
-            <div class="test-card"
-                 data-test-id="${test.id}"
-                 onclick="startTest('${test.id}')"
-                 role="button"
-                 tabindex="0">
+            <div class="test-card" data-test-id="${testId}" onclick="startTest('${testId}')">
               <div class="test-icon">${test.icon}</div>
               <h3>${test.label}</h3>
               <p>${test.desc}</p>
@@ -241,7 +229,7 @@ function renderHome() {
         }
       });
 
-      html += `</div>`;
+      html += '</div>';
     }
 
     html += `
@@ -264,7 +252,7 @@ function renderHome() {
     `;
   }
 
-  html += `</div>`;
+  html += '</div>';
   document.getElementById('app').innerHTML = html;
 
   const instruksiBtn = document.getElementById('btnShowInstruksi');
@@ -311,12 +299,12 @@ function showInstruksiOverlay(nickname) {
     SUBJECT:  { icon: '📚', label: 'SUBJEK' }
   };
 
-  const chips = selectedTests.map(id => {
+  const chips = selectedTests.map(function (id) {
     const item = testLabels[id] || { icon: '•', label: id };
-    return `<div style="display:flex;align-items:center;gap:7px;background:#f7fbff;border:1px solid #dce9f3;padding:8px 13px;border-radius:10px;font-size:.94rem;">
-      <span style="font-size:1.16em;line-height:1;">${item.icon}</span>
-      <span style="font-weight:700;color:#34495a;">${item.label}</span>
-    </div>`;
+    return '<div style="display:flex;align-items:center;gap:7px;background:#f7fbff;border:1px solid #dce9f3;padding:8px 13px;border-radius:10px;font-size:.94rem;">' +
+      '<span style="font-size:1.16em;line-height:1;">' + item.icon + '</span>' +
+      '<span style="font-weight:700;color:#34495a;">' + item.label + '</span>' +
+    '</div>';
   }).join('');
 
   overlay.innerHTML = `
@@ -343,10 +331,10 @@ function showInstruksiOverlay(nickname) {
     </div>
   `;
 
-  const closeOverlay = () => {
+  function closeOverlay() {
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
     document.body.style.overflow = prevBodyOverflow;
-  };
+  }
 
   document.getElementById('btnCloseOverlay').onclick = closeOverlay;
 
@@ -365,7 +353,7 @@ function showInstruksiOverlay(nickname) {
       if (typeof window.renderHome === 'function') {
         window.renderHome();
       }
-      setTimeout(() => {
+      setTimeout(function () {
         const target = document.getElementById('downloadPDFBox') || document.getElementById('btnDownloadPDF');
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         if (typeof enableDownloadButtonAfterInstruksi === 'function') {
@@ -390,38 +378,26 @@ function enableDownloadButtonAfterInstruksi() {
 }
 
 /* ============================================================
-   START TEST
+   START TEST — dengan guard
    ============================================================ */
 function startTest(testName) {
-  /* ============================================================
-     🔒 GUARD 1: Cek apakah tes sudah selesai
-     ============================================================ */
   if (appState.completed && appState.completed[testName] === true) {
     alert('🔒 Tes ini sudah selesai dikerjakan dan tidak dapat diulang.');
     return;
   }
 
-  /* ============================================================
-     🔒 GUARD 2: Cek apakah sedang berada di tes lain
-     ============================================================ */
   if (window.__inTestView === true) {
     console.warn('[ROUTER] Ditolak: sedang berada di tes lain');
     return;
   }
 
-  /* ============================================================
-     🔒 GUARD 3: Cek apakah tes ini termasuk yang dipilih
-     ============================================================ */
   if (Array.isArray(appState.selectedTests) &&
       appState.selectedTests.length > 0 &&
-      !appState.selectedTests.includes(testName)) {
+      appState.selectedTests.indexOf(testName) === -1) {
     alert('⚠️ Tes ini tidak termasuk dalam tes yang Anda pilih.');
     return;
   }
 
-  /* ============================================================
-     ✅ LULUS SEMUA GUARD — MASUK KE TES
-     ============================================================ */
   window.__inTestView = true;
   appState.currentTest = testName;
   appState.currentSubtest = 0;
@@ -455,6 +431,7 @@ function startTest(testName) {
 function confirmCancelTest() {
   if (confirm('Apakah Anda yakin ingin membatalkan tes? Semua jawaban yang sudah diisi akan hilang.')) {
     clearInterval(appState.timer);
+    window.__inTestView = false;
     renderHome();
   }
 }
