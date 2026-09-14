@@ -47,7 +47,7 @@
                   <label for="name">Nama Lengkap <span class="required">*</span></label>
                   <div class="identity-control">
                     <span class="field-icon">👤</span>
-                    <input type="text" id="name" required autocomplete="name" placeholder="Masukkan nama lengkap" value="${appState.identity.name || ""}">
+                    <input type="text" id="name" required autocomplete="new-password" name="sgs_field_1" placeholder="Masukkan nama lengkap" value="${appState.identity.name || ""}">
                   </div>
                 </div>
   
@@ -63,7 +63,7 @@
                   <label for="email">Email <span class="required">*</span></label>
                   <div class="identity-control">
                     <span class="field-icon">✉</span>
-                    <input type="email" id="email" required autocomplete="email" placeholder="nama@email.com" value="${appState.identity.email || ""}">
+                   <input type="email" id="email" required autocomplete="new-password" name="sgs_field_2" placeholder="nama@email.com" value="${appState.identity.email || ""}">
                   </div>
                 </div>
   
@@ -71,7 +71,7 @@
                   <label for="phone">Nomor HP <span class="required">*</span></label>
                   <div class="identity-control">
                     <span class="field-icon">☎</span>
-                    <input type="tel" id="phone" required autocomplete="tel" inputmode="tel" placeholder="08xxxxxxxxxx" value="${appState.identity.phone || ""}">
+                    <input type="tel" id="phone" required autocomplete="new-password" name="sgs_field_3" inputmode="tel" placeholder="08xxxxxxxxxx" value="${appState.identity.phone || ""}">
                   </div>
                 </div>
   
