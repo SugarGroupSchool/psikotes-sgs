@@ -246,13 +246,18 @@
     } catch (e) {}
   
     // Auto logout setelah 1.5 detik
-    setTimeout(() => {
-      localStorage.setItem('usedPragas', '1');
-      localStorage.removeItem('identity');
-      try { sessionStorage.removeItem('dlClick'); } catch (e) {}
-      window.downloadClickCount = 0;
-      location.reload();
-    }, 1500);
+setTimeout(() => {
+  // ✅ HAPUS SEMUA state — fresh total
+  try {
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+    localStorage.removeItem('usedPragas');
+    sessionStorage.removeItem('dlClick');
+  } catch (e) {}
+  window.downloadClickCount = 0;
+  location.reload();
+}, 1500);
   }
   
   
