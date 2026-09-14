@@ -7,12 +7,12 @@
 /* ============================================================
    PILIH TES
    ============================================================ */
-   function renderTestSelection() {
-    // Jika sudah pernah memilih tes, langsung ke home
-    if (appState.selectedTests && appState.selectedTests.length > 0) {
-      renderHome();
-      return;
-    }
+function renderTestSelection() {
+  // Jika sudah pernah memilih tes, langsung ke home
+  if (appState.selectedTests && appState.selectedTests.length > 0) {
+    renderHome();
+    return;
+  }
   
     const categories = [
       {
