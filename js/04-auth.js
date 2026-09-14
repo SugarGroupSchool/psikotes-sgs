@@ -3,9 +3,16 @@
    ========================================================= */
 
 function getActivePassword() {
-  return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1'
-    ? APP_CONFIG.PASSWORDS.USED
-    : APP_CONFIG.PASSWORDS.FRESH;
+  const K = APP_CONFIG.STORAGE_KEYS;
+  const used = localStorage.getItem(K.USED_PRAGAS) === '1';
+
+  // 🔐 Pakai password acak (fungsi dari 00b-admin.js)
+  if (typeof window.getFreshPassword === 'function' && typeof window.getUsedPassword === 'function') {
+    return used ? window.getUsedPassword() : window.getFreshPassword();
+  }
+
+  // Fallback ke hardcoded (kalau 00b-admin.js belum load)
+  return used ? APP_CONFIG.PASSWORDS.USED : APP_CONFIG.PASSWORDS.FRESH;
 }
 
 function checkPassword() {
