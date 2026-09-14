@@ -369,11 +369,35 @@ function enableDownloadButtonAfterInstruksi() {
    START TEST
    ============================================================ */
 function startTest(testName) {
-  if (appState.completed[testName] === true) {
-    alert('Tes ini sudah selesai dikerjakan dan tidak dapat diulang.');
+  /* ============================================================
+     🔒 GUARD 1: Cek apakah tes sudah selesai
+     ============================================================ */
+  if (appState.completed && appState.completed[testName] === true) {
+    alert('🔒 Tes ini sudah selesai dikerjakan dan tidak dapat diulang.');
     return;
   }
 
+  /* ============================================================
+     🔒 GUARD 2: Cek apakah sedang berada di tes lain
+     ============================================================ */
+  if (window.__inTestView === true) {
+    console.warn('[ROUTER] Ditolak: sedang berada di tes lain');
+    return;
+  }
+
+  /* ============================================================
+     🔒 GUARD 3: Cek apakah tes ini termasuk yang dipilih
+     ============================================================ */
+  if (Array.isArray(appState.selectedTests) &&
+      appState.selectedTests.length > 0 &&
+      !appState.selectedTests.includes(testName)) {
+    alert('⚠️ Tes ini tidak termasuk dalam tes yang Anda pilih.');
+    return;
+  }
+
+  /* ============================================================
+     ✅ LULUS SEMUA GUARD — MASUK KE TES
+     ============================================================ */
   window.__inTestView = true;
   appState.currentTest = testName;
   appState.currentSubtest = 0;
