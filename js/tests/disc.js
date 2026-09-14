@@ -269,6 +269,7 @@
      THANK YOU
      ============================================================ */
   function showThankYouAndHomeDISC() {
+     window.__inTestView = false;
     if (typeof window.markTestCompleted === 'function') {
       markTestCompleted('DISC');
     } else {
