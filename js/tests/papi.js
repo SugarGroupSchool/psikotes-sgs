@@ -495,7 +495,7 @@
   function renderPAPIThankYou() {
     markTestCompleted('PAPI');
   
-    window.__inTestView = true;
+    window.__inTestView = false;
     const app = document.getElementById('app');
   
     app.innerHTML = `
