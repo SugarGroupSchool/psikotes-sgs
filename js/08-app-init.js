@@ -223,7 +223,16 @@
     /* ============================================================
        RUN BOOTSTRAP
        ============================================================ */
-    function runInit() {
+function runInit() {
+  // ✅ Cek URL parameter ?fresh=1 → paksa reset
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('fresh') === '1') {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      console.log('[INIT] ?fresh=1 → semua state direset');
+    } catch (e) {}
+  }
       refreshActivePassword();
       initAppState();
       attachPasswordEnter();
