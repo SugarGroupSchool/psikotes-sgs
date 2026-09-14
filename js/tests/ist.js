@@ -842,7 +842,7 @@ function renderISTSummaryToPDF(doc, pageWidth, ySection) {
         const code = String(r?.code || '').toUpperCase();
         const rwNum = Math.round(toNum(r?.rw));
         const swNum = Math.round(toNum(r?.sw));
-        const ketLetter = (typeof letterCategoryFromSw === 'function') ? letterCategoryFromSw(swNum) : '-';
+        const ketLetter = (typeof swCategory5 === 'function') ? swCategory5(swNum) : '-';
 
         const descWidth = col.ket - col.desc - 4;
         const ketWidth = right - col.ket - 2;
@@ -897,10 +897,10 @@ function renderISTSummaryToPDF(doc, pageWidth, ySection) {
     doc.setFontSize(8);
     doc.setTextColor(44, 62, 80);
 
-    const iqLetter = (typeof letterCategoryFromSw === 'function') ? letterCategoryFromSw(totalSWFromRW) : '-';
-    const iqLine = (iqFromSW != null)
-      ? `IQ: ${iqFromSW} — ${iqKet || '-'} [${iqLetter}]`
-      : `IQ: -`;
+    const iqKategori = (typeof swCategory5 === 'function') ? `${swCategory5(Math.round(totalSWFromRW))} (${Math.round(totalSWFromRW)})` : '-';
+const iqLine = (iqFromSW != null)
+  ? `IQ: ${iqFromSW} — ${iqKet || '-'} [${iqKategori}]`
+  : `IQ: -`;
     ySection = printLineWrap(iqLine, ySection);
     ySection += 1;
     ySection = printLineWrap(`Dominasi: ${dominasi}`, ySection);
