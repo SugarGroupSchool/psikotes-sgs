@@ -21,23 +21,41 @@
      Cara pakai untuk kandidat baru:
        https://site.com/?fresh=1
      ============================================================ */
-  (function handleFreshParam() {
-    try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('fresh') === '1') {
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log('[INIT] ?fresh=1 → semua state direset');
+ (function handleFreshParam() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('fresh') === '1') {
+      localStorage.clear();
+      sessionStorage.clear();
+      console.log('[INIT] ?fresh=1 → semua state direset');
 
-        // Hapus parameter dari URL biar bersih
-        url.searchParams.delete('fresh');
-        const cleanUrl = url.pathname + (url.search ? url.search : '') + url.hash;
-        window.history.replaceState({}, '', cleanUrl);
-      }
-    } catch (e) {
-      console.warn('[INIT] Gagal proses ?fresh=1:', e);
+      /* ✅ FIX: Hapus ?fresh=1 dari URL — handle double slash */
+      let cleanPath = url.pathname;
+      
+      // Pastikan pathname tidak mulai dengan '//' 
+      // (penyebab SecurityError di GitHub Pages)
+      cleanPath = cleanPath.replace(/^\/+/, '/');
+      
+      // Hapus parameter fresh
+      url.searchParams.delete('fresh');
+      
+      // Build clean URL
+      const cleanSearch = url.searchParams.toString() ? '?' + url.searchParams.toString() : '';
+      const cleanHash = url.hash || '';
+      const cleanUrl = cleanPath + cleanSearch + cleanHash;
+
+      window.history.replaceState({}, '', cleanUrl);
+      console.log('[INIT] URL dibersihkan:', cleanUrl);
     }
-  })();
+  } catch (e) {
+    console.warn('[INIT] Gagal proses ?fresh=1:', e);
+    // Fallback: reload tanpa parameter
+    try {
+      const base = window.location.href.split('?')[0].split('#')[0];
+      window.location.replace(base);
+    } catch (e2) {}
+  }
+})();
 
   /* ============================================================
      1. AUTO FOCUS PASSWORD SAAT PAGE LOAD
