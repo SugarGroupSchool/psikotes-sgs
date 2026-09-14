@@ -8,8 +8,17 @@
    PILIH TES
    ============================================================ */
 function renderTestSelection() {
-  // Jika sudah pernah memilih tes, langsung ke home
-  if (appState.selectedTests && appState.selectedTests.length > 0) {
+  // Cek apakah kandidat BENAR-BENAR sudah memilih tes
+  // (bukan sisa dari sesi sebelumnya)
+  const identitySaved = localStorage.getItem('identity');
+  const hasSelected = appState.selectedTests && appState.selectedTests.length > 0;
+  
+  // Kalau TIDAK ada identity → ini kandidat fresh → WAJIB pilih tes
+  if (!identitySaved && !hasSelected) {
+    // Lanjut normal (tampilkan pilih tes)
+  } else if (hasSelected) {
+    // Cek apakah selectedTests ini valid untuk kandidat ini
+    // (tambahkan validasi kalau perlu)
     renderHome();
     return;
   }
