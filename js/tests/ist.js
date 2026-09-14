@@ -985,7 +985,7 @@ function renderISTSummaryToPDF(doc, pageWidth, ySection) {
     ySection = printLineWrap(`Pola terdeteksi: ${pola}`, ySection);
     ySection += 5;
 
-    /* ---- KESIMPULAN PER POSISI ---- */
+      /* ---- KESIMPULAN PER POSISI (ANALISIS LENGKAP) ---- */
     const position = (typeof appState !== 'undefined' && appState.identity && appState.identity.position)
       ? String(appState.identity.position) : '';
 
@@ -993,46 +993,87 @@ function renderISTSummaryToPDF(doc, pageWidth, ySection) {
     doc.setFontSize(8.5);
     doc.setFont(undefined, 'bold');
 
-    const showGuru = position === 'Dosen/Guru';
-    const showITStaff = position === 'IT Staff' || position === 'Technical Staff';
-
     let kesimpulanLines = [];
 
-    if (showGuru) {
-      kesimpulanLines.push('Kesimpulan untuk Posisi Guru/Dosen');
-      const guruFit = (typeof computeGuruFitLetter === 'function') ? computeGuruFitLetter(summary, iqFromSW) : '-';
-      const buildRes = (typeof buildGuruReasons === 'function') ? buildGuruReasons(summary) : { reasons: [], notes: [] };
+    if (position && typeof computeISTPositionFit === 'function') {
+      const fit = computeISTPositionFit(summary, position);
 
-      kesimpulanLines.push(`Kesesuaian: ${guruFit}`);
-      if (buildRes.reasons.length) {
+      if (fit) {
+        /* Header */
+        kesimpulanLines.push(`ANALISIS IST UNTUK POSISI: ${fit.label}`);
         kesimpulanLines.push('');
-        kesimpulanLines.push('Alasan:');
-        buildRes.reasons.forEach(r => kesimpulanLines.push('- ' + r));
-      }
-      if (buildRes.notes.length) {
-        kesimpulanLines.push('');
-        kesimpulanLines.push('Catatan pengembangan:');
-        buildRes.notes.forEach(n => kesimpulanLines.push('- ' + n));
-      }
-    } else if (showITStaff) {
-      kesimpulanLines.push('Kesimpulan untuk Posisi IT Staff');
-      const itFit = (typeof computeITStaffFitLetter === 'function') ? computeITStaffFitLetter(summary, iqFromSW) : '-';
-      const buildRes = (typeof buildITStaffReasons === 'function') ? buildITStaffReasons(summary) : { reasons: [], notes: [] };
 
-      kesimpulanLines.push(`Kesesuaian: ${itFit}`);
-      if (buildRes.reasons.length) {
+        /* Skor & Kategori */
+        kesimpulanLines.push(`Skor Kesesuaian: ${fit.skorAkhir} — ${fit.kategori}`);
         kesimpulanLines.push('');
-        kesimpulanLines.push('Alasan:');
-        buildRes.reasons.forEach(r => kesimpulanLines.push('- ' + r));
-      }
-      if (buildRes.notes.length) {
+
+        /* Ringkasan status */
+        kesimpulanLines.push(`Ringkasan: ${fit.ringkasan.kuat} kuat, ${fit.ringkasan.cukup} cukup, ${fit.ringkasan.kurang} kurang, ${fit.ringkasan.lemah} lemah dari ${fit.ringkasan.total} subtes dinilai.`);
         kesimpulanLines.push('');
-        kesimpulanLines.push('Catatan pengembangan:');
-        buildRes.notes.forEach(n => kesimpulanLines.push('- ' + n));
+
+        /* Tabel per subtes */
+        kesimpulanLines.push('Detail per Subtes:');
+        fit.subtes.forEach(s => {
+          const gapStr = s.gap >= 0 ? `+${s.gap}` : `${s.gap}`;
+          kesimpulanLines.push(`- ${s.code} (SW ${s.sw} / min ${s.minSW}, gap ${gapStr}): ${s.label} — ${s.status}.`);
+        });
+        kesimpulanLines.push('');
+
+        /* Deskripsi posisi */
+        kesimpulanLines.push('Deskripsi Posisi:');
+        kesimpulanLines.push(fit.description);
+        kesimpulanLines.push('');
+
+        /* Kekuatan */
+        const kuat = fit.subtes.filter(s => s.status === 'Sangat Kuat' || s.status === 'Kuat');
+        if (kuat.length > 0) {
+          kesimpulanLines.push('Kekuatan Utama:');
+          kuat.forEach(s => {
+            kesimpulanLines.push(`- ${s.code} (SW ${s.sw}): ${s.label}`);
+          });
+          kesimpulanLines.push('');
+        }
+
+        /* Kelemahan */
+        const kurang = fit.subtes.filter(s => s.status === 'Kurang' || s.status === 'Lemah');
+        if (kurang.length > 0) {
+          kesimpulanLines.push('Area Pengembangan:');
+          kurang.forEach(s => {
+            kesimpulanLines.push(`- ${s.code} (SW ${s.sw}, gap ${s.gap}): ${s.label}`);
+          });
+          kesimpulanLines.push('');
+        }
+
+        /* Rekomendasi */
+        kesimpulanLines.push('Rekomendasi:');
+        if (fit.kategori === 'SANGAT SESUAI' || fit.kategori === 'SESUAI') {
+          kesimpulanLines.push(`Kandidat menunjukkan profil yang ${fit.kategori.toLowerCase()} untuk posisi ${fit.label}.`);
+          if (kuat.length > 0) {
+            kesimpulanLines.push(`Kekuatan pada ${kuat.map(s => s.code).join(', ')} menjadi modal utama.`);
+          }
+          if (kurang.length > 0) {
+            kesimpulanLines.push(`Penguatan pada ${kurang.map(s => s.code).join(', ')} disarankan agar kinerja optimal dalam jangka panjang.`);
+          } else {
+            kesimpulanLines.push('Tidak ditemukan kelemahan signifikan. Kandidat dapat langsung ditempatkan dengan supervisi ringan.');
+          }
+        } else if (fit.kategori === 'CUKUP SESUAI') {
+          kesimpulanLines.push(`Kandidat memiliki kecocokan moderat untuk posisi ${fit.label}.`);
+          if (kurang.length > 0) {
+            kesimpulanLines.push(`Perlu pendampingan pada subtes ${kurang.map(s => s.code).join(', ')}.`);
+          }
+        } else {
+          kesimpulanLines.push(`Kandidat belum menunjukkan kecocokan optimal untuk posisi ${fit.label}.`);
+          kesimpulanLines.push('Disarankan pengembangan lebih lanjut atau penempatan pada posisi lain yang lebih sesuai.');
+        }
+      } else {
+        /* Posisi tidak dikenali */
+        kesimpulanLines.push(`Posisi: ${position}`);
+        kesimpulanLines.push('Analisis spesifik belum tersedia untuk posisi ini.');
+        kesimpulanLines.push(`Skor rata-rata SW: ${Math.round(summary.reduce((a, r) => a + (Number(r?.sw) || 0), 0) / Math.max(1, summary.length))}`);
       }
     } else {
       kesimpulanLines.push('Kesimpulan Umum');
-      kesimpulanLines.push('Tidak ada analisis spesifik untuk posisi ini.');
+      kesimpulanLines.push('Tidak ada informasi posisi. Analisis umum berdasarkan rata-rata SW.');
     }
 
     /* Render kotak kesimpulan */
@@ -1104,5 +1145,240 @@ function renderISTSWChartToPDF(doc, pageWidth, ySection, summary) {
 function renderISTMWAnalysisToPDF(doc, pageWidth, ySection, summary) {
   return ySection;
 }
+/* ============================================================
+   ANALISIS LENGKAP IST PER POSISI
+   - Modul ini menghasilkan analisis komprehensif untuk posisi
+     yang dilamar berdasarkan 9 subtes IST
+   ============================================================ */
 
+/* ---- Kebutuhan IST per Posisi (Bobot + Threshold) ---- */
+const IST_POSITION_REQUIREMENTS = {
+
+  'Administrator': {
+    label: 'Administrator / Staf Administrasi',
+    description: 'Peran ini membutuhkan ketelitian tinggi, kemampuan mengelola data/dokumen, konsistensi proses, dan kemampuan berkomunikasi dengan jelas.',
+    subtesKunci: {
+      SE: { bobot: 0.20, minSW: 100, label: 'Pemahaman verbal & konteks kerja' },
+      WA: { bobot: 0.20, minSW: 100, label: 'Kemampuan bahasa & empati' },
+      AN: { bobot: 0.10, minSW: 95,  label: 'Fleksibilitas berpikir' },
+      GE: { bobot: 0.15, minSW: 95,  label: 'Abstraksi & pembentukan konsep' },
+      ME: { bobot: 0.15, minSW: 100, label: 'Memori kerja & retensi' },
+      RA: { bobot: 0.10, minSW: 95,  label: 'Hitungan praktis' },
+      ZR: { bobot: 0.10, minSW: 95,  label: 'Deret angka & pola' }
+    }
+  },
+
+  'Dosen/Guru': {
+    label: 'Dosen / Guru',
+    description: 'Peran ini membutuhkan kekuatan verbal tinggi (menjelaskan materi), memori kerja yang kuat (mengelola banyak informasi kelas), penalaran konseptual, serta kemampuan membangun relasi dengan siswa.',
+    subtesKunci: {
+      SE: { bobot: 0.20, minSW: 105, label: 'Pemahaman konteks & pengambilan keputusan' },
+      WA: { bobot: 0.20, minSW: 105, label: 'Kemampuan bahasa & empati (penjelasan materi)' },
+      AN: { bobot: 0.15, minSW: 100, label: 'Analogi & contoh konkret untuk siswa' },
+      GE: { bobot: 0.15, minSW: 100, label: 'Abstraksi & inti persoalan' },
+      ME: { bobot: 0.15, minSW: 105, label: 'Memori kerja (nama siswa, materi, jadwal)' },
+      RA: { bobot: 0.05, minSW: 95,  label: 'Hitungan (penilaian, materi berhitung)' },
+      ZR: { bobot: 0.05, minSW: 95,  label: 'Kelincahan berpikir angka' },
+      FA: { bobot: 0.03, minSW: 95,  label: 'Visual-spasial (ilustrasi)' },
+      WU: { bobot: 0.02, minSW: 95,  label: 'Daya bayang ruang (alat peraga)' }
+    }
+  },
+
+  'Technical Staff': {
+    label: 'Technical Staff',
+    description: 'Peran ini membutuhkan ketelitian, konsistensi mengikuti SOP, kemampuan visual-spasial, dan penalaran praktis-konkret untuk menyelesaikan masalah teknis.',
+    subtesKunci: {
+      SE: { bobot: 0.10, minSW: 95,  label: 'Pemahaman instruksi' },
+      WA: { bobot: 0.10, minSW: 95,  label: 'Komunikasi teknis' },
+      AN: { bobot: 0.15, minSW: 100, label: 'Analogi teknis & perpindahan hubungan' },
+      GE: { bobot: 0.15, minSW: 100, label: 'Kategorisasi & konsep teknis' },
+      ME: { bobot: 0.10, minSW: 95,  label: 'Memori prosedur & SOP' },
+      RA: { bobot: 0.15, minSW: 100, label: 'Hitungan praktis & presisi' },
+      ZR: { bobot: 0.05, minSW: 95,  label: 'Pola angka teknis' },
+      FA: { bobot: 0.10, minSW: 100, label: 'Visual-spasial (membaca diagram)' },
+      WU: { bobot: 0.10, minSW: 100, label: 'Daya bayang tiga dimensi' }
+    }
+  },
+
+  'IT Staff': {
+    label: 'IT Staff / Programmer',
+    description: 'Peran ini membutuhkan penalaran logis tinggi, kemampuan analisis-kategorisasi, kemampuan numerik untuk algoritma, dan visual-spasial untuk desain sistem.',
+    subtesKunci: {
+      SE: { bobot: 0.05, minSW: 95,  label: 'Pemahaman requirement' },
+      WA: { bobot: 0.05, minSW: 95,  label: 'Dokumentasi teknis' },
+      AN: { bobot: 0.20, minSW: 105, label: 'Logika algoritma & problem solving' },
+      GE: { bobot: 0.20, minSW: 105, label: 'Kategorisasi sistem & pola data' },
+      ME: { bobot: 0.10, minSW: 100, label: 'Memori syntax & referensi API' },
+      RA: { bobot: 0.15, minSW: 105, label: 'Numerik untuk algoritma' },
+      ZR: { bobot: 0.15, minSW: 105, label: 'Deret angka & logika matematis' },
+      FA: { bobot: 0.05, minSW: 100, label: 'Visual-spasial (UI/UX, diagram)' },
+      WU: { bobot: 0.05, minSW: 100, label: 'Daya bayang arsitektur sistem' }
+    }
+  },
+
+  'Housekeeping': {
+    label: 'Housekeeping / Staf Kebersihan',
+    description: 'Peran ini membutuhkan konsistensi kerja, kemampuan mengikuti SOP, perhatian pada detail, dan ritme kerja stabil.',
+    subtesKunci: {
+      SE: { bobot: 0.10, minSW: 95,  label: 'Pemahaman instruksi kerja' },
+      WA: { bobot: 0.10, minSW: 95,  label: 'Komunikasi dengan tim' },
+      AN: { bobot: 0.10, minSW: 95,  label: 'Adaptasi terhadap situasi' },
+      GE: { bobot: 0.10, minSW: 95,  label: 'Pemahaman standar & kategori' },
+      ME: { bobot: 0.15, minSW: 100, label: 'Memori SOP & area kerja' },
+      RA: { bobot: 0.15, minSW: 100, label: 'Ketelitian hitungan (pengukuran bahan)' },
+      ZR: { bobot: 0.10, minSW: 95,  label: 'Pola kerja berulang' },
+      FA: { bobot: 0.10, minSW: 95,  label: 'Visual-spasial (tata letak area)' },
+      WU: { bobot: 0.10, minSW: 95,  label: 'Daya bayang ruang kerja' }
+    }
+  }
+};
+
+/* ============================================================
+   HITUNG SKOR KECOCOKAN POSISI
+   ============================================================ */
+function computeISTPositionFit(summary, positionKey) {
+  const req = IST_POSITION_REQUIREMENTS[positionKey];
+  if (!req) return null;
+
+  const getSW = code => {
+    const r = Array.isArray(summary)
+      ? summary.find(x => String(x?.code || '').toUpperCase() === code)
+      : null;
+    return (typeof toNumFlexible === 'function') ? toNumFlexible(r?.sw) : (Number(r?.sw) || 0);
+  };
+
+  const subtesArr = [];
+  let totalScore = 0;
+  let totalWeight = 0;
+  let keteranganKuat = 0;
+  let keteranganCukup = 0;
+  let keteranganKurang = 0;
+  let keteranganLemah = 0;
+
+  Object.entries(req.subtesKunci).forEach(([code, conf]) => {
+    const sw = getSW(code);
+    const gap = sw - conf.minSW;
+    let status, symbol;
+
+    if (gap >= 10) { status = 'Sangat Kuat'; symbol = 'SS'; keteranganKuat++; }
+    else if (gap >= 0) { status = 'Kuat'; symbol = 'S'; keteranganKuat++; }
+    else if (gap >= -10) { status = 'Cukup'; symbol = 'C'; keteranganCukup++; }
+    else if (gap >= -20) { status = 'Kurang'; symbol = 'K'; keteranganKurang++; }
+    else { status = 'Lemah'; symbol = 'L'; keteranganLemah++; }
+
+    /* Skor kontribusi: SW aktual × bobot */
+    totalScore += sw * conf.bobot;
+    totalWeight += conf.bobot;
+
+    subtesArr.push({
+      code,
+      label: conf.label,
+      sw,
+      minSW: conf.minSW,
+      gap,
+      bobot: conf.bobot,
+      status,
+      symbol
+    });
+  });
+
+  const skorAkhir = totalWeight > 0 ? totalScore / totalWeight : 0;
+
+  /* Tentukan kategori akhir */
+  let kategori, kategoriColor;
+  if (keteranganLemah > 0 && keteranganKuat === 0) {
+    kategori = 'TIDAK SESUAI';
+    kategoriColor = 'red';
+  } else if (skorAkhir >= 110) {
+    kategori = 'SANGAT SESUAI';
+    kategoriColor = 'green';
+  } else if (skorAkhir >= 105) {
+    kategori = 'SESUAI';
+    kategoriColor = 'green-light';
+  } else if (skorAkhir >= 95) {
+    kategori = 'CUKUP SESUAI';
+    kategoriColor = 'blue';
+  } else if (skorAkhir >= 85) {
+    kategori = 'KURANG SESUAI';
+    kategoriColor = 'orange';
+  } else {
+    kategori = 'TIDAK SESUAI';
+    kategoriColor = 'red';
+  }
+
+  return {
+    positionKey,
+    label: req.label,
+    description: req.description,
+    subtes: subtesArr,
+    skorAkhir: Math.round(skorAkhir * 10) / 10,
+    kategori,
+    kategoriColor,
+    ringkasan: {
+      kuat: keteranganKuat,
+      cukup: keteranganCukup,
+      kurang: keteranganKurang,
+      lemah: keteranganLemah,
+      total: subtesArr.length
+    }
+  };
+}
+
+/* ============================================================
+   NARASI ANALISIS LENGKAP PER POSISI
+   ============================================================ */
+function generateISTPositionNarrative(fit) {
+  if (!fit) return [];
+
+  const lines = [];
+  const sub = fit.subtes;
+  const nama = sub.filter(s => s.status === 'Sangat Kuat' || s.status === 'Kuat').map(s => s.code);
+  const lemah = sub.filter(s => s.status === 'Lemah' || s.status === 'Kurang').map(s => s.code);
+
+  lines.push(`Posisi: ${fit.label}`);
+  lines.push(`Skor Kesesuaian: ${fit.skorAkhir} — ${fit.kategori}`);
+  lines.push('');
+  lines.push('Deskripsi Posisi:');
+  lines.push(fit.description);
+  lines.push('');
+
+  /* Kekuatan */
+  if (nama.length > 0) {
+    lines.push('Kekuatan Utama:');
+    sub.filter(s => s.status === 'Sangat Kuat' || s.status === 'Kuat').forEach(s => {
+      lines.push(`- ${s.code} (SW ${s.sw} vs min ${s.minSW}): ${s.label} — ${s.status}.`);
+    });
+    lines.push('');
+  }
+
+  /* Kelemahan */
+  if (lemah.length > 0) {
+    lines.push('Area yang Perlu Dikembangkan:');
+    sub.filter(s => s.status === 'Lemah' || s.status === 'Kurang').forEach(s => {
+      lines.push(`- ${s.code} (SW ${s.sw} vs min ${s.minSW}, gap ${s.gap >= 0 ? '+' : ''}${s.gap}): ${s.label} — ${s.status}.`);
+    });
+    lines.push('');
+  }
+
+  /* Rekomendasi */
+  lines.push('Rekomendasi:');
+  if (fit.kategori === 'SANGAT SESUAI' || fit.kategori === 'SESUAI') {
+    lines.push(`Kandidat menunjukkan profil yang ${fit.kategori.toLowerCase()} untuk posisi ${fit.label}. Kekuatan pada ${nama.join(', ')} menjadi modal utama.`);
+    if (lemah.length > 0) {
+      lines.push(`Namun, tetap perlu penguatan pada subtes ${lemah.join(', ')} agar kinerja optimal dalam jangka panjang.`);
+    } else {
+      lines.push('Tidak ditemukan kelemahan signifikan. Kandidat dapat langsung ditempatkan pada peran ini dengan supervisi ringan.');
+    }
+  } else if (fit.kategori === 'CUKUP SESUAI') {
+    lines.push(`Kandidat memiliki kecocokan moderat untuk posisi ${fit.label}.`);
+    lines.push(`Perlu pendampingan dan pengembangan pada subtes ${lemah.join(', ') || '(tidak ada)'} agar lebih siap.`);
+  } else {
+    lines.push(`Kandidat belum menunjukkan kecocokan yang optimal untuk posisi ${fit.label}.`);
+    lines.push(`Disarankan untuk pengembangan lebih lanjut atau penempatan pada posisi yang lebih sesuai dengan profil kandidat.`);
+  }
+
+  return lines;
+}
+
+console.log('[IST-POSITION-ANALYSIS] ✓ Loaded — 5 posisi');
 console.log('[TEST-IST] ✓ Loaded — 21 fungsi + PDF reporting');
