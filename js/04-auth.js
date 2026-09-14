@@ -22,41 +22,36 @@ function checkPassword() {
     document.getElementById('passwordForm').style.opacity = '0';
     document.getElementById('passwordForm').style.pointerEvents = 'none';
 
-    setTimeout(() => {
-      document.getElementById('passwordScreen').classList.add('hidden');
+setTimeout(() => {
+  document.getElementById('passwordScreen').classList.add('hidden');
 
-      // ✅ CEK: apakah identity sudah ada?
-      // Kalau ada → kandidat lanjut setelah diskualifikasi
-      //   → langsung ke home (skip form identity)
-      // Kalau tidak → kandidat fresh
-      //   → tampilkan form identity
+  // ✅ Cek: apakah identity sudah ada?
+  let identitySaved = null;
+  try {
+    const raw = localStorage.getItem('identity');
+    if (raw) identitySaved = JSON.parse(raw);
+  } catch (e) {}
 
-      let identitySaved = null;
-      try {
-        const raw = localStorage.getItem('identity');
-        if (raw) identitySaved = JSON.parse(raw);
-      } catch (e) {}
+  const hasValidIdentity =
+    identitySaved &&
+    typeof identitySaved === 'object' &&
+    typeof identitySaved.name === 'string' &&
+    identitySaved.name.trim().length > 0;
 
-      const hasValidIdentity =
-        identitySaved &&
-        typeof identitySaved === 'object' &&
-        typeof identitySaved.name === 'string' &&
-        identitySaved.name.trim().length > 0;
-
-      if (hasValidIdentity) {
-        // → RESUME MODE: kandidat lanjut (setelah diskualifikasi)
-        console.log('[AUTH] 🔄 Identity ditemukan — langsung ke home');
-        if (typeof window.renderHome === 'function') {
-          window.renderHome();
-        } else {
-          renderIdentityForm(); // fallback
-        }
-      } else {
-        // → FRESH MODE: kandidat baru
-        console.log('[AUTH] 🆕 Fresh kandidat — tampilkan form identity');
-        renderIdentityForm();
-      }
-    }, APP_CONFIG.TIMING.SPLASH_DELAY);
+  if (hasValidIdentity) {
+    // → RESUME MODE: kandidat lanjut setelah diskualifikasi
+    console.log('[AUTH] 🔄 Identity ditemukan — langsung ke home');
+    if (typeof window.renderHome === 'function') {
+      window.renderHome();
+    } else {
+      renderIdentityForm();
+    }
+  } else {
+    // → FRESH MODE: kandidat baru
+    console.log('[AUTH] 🆕 Fresh kandidat — tampilkan form identity');
+    renderIdentityForm();
+  }
+}, APP_CONFIG.TIMING.SPLASH_DELAY);
 
   } else {
     error.textContent = 'Kode akses salah!';
