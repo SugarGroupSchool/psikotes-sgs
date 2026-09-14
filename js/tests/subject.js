@@ -335,6 +335,7 @@
       SELESAI UPLOAD
       ========================================================= */
    function selesaiSubjectUpload() {
+      window.__inTestView = false;
      if (typeof window.markTestCompleted === 'function') {
        markTestCompleted('SUBJECT');
      } else {
