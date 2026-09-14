@@ -295,15 +295,35 @@ function refreshActivePassword() {
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-  function runInit() {
-    refreshActivePassword();
-    initAppState();
-    attachPasswordEnter();
-    autoFocusPassword();
-    attachAntiCheat();
-    attachCopyGuards();
-    attachBeforeUnload();
+function runInit() {
+  /* ============================================================
+     1. Pastikan password acak sudah di-generate
+     ============================================================ */
+  if (typeof window.ensureRandomPasswords === 'function') {
+    window.ensureRandomPasswords();
   }
+
+  /* ============================================================
+     2. Cek apakah URL admin → tampilkan panel admin & skip init normal
+     ============================================================ */
+  if (typeof window.checkAdminUrlAndRender === 'function') {
+    if (window.checkAdminUrlAndRender()) {
+      console.log('[INIT] Mode admin — init normal di-skip');
+      return;
+    }
+  }
+
+  /* ============================================================
+     3. Init normal
+     ============================================================ */
+  refreshActivePassword();
+  initAppState();
+  attachPasswordEnter();
+  autoFocusPassword();
+  attachAntiCheat();
+  attachCopyGuards();
+  attachBeforeUnload();
+}
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runInit);
