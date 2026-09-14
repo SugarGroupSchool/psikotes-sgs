@@ -99,9 +99,33 @@ function renderTestSelection() {
    HOME
    ============================================================ */
 function renderHome() {
-  if (window.__inTestView === true) return;
-  setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
+  /* ============================================================
+     🔒 GUARD PINTAR
+     
+     Hanya blokir renderHome() kalau user BENAR-BENAR di dalam tes.
+     Ciri-cirinya: ada UI tes di DOM (canvas, panel IST, dll).
+     
+     Kalau hanya flag yang tersisa (misal dari sesi sebelumnya)
+     tapi tidak ada UI tes, maka flag di-reset dan home dirender.
+     ============================================================ */
+  const inTestUI = document.querySelector(
+    '.kraeplin-card, .ist-shell, .ist-question-panel, .ist-panel, ' +
+    '.card.exam, .grafis-page, .subject-test-page'
+  );
 
+  if (window.__inTestView === true && inTestUI) {
+    console.warn('[ROUTER] renderHome() diabaikan — sedang di dalam tes');
+    return;
+  }
+
+  // Keluar dari test view → reset flag
+  if (window.__inTestView === true && !inTestUI) {
+    console.warn('[ROUTER] __inTestView di-reset (flag basi tanpa UI tes)');
+    window.__inTestView = false;
+  }
+
+  setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
+  ...
   window.appState = window.appState || {};
   appState.completed = appState.completed || {};
   appState.selectedTests = appState.selectedTests ||
