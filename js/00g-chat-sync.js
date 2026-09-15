@@ -90,8 +90,14 @@ function getChatConnectionStatus() {
 function __chatEnableOffline() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   try {
-    firebase.database().ref('sgs_state/chats').keepSynced(true);
-    console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
+    const ref = firebase.database().ref('sgs_state/chats');
+    if (typeof ref.keepSynced === 'function') {
+      ref.keepSynced(true);
+      console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
+    } else {
+      // SDK v9 compat tidak expose keepSynced — pakai offline queue bawaan
+      console.log('[CHAT-SYNC] ℹ️ keepSynced tidak tersedia di SDK ini (offline queue bawaan tetap aktif)');
+    }
   } catch (e) {
     console.warn('[CHAT-SYNC] Offline persistence gagal:', e);
   }
