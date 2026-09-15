@@ -97,6 +97,7 @@ function pushPresence(status) {
     totalTests,
     status:          status || 'active',
     inTestView:      (typeof window !== 'undefined' && window.__inTestView === true),
+    finished:        localStorage.getItem('_sgs_finished') === '1',   // ← BARU
     lastSeen:        firebase.database.ServerValue.TIMESTAMP
   };
 
@@ -131,7 +132,6 @@ window.addEventListener('beforeunload', markPresenceOffline);
 function __presenceFilterFresh(data) {
   const now = Date.now();
 
-  // Kalau sedang di mode admin, kecualikan device sendiri
   let excludeId = null;
   try {
     if (typeof isAdminUrl === 'function' && isAdminUrl()) {
@@ -143,9 +143,14 @@ function __presenceFilterFresh(data) {
     .map(k => ({ deviceId: k, ...data[k] }))
     .filter(s => {
       if (!s.lastSeen) return false;
+      if (excludeId && s.deviceId === excludeId) return false;
+
+      // Device "finished" tetap tampil meski offline — supaya admin bisa izinkan tes lagi
+      if (s.finished === true) return true;
+
+      // Device normal — filter offline & stale
       if (s.status === 'offline') return false;
       if ((now - s.lastSeen) >= PRESENCE_STALE_MS) return false;
-      if (excludeId && s.deviceId === excludeId) return false;  // ← exclude diri sendiri
       return true;
     })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
