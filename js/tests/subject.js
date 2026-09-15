@@ -434,24 +434,20 @@ function onSubjectBlur() {
 
 /* =========================================================
    LOGOUT DISKUALIFIKASI — TANPA RELOAD
-   
-   ⚠️  PENTING: JANGAN pakai location.reload()
-   
-   Kalau reload, semua jawaban di appState.answers (memory)
-   akan hilang → PDF jadi kosong saat download final.
-   
-   Solusinya: tampilkan password screen secara manual,
-   biarkan identity + completed + answers tetap utuh.
+   - Device terkunci (seperti selesai tes)
+   - Tampilkan halaman "Menunggu Admin"
+   - Identitas & progress tetap tersimpan
+   - Admin bisa izinkan → banner → reload → lanjut
    ========================================================= */
 function logoutDiskualifikasi() {
-  /* Diskualifikasi = TERKUNCI PERMANEN (seperti selesai tes)
-     - Set _sgs_finished = "1" → tidak bisa login lagi
-     - Set _sgs_disqualified = "1" → tanda diskualifikasi
-     - Set usedPragas = "1" → password aktif = USED */
+  /* Set flag:
+     - _sgs_finished    = '1' → terkunci
+     - _sgs_disqualified = '1' → tanda diskualifikasi
+     - usedPragas       = '1' → password USED aktif */
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
-    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');   // ← KUNCI
-    localStorage.setItem('_sgs_disqualified', '1');                       // ← TANDA
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
+    localStorage.setItem('_sgs_disqualified', '1');
   } catch (e) {}
 
   window.__inTestView = false;
@@ -460,33 +456,115 @@ function logoutDiskualifikasi() {
   subjectCheatFlag = false;
   allowTabOutSubject = false;
 
+  // Sembunyikan password screen kalau ada
   const pwdScreen = document.getElementById('passwordScreen');
-  const pwdForm = document.getElementById('passwordForm');
-  const pwdInput = document.getElementById('passwordInput');
-  const pwdError = document.getElementById('passwordError');
-  const welcomeMsg = document.getElementById('welcomeMessage');
-  const pwdLogo = document.getElementById('passwordLogo');
+  if (pwdScreen) pwdScreen.classList.add('hidden');
 
-  if (pwdScreen) {
-    pwdScreen.classList.remove('hidden');
-    if (pwdForm) {
-      pwdForm.style.opacity = '1';
-      pwdForm.style.pointerEvents = 'auto';
-    }
-    if (pwdInput) pwdInput.value = '';
-    if (pwdError) pwdError.textContent = '';
-    if (welcomeMsg) welcomeMsg.classList.remove('show');
-    if (pwdLogo) pwdLogo.classList.remove('small');
-  }
-
+  // Sembunyikan app container lama
   const appEl = document.getElementById('app');
   if (appEl) appEl.innerHTML = '';
 
-  setTimeout(() => {
-    if (pwdInput) pwdInput.focus();
-  }, 150);
+  // Tampilkan halaman khusus "Menunggu Admin"
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        max-width: 520px; width: 100%;
+        padding: 40px 34px 34px;
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
+      ">
+        <!-- Icon -->
+        <div style="
+          width: 90px; height: 90px;
+          margin: 0 auto 22px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #fee2e2, #fef2f2);
+          border: 3px solid #fca5a5;
+          border-radius: 26px;
+          font-size: 46px;
+          animation: diskualifikasiPulse 2s ease-in-out infinite;
+        ">❌</div>
 
-  console.log('[SUBJECT] Diskualifikasi — pakai password USED untuk lanjut');
+        <!-- Title -->
+        <h1 style="
+          margin: 0 0 14px;
+          font-size: 26px;
+          font-weight: 900;
+          color: #991b1b;
+          letter-spacing: -0.5px;
+        ">Diskualifikasi</h1>
+
+        <!-- Message -->
+        <p style="
+          margin: 0 0 22px;
+          color: #475569;
+          font-size: 15px;
+          line-height: 1.65;
+        ">
+          Anda terdeteksi <b>membuka tab atau jendela lain</b> saat mengerjakan tes.<br><br>
+          Device ini <b style="color:#dc2626;">terkunci</b>.
+          Hubungi admin untuk diizinkan melanjutkan tes.
+        </p>
+
+        <!-- Info box -->
+        <div style="
+          padding: 16px 18px;
+          background: #fef3c7;
+          border: 1px solid #fde68a;
+          border-radius: 14px;
+          font-size: 13.5px;
+          color: #92400e;
+          line-height: 1.6;
+          text-align: left;
+        ">
+          <b>ℹ️ Informasi</b><br>
+          • Progress tes Anda <b>tetap tersimpan</b><br>
+          • Kalau admin mengizinkan, halaman ini akan otomatis reload<br>
+          • Setelah reload, Anda bisa login dan <b>lanjut dari tes terakhir</b>
+        </div>
+
+        <!-- Waiting indicator -->
+        <div style="
+          margin-top: 24px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          color: #94a3b8;
+          font-size: 13px;
+        ">
+          <span style="
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 0 5px rgba(245,158,11,.2);
+            animation: waitingPulse 1.4s ease-in-out infinite;
+          "></span>
+          Menunggu izin dari admin...
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @keyframes diskualifikasiPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220,38,38,.3); }
+        50%      { transform: scale(1.05); box-shadow: 0 0 0 14px rgba(220,38,38,0); }
+      }
+      @keyframes waitingPulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50%      { transform: scale(1.35); opacity: .7; }
+      }
+    </style>
+  `;
+
+  console.log('[SUBJECT] ⚠️ Diskualifikasi — device terkunci, menunggu admin');
 }
 
 console.log('[TEST-SUBJECT] ✓ Loaded — 9 fungsi');
