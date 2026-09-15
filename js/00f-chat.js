@@ -3,6 +3,7 @@
    - Chat real-time admin <-> kandidat
    - Anti-cheat SAFE: semua UI di overlay internal (tidak trigger blur)
    - Support text + image (paste Ctrl+V, drag, picker)
+   - Reliable send via 00g-chat-sync.js (queue + retry + optimistic UI)
    ============================================================ */
 
 const CHAT_MAX_IMAGE_DIM = 900;
@@ -99,7 +100,7 @@ function __chatCompress(file) {
 }
 
 /* ------------------------------------------------------------
-   KIRIM PESAN
+   KIRIM PESAN — fallback (dipakai kalau 00g-chat-sync.js tidak ada)
    ------------------------------------------------------------ */
 function sendChatMessage({ from, text, image, roomId }) {
   return new Promise((resolve, reject) => {
@@ -130,7 +131,6 @@ function sendChatMessage({ from, text, image, roomId }) {
       }
       roomRef.update(meta);
 
-      // Cleanup: simpan hanya 60 pesan terakhir
       const msgsRef = roomRef.child('messages');
       msgsRef.limitToLast(500).once('value').then(snap => {
         const total = snap.numChildren();
@@ -244,12 +244,11 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         ">${role === 'admin' ? '👤' : '🎧'}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="font-weight: 800; font-size: 15px;">${__chatEscape(title)}</div>
-          <div style="font-size: 11px; opacity: .8;">
+          <div id="chatConnStatus" style="font-size: 11px; opacity: .85;">
             <span style="
               display: inline-block; width: 7px; height: 7px;
-              border-radius: 50%; background: #22c55e; margin-right: 5px;
-              box-shadow: 0 0 0 3px rgba(34,197,94,.3);
-            "></span>Real-time
+              border-radius: 50%; background: #94a3b8; margin-right: 5px;
+            "></span><span>Menyambung...</span>
           </div>
         </div>
         <button id="chatCloseBtn" style="
@@ -330,6 +329,12 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
 
   let pendingImage = null;
 
+  /* ------- STATE ------- */
+  let __serverMessages = [];
+
+  /* ------------------------------------------------------------
+     PREVIEW GAMBAR
+     ------------------------------------------------------------ */
   function updatePreview() {
     if (pendingImage) {
       previewImg.src = pendingImage;
@@ -339,8 +344,34 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     }
   }
 
-  function renderMessages(list) {
-    if (!list || !list.length) {
+  /* ------------------------------------------------------------
+     RENDER MESSAGES (server + pending)
+     ------------------------------------------------------------ */
+  function renderMessages() {
+    // Gabung server messages + pending (yang belum muncul di server)
+    const serverIds = new Set(
+      __serverMessages.map(m => m.localId).filter(Boolean)
+    );
+
+    let pending = [];
+    if (typeof getPendingMessagesForRoom === 'function') {
+      pending = getPendingMessagesForRoom(roomId)
+        .filter(p => !serverIds.has(p.localId))
+        .map(p => ({
+          id: 'pending_' + p.localId,
+          from: p.from,
+          text: p.text,
+          image: p.image,
+          ts: p.clientTs,
+          _pending: true,
+          _retries: p.retries || 0
+        }));
+    }
+
+    const merged = [...__serverMessages, ...pending]
+      .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+    if (!merged.length) {
       messagesEl.innerHTML = `
         <div style="text-align:center;color:#94a3b8;font-size:12px;padding:30px 10px;">
           <div style="font-size:36px;margin-bottom:8px;">💬</div>
@@ -348,14 +379,17 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         </div>`;
       return;
     }
-    messagesEl.innerHTML = list.map(m => {
+
+    messagesEl.innerHTML = merged.map(m => {
       const isMe = (role === 'admin' && m.from === 'admin') ||
                    (role === 'candidate' && m.from === 'candidate');
       const bg    = isMe ? 'linear-gradient(135deg,#3b82f6,#1e40af)' : '#fff';
       const color = isMe ? '#fff' : '#1e293b';
 
       let body = '';
-      if (m.text) body += `<div style="white-space:pre-wrap;word-break:break-word;line-height:1.45;font-size:13.5px;">${__chatEscape(m.text)}</div>`;
+      if (m.text) {
+        body += `<div style="white-space:pre-wrap;word-break:break-word;line-height:1.45;font-size:13.5px;">${__chatEscape(m.text)}</div>`;
+      }
       if (m.image) {
         body += `<img src="${m.image}" data-lightbox="1" data-src="${m.image}" style="
           display:block; max-width:220px; max-height:220px;
@@ -364,15 +398,31 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         ">`;
       }
 
+      // Status icon untuk pesan sendiri
+      let statusIcon = '';
+      if (isMe && m._pending) {
+        statusIcon = m._retries > 0
+          ? `<span title="Mencoba ulang (${m._retries}×)..." style="color:#f59e0b;"> ⟳ ${m._retries}</span>`
+          : `<span title="Mengirim..." style="color:#94a3b8;"> ⏳</span>`;
+      }
+
       return `
-        <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'}; gap:3px;">
+        <div style="
+          display:flex; flex-direction:column;
+          align-items:${isMe ? 'flex-end' : 'flex-start'};
+          gap:3px;
+          ${m._pending ? 'opacity:.75;' : ''}
+        ">
           <div style="
             max-width:78%; padding:9px 12px;
             background:${bg}; color:${color};
             border-radius:14px;
             box-shadow:0 2px 6px rgba(15,23,42,.06); font-size:13px;
+            ${m._pending ? 'border:1px dashed rgba(148,163,184,.5);' : ''}
           ">${body}</div>
-          <div style="font-size:10px;color:#94a3b8;padding:0 4px;">${__chatTimeHM(m.ts)}</div>
+          <div style="font-size:10px;color:#94a3b8;padding:0 4px;">
+            ${__chatTimeHM(m.ts)}${statusIcon}
+          </div>
         </div>`;
     }).join('');
 
@@ -387,28 +437,60 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 30);
   }
 
+  /* ------------------------------------------------------------
+     HANDLE FILE
+     ------------------------------------------------------------ */
   async function handleFile(file) {
     try { pendingImage = await __chatCompress(file); updatePreview(); }
     catch (e) { alert('Gagal proses gambar: ' + e.message); }
   }
 
+  /* ------------------------------------------------------------
+     KIRIM PESAN
+     - Pakai enqueueChatMessage kalau ada (00g-chat-sync.js)
+     - Fallback ke sendChatMessage kalau tidak ada
+     ------------------------------------------------------------ */
   async function doSend() {
     const text = textarea.value.trim();
     if (!text && !pendingImage) return;
-    const savedImage = pendingImage;
-    textarea.value = ''; textarea.style.height = 'auto';
-    pendingImage = null; updatePreview();
 
-    // Kirim via queue — optimistic, langsung tampil, retry otomatis
-    enqueueChatMessage({ from: role, text, image: savedImage, roomId })
-      .catch(e => {
-        console.error('Enqueue gagal:', e);
+    const savedImage = pendingImage;
+    const savedText  = text;
+
+    textarea.value = '';
+    textarea.style.height = 'auto';
+    pendingImage = null;
+    updatePreview();
+
+    // Prioritas: queue (retry otomatis). Fallback: kirim langsung.
+    if (typeof enqueueChatMessage === 'function') {
+      enqueueChatMessage({
+        from: role,
+        text: savedText,
+        image: savedImage,
+        roomId
+      }).catch(e => {
+        console.error('[CHAT] Enqueue gagal:', e);
         if (savedImage) { pendingImage = savedImage; updatePreview(); }
+        if (savedText)  { textarea.value = savedText; }
       });
+    } else {
+      // Fallback: kirim langsung
+      try {
+        await sendChatMessage({ from: role, text: savedText, image: savedImage, roomId });
+      } catch (e) {
+        if (savedImage) { pendingImage = savedImage; updatePreview(); }
+        if (savedText)  { textarea.value = savedText; }
+        alert('Gagal kirim: ' + e.message);
+      }
+    }
 
     markChatRead(role, roomId);
   }
 
+  /* ------------------------------------------------------------
+     EVENT BINDINGS
+     ------------------------------------------------------------ */
   textarea.addEventListener('input', () => {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(120, textarea.scrollHeight) + 'px';
@@ -447,21 +529,65 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
   };
   previewRm.onclick = () => { pendingImage = null; updatePreview(); };
   sendBtn.onclick = doSend;
-  closeBtn.onclick = () => {
+
+  /* ------------------------------------------------------------
+     CONNECTION INDICATOR
+     ------------------------------------------------------------ */
+  const connEl = document.getElementById('chatConnStatus');
+  function __updateConnUI(status) {
+    if (!connEl) return;
+    if (status === 'online') {
+      connEl.innerHTML = `<span style="
+        display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#22c55e;margin-right:5px;
+        box-shadow:0 0 0 3px rgba(34,197,94,.3);
+      "></span><span>Terhubung</span>`;
+    } else if (status === 'offline') {
+      connEl.innerHTML = `<span style="
+        display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#f59e0b;margin-right:5px;
+        box-shadow:0 0 0 3px rgba(245,158,11,.3);
+      "></span><span>Menunggu koneksi...</span>`;
+    } else {
+      connEl.innerHTML = `<span style="
+        display:inline-block;width:7px;height:7px;border-radius:50%;
+        background:#94a3b8;margin-right:5px;
+      "></span><span>Menyambung...</span>`;
+    }
+  }
+
+  if (typeof onChatConnectionChange === 'function') {
+    onChatConnectionChange(__updateConnUI);
+  } else {
+    __updateConnUI('online');
+  }
+
+  /* ------------------------------------------------------------
+     CLOSE
+     ------------------------------------------------------------ */
+  function __cleanup() {
     if (__chatUnsub) { try { __chatUnsub(); } catch (e) {} __chatUnsub = null; }
+    window.removeEventListener('chat-msg-sent', __handleQueueChange);
+    window.removeEventListener('chat-msg-failed', __handleQueueChange);
+  }
+
+  closeBtn.onclick = () => {
+    __cleanup();
     overlay.remove();
     if (typeof onClose === 'function') onClose();
   };
 
-  /* ------- Listen messages ------- */
+  /* ------------------------------------------------------------
+     LISTEN MESSAGES (server)
+     ------------------------------------------------------------ */
   const ref = firebase.database().ref('sgs_state/chats/' + roomId + '/messages');
   const handler = ref.orderByChild('ts').limitToLast(CHAT_MAX_KEEP).on('value', snap => {
-    const arr = [];
-    snap.forEach(ch => arr.push({ id: ch.key, ...ch.val() }));
-    renderMessages(arr);
+    __serverMessages = [];
+    snap.forEach(ch => __serverMessages.push({ id: ch.key, ...ch.val() }));
 
-    if (snap.numChildren() > 0) {
-      const last = arr[arr.length - 1];
+    // Deteksi pesan baru dari lawan
+    if (__serverMessages.length > 0) {
+      const last = __serverMessages[__serverMessages.length - 1];
       const opposite = role === 'admin' ? 'candidate' : 'admin';
       if (last && last.from === opposite && last.ts > (window.__chatLastSeenTs || 0)) {
         window.__chatLastSeenTs = last.ts;
@@ -469,9 +595,23 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         markChatRead(role, roomId);
       }
     }
+
+    renderMessages();
   });
+
+  // Re-render saat queue berubah
+  function __handleQueueChange() {
+    renderMessages();
+  }
+  window.addEventListener('chat-msg-sent', __handleQueueChange);
+  window.addEventListener('chat-msg-failed', __handleQueueChange);
+
   __chatUnsub = () => ref.off('value', handler);
 
+  /* ------------------------------------------------------------
+     INITIAL RENDER + mark read
+     ------------------------------------------------------------ */
+  renderMessages();
   setTimeout(() => { markChatRead(role, roomId); textarea.focus(); }, 300);
 }
 
