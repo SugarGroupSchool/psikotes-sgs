@@ -385,7 +385,8 @@ function renderActiveSessionsHTML(sessions) {
     const agoStr = ago === null ? '-' :
                    ago < 60 ? `${ago}s lalu` :
                    ago < 3600 ? `${Math.floor(ago / 60)}m lalu` :
-                   `${Math.floor(ago / 3600)}j lalu`;
+                   ago < 86400 ? `${Math.floor(ago / 3600)}j lalu` :
+                   `${Math.floor(ago / 86400)}h lalu`;
 
     const testLabel = s.currentTest ? s.currentTest : '—';
     const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null
@@ -393,16 +394,64 @@ function renderActiveSessionsHTML(sessions) {
     const progress = s.totalTests > 0
       ? `${s.completedCount}/${s.totalTests} tes`
       : '—';
-    const statusColor = s.inTestView ? '#16a34a' : '#f59e0b';
-    const statusLabel = s.inTestView ? '🟢 Mengerjakan' : '🟡 Idle';
+
+    // Status berbeda untuk finished
+    const isFinished = s.finished === true;
+    const statusColor = isFinished ? '#94a3b8'
+                      : s.inTestView ? '#16a34a' : '#f59e0b';
+    const statusLabel = isFinished ? '✅ Selesai (Terkunci)'
+                      : s.inTestView ? '🟢 Mengerjakan' : '🟡 Idle';
 
     const safeName = String(s.name || '(tanpa nama)')
       .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+    const deviceIdShort = s.deviceId.slice(-8);
+
+    // Tombol "Izinkan Tes Lagi" — hanya muncul untuk device finished
+    const allowRetakeBtn = isFinished ? `
+      <button onclick="adminAllowRetake('${s.deviceId}', '${safeName}')" style="
+        padding: 5px 12px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #fff; border: 0; border-radius: 7px;
+        font-size: 11px; font-weight: 800;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 3px 8px rgba(245,158,11,.25);
+        white-space: nowrap;
+      ">🔓 Izinkan Tes Lagi</button>
+    ` : '';
+
+    // Tombol chat — disable kalau finished
+    const chatBtn = isFinished ? `
+      <button disabled title="Kandidat sudah selesai" style="
+        padding: 5px 12px;
+        background: #e2e8f0; color: #94a3b8;
+        border: 0; border-radius: 7px;
+        font-size: 11px; font-weight: 800;
+        cursor: not-allowed; font-family: inherit;
+        white-space: nowrap;
+      ">💬 Chat</button>
+    ` : `
+      <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')" style="
+        padding: 5px 12px;
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        color: #fff; border: 0; border-radius: 7px;
+        font-size: 11px; font-weight: 800;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 3px 8px rgba(59,130,246,.25);
+        white-space: nowrap;
+      ">💬 Chat</button>
+    `;
+
+    // Background berbeda untuk finished
+    const cardBg = isFinished
+      ? 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
+      : '#fff';
+    const cardBorder = isFinished ? '#cbd5e1' : '#dbeafe';
+
     return `
       <div style="
-        padding: 12px 14px; background: #fff;
-        border: 1px solid #dbeafe; border-radius: 10px;
+        padding: 12px 14px; background: ${cardBg};
+        border: 1px solid ${cardBorder}; border-radius: 10px;
         font-size: 12px; line-height: 1.5;
       ">
         <div style="
@@ -427,19 +476,15 @@ function renderActiveSessionsHTML(sessions) {
         <div style="
           display: flex; justify-content: space-between;
           align-items: center; gap: 8px; padding-top: 6px;
-          border-top: 1px dashed #e2e8f0;
+          border-top: 1px dashed #e2e8f0; flex-wrap: wrap;
         ">
           <div style="color: #94a3b8; font-size: 10px;">
-            ID: ${s.deviceId.slice(-8)} &nbsp;·&nbsp; 👁 ${agoStr}
+            ID: ${deviceIdShort} &nbsp;·&nbsp; 👁 ${agoStr}
           </div>
-          <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')" style="
-            padding: 5px 12px;
-            background: linear-gradient(135deg, #3b82f6, #1e40af);
-            color: #fff; border: 0; border-radius: 7px;
-            font-size: 11px; font-weight: 800;
-            cursor: pointer; font-family: inherit;
-            box-shadow: 0 3px 8px rgba(59,130,246,.25);
-          ">💬 Chat</button>
+          <div style="display: flex; gap: 6px;">
+            ${allowRetakeBtn}
+            ${chatBtn}
+          </div>
         </div>
       </div>
     `;
