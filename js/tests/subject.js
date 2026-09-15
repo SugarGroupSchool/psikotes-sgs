@@ -444,10 +444,14 @@ function onSubjectBlur() {
    biarkan identity + completed + answers tetap utuh.
    ========================================================= */
 function logoutDiskualifikasi() {
-  /* Diskualifikasi: set usedPragas = "1" supaya password aktif = USED
-     Data jawaban tetap tersimpan di memory */
+  /* Diskualifikasi = TERKUNCI PERMANEN (seperti selesai tes)
+     - Set _sgs_finished = "1" → tidak bisa login lagi
+     - Set _sgs_disqualified = "1" → tanda diskualifikasi
+     - Set usedPragas = "1" → password aktif = USED */
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');   // ← KUNCI
+    localStorage.setItem('_sgs_disqualified', '1');                       // ← TANDA
   } catch (e) {}
 
   window.__inTestView = false;
