@@ -4082,13 +4082,19 @@ if (appState.completed.PAPI) {
       blurRadius: 0.8
     });
   
-    /* ============================================================
-       SIMPAN FILE
+     /* ============================================================
+       RETURN BLOB (bukan simpan ke file)
        ============================================================ */
     let namaFile = ((typeof id === 'object' && id && id.name) ? id.name : "Peserta")
       .replace(/[^a-zA-Z0-9]/g, "-") + "-Psikotes-SGSchools.pdf";
-  
-    doc.save(namaFile);
+
+    const blob = doc.output('blob');
+
+    return {
+      blob: blob,
+      filename: namaFile,
+      size: blob.size
+    };
   }
   
   /* ============================================================
@@ -4160,5 +4166,14 @@ if (appState.completed.PAPI) {
      📁 js/data/disc-roles.js:
         - DISC_ROLES_MAP
      ============================================================ */
-  
+  /* ============================================================
+   GENERATE PDF BLOB — return Blob + metadata
+   Dipakai oleh 07-download.js untuk upload ke Google Drive
+   ============================================================ */
+async function generatePDFBlob() {
+  return await generatePDF();
+}
+window.generatePDFBlob = generatePDFBlob;
+
+console.log('[PDF] ✓ generatePDFBlob ready');
   console.log('[CORE-PDF] ✓ Loaded');
