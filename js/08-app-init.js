@@ -73,8 +73,8 @@
     if (!input || input.__enterBound) return;
     input.__enterBound = true;
 
-    input.addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
+input.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
         e.preventDefault();
         if (typeof checkPassword === 'function') {
           checkPassword();
