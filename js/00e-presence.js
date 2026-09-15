@@ -86,10 +86,12 @@ function pushPresence(status) {
 
   const st = (typeof appState !== 'undefined' && appState) ? appState : {};
 
-  // Cek apakah device sudah selesai tes
+  // Cek status device
   let isFinished = false;
+  let isDisqualified = false;
   try {
     isFinished = localStorage.getItem('_sgs_finished') === '1';
+    isDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
   } catch (e) {}
 
   const payload = {
@@ -104,7 +106,8 @@ function pushPresence(status) {
     totalTests,
     status:          status || 'active',
     inTestView:      (typeof window !== 'undefined' && window.__inTestView === true),
-    finished:        isFinished,   // ← BARU: tandai device sudah selesai tes
+    finished:        isFinished,
+    disqualified:    isDisqualified,    // ← BARU
     lastSeen:        firebase.database.ServerValue.TIMESTAMP
   };
 
