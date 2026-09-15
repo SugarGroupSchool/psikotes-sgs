@@ -2,6 +2,7 @@
    js/00e-presence.js
    - Heartbeat kandidat aktif ke Firebase (30 detik)
    - Admin bisa lihat list real-time
+   - FIX: getOrCreateDeviceId() jadi sumber tunggal device ID
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
@@ -15,7 +16,9 @@ let __presenceListenRef   = null;
 let __presenceListenCb    = null;
 
 /* ------------------------------------------------------------
-   DEVICE ID
+   DEVICE ID — SUMBER TUNGGAL
+   - Dipakai oleh: presence, chat, chat-sync
+   - Persist di localStorage dengan key '_sgs_device_id'
    ------------------------------------------------------------ */
 function getOrCreateDeviceId() {
   try {
@@ -23,10 +26,13 @@ function getOrCreateDeviceId() {
     if (!id) {
       id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       localStorage.setItem(PRESENCE_DEVICE_KEY, id);
+      console.log('[PRESENCE] 🆕 Device ID baru dibuat:', id);
     }
     return id;
   } catch (e) {
-    return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
+    const fallback = 'dev_anon_' + Math.random().toString(36).slice(2, 10);
+    console.warn('[PRESENCE] localStorage gagal, pakai fallback:', fallback);
+    return fallback;
   }
 }
 
@@ -38,6 +44,7 @@ function initPresence() {
     setTimeout(initPresence, 500);
     return;
   }
+
   __presenceDeviceId = getOrCreateDeviceId();
   const db = firebase.database();
   __presenceRef = db.ref('sgs_state/sessions/' + __presenceDeviceId);
@@ -56,6 +63,9 @@ function initPresence() {
   console.log('[PRESENCE] ✓ device:', __presenceDeviceId);
 }
 
+/* ------------------------------------------------------------
+   PUSH PRESENCE (heartbeat)
+   ------------------------------------------------------------ */
 function pushPresence(status) {
   if (!__presenceRef) return;
 
@@ -98,6 +108,13 @@ function pushPresence(status) {
   }).catch(() => __presenceRef.update(payload));
 }
 
+/* ------------------------------------------------------------
+   MARK DONE / OFFLINE
+   ------------------------------------------------------------ */
+function markPresenceDone() {
+  pushPresence('done');
+}
+
 function markPresenceOffline() {
   if (!__presenceRef) return;
   __presenceRef.update({
@@ -105,6 +122,7 @@ function markPresenceOffline() {
     lastSeen: firebase.database.ServerValue.TIMESTAMP
   }).catch(() => {});
 }
+
 window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ------------------------------------------------------------
@@ -118,10 +136,21 @@ function __presenceFilterFresh(data) {
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 }
 
+function fetchActiveSessions(callback) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    callback([]); return;
+  }
+  firebase.database().ref('sgs_state/sessions').once('value')
+    .then(snap => callback(__presenceFilterFresh(snap.val())))
+    .catch(err => {
+      console.warn('[PRESENCE] fetch error:', err);
+      callback([]);
+    });
+}
+
 function listenActiveSessions(callback) {
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    callback([]);
-    return;
+    callback([]); return;
   }
   if (__presenceListenRef && __presenceListenCb) {
     __presenceListenRef.off('value', __presenceListenCb);
@@ -153,7 +182,9 @@ if (document.readyState === 'loading') {
    ------------------------------------------------------------ */
 window.initPresence              = initPresence;
 window.pushPresence              = pushPresence;
+window.markPresenceDone          = markPresenceDone;
 window.markPresenceOffline       = markPresenceOffline;
+window.fetchActiveSessions       = fetchActiveSessions;
 window.listenActiveSessions      = listenActiveSessions;
 window.stopListeningActiveSessions = stopListeningActiveSessions;
 window.getOrCreateDeviceId       = getOrCreateDeviceId;
