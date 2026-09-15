@@ -255,6 +255,57 @@
 
 <body>
 
+  <!-- ============================================================
+       SILENCE CONSOLE — Sembunyikan log di console browser
+       - Default: SENYAP (hanya console.error yang tampil)
+       - Untuk lihat log: buka dengan ?debug=1 di URL
+       - Atau ketik di console: __ENABLE_LOGS()
+       ============================================================ -->
+  <script>
+    (function silentConsoleByDefault() {
+      if (typeof console === 'undefined') return;
+
+      const original = {
+        log:   console.log.bind(console),
+        warn:  console.warn.bind(console),
+        info:  console.info.bind(console),
+        debug: console.debug.bind(console),
+      };
+
+      let isDebug =
+        new URLSearchParams(location.search).get('debug') === '1' ||
+        location.hash === '#debug';
+
+      function applyMode() {
+        if (isDebug) {
+          console.log   = original.log;
+          console.warn  = original.warn;
+          console.info  = original.info;
+          console.debug = original.debug;
+        } else {
+          console.log   = function () {};
+          console.warn  = function () {};
+          console.info  = function () {};
+          console.debug = function () {};
+        }
+      }
+      applyMode();
+
+      /* Helper global: nyalakan log via console */
+      window.__ENABLE_LOGS = function () {
+        isDebug = true;
+        applyMode();
+        original.log('%c[LOGS ENABLED]', 'color:#22c55e;font-weight:bold;');
+      };
+
+      /* Helper global: matikan log via console */
+      window.__DISABLE_LOGS = function () {
+        isDebug = false;
+        applyMode();
+      };
+    })();
+  </script>
+
   <!-- =========================================
        HALAMAN PASSWORD
        ========================================= -->
@@ -308,51 +359,53 @@
   <canvas id="discLeast"  width="170"  height="420" style="display: none;"></canvas>
   <canvas id="discChange" width="170"  height="420" style="display: none;"></canvas>
 
-
   <!-- ============================================================
        LIBRARIES (dari CDN)
        ============================================================ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-  <!-- ============================================================
-       CORE UTILITIES — Tanpa dependensi
-       ============================================================ -->
   <!-- Firebase SDK v9 compat -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<!-- Firebase config + sync logic -->
-<script src="./js/00-config.js"></script>
-<script src="./js/00b-admin.js"></script>
-<script src="./js/00d-firebase.js"></script>
-<script src="./js/01-state.js"></script>
-<script src="./js/02-utils.js"></script>
-<script src="./js/03-audio.js"></script>
-<script src="./js/04-auth.js"></script>
-<!-- sisanya tetap sama -->
-
- <!-- ✅ BENAR -->
-<script src="./js/data/ist-data.js"></script>
-<script src="./js/data/ist-keys.js"></script>
-<script src="./js/data/ist-norms.js"></script>
-<script src="./js/data/disc-data.js"></script>
-<script src="./js/data/disc-implications.js"></script>
-<script src="./js/data/disc-roles.js"></script>
-<script src="./js/data/papi-data.js"></script>
-<script src="./js/data/papi-kamus.js"></script>
-<script src="./js/data/bigfive-data.js"></script>
-<script src="./js/data/bigfive-position-analysis.js"></script>
-<script src="./js/data/grafis-data.js"></script>
-<script src="./js/data/subject-data.js"></script>
-<script src="./js/data/kraeplin-data.js"></script>
-
-<!-- INI HARUS PALING BAWAH -->
-<script src="./js/data/tests-global.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <!-- ============================================================
-       AUTH & CORE
+       CORE UTILITIES — URUTAN PENTING!
+       - 00-config.js    : konstanta global
+       - 00b-admin.js    : admin panel (versi LOCAL, akan ditimpa)
+       - 00d-firebase.js : cloud sync (HARUS TERAKHIR agar menang)
        ============================================================ -->
-  
+  <script src="./js/00-config.js"></script>
+  <script src="./js/00b-admin.js"></script>
+  <script src="./js/00d-firebase.js"></script>
+
+  <script src="./js/01-state.js"></script>
+  <script src="./js/02-utils.js"></script>
+  <script src="./js/03-audio.js"></script>
+  <script src="./js/04-auth.js"></script>
+
+  <!-- ============================================================
+       DATA — File data (dimuat setelah core)
+       ============================================================ -->
+  <script src="./js/data/ist-data.js"></script>
+  <script src="./js/data/ist-keys.js"></script>
+  <script src="./js/data/ist-norms.js"></script>
+  <script src="./js/data/disc-data.js"></script>
+  <script src="./js/data/disc-implications.js"></script>
+  <script src="./js/data/disc-roles.js"></script>
+  <script src="./js/data/papi-data.js"></script>
+  <script src="./js/data/papi-kamus.js"></script>
+  <script src="./js/data/bigfive-data.js"></script>
+  <script src="./js/data/bigfive-position-analysis.js"></script>
+  <script src="./js/data/grafis-data.js"></script>
+  <script src="./js/data/subject-data.js"></script>
+  <script src="./js/data/kraeplin-data.js"></script>
+
+  <!-- INI HARUS PALING BAWAH -->
+  <script src="./js/data/tests-global.js"></script>
+
+  <!-- ============================================================
+       AUTH & CORE (Identity)
+       ============================================================ -->
   <script src="./js/core/identity.js"></script>
 
   <!-- ============================================================
@@ -372,11 +425,14 @@
        PDF GENERATOR
        ============================================================ -->
   <script src="./js/core/pdf.js"></script>
-<!-- INI HARUS ADA DI SINI ↓ -->
-<script src="./js/05-router.js"></script>
-<script src="./js/06-timer.js"></script>
-<script src="./js/07-download.js"></script>
-<script src="./js/08-app-init.js"></script>
+
+  <!-- ============================================================
+       ROUTER, TIMER, DOWNLOAD, INIT — HARUS DI BAWAH
+       ============================================================ -->
+  <script src="./js/05-router.js"></script>
+  <script src="./js/06-timer.js"></script>
+  <script src="./js/07-download.js"></script>
+  <script src="./js/08-app-init.js"></script>
 
 </body>
 </html>
