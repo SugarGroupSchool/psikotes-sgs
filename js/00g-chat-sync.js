@@ -258,4 +258,22 @@ window.getPendingMessagesForRoom  = getPendingMessagesForRoom;
 window.getPendingMessageById      = getPendingMessageById;
 window.__chatFlushQueue           = __chatProcessQueue;
 
+/* ─── Debug accessors (untuk cek queue dari Console) ─── */
+window.__getChatQueue = () => __chatQueue.slice();
+window.__chatQueueDebug = () => {
+  if (!__chatQueue.length) {
+    console.log('%cQueue kosong (semua pesan terkirim)', 'color:#22c55e;font-weight:bold;');
+    return 0;
+  }
+  console.table(__chatQueue.map(m => ({
+    localId: m.localId,
+    from: m.from,
+    text: (m.text || '').slice(0, 30),
+    image: m.image ? '📷' : '',
+    retries: m.retries || 0,
+    age: Math.round((Date.now() - m.clientTs) / 1000) + 's'
+  })));
+  return __chatQueue.length;
+};
+
 console.log('[CHAT-SYNC] ✓ Loaded');
