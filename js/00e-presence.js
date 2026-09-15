@@ -138,8 +138,8 @@ window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ------------------------------------------------------------
    LISTEN SINYAL allow_retake DARI ADMIN
-   - Kalau admin klik "Izinkan Tes Lagi"
-   - Device otomatis hapus _sgs_finished & reload
+   - Kalau diskualifikasi → simpan data (lanjut dari progress)
+   - Kalau selesai tes    → hapus data (mulai fresh)
    ------------------------------------------------------------ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -160,38 +160,64 @@ function startListeningAllowRetake() {
     const allow = snap.val() === true;
     if (!allow) return;
 
-    // Cegah loop: kalau flag sudah pernah diproses di sesi ini, skip
+    // Cegah loop
     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
-
-    console.log('[PRESENCE] 🔓 Admin izinkan tes lagi — reset device...');
-
-    // Tandai sudah diproses (biar tidak loop)
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
-        // Hapus flag device finished & lock & diskualifikasi
+    // ============================================================
+    // DETEKSI MODE
+    // ============================================================
+    const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
+    const wasFinished     = localStorage.getItem('_sgs_finished') === '1';
+
+    console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
+    console.log('[PRESENCE] Mode:',
+      wasDisqualified ? '⚠️ DISKUALIFIKASI (simpan data, lanjut progress)' :
+      wasFinished     ? '✅ SELESAI TES (hapus data, mulai fresh)' :
+                        '❔ LAINNYA'
+    );
+
+    // ============================================================
+    // HAPUS FLAG TERKUNCI (selalu)
+    // ============================================================
     try {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
-      localStorage.removeItem('_sgs_disqualified');   // ← BARU
-    } catch (e) {}
-    // Hapus data kandidat lama
-       // Hapus data kandidat lama
-    try {
-      localStorage.removeItem('identity');
-      localStorage.removeItem('completed');
-      localStorage.removeItem('selectedTests');
-      localStorage.removeItem('usedPragas');   // ← BARU: reset ke FRESH mode
-      sessionStorage.removeItem('dlClick');
+      localStorage.removeItem('_sgs_disqualified');
     } catch (e) {}
 
-    // Reset flag allow_retake di Firebase (biar tidak trigger lagi)
+    // ============================================================
+    // DATA KANDIDAT
+    // - Diskualifikasi  → SIMPAN (identity, completed, selectedTests)
+    // - Selesai tes     → HAPUS (mulai fresh)
+    // ============================================================
+    if (!wasDisqualified) {
+      // Selesai tes / lainnya → hapus semua
+      try {
+        localStorage.removeItem('identity');
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+        sessionStorage.removeItem('dlClick');
+      } catch (e) {}
+      console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh)');
+    } else {
+      // Diskualifikasi → biarkan identity, completed, selectedTests
+      console.log('[PRESENCE] 💾 Data kandidat disimpan (lanjut dari progress)');
+    }
+
+    // Reset flag allow_retake di Firebase
     firebase.database()
       .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
       .set(false)
       .catch(() => {});
 
-     // Notif in-page (bukan popup)
-    showRetakeBanner();
+    // Tampilkan banner in-page (bukan alert)
+    if (typeof showRetakeBanner === 'function') {
+      showRetakeBanner();
+    } else {
+      // Fallback: reload biasa
+      setTimeout(() => { window.location.reload(); }, 1500);
+    }
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
