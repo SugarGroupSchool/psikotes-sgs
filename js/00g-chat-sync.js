@@ -1,0 +1,261 @@
+/* ============================================================
+   js/00g-chat-sync.js
+   - Reliable chat sender with queue + retry + offline
+   - Optimistic UI: pesan tampil langsung, kirim di background
+   ============================================================ */
+
+const CHAT_QUEUE_KEY    = '_sgs_chat_queue';
+const CHAT_RETRY_MAX    = 5;
+const CHAT_RETRY_BASE   = 1500;   // 1.5s, 3s, 6s, 12s, 24s
+
+let __chatQueue       = [];
+let __chatSending     = false;
+let __chatConnStatus  = 'unknown';
+let __chatConnListeners = [];
+
+/* ============================================================
+   QUEUE STORAGE (persist di localStorage)
+   ============================================================ */
+function __chatLoadQueue() {
+  try {
+    const raw = localStorage.getItem(CHAT_QUEUE_KEY);
+    __chatQueue = raw ? (JSON.parse(raw) || []) : [];
+  } catch (e) {
+    __chatQueue = [];
+  }
+}
+
+function __chatSaveQueue() {
+  try {
+    localStorage.setItem(CHAT_QUEUE_KEY, JSON.stringify(__chatQueue));
+  } catch (e) {}
+}
+
+function __chatGenId() {
+  return 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+/* ============================================================
+   MONITOR KONEKSI FIREBASE
+   ============================================================ */
+function __chatInitConnMonitor() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  const connRef = firebase.database().ref('.info/connected');
+  connRef.on('value', snap => {
+    const connected = snap.val() === true;
+    __chatConnStatus = connected ? 'online' : 'offline';
+    __chatConnListeners.forEach(cb => {
+      try { cb(__chatConnStatus); } catch (e) {}
+    });
+    // Kalau online lagi, coba flush queue
+    if (connected) __chatProcessQueue();
+  });
+}
+
+function onChatConnectionChange(cb) {
+  if (typeof cb !== 'function') return () => {};
+  __chatConnListeners.push(cb);
+  cb(__chatConnStatus);
+  return () => {
+    __chatConnListeners = __chatConnListeners.filter(x => x !== cb);
+  };
+}
+
+function getChatConnectionStatus() {
+  return __chatConnStatus;
+}
+
+/* ============================================================
+   ENABLE OFFLINE PERSISTENCE (sekali saja)
+   ============================================================ */
+function __chatEnableOffline() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  try {
+    // RTDB default sudah punya offline queue, tapi kita paksa keepSynced
+    // untuk path chat agar cache selalu fresh
+    firebase.database().ref('sgs_state/chats').keepSynced(true);
+    console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
+  } catch (e) {
+    console.warn('[CHAT-SYNC] Offline persistence gagal:', e);
+  }
+}
+
+/* ============================================================
+   ENQUEUE PESAN (langsung masuk queue + optimistic UI)
+   ============================================================ */
+function enqueueChatMessage({ from, text, image, roomId }) {
+  return new Promise((resolve, reject) => {
+    const rid = roomId || (localStorage.getItem('_sgs_device_id') || 'dev_anon');
+    const t = (text || '').trim().slice(0, 2000);
+    if (!t && !image) { reject(new Error('Pesan kosong')); return; }
+
+    const localId = __chatGenId();
+    const msg = {
+      localId,
+      from,
+      roomId: rid,
+      text: t || '',
+      image: image || null,
+      clientTs: Date.now(),
+      retries: 0
+    };
+
+    __chatQueue.push(msg);
+    __chatSaveQueue();
+
+    // Optimistic resolve — UI langsung tampil
+    resolve({ localId, msg });
+
+    // Trigger processing (async)
+    setTimeout(__chatProcessQueue, 50);
+  });
+}
+
+/* ============================================================
+   PROCESS QUEUE (dengan retry)
+   ============================================================ */
+async function __chatProcessQueue() {
+  if (__chatSending) return;
+  if (__chatQueue.length === 0) return;
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (__chatConnStatus === 'offline') {
+    console.log('[CHAT-SYNC] Offline, queue tersimpan:', __chatQueue.length);
+    return;
+  }
+
+  __chatSending = true;
+
+  while (__chatQueue.length > 0) {
+    const msg = __chatQueue[0];
+
+    try {
+      await __chatSendToFirebase(msg);
+
+      // Sukses → hapus dari queue
+      __chatQueue.shift();
+      __chatSaveQueue();
+
+      // Notify UI sukses
+      window.dispatchEvent(new CustomEvent('chat-msg-sent', {
+        detail: { localId: msg.localId }
+      }));
+
+    } catch (err) {
+      msg.retries = (msg.retries || 0) + 1;
+      console.warn('[CHAT-SYNC] Send failed (retry ' + msg.retries + '):', err.message);
+
+      if (msg.retries >= CHAT_RETRY_MAX) {
+        // Menyerah
+        __chatQueue.shift();
+        __chatSaveQueue();
+        window.dispatchEvent(new CustomEvent('chat-msg-failed', {
+          detail: { localId: msg.localId, error: err.message }
+        }));
+      } else {
+        // Simpan & tunggu backoff
+        __chatSaveQueue();
+        const delay = CHAT_RETRY_BASE * Math.pow(2, msg.retries - 1);
+        __chatSending = false;
+        setTimeout(__chatProcessQueue, delay);
+        return;
+      }
+    }
+  }
+
+  __chatSending = false;
+}
+
+/* ============================================================
+   SEND TO FIREBASE (single attempt)
+   ============================================================ */
+function __chatSendToFirebase(msg) {
+  return new Promise((resolve, reject) => {
+    const roomRef = firebase.database().ref('sgs_state/chats/' + msg.roomId);
+    const msgsRef = roomRef.child('messages');
+
+    const payload = {
+      from: msg.from,
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      clientTs: msg.clientTs,
+      localId: msg.localId,
+      read: false
+    };
+    if (msg.text)  payload.text  = msg.text;
+    if (msg.image) payload.image = msg.image;
+
+    // Timeout guard — kalau 15 detik tidak selesai, anggap gagal
+    const timeout = setTimeout(() => {
+      reject(new Error('Timeout 15s'));
+    }, 15000);
+
+    msgsRef.push(payload).then(ref => {
+      clearTimeout(timeout);
+
+      // Update meta
+      const meta = {
+        lastFrom: msg.from,
+        lastTs: firebase.database.ServerValue.TIMESTAMP,
+        lastMessage: msg.text ? msg.text.slice(0, 60) : '📷 Gambar'
+      };
+      if (msg.from === 'candidate') {
+        try {
+          const id = JSON.parse(localStorage.getItem('identity') || '{}');
+          meta.name = id.name || '';
+          meta.position = id.position || '';
+        } catch (e) {}
+      }
+      return roomRef.update(meta);
+    }).then(() => {
+      resolve();
+    }).catch(err => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
+/* ============================================================
+   AMBIL PENDING MESSAGES UNTUK ROOM TERTENTU
+   (untuk UI render pesan yang belum terkirim)
+   ============================================================ */
+function getPendingMessagesForRoom(roomId) {
+  return __chatQueue.filter(m => m.roomId === roomId);
+}
+
+function getPendingMessageById(localId) {
+  return __chatQueue.find(m => m.localId === localId) || null;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function __chatSyncInit() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    setTimeout(__chatSyncInit, 500);
+    return;
+  }
+  __chatLoadQueue();
+  __chatEnableOffline();
+  __chatInitConnMonitor();
+  // Coba flush queue yang tersisa dari sesi sebelumnya
+  setTimeout(__chatProcessQueue, 1000);
+  console.log('[CHAT-SYNC] ✓ Ready — pending:', __chatQueue.length);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(__chatSyncInit, 800));
+} else {
+  setTimeout(__chatSyncInit, 800);
+}
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+window.enqueueChatMessage         = enqueueChatMessage;
+window.onChatConnectionChange     = onChatConnectionChange;
+window.getChatConnectionStatus    = getChatConnectionStatus;
+window.getPendingMessagesForRoom  = getPendingMessagesForRoom;
+window.getPendingMessageById      = getPendingMessageById;
+window.__chatFlushQueue           = __chatProcessQueue;
+
+console.log('[CHAT-SYNC] ✓ Loaded');
