@@ -2,6 +2,8 @@
    js/00b-admin.js
    - Admin panel: LOCK kontrol + 2 password (Fresh & Used)
    - Login gate: butuh password untuk akses panel
+   - Monitoring kandidat aktif (real-time)
+   - Chat per kandidat
    ============================================================ */
 
 /* ============================================================
@@ -99,6 +101,15 @@ function fallbackCopy(text) {
 }
 
 /* ============================================================
+   HTML ESCAPE
+   ============================================================ */
+function __adminEscape(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ============================================================
    REGENERATE PASSWORDS
    ============================================================ */
 function regenFreshPwd() {
@@ -178,10 +189,8 @@ function adminUnlockDevice() {
 
 /* ============================================================
    ADMIN LOGIN PROMPT
-   - Muncul kalau URL admin diakses tapi belum login
    ============================================================ */
 function renderAdminLoginPrompt() {
-  // Hapus overlay lama kalau ada
   const old = document.getElementById('adminLoginOverlay');
   if (old) old.remove();
 
@@ -204,12 +213,10 @@ function renderAdminLoginPrompt() {
       box-shadow: 0 30px 90px rgba(0,0,0,.60);
       overflow: hidden;
     ">
-      <!-- HEADER -->
       <div style="
         padding: 26px 28px 22px;
         background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-        color: #fff;
-        text-align: center;
+        color: #fff; text-align: center;
       ">
         <div style="
           width: 62px; height: 62px;
@@ -217,8 +224,7 @@ function renderAdminLoginPrompt() {
           display: grid; place-items: center;
           background: rgba(255,255,255,.15);
           border: 1px solid rgba(255,255,255,.3);
-          border-radius: 18px;
-          font-size: 28px;
+          border-radius: 18px; font-size: 28px;
         ">🔒</div>
         <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85;">
           ADMIN PANEL
@@ -231,7 +237,6 @@ function renderAdminLoginPrompt() {
         </div>
       </div>
 
-      <!-- BODY -->
       <div style="padding: 26px 28px 28px;">
         <input
           type="password"
@@ -242,8 +247,7 @@ function renderAdminLoginPrompt() {
             width: 100%; padding: 14px 16px;
             border: 2px solid #e2e8f0; border-radius: 12px;
             font-size: 15px; outline: none;
-            font-family: inherit;
-            background: #fff;
+            font-family: inherit; background: #fff;
             box-sizing: border-box;
             transition: border-color .18s, box-shadow .18s;
           "
@@ -251,27 +255,20 @@ function renderAdminLoginPrompt() {
         <div id="adminLoginError" style="
           color: #dc2626; font-size: 13px;
           min-height: 20px; margin-top: 10px;
-          text-align: center;
-          font-weight: 600;
+          text-align: center; font-weight: 600;
         "></div>
         <button id="adminLoginBtn" style="
           width: 100%; padding: 14px;
           background: linear-gradient(135deg, #1e3a8a, #3b82f6);
           color: #fff; border: 0; border-radius: 12px;
           font-size: 15px; font-weight: 800;
-          cursor: pointer;
-          font-family: inherit;
+          cursor: pointer; font-family: inherit;
           margin-top: 6px;
           box-shadow: 0 10px 24px rgba(30,58,138,.24);
           transition: transform .18s, box-shadow .18s, filter .18s;
         ">🔓 Masuk</button>
 
-        <div style="
-          margin-top: 16px;
-          text-align: center;
-          font-size: 11px;
-          color: #94a3b8;
-        ">
+        <div style="margin-top: 16px; text-align: center; font-size: 11px; color: #94a3b8;">
           Akses hanya untuk administrator
         </div>
       </div>
@@ -284,7 +281,6 @@ function renderAdminLoginPrompt() {
   const btn = document.getElementById('adminLoginBtn');
   const errorEl = document.getElementById('adminLoginError');
 
-  // Focus styling
   input.addEventListener('focus', () => {
     input.style.borderColor = '#3b82f6';
     input.style.boxShadow = '0 0 0 4px rgba(59,130,246,.12)';
@@ -296,15 +292,12 @@ function renderAdminLoginPrompt() {
 
   const attemptLogin = () => {
     const pwd = (input.value || '').trim();
-
     if (!pwd) {
       errorEl.textContent = '⚠️ Password tidak boleh kosong';
       input.focus();
       return;
     }
-
     if (pwd === ADMIN_PANEL_PASSWORD) {
-      // ✅ Sukses
       sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
       errorEl.style.color = '#16a34a';
       errorEl.textContent = '✅ Berhasil...';
@@ -313,13 +306,10 @@ function renderAdminLoginPrompt() {
         renderAdminPanel();
       }, 200);
     } else {
-      // ❌ Gagal
       errorEl.style.color = '#dc2626';
       errorEl.textContent = '❌ Password salah!';
       input.value = '';
       input.focus();
-
-      // Shake effect
       const card = overlay.querySelector('div > div');
       if (card) {
         card.style.animation = 'adminShake .4s ease';
@@ -330,13 +320,9 @@ function renderAdminLoginPrompt() {
 
   btn.onclick = attemptLogin;
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      attemptLogin();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); attemptLogin(); }
   });
 
-  // Inject keyframes sekali saja
   if (!document.getElementById('adminShakeStyle')) {
     const style = document.createElement('style');
     style.id = 'adminShakeStyle';
@@ -360,17 +346,17 @@ function renderAdminLoginPrompt() {
    ============================================================ */
 function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
-  try {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
-  } catch (e) {}
+  try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
 
-  // Hapus panel & login overlay
+  if (typeof window.stopListeningActiveSessions === 'function') {
+    try { window.stopListeningActiveSessions(); } catch (e) {}
+  }
+
   const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
   const login = document.getElementById('adminLoginOverlay');
   if (login) login.remove();
 
-  // Bersihkan URL
   try {
     const url = new URL(window.location.href);
     url.searchParams.delete('admin');
@@ -379,6 +365,85 @@ function adminLogout() {
   } catch (e) {}
 
   console.log('[ADMIN] Logged out');
+}
+
+/* ============================================================
+   RENDER DAFTAR KANDIDAT AKTIF
+   ============================================================ */
+function renderActiveSessionsHTML(sessions) {
+  if (!Array.isArray(sessions) || sessions.length === 0) {
+    return `
+      <div style="
+        padding: 14px; text-align: center;
+        color: #94a3b8; font-size: 12px;
+        background: #fff; border-radius: 10px;
+      ">🌙 Belum ada kandidat yang aktif</div>`;
+  }
+
+  return sessions.map(s => {
+    const ago = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : null;
+    const agoStr = ago === null ? '-' :
+                   ago < 60 ? `${ago}s lalu` :
+                   ago < 3600 ? `${Math.floor(ago / 60)}m lalu` :
+                   `${Math.floor(ago / 3600)}j lalu`;
+
+    const testLabel = s.currentTest ? s.currentTest : '—';
+    const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null
+      ? ` (subtes ${(s.currentSubtest || 0) + 1})` : '';
+    const progress = s.totalTests > 0
+      ? `${s.completedCount}/${s.totalTests} tes`
+      : '—';
+    const statusColor = s.inTestView ? '#16a34a' : '#f59e0b';
+    const statusLabel = s.inTestView ? '🟢 Mengerjakan' : '🟡 Idle';
+
+    const safeName = String(s.name || '(tanpa nama)')
+      .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    return `
+      <div style="
+        padding: 12px 14px; background: #fff;
+        border: 1px solid #dbeafe; border-radius: 10px;
+        font-size: 12px; line-height: 1.5;
+      ">
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: flex-start; gap: 8px; margin-bottom: 6px;
+        ">
+          <div style="font-weight: 800; color: #1e293b; min-width:0;">
+            ${__adminEscape(s.name || '(tanpa nama)')}
+          </div>
+          <div style="
+            font-size: 10px; color: ${statusColor};
+            font-weight: 800; white-space: nowrap;
+          ">${statusLabel}</div>
+        </div>
+
+        <div style="color: #64748b; font-size: 11px; margin-bottom: 6px;">
+          ${s.position ? `📍 ${__adminEscape(s.position)} &nbsp;·&nbsp; ` : ''}
+          📝 <b>${testLabel}</b>${subLabel} &nbsp;·&nbsp;
+          ✅ ${progress}
+        </div>
+
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: center; gap: 8px; padding-top: 6px;
+          border-top: 1px dashed #e2e8f0;
+        ">
+          <div style="color: #94a3b8; font-size: 10px;">
+            ID: ${s.deviceId.slice(-8)} &nbsp;·&nbsp; 👁 ${agoStr}
+          </div>
+          <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')" style="
+            padding: 5px 12px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            color: #fff; border: 0; border-radius: 7px;
+            font-size: 11px; font-weight: 800;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 3px 8px rgba(59,130,246,.25);
+          ">💬 Chat</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 /* ============================================================
@@ -392,7 +457,6 @@ function renderAdminPanel() {
   const freshPwd = getFreshPwd();
   const usedPwd = getUsedPwd();
 
-  // State device ini
   const deviceFinished = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1';
   const usedPragas = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
 
@@ -413,6 +477,8 @@ function renderAdminPanel() {
       completedCount = Object.values(c).filter(v => v === true).length;
     }
   } catch (e) {}
+
+  const myDeviceId = localStorage.getItem('_sgs_device_id') || '';
 
   const overlay = document.createElement('div');
   overlay.id = 'adminPanelOverlay';
@@ -515,6 +581,57 @@ function renderAdminPanel() {
           </label>
         </div>
 
+        <!-- =========================================
+             MONITORING KANDIDAT AKTIF
+             ========================================= -->
+        <div style="
+          padding: 18px 20px;
+          background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+          border: 2px solid #bfdbfe;
+          border-radius: 14px;
+          margin-bottom: 16px;
+        ">
+          <div style="
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+          ">
+            <div style="
+              font-size: 14px; font-weight: 900; color: #1e40af;
+              display: flex; align-items: center; gap: 8px;
+            ">
+              <span style="
+                width: 10px; height: 10px; border-radius: 50%;
+                background: #22c55e;
+                box-shadow: 0 0 0 4px rgba(34,197,94,.2);
+                animation: adminPulseDot 1.4s ease-in-out infinite;
+              "></span>
+              Kandidat Aktif
+            </div>
+            <div id="adminActiveCount" style="
+              font-size: 12px; font-weight: 800; color: #94a3b8;
+              background: #fff; padding: 4px 10px; border-radius: 999px;
+              border: 1px solid #bfdbfe;
+            ">0 aktif</div>
+          </div>
+
+          <div id="adminActiveSessions" style="
+            display: flex; flex-direction: column; gap: 8px;
+            max-height: 340px; overflow-y: auto;
+          ">
+            <div style="
+              padding: 14px; text-align: center;
+              color: #94a3b8; font-size: 12px;
+            ">⏳ Memuat data...</div>
+          </div>
+        </div>
+
+        <style>
+          @keyframes adminPulseDot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.35); opacity: .7; }
+          }
+        </style>
+
         ${locked ? `
           <!-- KALAU LOCKED, TAMPILKAN PESAN -->
           <div style="
@@ -526,6 +643,7 @@ function renderAdminPanel() {
             color: #64748b;
             font-size: 13px;
             line-height: 1.7;
+            margin-bottom: 16px;
           ">
             <div style="font-size: 36px; margin-bottom: 10px;">🔒</div>
             <div style="font-weight: 800; color: #334155; margin-bottom: 6px;">
@@ -583,9 +701,7 @@ function renderAdminPanel() {
                 cursor: pointer;
               ">🔄 Random</button>
             </div>
-            <div style="
-              display: flex; gap: 6px; margin-top: 8px;
-            ">
+            <div style="display: flex; gap: 6px; margin-top: 8px;">
               <input type="text" id="adminFreshInput" placeholder="Atau ketik manual..." style="
                 flex: 1; padding: 8px 12px;
                 border: 1px solid #d1fae5; border-radius: 8px;
@@ -649,9 +765,7 @@ function renderAdminPanel() {
                 cursor: pointer;
               ">🔄 Random</button>
             </div>
-            <div style="
-              display: flex; gap: 6px; margin-top: 8px;
-            ">
+            <div style="display: flex; gap: 6px; margin-top: 8px;">
               <input type="text" id="adminUsedInput" placeholder="Atau ketik manual..." style="
                 flex: 1; padding: 8px 12px;
                 border: 1px solid #fee2e2; border-radius: 8px;
@@ -697,11 +811,26 @@ function renderAdminPanel() {
           <div style="font-weight: 800; margin-bottom: 8px; color: #1e293b;">
             📱 Device ini
           </div>
-          <div><strong>Nama:</strong> ${identityName}</div>
+          <div><strong>Nama:</strong> ${__adminEscape(identityName)}</div>
           <div><strong>Tes selesai:</strong> ${completedCount}</div>
           <div><strong>Used flag:</strong> ${usedPragas ? '✅ aktif (kandidat sudah logout)' : '❌ belum'}</div>
           <div><strong>Device finished:</strong> ${deviceFinished ? '🔒 ya (tidak bisa login)' : '🔓 belum'}</div>
         </div>
+
+        <!-- CHAT DENGAN DEVICE INI -->
+        ${myDeviceId ? `
+        <div style="margin-bottom: 12px;">
+          <button onclick="openChatForAdmin('${myDeviceId}', '${String(identityName).replace(/'/g, "\\'")}')" style="
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            color: #fff; border: 0; border-radius: 10px;
+            font-family: inherit; font-size: 13px; font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(59,130,246,.28);
+          ">💬 Chat dengan Device Ini</button>
+        </div>
+        ` : ''}
 
         <!-- ACTIONS -->
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -738,10 +867,38 @@ function renderAdminPanel() {
 
   document.body.appendChild(overlay);
 
-  // Tombol close
+  /* ---- Listen kandidat aktif (real-time) ---- */
+  setTimeout(() => {
+    const container = document.getElementById('adminActiveSessions');
+    const countEl   = document.getElementById('adminActiveCount');
+    if (!container || typeof window.listenActiveSessions !== 'function') {
+      if (container) {
+        container.innerHTML = `
+          <div style="
+            padding: 14px; text-align: center;
+            color: #94a3b8; font-size: 11px;
+            background: #fff; border-radius: 10px;
+          ">⚠️ Modul monitoring belum siap</div>`;
+      }
+      return;
+    }
+
+    window.listenActiveSessions((sessions) => {
+      if (countEl) {
+        countEl.textContent = sessions.length + ' aktif';
+        countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
+      }
+      container.innerHTML = renderActiveSessionsHTML(sessions);
+    });
+  }, 200);
+
+  /* ---- Tombol close ---- */
   const closeBtn = document.getElementById('btnAdminClose');
   if (closeBtn) {
     closeBtn.onclick = () => {
+      if (typeof window.stopListeningActiveSessions === 'function') {
+        try { window.stopListeningActiveSessions(); } catch (e) {}
+      }
       overlay.remove();
       try {
         const url = new URL(window.location.href);
@@ -752,13 +909,13 @@ function renderAdminPanel() {
     };
   }
 
-  // Tombol logout
+  /* ---- Tombol logout ---- */
   const logoutBtn = document.getElementById('btnAdminLogout');
   if (logoutBtn) {
     logoutBtn.onclick = adminLogout;
   }
 
-  // ESC untuk tutup
+  /* ---- ESC untuk tutup ---- */
   document.addEventListener('keydown', function adminEsc(e) {
     if (e.key === 'Escape') {
       closeBtn && closeBtn.click();
@@ -773,14 +930,11 @@ function renderAdminPanel() {
 function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
-  // Cek apakah admin sudah login (tersimpan di sessionStorage)
   const isLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
 
   if (isLoggedIn) {
-    // Jika sudah login, langsung tampilkan panel
     renderAdminPanel();
   } else {
-    // Jika belum login, tampilkan form login
     renderAdminLoginPrompt();
   }
   return true;
@@ -796,6 +950,7 @@ window.getUsedPwd = getUsedPwd;
 window.isAdminUrl = isAdminUrl;
 window.renderAdminPanel = renderAdminPanel;
 window.renderAdminLoginPrompt = renderAdminLoginPrompt;
+window.renderActiveSessionsHTML = renderActiveSessionsHTML;
 window.checkAdminUrlAndRender = checkAdminUrlAndRender;
 window.toggleLockState = toggleLockState;
 window.copyToClipboard = copyToClipboard;
@@ -807,4 +962,4 @@ window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
 window.adminLogout = adminLogout;
 
-console.log('[ADMIN] ✓ Loaded — lock control + 2 passwords + login gate');
+console.log('[ADMIN] ✓ Loaded — lock control + 2 passwords + login gate + monitoring + chat');
