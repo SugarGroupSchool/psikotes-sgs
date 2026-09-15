@@ -1,14 +1,14 @@
 /* ============================================================
    js/00e-presence.js
-   - Heartbeat kandidat aktif ke Firebase (30 detik)
-   - Admin bisa lihat list real-time
+   - Heartbeat kandidat aktif ke Firebase (5 detik saat tes)
+   - Admin bisa lihat timer + progress realtime
    - getOrCreateDeviceId() = sumber tunggal device ID
-   - FITUR BARU: listen sinyal allow_retake dari admin
+   - Listen sinyal allow_retake dari admin
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
-const PRESENCE_HEARTBEAT_MS = 30000;         // 30 detik
-const PRESENCE_STALE_MS     = 3 * 60 * 1000; // 3 menit
+const PRESENCE_HEARTBEAT_MS = 5000;   // 5 detik (realtime)
+const PRESENCE_STALE_MS     = 3 * 60 * 1000;
 
 let __presenceTimer       = null;
 let __presenceDeviceId    = null;
@@ -53,23 +53,19 @@ function initPresence() {
     lastSeen: firebase.database.ServerValue.TIMESTAMP
   });
 
-   pushPresence('active');
+  pushPresence('active');
 
-  // Dynamic heartbeat: 5 detik saat tes, 30 detik saat idle
   if (__presenceTimer) clearInterval(__presenceTimer);
-  __presenceTimer = setInterval(() => {
-    const inTest = (typeof window !== 'undefined' && window.__inTestView === true);
-    pushPresence('active');
-  }, 5000);  // ← 5 detik, cukup untuk timer realtime
+  __presenceTimer = setInterval(() => pushPresence('active'), PRESENCE_HEARTBEAT_MS);
 
-  console.log('[PRESENCE] ✓ device:', __presenceDeviceId);
+  console.log('[PRESENCE] ✓ device:', __presenceDeviceId, '— heartbeat:', PRESENCE_HEARTBEAT_MS + 'ms');
 
   // Mulai dengarkan sinyal allow_retake dari admin
   startListeningAllowRetake();
 }
 
 /* ------------------------------------------------------------
-   PUSH PRESENCE (heartbeat)
+   PUSH PRESENCE (heartbeat + progress + timer)
    ------------------------------------------------------------ */
 function pushPresence(status) {
   if (!__presenceRef) return;
@@ -90,7 +86,6 @@ function pushPresence(status) {
 
   const st = (typeof appState !== 'undefined' && appState) ? appState : {};
 
-  // Cek status device
   let isFinished = false;
   let isDisqualified = false;
   try {
@@ -101,18 +96,16 @@ function pushPresence(status) {
   // ============================================================
   // DATA WAKTU & PROGRESS
   // ============================================================
-  const currentTest = st.currentTest || null;
-  const timeLeft = (typeof st.timeLeft === 'number') ? st.timeLeft : null;
-  const currentSubtest = (st.currentSubtest !== undefined) ? st.currentSubtest : null;
-  const currentColumn = (st.currentColumn !== undefined) ? st.currentColumn : null;
+  const currentTest     = st.currentTest || null;
+  const timeLeft        = (typeof st.timeLeft === 'number') ? st.timeLeft : null;
+  const currentSubtest  = (st.currentSubtest !== undefined) ? st.currentSubtest : null;
+  const currentColumn   = (st.currentColumn !== undefined) ? st.currentColumn : null;
   const currentQuestion = (st.currentQuestion !== undefined) ? st.currentQuestion : null;
 
-  // Hitung progress percent + soal X/Y
-  let progressPercent = 0;
-  let questionLabel = null;
-  let testTotalQuestions = null;
-  let testTotalSubtests = null;
-  let testTotalColumns = null;
+  let progressPercent    = 0;
+  let questionLabel      = null;
+  let testTotalSubtests  = null;
+  let testTotalColumns   = null;
 
   try {
     if (currentTest === 'IST' && typeof tests !== 'undefined' && tests.IST) {
@@ -120,10 +113,8 @@ function pushPresence(status) {
       testTotalSubtests = subtests.length;
       if (currentSubtest !== null && subtests[currentSubtest]) {
         const totalQ = subtests[currentSubtest].questions?.length || 0;
-        testTotalQuestions = totalQ;
         if (currentQuestion !== null && totalQ > 0) {
           questionLabel = `${currentQuestion + 1}/${totalQ}`;
-          const subtestProgress = (currentQuestion / totalQ) * 100;
           const overallProgress = ((currentSubtest + (currentQuestion / totalQ)) / subtests.length) * 100;
           progressPercent = Math.round(overallProgress);
         }
@@ -133,60 +124,54 @@ function pushPresence(status) {
       testTotalColumns = cols.length;
       if (currentColumn !== null && cols.length > 0) {
         questionLabel = `Kolom ${currentColumn + 1}/${cols.length}`;
-        progressPercent = Math.round(((currentColumn) / cols.length) * 100);
+        progressPercent = Math.round((currentColumn / cols.length) * 100);
       }
     } else if (currentTest === 'DISC' && typeof tests !== 'undefined' && tests.DISC) {
       const totalQ = tests.DISC.questions?.length || 0;
-      testTotalQuestions = totalQ;
       if (currentQuestion !== null && totalQ > 0) {
         questionLabel = `${currentQuestion + 1}/${totalQ}`;
         progressPercent = Math.round((currentQuestion / totalQ) * 100);
       }
     } else if (currentTest === 'PAPI' && typeof tests !== 'undefined' && tests.PAPI) {
       const totalQ = tests.PAPI.questions?.length || 0;
-      testTotalQuestions = totalQ;
       if (currentQuestion !== null && totalQ > 0) {
         questionLabel = `${currentQuestion + 1}/${totalQ}`;
         progressPercent = Math.round((currentQuestion / totalQ) * 100);
       }
     } else if (currentTest === 'BIGFIVE' && typeof tests !== 'undefined' && tests.BIGFIVE) {
       const totalQ = tests.BIGFIVE.questions?.length || 0;
-      testTotalQuestions = totalQ;
       if (currentQuestion !== null && totalQ > 0) {
         questionLabel = `${currentQuestion + 1}/${totalQ}`;
         progressPercent = Math.round((currentQuestion / totalQ) * 100);
       }
-    } else if (currentTest === 'TYPING' || currentTest === 'EXCEL' || currentTest === 'SUBJECT' || currentTest === 'GRAFIS') {
-      // Untuk tes ini, progress berbasis waktu
-      progressPercent = 0;
     }
   } catch (e) {
     console.warn('[PRESENCE] Progress calc error:', e);
   }
 
   const payload = {
-    deviceId:        __presenceDeviceId,
-    name:            identity.name || '(belum isi identitas)',
-    nickname:        identity.nickname || '',
-    position:        identity.position || '',
-    currentTest:     currentTest,
-    currentSubtest:  currentSubtest,
-    currentQuestion: currentQuestion,
-    currentColumn:   currentColumn,
-    timeLeft:        timeLeft,
-    progressPercent: progressPercent,
-    questionLabel:   questionLabel,
+    deviceId:          __presenceDeviceId,
+    name:              identity.name || '(belum isi identitas)',
+    nickname:          identity.nickname || '',
+    position:          identity.position || '',
+    currentTest:       currentTest,
+    currentSubtest:    currentSubtest,
+    currentQuestion:   currentQuestion,
+    currentColumn:     currentColumn,
+    timeLeft:          timeLeft,
+    progressPercent:   progressPercent,
+    questionLabel:     questionLabel,
     testTotalSubtests: testTotalSubtests,
     testTotalColumns:  testTotalColumns,
     completedCount,
     totalTests,
-    status:          status || 'active',
-    inTestView:      (typeof window !== 'undefined' && window.__inTestView === true),
-    finished:        isFinished,
-    disqualified:    isDisqualified,
-    lastSeen:        firebase.database.ServerValue.TIMESTAMP
+    status:            status || 'active',
+    inTestView:        (typeof window !== 'undefined' && window.__inTestView === true),
+    finished:          isFinished,
+    disqualified:      isDisqualified,
+    lastSeen:          firebase.database.ServerValue.TIMESTAMP
   };
-   
+
   __presenceRef.once('value').then(snap => {
     if (!snap.exists() || !snap.val()?.startedAt) {
       payload.startedAt = firebase.database.ServerValue.TIMESTAMP;
@@ -214,8 +199,6 @@ window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ------------------------------------------------------------
    LISTEN SINYAL allow_retake DARI ADMIN
-   - Kalau diskualifikasi → simpan data (lanjut dari progress)
-   - Kalau selesai tes    → hapus data (mulai fresh)
    ------------------------------------------------------------ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -224,7 +207,6 @@ function startListeningAllowRetake() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   if (!__presenceDeviceId) return;
 
-  // Bersihkan listener lama
   if (__allowRetakeListenRef && __allowRetakeListenCb) {
     try { __allowRetakeListenRef.off('value', __allowRetakeListenCb); } catch (e) {}
   }
@@ -236,39 +218,26 @@ function startListeningAllowRetake() {
     const allow = snap.val() === true;
     if (!allow) return;
 
-    // Cegah loop
     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
-    // ============================================================
-    // DETEKSI MODE
-    // ============================================================
     const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
     const wasFinished     = localStorage.getItem('_sgs_finished') === '1';
 
     console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
     console.log('[PRESENCE] Mode:',
-      wasDisqualified ? '⚠️ DISKUALIFIKASI (simpan data, lanjut progress)' :
-      wasFinished     ? '✅ SELESAI TES (hapus data, mulai fresh)' :
+      wasDisqualified ? '⚠️ DISKUALIFIKASI (simpan data)' :
+      wasFinished     ? '✅ SELESAI TES (hapus data)' :
                         '❔ LAINNYA'
     );
 
-    // ============================================================
-    // HAPUS FLAG TERKUNCI (selalu)
-    // ============================================================
     try {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
     } catch (e) {}
 
-    // ============================================================
-    // DATA KANDIDAT
-    // - Diskualifikasi  → SIMPAN (identity, completed, selectedTests)
-    // - Selesai tes     → HAPUS (mulai fresh)
-    // ============================================================
     if (!wasDisqualified) {
-      // Selesai tes / lainnya → hapus semua
       try {
         localStorage.removeItem('identity');
         localStorage.removeItem('completed');
@@ -277,21 +246,17 @@ function startListeningAllowRetake() {
       } catch (e) {}
       console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh)');
     } else {
-      // Diskualifikasi → biarkan identity, completed, selectedTests
       console.log('[PRESENCE] 💾 Data kandidat disimpan (lanjut dari progress)');
     }
 
-    // Reset flag allow_retake di Firebase
     firebase.database()
       .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
       .set(false)
       .catch(() => {});
 
-    // Tampilkan banner in-page (bukan alert)
     if (typeof showRetakeBanner === 'function') {
       showRetakeBanner();
     } else {
-      // Fallback: reload biasa
       setTimeout(() => { window.location.reload(); }, 1500);
     }
   };
@@ -310,14 +275,11 @@ function stopListeningAllowRetake() {
 
 /* ------------------------------------------------------------
    BANNER IN-PAGE — notifikasi izin retake dari admin
-   (bukan alert/popup, tapi banner besar di atas halaman)
    ------------------------------------------------------------ */
 function showRetakeBanner() {
-  // Hapus banner lama kalau ada
   const old = document.getElementById('retakeNotification');
   if (old) old.remove();
 
-  // Inject keyframes sekali saja
   if (!document.getElementById('retakeBannerStyle')) {
     const style = document.createElement('style');
     style.id = 'retakeBannerStyle';
@@ -373,7 +335,6 @@ function showRetakeBanner() {
 
   document.body.appendChild(banner);
 
-  // Countdown 3 → 2 → 1 → reload
   let countdown = 3;
   const countdownEl = document.getElementById('retakeCountdown');
 
@@ -406,11 +367,7 @@ function __presenceFilterFresh(data) {
     .filter(s => {
       if (!s.lastSeen) return false;
       if (excludeId && s.deviceId === excludeId) return false;
-
-      // Device "finished" tetap tampil meski offline — supaya admin bisa izinkan tes lagi
       if (s.finished === true) return true;
-
-      // Device normal — filter offline & stale
       if (s.status === 'offline') return false;
       if ((now - s.lastSeen) >= PRESENCE_STALE_MS) return false;
       return true;
@@ -472,6 +429,6 @@ window.stopListeningActiveSessions  = stopListeningActiveSessions;
 window.getOrCreateDeviceId          = getOrCreateDeviceId;
 window.startListeningAllowRetake    = startListeningAllowRetake;
 window.stopListeningAllowRetake     = stopListeningAllowRetake;
-window.showRetakeBanner = showRetakeBanner;
+window.showRetakeBanner             = showRetakeBanner;
 
 console.log('[PRESENCE] ✓ Loaded');
