@@ -7,21 +7,9 @@
    ============================================================ */
 
 /* ============================================================
-   PASSWORD AKTIF (fallback — auth.js bisa menimpa)
+   COUNTER KLIK
    ============================================================ */
-   if (typeof PASSWORD === 'undefined') {
-    var PASSWORD =
-      localStorage.getItem('usedPragas') === '1'
-        ? "SGS-HC-Talent27"        // sudah pernah logout → kode hangus
-        : "SGS-REC-Assessment84";  // fresh → kode kandidat
-  }
-  
-  
-  /* ============================================================
-     COUNTER KLIK
-     ============================================================ */
-  let downloadClickCount = 0;
-  window.downloadClickCount = 0;
+window.downloadClickCount = 0;
   
   
   /* ============================================================
