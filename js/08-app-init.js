@@ -12,47 +12,45 @@
 
   /* ============================================================
      0. HANDLE URL ?fresh=1 — PALING ATAS
-     
+
      Kalau URL punya ?fresh=1:
      - Clear localStorage & sessionStorage
      - Bersihkan URL (hapus parameter) supaya refresh berikutnya
        tidak clear lagi
-     
+
      Cara pakai untuk kandidat baru:
        https://site.com/?fresh=1
      ============================================================ */
-(function handleFreshParam() {
-  try {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get('fresh') === '1') {
-      const deviceId = localStorage.getItem('_sgs_device_id');
-      const finishedFlag = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED);
-      const lockState = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL);
-      const freshPwd = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH);
-      const usedPwd = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_USED);
+  (function handleFreshParam() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('fresh') === '1') {
+        const finishedFlag = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED);
+        const lockState    = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL);
+        const freshPwd     = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH);
+        const usedPwd      = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_USED);
 
-      localStorage.clear();
-      sessionStorage.clear();
+        localStorage.clear();
+        sessionStorage.clear();
 
-      // Restore admin & device state (jangan hilang)
-      if (deviceId) localStorage.setItem('_sgs_device_id', deviceId);
-      if (finishedFlag) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, finishedFlag);
-      if (lockState) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL, lockState);
-      if (freshPwd) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH, freshPwd);
-      if (usedPwd) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_USED, usedPwd);
+        // Restore admin & device state (jangan hilang)
+        if (finishedFlag) localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, finishedFlag);
+        if (lockState)    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL, lockState);
+        if (freshPwd)     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH, freshPwd);
+        if (usedPwd)      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_USED, usedPwd);
 
-      console.log('[INIT] ?fresh=1 → state direset (admin & device tetap)');
+        console.log('[INIT] ?fresh=1 → state direset (admin & device tetap)');
 
-      let cleanPath = url.pathname.replace(/^\/+/, '/');
-      url.searchParams.delete('fresh');
-      const cleanSearch = url.searchParams.toString() ? '?' + url.searchParams.toString() : '';
-      const cleanUrl = cleanPath + cleanSearch + (url.hash || '');
-      window.history.replaceState({}, '', cleanUrl);
+        const cleanPath = url.pathname.replace(/^\/+/, '/');
+        url.searchParams.delete('fresh');
+        const cleanSearch = url.searchParams.toString() ? '?' + url.searchParams.toString() : '';
+        const cleanUrl = cleanPath + cleanSearch + (url.hash || '');
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    } catch (e) {
+      console.warn('[INIT] Gagal ?fresh=1:', e);
     }
-  } catch (e) {
-    console.warn('[INIT] Gagal ?fresh=1:', e);
-  }
-})();
+  })();
 
   /* ============================================================
      1. AUTO FOCUS PASSWORD SAAT PAGE LOAD
@@ -73,8 +71,8 @@
     if (!input || input.__enterBound) return;
     input.__enterBound = true;
 
-input.addEventListener('keydown', function (e) {
-  if (e.key === 'Enter') {
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
         e.preventDefault();
         if (typeof checkPassword === 'function') {
           checkPassword();
@@ -87,14 +85,18 @@ input.addEventListener('keydown', function (e) {
      3. CEK STATE "SUDAH LOGOUT" (usedPragas === '1')
      → kalau iya, ganti password aktif ke SGS-HC-Talent27
      ============================================================ */
-function refreshActivePassword() {
-  const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
-  if (used) {
-    window.PASSWORD = (typeof window.getUsedPwd === 'function') ? window.getUsedPwd() : APP_CONFIG.DEFAULT_USED_PWD;
-  } else {
-    window.PASSWORD = (typeof window.getFreshPwd === 'function') ? window.getFreshPwd() : APP_CONFIG.DEFAULT_FRESH_PWD;
+  function refreshActivePassword() {
+    const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
+    if (used) {
+      window.PASSWORD = (typeof window.getUsedPwd === 'function')
+        ? window.getUsedPwd()
+        : APP_CONFIG.DEFAULT_USED_PWD;
+    } else {
+      window.PASSWORD = (typeof window.getFreshPwd === 'function')
+        ? window.getFreshPwd()
+        : APP_CONFIG.DEFAULT_FRESH_PWD;
+    }
   }
-}
 
   /* ============================================================
      4. HELPER: BLANK COMPLETED STATE
@@ -118,7 +120,7 @@ function refreshActivePassword() {
 
   /* ============================================================
      5. INIT APP STATE + AUTO-CLEANUP
-     
+
      LOGIKA:
      - Ambil `identity` dari localStorage
      - Validasi: harus ada `name` yang tidak kosong
@@ -200,7 +202,7 @@ function refreshActivePassword() {
     window.appState.selectedTests = selectedSaved;
 
     const completedCount = Object.values(window.appState.completed).filter(v => v === true).length;
-    console.log('[INIT] ♻️  RESUME MODE —', {
+    console.log('[INIT] ♻️ RESUME MODE —', {
       name: identitySaved.name,
       completed: completedCount + ' tes',
       selected: selectedSaved.length + ' tes'
@@ -227,15 +229,10 @@ function refreshActivePassword() {
   }
 
   /* ============================================================
-     7. DISABLE CONTEXT MENU / DRAG
-     - Hanya di dalam area tes (bukan seluruh halaman)
+     7. (removed) attachCopyGuards — tidak dipakai, context menu
+        sudah di-disable global di 04-auth.js
      ============================================================ */
-  function attachCopyGuards() {
-    document.addEventListener('contextmenu', function (e) {
-      const inTestArea = e.target.closest('#app [data-no-ctx]');
-      if (inTestArea) e.preventDefault();
-    });
-  }
+  function attachCopyGuards() { /* no-op */ }
 
   /* ============================================================
      8. HANDLE SEBELUM UNLOAD (peringatan kalau tes sedang jalan)
@@ -255,9 +252,9 @@ function refreshActivePassword() {
      Panggil via console: __debugState()
      ============================================================ */
   function debugState() {
-    const id = localStorage.getItem('identity');
+    const id   = localStorage.getItem('identity');
     const comp = localStorage.getItem('completed');
-    const sel = localStorage.getItem('selectedTests');
+    const sel  = localStorage.getItem('selectedTests');
     const used = localStorage.getItem('usedPragas');
 
     let parsedId = null;
@@ -307,35 +304,25 @@ function refreshActivePassword() {
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-function runInit() {
-  /* ============================================================
-     1. Pastikan password acak sudah di-generate
-     ============================================================ */
-  if (typeof window.ensureRandomPasswords === 'function') {
-    window.ensureRandomPasswords();
-  }
+  function runInit() {
 
-  /* ============================================================
-     2. Cek apakah URL admin → tampilkan panel admin & skip init normal
-     ============================================================ */
-  if (typeof window.checkAdminUrlAndRender === 'function') {
-    if (window.checkAdminUrlAndRender()) {
-      console.log('[INIT] Mode admin — init normal di-skip');
-      return;
+    /* Cek apakah URL admin → tampilkan panel admin & skip init normal */
+    if (typeof window.checkAdminUrlAndRender === 'function') {
+      if (window.checkAdminUrlAndRender()) {
+        console.log('[INIT] Mode admin — init normal di-skip');
+        return;
+      }
     }
-  }
 
-  /* ============================================================
-     3. Init normal
-     ============================================================ */
-  refreshActivePassword();
-  initAppState();
-  attachPasswordEnter();
-  autoFocusPassword();
-  attachAntiCheat();
-  attachCopyGuards();
-  attachBeforeUnload();
-}
+    /* Init normal */
+    refreshActivePassword();
+    initAppState();
+    attachPasswordEnter();
+    autoFocusPassword();
+    attachAntiCheat();
+    attachCopyGuards();
+    attachBeforeUnload();
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runInit);
