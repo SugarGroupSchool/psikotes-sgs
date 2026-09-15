@@ -17,7 +17,10 @@ function renderSubjectTestHome() {
   window.__inTestView = true;
   appState.currentTest = 'SUBJECT';
 
-  const subs = tests.SUBJECT.subjects || [];
+  // Filter subjek yang belum punya soal
+  const subs = (tests.SUBJECT.subjects || []).filter(
+    s => Array.isArray(s.questions) && s.questions.length > 0
+  );
 
   document.getElementById('app').innerHTML = `
     <div class="subject-test-page">
@@ -108,6 +111,11 @@ function renderSubjectTestHome() {
 function startSubjectTest(subjId) {
   const subj = (tests.SUBJECT.subjects || []).find(s => s.id === subjId);
   if (!subj) { alert("Subjek tidak ditemukan!"); return; }
+  // ↓ TAMBAHKAN BARIS INI
+  if (!Array.isArray(subj.questions) || subj.questions.length === 0) {
+    alert("Soal untuk subjek ini belum tersedia. Silakan pilih subjek lain.");
+    return;
+  }
 
   appState.subjectSelected = subjId;
   appState.subjectStartTime = Date.now();
@@ -199,7 +207,15 @@ function renderSubjectQuestionSlide(qIdx) {
   const timerHTML = `<span id="subject-timer">${(m < 10 ? "0" : "") + m}:${(s < 10 ? "0" : "") + s}</span>`;
 
   const q = subj.questions[qIdx];
-
+if (!q) {
+  document.getElementById('app').innerHTML = `
+    <div class="card" style="max-width:480px;margin:60px auto;padding:30px;text-align:center;">
+      <h2>Soal belum tersedia</h2>
+      <p>Soal untuk subjek <b>${subj.name}</b> belum tersedia.</p>
+      <button class="btn" onclick="renderSubjectTestHome()">Kembali</button>
+    </div>`;
+  return;
+}
   document.getElementById('app').innerHTML = `
     <div class="card" style="max-width:650px;margin:40px auto 0;padding:32px 18px 30px 18px;border-radius:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
