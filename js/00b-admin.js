@@ -817,18 +817,18 @@ function renderAdminPanel() {
           <div><strong>Device finished:</strong> ${deviceFinished ? '🔒 ya (tidak bisa login)' : '🔓 belum'}</div>
         </div>
 
-        <!-- CHAT DENGAN DEVICE INI -->
+        <!-- TEST CHAT (Device Sendiri) -->
         ${myDeviceId ? `
         <div style="margin-bottom: 12px;">
           <button onclick="openChatForAdmin('${myDeviceId}', '${String(identityName).replace(/'/g, "\\'")}')" style="
             width: 100%;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            background: linear-gradient(135deg, #64748b, #334155);
             color: #fff; border: 0; border-radius: 10px;
             font-family: inherit; font-size: 13px; font-weight: 800;
             cursor: pointer;
-            box-shadow: 0 8px 20px rgba(59,130,246,.28);
-          ">💬 Chat dengan Device Ini</button>
+            box-shadow: 0 8px 20px rgba(51,65,85,.28);
+          ">🧪 Test Chat (Device Sendiri)</button>
         </div>
         ` : ''}
 
