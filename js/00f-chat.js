@@ -591,31 +591,39 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     if (typeof onClose === 'function') onClose();
   };
 
-  /* ------------------------------------------------------------
-     LISTEN MESSAGES
+   /* ------------------------------------------------------------
+     LISTEN MESSAGES — child_added, tanpa orderByChild
      ------------------------------------------------------------ */
   const ref = firebase.database().ref('sgs_state/chats/' + roomId + '/messages');
-  const handler = ref.orderByChild('ts').limitToLast(CHAT_MAX_KEEP).on('value', snap => {
-    __serverMessages = [];
-    snap.forEach(ch => __serverMessages.push({ id: ch.key, ...ch.val() }));
 
-    if (__serverMessages.length > 0) {
-      const last = __serverMessages[__serverMessages.length - 1];
-      const opposite = role === 'admin' ? 'candidate' : 'admin';
-      if (last && last.from === opposite && last.ts > (window.__chatLastSeenTs || 0)) {
-        window.__chatLastSeenTs = last.ts;
-        __chatPlayDing();
-        markChatRead(role, roomId);
-      }
+  const onChildAdded = (snap) => {
+    const m = { id: snap.key, ...snap.val() };
+    if (__serverMessages.some(x => x.id === m.id)) return;
+
+    __serverMessages.push(m);
+    __serverMessages.sort((a, b) => {
+      const ta = a.ts || a.clientTs || 0;
+      const tb = b.ts || b.clientTs || 0;
+      return ta - tb;
+    });
+
+    const opposite = role === 'admin' ? 'candidate' : 'admin';
+    const msgTs = m.ts || m.clientTs || 0;
+    if (m.from === opposite && msgTs > (window.__chatLastSeenTs || 0)) {
+      window.__chatLastSeenTs = msgTs;
+      __chatPlayDing();
+      markChatRead(role, roomId);
     }
 
     renderMessages();
-  });
+  };
+
+  ref.on('child_added', onChildAdded);
 
   window.addEventListener('chat-msg-sent', __handleQueueChange);
   window.addEventListener('chat-msg-failed', __handleQueueChange);
 
-  __chatUnsub = () => ref.off('value', handler);
+  __chatUnsub = () => ref.off('child_added', onChildAdded);
 
   /* ------------------------------------------------------------
      INITIAL RENDER
