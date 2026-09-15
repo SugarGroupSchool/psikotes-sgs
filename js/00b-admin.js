@@ -1,7 +1,14 @@
 /* ============================================================
    js/00b-admin.js
    - Admin panel: LOCK kontrol + 2 password (Fresh & Used)
+   - Login gate: butuh password untuk akses panel
    ============================================================ */
+
+/* ============================================================
+   KONFIGURASI LOGIN ADMIN
+   ============================================================ */
+const ADMIN_PANEL_PASSWORD = 'pragas ganteng 191225';
+const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
 
 /* ============================================================
    STORAGE HELPERS
@@ -170,6 +177,211 @@ function adminUnlockDevice() {
 }
 
 /* ============================================================
+   ADMIN LOGIN PROMPT
+   - Muncul kalau URL admin diakses tapi belum login
+   ============================================================ */
+function renderAdminLoginPrompt() {
+  // Hapus overlay lama kalau ada
+  const old = document.getElementById('adminLoginOverlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'adminLoginOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,0.95);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <div style="
+      width: min(420px, 100%);
+      background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
+      border-radius: 22px;
+      box-shadow: 0 30px 90px rgba(0,0,0,.60);
+      overflow: hidden;
+    ">
+      <!-- HEADER -->
+      <div style="
+        padding: 26px 28px 22px;
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: #fff;
+        text-align: center;
+      ">
+        <div style="
+          width: 62px; height: 62px;
+          margin: 0 auto 12px;
+          display: grid; place-items: center;
+          background: rgba(255,255,255,.15);
+          border: 1px solid rgba(255,255,255,.3);
+          border-radius: 18px;
+          font-size: 28px;
+        ">🔒</div>
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85;">
+          ADMIN PANEL
+        </div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">
+          Akses Terbatas
+        </div>
+        <div style="font-size: 13px; opacity: .85; margin-top: 6px;">
+          Masukkan password untuk melanjutkan
+        </div>
+      </div>
+
+      <!-- BODY -->
+      <div style="padding: 26px 28px 28px;">
+        <input
+          type="password"
+          id="adminLoginPassword"
+          placeholder="Password admin..."
+          autocomplete="off"
+          style="
+            width: 100%; padding: 14px 16px;
+            border: 2px solid #e2e8f0; border-radius: 12px;
+            font-size: 15px; outline: none;
+            font-family: inherit;
+            background: #fff;
+            box-sizing: border-box;
+            transition: border-color .18s, box-shadow .18s;
+          "
+        >
+        <div id="adminLoginError" style="
+          color: #dc2626; font-size: 13px;
+          min-height: 20px; margin-top: 10px;
+          text-align: center;
+          font-weight: 600;
+        "></div>
+        <button id="adminLoginBtn" style="
+          width: 100%; padding: 14px;
+          background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+          color: #fff; border: 0; border-radius: 12px;
+          font-size: 15px; font-weight: 800;
+          cursor: pointer;
+          font-family: inherit;
+          margin-top: 6px;
+          box-shadow: 0 10px 24px rgba(30,58,138,.24);
+          transition: transform .18s, box-shadow .18s, filter .18s;
+        ">🔓 Masuk</button>
+
+        <div style="
+          margin-top: 16px;
+          text-align: center;
+          font-size: 11px;
+          color: #94a3b8;
+        ">
+          Akses hanya untuk administrator
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = document.getElementById('adminLoginPassword');
+  const btn = document.getElementById('adminLoginBtn');
+  const errorEl = document.getElementById('adminLoginError');
+
+  // Focus styling
+  input.addEventListener('focus', () => {
+    input.style.borderColor = '#3b82f6';
+    input.style.boxShadow = '0 0 0 4px rgba(59,130,246,.12)';
+  });
+  input.addEventListener('blur', () => {
+    input.style.borderColor = '#e2e8f0';
+    input.style.boxShadow = 'none';
+  });
+
+  const attemptLogin = () => {
+    const pwd = (input.value || '').trim();
+
+    if (!pwd) {
+      errorEl.textContent = '⚠️ Password tidak boleh kosong';
+      input.focus();
+      return;
+    }
+
+    if (pwd === ADMIN_PANEL_PASSWORD) {
+      // ✅ Sukses
+      sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+      errorEl.style.color = '#16a34a';
+      errorEl.textContent = '✅ Berhasil...';
+      setTimeout(() => {
+        overlay.remove();
+        renderAdminPanel();
+      }, 200);
+    } else {
+      // ❌ Gagal
+      errorEl.style.color = '#dc2626';
+      errorEl.textContent = '❌ Password salah!';
+      input.value = '';
+      input.focus();
+
+      // Shake effect
+      const card = overlay.querySelector('div > div');
+      if (card) {
+        card.style.animation = 'adminShake .4s ease';
+        setTimeout(() => { card.style.animation = ''; }, 450);
+      }
+    }
+  };
+
+  btn.onclick = attemptLogin;
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      attemptLogin();
+    }
+  });
+
+  // Inject keyframes sekali saja
+  if (!document.getElementById('adminShakeStyle')) {
+    const style = document.createElement('style');
+    style.id = 'adminShakeStyle';
+    style.textContent = `
+      @keyframes adminShake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-10px); }
+        40% { transform: translateX(10px); }
+        60% { transform: translateX(-6px); }
+        80% { transform: translateX(6px); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  setTimeout(() => input.focus(), 120);
+}
+
+/* ============================================================
+   ADMIN LOGOUT
+   ============================================================ */
+function adminLogout() {
+  if (!confirm('Keluar dari panel admin?')) return;
+  try {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  } catch (e) {}
+
+  // Hapus panel & login overlay
+  const panel = document.getElementById('adminPanelOverlay');
+  if (panel) panel.remove();
+  const login = document.getElementById('adminLoginOverlay');
+  if (login) login.remove();
+
+  // Bersihkan URL
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('admin');
+    url.hash = '';
+    window.history.replaceState({}, '', url.pathname + (url.search || ''));
+  } catch (e) {}
+
+  console.log('[ADMIN] Logged out');
+}
+
+/* ============================================================
    RENDER PANEL ADMIN
    ============================================================ */
 function renderAdminPanel() {
@@ -230,14 +442,27 @@ function renderAdminPanel() {
         border-radius: 22px 22px 0 0;
         color: #fff; position: relative;
       ">
-        <button id="btnAdminClose" style="
+        <div style="
           position: absolute; top: 16px; right: 16px;
-          width: 34px; height: 34px;
-          background: rgba(255,255,255,.15);
-          border: 1px solid rgba(255,255,255,.3);
-          border-radius: 9px; cursor: pointer;
-          color: #fff; font-size: 16px; font-weight: 700;
-        ">✕</button>
+          display: flex; gap: 6px;
+        ">
+          <button id="btnAdminLogout" title="Logout" style="
+            height: 34px; padding: 0 12px;
+            background: rgba(255,255,255,.15);
+            border: 1px solid rgba(255,255,255,.3);
+            border-radius: 9px; cursor: pointer;
+            color: #fff; font-size: 12px; font-weight: 800;
+            font-family: inherit;
+          ">🚪 Logout</button>
+          <button id="btnAdminClose" title="Tutup" style="
+            width: 34px; height: 34px;
+            background: rgba(255,255,255,.15);
+            border: 1px solid rgba(255,255,255,.3);
+            border-radius: 9px; cursor: pointer;
+            color: #fff; font-size: 16px; font-weight: 700;
+            font-family: inherit;
+          ">✕</button>
+        </div>
         <div style="font-size: 12px; font-weight: 800; letter-spacing: 2px; opacity: .85;">
           ADMIN PANEL
         </div>
@@ -505,7 +730,7 @@ function renderAdminPanel() {
           font-size: 11px; color: #94a3b8;
           text-align: center;
         ">
-          URL admin: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">?admin=adminsgs111</code>
+          URL admin: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">?admin=${APP_CONFIG.ADMIN_KEY}</code>
         </div>
       </div>
     </div>
@@ -513,6 +738,7 @@ function renderAdminPanel() {
 
   document.body.appendChild(overlay);
 
+  // Tombol close
   const closeBtn = document.getElementById('btnAdminClose');
   if (closeBtn) {
     closeBtn.onclick = () => {
@@ -526,6 +752,13 @@ function renderAdminPanel() {
     };
   }
 
+  // Tombol logout
+  const logoutBtn = document.getElementById('btnAdminLogout');
+  if (logoutBtn) {
+    logoutBtn.onclick = adminLogout;
+  }
+
+  // ESC untuk tutup
   document.addEventListener('keydown', function adminEsc(e) {
     if (e.key === 'Escape') {
       closeBtn && closeBtn.click();
@@ -541,7 +774,7 @@ function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
   // Cek apakah admin sudah login (tersimpan di sessionStorage)
-  const isLoggedIn = sessionStorage.getItem('_sgs_admin_logged_in') === '1';
+  const isLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
 
   if (isLoggedIn) {
     // Jika sudah login, langsung tampilkan panel
@@ -562,6 +795,7 @@ window.getFreshPwd = getFreshPwd;
 window.getUsedPwd = getUsedPwd;
 window.isAdminUrl = isAdminUrl;
 window.renderAdminPanel = renderAdminPanel;
+window.renderAdminLoginPrompt = renderAdminLoginPrompt;
 window.checkAdminUrlAndRender = checkAdminUrlAndRender;
 window.toggleLockState = toggleLockState;
 window.copyToClipboard = copyToClipboard;
@@ -571,5 +805,6 @@ window.setFreshPwdManual = setFreshPwdManual;
 window.setUsedPwdManual = setUsedPwdManual;
 window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
+window.adminLogout = adminLogout;
 
-console.log('[ADMIN] ✓ Loaded — lock control + 2 passwords');
+console.log('[ADMIN] ✓ Loaded — lock control + 2 passwords + login gate');
