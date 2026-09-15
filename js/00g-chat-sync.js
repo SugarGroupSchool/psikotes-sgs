@@ -2,6 +2,7 @@
    js/00g-chat-sync.js
    - Reliable chat sender with queue + retry + offline
    - Optimistic UI: pesan tampil langsung, kirim di background
+   - FIX: device ID konsisten pakai getOrCreateDeviceId()
    ============================================================ */
 
 const CHAT_QUEUE_KEY    = '_sgs_chat_queue';
@@ -36,6 +37,25 @@ function __chatGenId() {
 }
 
 /* ============================================================
+   GET DEVICE ID — konsisten dengan presence & chat
+   ============================================================ */
+function __chatSyncGetDeviceId() {
+  if (typeof getOrCreateDeviceId === 'function') {
+    return getOrCreateDeviceId();
+  }
+  try {
+    let id = localStorage.getItem('_sgs_device_id');
+    if (!id) {
+      id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem('_sgs_device_id', id);
+    }
+    return id;
+  } catch (e) {
+    return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
+  }
+}
+
+/* ============================================================
    MONITOR KONEKSI FIREBASE
    ============================================================ */
 function __chatInitConnMonitor() {
@@ -47,7 +67,6 @@ function __chatInitConnMonitor() {
     __chatConnListeners.forEach(cb => {
       try { cb(__chatConnStatus); } catch (e) {}
     });
-    // Kalau online lagi, coba flush queue
     if (connected) __chatProcessQueue();
   });
 }
@@ -66,13 +85,11 @@ function getChatConnectionStatus() {
 }
 
 /* ============================================================
-   ENABLE OFFLINE PERSISTENCE (sekali saja)
+   ENABLE OFFLINE PERSISTENCE
    ============================================================ */
 function __chatEnableOffline() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   try {
-    // RTDB default sudah punya offline queue, tapi kita paksa keepSynced
-    // untuk path chat agar cache selalu fresh
     firebase.database().ref('sgs_state/chats').keepSynced(true);
     console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
   } catch (e) {
@@ -85,7 +102,12 @@ function __chatEnableOffline() {
    ============================================================ */
 function enqueueChatMessage({ from, text, image, roomId }) {
   return new Promise((resolve, reject) => {
-    const rid = roomId || (localStorage.getItem('_sgs_device_id') || 'dev_anon');
+    // Pakai device ID yang konsisten dengan presence & chat
+    let rid = roomId;
+    if (!rid) {
+      rid = __chatSyncGetDeviceId();
+    }
+
     const t = (text || '').trim().slice(0, 2000);
     if (!t && !image) { reject(new Error('Pesan kosong')); return; }
 
@@ -131,11 +153,9 @@ async function __chatProcessQueue() {
     try {
       await __chatSendToFirebase(msg);
 
-      // Sukses → hapus dari queue
       __chatQueue.shift();
       __chatSaveQueue();
 
-      // Notify UI sukses
       window.dispatchEvent(new CustomEvent('chat-msg-sent', {
         detail: { localId: msg.localId }
       }));
@@ -145,14 +165,12 @@ async function __chatProcessQueue() {
       console.warn('[CHAT-SYNC] Send failed (retry ' + msg.retries + '):', err.message);
 
       if (msg.retries >= CHAT_RETRY_MAX) {
-        // Menyerah
         __chatQueue.shift();
         __chatSaveQueue();
         window.dispatchEvent(new CustomEvent('chat-msg-failed', {
           detail: { localId: msg.localId, error: err.message }
         }));
       } else {
-        // Simpan & tunggu backoff
         __chatSaveQueue();
         const delay = CHAT_RETRY_BASE * Math.pow(2, msg.retries - 1);
         __chatSending = false;
@@ -183,7 +201,6 @@ function __chatSendToFirebase(msg) {
     if (msg.text)  payload.text  = msg.text;
     if (msg.image) payload.image = msg.image;
 
-    // Timeout guard — kalau 15 detik tidak selesai, anggap gagal
     const timeout = setTimeout(() => {
       reject(new Error('Timeout 15s'));
     }, 15000);
@@ -191,7 +208,6 @@ function __chatSendToFirebase(msg) {
     msgsRef.push(payload).then(ref => {
       clearTimeout(timeout);
 
-      // Update meta
       const meta = {
         lastFrom: msg.from,
         lastTs: firebase.database.ServerValue.TIMESTAMP,
@@ -216,7 +232,6 @@ function __chatSendToFirebase(msg) {
 
 /* ============================================================
    AMBIL PENDING MESSAGES UNTUK ROOM TERTENTU
-   (untuk UI render pesan yang belum terkirim)
    ============================================================ */
 function getPendingMessagesForRoom(roomId) {
   return __chatQueue.filter(m => m.roomId === roomId);
@@ -237,7 +252,6 @@ function __chatSyncInit() {
   __chatLoadQueue();
   __chatEnableOffline();
   __chatInitConnMonitor();
-  // Coba flush queue yang tersisa dari sesi sebelumnya
   setTimeout(__chatProcessQueue, 1000);
   console.log('[CHAT-SYNC] ✓ Ready — pending:', __chatQueue.length);
 }
@@ -268,6 +282,7 @@ window.__chatQueueDebug = () => {
   console.table(__chatQueue.map(m => ({
     localId: m.localId,
     from: m.from,
+    roomId: m.roomId,
     text: (m.text || '').slice(0, 30),
     image: m.image ? '📷' : '',
     retries: m.retries || 0,
