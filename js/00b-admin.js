@@ -281,11 +281,13 @@ function adminAllowRetake(deviceId, candidateName) {
     return;
   }
 
-  const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
+   const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
   ref.update({
     allow_retake: true,
     allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
-    allow_retake_by: 'admin'
+    allow_retake_by: 'admin',
+    finished: false,        // reset status finished
+    disqualified: false     // reset status diskualifikasi
   })
   .then(() => {
     console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
@@ -605,18 +607,30 @@ function renderActiveSessionsHTML(sessions) {
       ? `${s.completedCount}/${s.totalTests} tes`
       : '—';
 
-    const isFinished = s.finished === true;
-    const statusColor = isFinished ? '#94a3b8'
-                      : s.inTestView ? '#16a34a' : '#f59e0b';
-    const statusLabel = isFinished ? '✅ Selesai (Terkunci)'
-                      : s.inTestView ? '🟢 Mengerjakan' : '🟡 Idle';
+       const isFinished = s.finished === true;
+    const isDisqualified = s.disqualified === true;
+
+    let statusColor, statusLabel;
+    if (isDisqualified) {
+      statusColor = '#dc2626';
+      statusLabel = '⚠️ Diskualifikasi';
+    } else if (isFinished) {
+      statusColor = '#94a3b8';
+      statusLabel = '✅ Selesai (Terkunci)';
+    } else if (s.inTestView) {
+      statusColor = '#16a34a';
+      statusLabel = '🟢 Mengerjakan';
+    } else {
+      statusColor = '#f59e0b';
+      statusLabel = '🟡 Idle';
+    }
 
     const safeName = String(s.name || '(tanpa nama)')
       .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-    const allowRetakeBtn = isFinished ? `
+       const allowRetakeBtn = (isFinished || isDisqualified) ? `
       <button onclick="adminAllowRetake('${s.deviceId}', '${safeName}')" style="
         padding: 5px 12px;
         background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -631,8 +645,8 @@ function renderActiveSessionsHTML(sessions) {
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
 
-    const chatBtn = isFinished ? `
-      <button disabled title="Kandidat sudah selesai" style="
+      const chatBtn = (isFinished || isDisqualified) ? `
+      <button disabled title="${isDisqualified ? 'Kandidat diskualifikasi' : 'Kandidat sudah selesai'}" style="
         padding: 5px 12px;
         background: #e2e8f0; color: #94a3b8;
         border: 0; border-radius: 7px;
@@ -653,7 +667,6 @@ function renderActiveSessionsHTML(sessions) {
         white-space: nowrap;
       ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
     `;
-
     const cardBg = isFinished
       ? 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
       : '#fff';
