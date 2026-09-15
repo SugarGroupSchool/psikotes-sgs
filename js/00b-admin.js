@@ -1125,7 +1125,11 @@ window.setFreshPwdManual = setFreshPwdManual;
 window.setUsedPwdManual = setUsedPwdManual;
 window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
-window.adminAllowRetake = adminAllowRetake;   // ← BARU
+window.adminAllowRetake = adminAllowRetake;
 window.adminLogout = adminLogout;
 
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake');
+/* ─── Unread Tracker ─── */
+window.startAdminUnreadTracker = startAdminUnreadTracker;
+window.stopAdminUnreadTracker = stopAdminUnreadTracker;
+
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread');
