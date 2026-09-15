@@ -130,12 +130,26 @@ window.addEventListener('beforeunload', markPresenceOffline);
    ------------------------------------------------------------ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
+
+  // Kalau sedang di mode admin, kecualikan device sendiri
+  let excludeId = null;
+  try {
+    if (typeof isAdminUrl === 'function' && isAdminUrl()) {
+      excludeId = localStorage.getItem('_sgs_device_id');
+    }
+  } catch (e) {}
+
   return Object.keys(data || {})
     .map(k => ({ deviceId: k, ...data[k] }))
-    .filter(s => s.lastSeen && s.status !== 'offline' && (now - s.lastSeen) < PRESENCE_STALE_MS)
+    .filter(s => {
+      if (!s.lastSeen) return false;
+      if (s.status === 'offline') return false;
+      if ((now - s.lastSeen) >= PRESENCE_STALE_MS) return false;
+      if (excludeId && s.deviceId === excludeId) return false;  // ← exclude diri sendiri
+      return true;
+    })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 }
-
 function fetchActiveSessions(callback) {
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
     callback([]); return;
