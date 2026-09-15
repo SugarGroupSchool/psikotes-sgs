@@ -398,13 +398,15 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     const savedImage = pendingImage;
     textarea.value = ''; textarea.style.height = 'auto';
     pendingImage = null; updatePreview();
-    try {
-      await sendChatMessage({ from: role, text, image: savedImage, roomId });
-      markChatRead(role, roomId);
-    } catch (e) {
-      if (savedImage) { pendingImage = savedImage; updatePreview(); }
-      alert('Gagal kirim: ' + e.message);
-    }
+
+    // Kirim via queue — optimistic, langsung tampil, retry otomatis
+    enqueueChatMessage({ from: role, text, image: savedImage, roomId })
+      .catch(e => {
+        console.error('Enqueue gagal:', e);
+        if (savedImage) { pendingImage = savedImage; updatePreview(); }
+      });
+
+    markChatRead(role, roomId);
   }
 
   textarea.addEventListener('input', () => {
