@@ -381,6 +381,9 @@ function enableDownloadButtonAfterInstruksi() {
    START TEST — dengan guard
    ============================================================ */
 function startTest(testName) {
+     if (typeof window.pushPresence === 'function') {
+    window.pushPresence('active');
+  }
   if (appState.completed && appState.completed[testName] === true) {
     alert('🔒 Tes ini sudah selesai dikerjakan dan tidak dapat diulang.');
     return;
