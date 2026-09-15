@@ -2,10 +2,9 @@
    js/00b-admin.js
    - Admin panel: LOCK kontrol + 2 password (Fresh & Used)
    - Login gate: butuh password untuk akses panel
-   - Monitoring kandidat aktif (real-time)
-   - Chat per kandidat
-   - Unread tracker (badge + blink)
-   - Tombol "Izinkan Tes Lagi" untuk device finished
+   - Monitoring kandidat aktif (real-time) + timer + progress
+   - Chat per kandidat + unread tracker (badge + blink)
+   - Tombol "Izinkan Tes Lagi" untuk device finished/diskualifikasi
    - Auto-cleanup chat device tidak aktif
    ============================================================ */
 
@@ -19,7 +18,7 @@ const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
    KONFIGURASI AUTO-CLEANUP CHAT
    ============================================================ */
 const CHAT_CLEANUP_ENABLED        = true;
-const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;  // 1 jam tidak aktif → hapus
+const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;  // 1 jam
 const CHAT_CLEANUP_DELETE_SESSION = true;
 
 /* ============================================================
@@ -34,7 +33,7 @@ let __adminRefreshTimer = null;
 function startAdminUnreadTracker() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
-  // ✅ Skip kalau sudah jalan — jangan restart
+  // Skip kalau sudah jalan
   if (__adminUnreadRefs.length > 0) {
     console.log('[ADMIN] 👂 Unread tracker sudah jalan, skip restart');
     return;
@@ -84,6 +83,60 @@ function scheduleAdminRefresh() {
       container.innerHTML = renderActiveSessionsHTML(window.__adminLastSessions);
     }
   }, 200);
+}
+
+/* ============================================================
+   ADMIN TIMER TICK — update timer countdown tiap detik di DOM
+   ============================================================ */
+let __adminTimerTickInterval = null;
+
+function startAdminTimerTick() {
+  if (__adminTimerTickInterval) clearInterval(__adminTimerTickInterval);
+
+  __adminTimerTickInterval = setInterval(() => {
+    const timers = document.querySelectorAll('[data-timer-id]');
+    const now = Date.now();
+
+    timers.forEach(el => {
+      const timeLeftInit = parseInt(el.dataset.timeLeft || '0', 10);
+      const lastUpdate = parseInt(el.dataset.lastUpdate || '0', 10);
+      const elapsed = Math.floor((now - lastUpdate) / 1000);
+      const remaining = Math.max(0, timeLeftInit - elapsed);
+
+      const textEl = el.querySelector('.timer-text');
+      if (textEl) {
+        textEl.textContent = __formatTimeAdmin(remaining);
+      }
+
+      // Warna merah kalau ≤ 30 detik
+      if (remaining <= 30) {
+        el.style.background = '#fee2e2';
+        el.style.color = '#991b1b';
+      } else {
+        el.style.background = '#dbeafe';
+        el.style.color = '#1e40af';
+      }
+
+      if (remaining <= 0) {
+        if (textEl) textEl.textContent = '00:00';
+      }
+    });
+  }, 1000);
+}
+
+function stopAdminTimerTick() {
+  if (__adminTimerTickInterval) {
+    clearInterval(__adminTimerTickInterval);
+    __adminTimerTickInterval = null;
+  }
+}
+
+/* Helper format waktu MM:SS */
+function __formatTimeAdmin(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec2 = (s % 60).toString().padStart(2, '0');
+  return `${m}:${sec2}`;
 }
 
 /* ============================================================
@@ -281,13 +334,13 @@ function adminAllowRetake(deviceId, candidateName) {
     return;
   }
 
-   const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
+  const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
   ref.update({
     allow_retake: true,
     allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
     allow_retake_by: 'admin',
-    finished: false,        // reset status finished
-    disqualified: false     // reset status diskualifikasi
+    finished: false,
+    disqualified: false
   })
   .then(() => {
     console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
@@ -339,13 +392,10 @@ async function cleanupInactiveChatRooms(options = {}) {
       const lastSeen = session.lastSeen || 0;
       const status   = session.status;
 
-      // Skip device yang sudah selesai
       if (session.finished === true) return;
 
-      // Skip device yang aktif & baru
       if (status === 'active' && (now - lastSeen) < minAgeMs) return;
 
-      // Hapus kalau offline atau stale
       if (status === 'offline' || (now - lastSeen) >= minAgeMs) {
         toDelete.push(deviceId);
       }
@@ -563,6 +613,9 @@ function adminLogout() {
   if (typeof stopAdminUnreadTracker === 'function') {
     try { stopAdminUnreadTracker(); } catch (e) {}
   }
+  if (typeof stopAdminTimerTick === 'function') {
+    try { stopAdminTimerTick(); } catch (e) {}
+  }
 
   const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
@@ -601,13 +654,17 @@ function renderActiveSessionsHTML(sessions) {
                    `${Math.floor(ago / 86400)}h lalu`;
 
     const testLabel = s.currentTest ? s.currentTest : '—';
-    const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null
-      ? ` (subtes ${(s.currentSubtest || 0) + 1})` : '';
     const progress = s.totalTests > 0
       ? `${s.completedCount}/${s.totalTests} tes`
       : '—';
 
-       const isFinished = s.finished === true;
+    // Subtes label untuk IST
+    const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null && s.testTotalSubtests
+      ? `Subtes ${(s.currentSubtest || 0) + 1}/${s.testTotalSubtests}`
+      : '';
+
+    // Status
+    const isFinished = s.finished === true;
     const isDisqualified = s.disqualified === true;
 
     let statusColor, statusLabel;
@@ -630,7 +687,8 @@ function renderActiveSessionsHTML(sessions) {
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-       const allowRetakeBtn = (isFinished || isDisqualified) ? `
+    // Tombol "Izinkan Tes Lagi"
+    const allowRetakeBtn = (isFinished || isDisqualified) ? `
       <button onclick="adminAllowRetake('${s.deviceId}', '${safeName}')" style="
         padding: 5px 12px;
         background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -645,7 +703,8 @@ function renderActiveSessionsHTML(sessions) {
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
 
-      const chatBtn = (isFinished || isDisqualified) ? `
+    // Tombol chat
+    const chatBtn = (isFinished || isDisqualified) ? `
       <button disabled title="${isDisqualified ? 'Kandidat diskualifikasi' : 'Kandidat sudah selesai'}" style="
         padding: 5px 12px;
         background: #e2e8f0; color: #94a3b8;
@@ -667,10 +726,90 @@ function renderActiveSessionsHTML(sessions) {
         white-space: nowrap;
       ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
     `;
-    const cardBg = isFinished
+
+    // Background
+    const cardBg = isDisqualified
+      ? 'linear-gradient(135deg, #fef2f2, #fee2e2)'
+      : isFinished
       ? 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
       : '#fff';
-    const cardBorder = isFinished ? '#cbd5e1' : '#dbeafe';
+    const cardBorder = isDisqualified ? '#fca5a5'
+                     : isFinished ? '#cbd5e1'
+                     : '#dbeafe';
+
+    // ============================================================
+    // TIMER & PROGRESS BAR (muncul hanya kalau sedang tes)
+    // ============================================================
+    let timerProgressHTML = '';
+
+    if (!isFinished && !isDisqualified && s.inTestView && s.currentTest) {
+      // Timer — hitung estimasi time left
+      const hasTimer = s.timeLeft !== null && s.timeLeft !== undefined;
+      const timeLeftInit = hasTimer ? s.timeLeft : 0;
+      const lastSeenOffset = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : 0;
+      const estimatedTimeLeft = Math.max(0, timeLeftInit - lastSeenOffset);
+
+      const timerHTML = hasTimer ? `
+        <div style="
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 3px 9px; border-radius: 999px;
+          background: ${estimatedTimeLeft <= 30 ? '#fee2e2' : '#dbeafe'};
+          color: ${estimatedTimeLeft <= 30 ? '#991b1b' : '#1e40af'};
+          font-size: 11px; font-weight: 800;
+          font-family: 'Courier New', monospace;
+        " data-timer-id="${s.deviceId}"
+           data-time-left="${estimatedTimeLeft}"
+           data-last-update="${Date.now()}">
+          <span style="font-size: 12px;">⏱</span>
+          <span class="timer-text">${__formatTimeAdmin(estimatedTimeLeft)}</span>
+        </div>
+      ` : '';
+
+      // Progress bar
+      const pct = Math.max(0, Math.min(100, s.progressPercent || 0));
+      const progressHTML = `
+        <div style="margin-top: 6px;">
+          <div style="
+            display: flex; justify-content: space-between;
+            font-size: 10px; color: #64748b; margin-bottom: 3px;
+          ">
+            <span>${s.questionLabel || 'Progress'}${subLabel ? ' · ' + subLabel : ''}</span>
+            <span>${pct}%</span>
+          </div>
+          <div style="
+            height: 5px; border-radius: 999px; overflow: hidden;
+            background: #e2e8f0;
+          ">
+            <div style="
+              width: ${pct}%; height: 100%;
+              background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+              border-radius: inherit;
+              transition: width .35s ease;
+            "></div>
+          </div>
+        </div>
+      `;
+
+      timerProgressHTML = `
+        <div style="
+          margin-top: 8px; padding-top: 8px;
+          border-top: 1px solid #e2e8f0;
+        ">
+          <div style="
+            display: flex; justify-content: space-between;
+            align-items: center; gap: 8px; margin-bottom: 2px;
+          ">
+            <span style="
+              font-size: 10px; font-weight: 800;
+              color: #1e40af; text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">⏱ Sedang: ${testLabel}</span>
+            ${timerHTML}
+          </div>
+          ${progressHTML}
+        </div>
+      `;
+    }
 
     return `
       <div style="
@@ -693,14 +832,17 @@ function renderActiveSessionsHTML(sessions) {
 
         <div style="color: #64748b; font-size: 11px; margin-bottom: 6px;">
           ${s.position ? `📍 ${__adminEscape(s.position)} &nbsp;·&nbsp; ` : ''}
-          📝 <b>${testLabel}</b>${subLabel} &nbsp;·&nbsp;
+          📝 <b>${testLabel}</b> &nbsp;·&nbsp;
           ✅ ${progress}
         </div>
+
+        ${timerProgressHTML}
 
         <div style="
           display: flex; justify-content: space-between;
           align-items: center; gap: 8px; padding-top: 6px;
           border-top: 1px dashed #e2e8f0; flex-wrap: wrap;
+          margin-top: 6px;
         ">
           <div style="color: #94a3b8; font-size: 10px;">
             ID: ${deviceIdShort} &nbsp;·&nbsp; 👁 ${agoStr}
@@ -996,7 +1138,7 @@ function renderAdminPanel() {
                 width: 8px; height: 8px; border-radius: 50%;
                 background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.15);
               "></span>
-              PASSWORD USED — setelah logout / diskualifikasi
+              PASSWORD USED — kandidat lanjut / resume
             </div>
             <div style="
               padding: 16px 20px;
@@ -1060,9 +1202,9 @@ function renderAdminPanel() {
             margin-bottom: 20px;
           ">
             <b>Cara pakai:</b><br>
-            • <b>FRESH</b> — share ke kandidat yang belum pernah tes<br>
-            • <b>USED</b> — share ke kandidat setelah logout / diskualifikasi<br>
-            • Centang LOCK untuk memblokir semua login sementara
+            • <b>FRESH</b> — kandidat baru (belum pernah tes)<br>
+            • <b>USED</b> — kandidat lanjut/resume (koneksi putus, logout di tengah tes)<br>
+            • <b>Selesai/Diskualifikasi</b> — tidak bisa login, pakai "🔓 Izinkan Tes Lagi"
           </div>
         `}
 
@@ -1173,6 +1315,11 @@ function renderAdminPanel() {
       startAdminUnreadTracker();
     }
 
+    // ⏱ Mulai timer tick (update angka tiap detik)
+    if (typeof startAdminTimerTick === 'function') {
+      startAdminTimerTick();
+    }
+
     // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
@@ -1193,6 +1340,9 @@ function renderAdminPanel() {
       }
       if (typeof stopAdminUnreadTracker === 'function') {
         try { stopAdminUnreadTracker(); } catch (e) {}
+      }
+      if (typeof stopAdminTimerTick === 'function') {
+        try { stopAdminTimerTick(); } catch (e) {}
       }
       overlay.remove();
       try {
@@ -1266,4 +1416,8 @@ window.stopAdminUnreadTracker = stopAdminUnreadTracker;
 /* ─── Chat Cleanup ─── */
 window.cleanupInactiveChatRooms = cleanupInactiveChatRooms;
 
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup');
+/* ─── Timer Tick ─── */
+window.startAdminTimerTick = startAdminTimerTick;
+window.stopAdminTimerTick = stopAdminTimerTick;
+
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer');
