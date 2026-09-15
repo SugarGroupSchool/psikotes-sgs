@@ -33,7 +33,12 @@ let __adminRefreshTimer = null;
 
 function startAdminUnreadTracker() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-  stopAdminUnreadTracker();
+
+  // ✅ Skip kalau sudah jalan — jangan restart
+  if (__adminUnreadRefs.length > 0) {
+    console.log('[ADMIN] 👂 Unread tracker sudah jalan, skip restart');
+    return;
+  }
 
   const chatsRef = firebase.database().ref('sgs_state/chats');
 
