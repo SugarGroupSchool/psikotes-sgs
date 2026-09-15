@@ -538,11 +538,19 @@ function renderAdminPanel() {
    CEK URL ADMIN
    ============================================================ */
 function checkAdminUrlAndRender() {
-  if (isAdminUrl()) {
+  if (!isAdminUrl()) return false;
+
+  // Cek apakah admin sudah login (tersimpan di sessionStorage)
+  const isLoggedIn = sessionStorage.getItem('_sgs_admin_logged_in') === '1';
+
+  if (isLoggedIn) {
+    // Jika sudah login, langsung tampilkan panel
     renderAdminPanel();
-    return true;
+  } else {
+    // Jika belum login, tampilkan form login
+    renderAdminLoginPrompt();
   }
-  return false;
+  return true;
 }
 
 /* ============================================================
