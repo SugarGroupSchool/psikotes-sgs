@@ -697,9 +697,19 @@ function __chatInjectCandidateBubble() {
   setTimeout(() => {
     countUnreadFor('candidate', __chatMyDeviceId(), n => {
       const b = document.getElementById('chatFabBadge');
-      if (!b) return;
-      if (n > 0) { b.textContent = n > 99 ? '99+' : n; b.style.display = 'grid'; }
-      else       { b.style.display = 'none'; }
+      const fabEl = document.getElementById('chatFabCandidate');
+      if (!b || !fabEl) return;
+
+      if (n > 0) {
+        b.textContent = n > 99 ? '99+' : n;
+        b.style.display = 'grid';
+        b.classList.add('chat-badge-blink');
+        fabEl.classList.add('chat-blink');
+      } else {
+        b.style.display = 'none';
+        b.classList.remove('chat-badge-blink');
+        fabEl.classList.remove('chat-blink');
+      }
     });
   }, 1500);
 }
