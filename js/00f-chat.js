@@ -4,7 +4,7 @@
    - Anti-cheat SAFE: semua UI di overlay internal (tidak trigger blur)
    - Support text + image (paste Ctrl+V, drag, picker)
    - Reliable send via 00g-chat-sync.js (queue + retry + optimistic UI)
-   - FIX: device ID konsisten pakai getOrCreateDeviceId()
+   - FIX: device ID konsisten + expose window.__chatRoomId + FAB selalu muncul
    ============================================================ */
 
 const CHAT_MAX_IMAGE_DIM = 900;
@@ -21,11 +21,9 @@ let __chatAudioCtx = null;
    HELPERS
    ------------------------------------------------------------ */
 function __chatMyDeviceId() {
-  // Pakai getOrCreateDeviceId (dari 00e-presence.js) supaya konsisten
   if (typeof getOrCreateDeviceId === 'function') {
     return getOrCreateDeviceId();
   }
-  // Fallback: buat sendiri kalau modul presence tidak ada
   try {
     let id = localStorage.getItem('_sgs_device_id');
     if (!id) {
@@ -118,7 +116,7 @@ function __chatCompress(file) {
 }
 
 /* ------------------------------------------------------------
-   KIRIM PESAN — fallback (dipakai kalau 00g-chat-sync.js tidak ada)
+   KIRIM PESAN — fallback
    ------------------------------------------------------------ */
 function sendChatMessage({ from, text, image, roomId }) {
   return new Promise((resolve, reject) => {
@@ -216,11 +214,16 @@ function __chatOpenLightbox(src) {
 }
 
 /* ------------------------------------------------------------
-   RENDER CHAT WINDOW (shared)
+   RENDER CHAT WINDOW
    ------------------------------------------------------------ */
 function __chatRenderWindow({ title, roomId, role, onClose }) {
   __chatRoomId = roomId;
   __chatRole   = role;
+
+  /* ✅ PATCH 2: Expose ke window untuk debug */
+  window.__chatRoomId     = roomId;
+  window.__chatRole       = role;
+  window.__chatMyId       = __chatMyDeviceId();
   window.__chatLastSeenTs = 0;
 
   const old = document.getElementById('chatWindowOverlay');
@@ -346,8 +349,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
   const inputArea  = document.getElementById('chatInputArea');
 
   let pendingImage = null;
-
-  /* ------- STATE ------- */
   let __serverMessages = [];
 
   /* ------------------------------------------------------------
@@ -366,7 +367,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
      RENDER MESSAGES (server + pending)
      ------------------------------------------------------------ */
   function renderMessages() {
-    // Gabung server messages + pending (yang belum muncul di server)
     const serverIds = new Set(
       __serverMessages.map(m => m.localId).filter(Boolean)
     );
@@ -573,8 +573,12 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
   }
 
   /* ------------------------------------------------------------
-     CLOSE
+     CLEANUP + CLOSE
      ------------------------------------------------------------ */
+  function __handleQueueChange() {
+    renderMessages();
+  }
+
   function __cleanup() {
     if (__chatUnsub) { try { __chatUnsub(); } catch (e) {} __chatUnsub = null; }
     window.removeEventListener('chat-msg-sent', __handleQueueChange);
@@ -588,7 +592,7 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
   };
 
   /* ------------------------------------------------------------
-     LISTEN MESSAGES (server)
+     LISTEN MESSAGES
      ------------------------------------------------------------ */
   const ref = firebase.database().ref('sgs_state/chats/' + roomId + '/messages');
   const handler = ref.orderByChild('ts').limitToLast(CHAT_MAX_KEEP).on('value', snap => {
@@ -608,9 +612,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     renderMessages();
   });
 
-  function __handleQueueChange() {
-    renderMessages();
-  }
   window.addEventListener('chat-msg-sent', __handleQueueChange);
   window.addEventListener('chat-msg-failed', __handleQueueChange);
 
@@ -647,10 +648,11 @@ function openChatForAdmin(roomId, candidateName) {
 
 /* ------------------------------------------------------------
    FAB untuk kandidat
+   ✅ PATCH 1: cek sessionStorage DIHAPUS — FAB selalu muncul
    ------------------------------------------------------------ */
 function __chatInjectCandidateBubble() {
   if (document.getElementById('chatFabCandidate')) return;
-  if (sessionStorage.getItem('_sgs_admin_logged_in') === '1') return;
+  if (typeof isAdminUrl === 'function' && isAdminUrl()) return;
 
   const fab = document.createElement('button');
   fab.id = 'chatFabCandidate';
