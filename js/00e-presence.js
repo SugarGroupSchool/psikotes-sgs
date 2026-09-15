@@ -53,10 +53,14 @@ function initPresence() {
     lastSeen: firebase.database.ServerValue.TIMESTAMP
   });
 
-  pushPresence('active');
+   pushPresence('active');
 
+  // Dynamic heartbeat: 5 detik saat tes, 30 detik saat idle
   if (__presenceTimer) clearInterval(__presenceTimer);
-  __presenceTimer = setInterval(() => pushPresence('active'), PRESENCE_HEARTBEAT_MS);
+  __presenceTimer = setInterval(() => {
+    const inTest = (typeof window !== 'undefined' && window.__inTestView === true);
+    pushPresence('active');
+  }, 5000);  // ← 5 detik, cukup untuk timer realtime
 
   console.log('[PRESENCE] ✓ device:', __presenceDeviceId);
 
@@ -94,23 +98,95 @@ function pushPresence(status) {
     isDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
   } catch (e) {}
 
+  // ============================================================
+  // DATA WAKTU & PROGRESS
+  // ============================================================
+  const currentTest = st.currentTest || null;
+  const timeLeft = (typeof st.timeLeft === 'number') ? st.timeLeft : null;
+  const currentSubtest = (st.currentSubtest !== undefined) ? st.currentSubtest : null;
+  const currentColumn = (st.currentColumn !== undefined) ? st.currentColumn : null;
+  const currentQuestion = (st.currentQuestion !== undefined) ? st.currentQuestion : null;
+
+  // Hitung progress percent + soal X/Y
+  let progressPercent = 0;
+  let questionLabel = null;
+  let testTotalQuestions = null;
+  let testTotalSubtests = null;
+  let testTotalColumns = null;
+
+  try {
+    if (currentTest === 'IST' && typeof tests !== 'undefined' && tests.IST) {
+      const subtests = tests.IST.subtests || [];
+      testTotalSubtests = subtests.length;
+      if (currentSubtest !== null && subtests[currentSubtest]) {
+        const totalQ = subtests[currentSubtest].questions?.length || 0;
+        testTotalQuestions = totalQ;
+        if (currentQuestion !== null && totalQ > 0) {
+          questionLabel = `${currentQuestion + 1}/${totalQ}`;
+          const subtestProgress = (currentQuestion / totalQ) * 100;
+          const overallProgress = ((currentSubtest + (currentQuestion / totalQ)) / subtests.length) * 100;
+          progressPercent = Math.round(overallProgress);
+        }
+      }
+    } else if (currentTest === 'KRAEPLIN' && typeof tests !== 'undefined' && tests.KRAEPLIN) {
+      const cols = tests.KRAEPLIN.columns || [];
+      testTotalColumns = cols.length;
+      if (currentColumn !== null && cols.length > 0) {
+        questionLabel = `Kolom ${currentColumn + 1}/${cols.length}`;
+        progressPercent = Math.round(((currentColumn) / cols.length) * 100);
+      }
+    } else if (currentTest === 'DISC' && typeof tests !== 'undefined' && tests.DISC) {
+      const totalQ = tests.DISC.questions?.length || 0;
+      testTotalQuestions = totalQ;
+      if (currentQuestion !== null && totalQ > 0) {
+        questionLabel = `${currentQuestion + 1}/${totalQ}`;
+        progressPercent = Math.round((currentQuestion / totalQ) * 100);
+      }
+    } else if (currentTest === 'PAPI' && typeof tests !== 'undefined' && tests.PAPI) {
+      const totalQ = tests.PAPI.questions?.length || 0;
+      testTotalQuestions = totalQ;
+      if (currentQuestion !== null && totalQ > 0) {
+        questionLabel = `${currentQuestion + 1}/${totalQ}`;
+        progressPercent = Math.round((currentQuestion / totalQ) * 100);
+      }
+    } else if (currentTest === 'BIGFIVE' && typeof tests !== 'undefined' && tests.BIGFIVE) {
+      const totalQ = tests.BIGFIVE.questions?.length || 0;
+      testTotalQuestions = totalQ;
+      if (currentQuestion !== null && totalQ > 0) {
+        questionLabel = `${currentQuestion + 1}/${totalQ}`;
+        progressPercent = Math.round((currentQuestion / totalQ) * 100);
+      }
+    } else if (currentTest === 'TYPING' || currentTest === 'EXCEL' || currentTest === 'SUBJECT' || currentTest === 'GRAFIS') {
+      // Untuk tes ini, progress berbasis waktu
+      progressPercent = 0;
+    }
+  } catch (e) {
+    console.warn('[PRESENCE] Progress calc error:', e);
+  }
+
   const payload = {
     deviceId:        __presenceDeviceId,
     name:            identity.name || '(belum isi identitas)',
     nickname:        identity.nickname || '',
     position:        identity.position || '',
-    currentTest:     st.currentTest || null,
-    currentSubtest:  (st.currentSubtest !== undefined) ? st.currentSubtest : null,
-    currentQuestion: (st.currentQuestion !== undefined) ? st.currentQuestion : null,
+    currentTest:     currentTest,
+    currentSubtest:  currentSubtest,
+    currentQuestion: currentQuestion,
+    currentColumn:   currentColumn,
+    timeLeft:        timeLeft,
+    progressPercent: progressPercent,
+    questionLabel:   questionLabel,
+    testTotalSubtests: testTotalSubtests,
+    testTotalColumns:  testTotalColumns,
     completedCount,
     totalTests,
     status:          status || 'active',
     inTestView:      (typeof window !== 'undefined' && window.__inTestView === true),
     finished:        isFinished,
-    disqualified:    isDisqualified,    // ← BARU
+    disqualified:    isDisqualified,
     lastSeen:        firebase.database.ServerValue.TIMESTAMP
   };
-
+   
   __presenceRef.once('value').then(snap => {
     if (!snap.exists() || !snap.val()?.startedAt) {
       payload.startedAt = firebase.database.ServerValue.TIMESTAMP;
