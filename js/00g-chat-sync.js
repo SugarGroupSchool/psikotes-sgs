@@ -2,7 +2,6 @@
    js/00g-chat-sync.js
    - Reliable chat sender with queue + retry + offline
    - Optimistic UI: pesan tampil langsung, kirim di background
-   - FIX: device ID konsisten pakai getOrCreateDeviceId()
    ============================================================ */
 
 const CHAT_QUEUE_KEY    = '_sgs_chat_queue';
@@ -15,7 +14,7 @@ let __chatConnStatus  = 'unknown';
 let __chatConnListeners = [];
 
 /* ============================================================
-   QUEUE STORAGE (persist di localStorage)
+   QUEUE STORAGE
    ============================================================ */
 function __chatLoadQueue() {
   try {
@@ -37,7 +36,7 @@ function __chatGenId() {
 }
 
 /* ============================================================
-   GET DEVICE ID — konsisten dengan presence & chat
+   GET DEVICE ID
    ============================================================ */
 function __chatSyncGetDeviceId() {
   if (typeof getOrCreateDeviceId === 'function') {
@@ -95,7 +94,6 @@ function __chatEnableOffline() {
       ref.keepSynced(true);
       console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
     } else {
-      // SDK v9 compat tidak expose keepSynced — pakai offline queue bawaan
       console.log('[CHAT-SYNC] ℹ️ keepSynced tidak tersedia di SDK ini (offline queue bawaan tetap aktif)');
     }
   } catch (e) {
@@ -104,11 +102,10 @@ function __chatEnableOffline() {
 }
 
 /* ============================================================
-   ENQUEUE PESAN (langsung masuk queue + optimistic UI)
+   ENQUEUE PESAN
    ============================================================ */
 function enqueueChatMessage({ from, text, image, roomId }) {
   return new Promise((resolve, reject) => {
-    // Pakai device ID yang konsisten dengan presence & chat
     let rid = roomId;
     if (!rid) {
       rid = __chatSyncGetDeviceId();
@@ -131,16 +128,14 @@ function enqueueChatMessage({ from, text, image, roomId }) {
     __chatQueue.push(msg);
     __chatSaveQueue();
 
-    // Optimistic resolve — UI langsung tampil
     resolve({ localId, msg });
 
-    // Trigger processing (async)
     setTimeout(__chatProcessQueue, 50);
   });
 }
 
 /* ============================================================
-   PROCESS QUEUE (dengan retry)
+   PROCESS QUEUE
    ============================================================ */
 async function __chatProcessQueue() {
   if (__chatSending) return;
@@ -190,7 +185,7 @@ async function __chatProcessQueue() {
 }
 
 /* ============================================================
-   SEND TO FIREBASE (single attempt)
+   SEND TO FIREBASE
    ============================================================ */
 function __chatSendToFirebase(msg) {
   return new Promise((resolve, reject) => {
@@ -237,7 +232,7 @@ function __chatSendToFirebase(msg) {
 }
 
 /* ============================================================
-   AMBIL PENDING MESSAGES UNTUK ROOM TERTENTU
+   AMBIL PENDING
    ============================================================ */
 function getPendingMessagesForRoom(roomId) {
   return __chatQueue.filter(m => m.roomId === roomId);
@@ -278,7 +273,6 @@ window.getPendingMessagesForRoom  = getPendingMessagesForRoom;
 window.getPendingMessageById      = getPendingMessageById;
 window.__chatFlushQueue           = __chatProcessQueue;
 
-/* ─── Debug accessors (untuk cek queue dari Console) ─── */
 window.__getChatQueue = () => __chatQueue.slice();
 window.__chatQueueDebug = () => {
   if (!__chatQueue.length) {
