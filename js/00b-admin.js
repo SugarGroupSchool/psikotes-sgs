@@ -12,7 +12,64 @@
    ============================================================ */
 const ADMIN_PANEL_PASSWORD = 'pragas ganteng 191225';
 const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
+/* ============================================================
+   ADMIN UNREAD TRACKER (global per device)
+   ============================================================ */
+window.__adminUnreadMap = {};
+window.__adminLastSessions = [];
 
+let __adminUnreadRefs = [];
+let __adminRefreshTimer = null;
+
+function startAdminUnreadTracker() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  stopAdminUnreadTracker();
+
+  const chatsRef = firebase.database().ref('sgs_state/chats');
+
+  const onRoomAdded = (roomSnap) => {
+    const deviceId = roomSnap.key;
+    const queryRef = roomSnap.ref.child('messages')
+      .orderByChild('from').equalTo('candidate');
+
+    const onMsgsChange = (snap) => {
+      let count = 0;
+      snap.forEach(ch => { if (!ch.val()?.read) count++; });
+      window.__adminUnreadMap[deviceId] = count;
+      scheduleAdminRefresh();
+    };
+
+    queryRef.on('value', onMsgsChange);
+    __adminUnreadRefs.push({ ref: queryRef, cb: onMsgsChange, type: 'value' });
+  };
+
+  chatsRef.on('child_added', onRoomAdded);
+  __adminUnreadRefs.push({ ref: chatsRef, cb: onRoomAdded, type: 'child_added' });
+
+  console.log('[ADMIN] 👂 Unread tracker started');
+}
+
+function stopAdminUnreadTracker() {
+  __adminUnreadRefs.forEach(({ ref, cb, type }) => {
+    try {
+      if (type === 'child_added') ref.off('child_added', cb);
+      else ref.off('value', cb);
+    } catch (e) {}
+  });
+  __adminUnreadRefs = [];
+  console.log('[ADMIN] 🔇 Unread tracker stopped');
+}
+
+function scheduleAdminRefresh() {
+  clearTimeout(__adminRefreshTimer);
+  __adminRefreshTimer = setTimeout(() => {
+    const container = document.getElementById('adminActiveSessions');
+    if (!container) return;
+    if (window.__adminLastSessions) {
+      container.innerHTML = renderActiveSessionsHTML(window.__adminLastSessions);
+    }
+  }, 200);
+}
 /* ============================================================
    STORAGE HELPERS
    ============================================================ */
@@ -397,6 +454,10 @@ function adminLogout() {
   if (typeof window.stopListeningActiveSessions === 'function') {
     try { window.stopListeningActiveSessions(); } catch (e) {}
   }
+  if (typeof stopAdminUnreadTracker === 'function') {     // ← BARU
+    try { stopAdminUnreadTracker(); } catch (e) {}
+  }
+  // ... sisanya sama
 
   const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
@@ -466,7 +527,11 @@ function renderActiveSessionsHTML(sessions) {
       ">🔓 Izinkan Tes Lagi</button>
     ` : '';
 
-    // Tombol chat — disable kalau finished
+    // Cek unread dari kandidat
+    const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
+    const hasUnread = unreadCount > 0;
+
+    // Tombol chat — disable kalau finished, blink kalau ada unread
     const chatBtn = isFinished ? `
       <button disabled title="Kandidat sudah selesai" style="
         padding: 5px 12px;
@@ -477,7 +542,9 @@ function renderActiveSessionsHTML(sessions) {
         white-space: nowrap;
       ">💬 Chat</button>
     ` : `
-      <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')" style="
+      <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')"
+              class="${hasUnread ? 'chat-btn-blink' : ''}"
+              style="
         padding: 5px 12px;
         background: linear-gradient(135deg, #3b82f6, #1e40af);
         color: #fff; border: 0; border-radius: 7px;
@@ -485,7 +552,7 @@ function renderActiveSessionsHTML(sessions) {
         cursor: pointer; font-family: inherit;
         box-shadow: 0 3px 8px rgba(59,130,246,.25);
         white-space: nowrap;
-      ">💬 Chat</button>
+      ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
     `;
 
     // Background berbeda untuk finished
@@ -973,20 +1040,29 @@ function renderAdminPanel() {
     }
 
     window.listenActiveSessions((sessions) => {
+      window.__adminLastSessions = sessions;   // ← simpan untuk refresh
+
       if (countEl) {
         countEl.textContent = sessions.length + ' kandidat';
         countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
       }
       container.innerHTML = renderActiveSessionsHTML(sessions);
     });
+
+    // Mulai unread tracker
+    if (typeof startAdminUnreadTracker === 'function') {
+      startAdminUnreadTracker();
+    }
   }, 200);
 
-  /* ---- Tombol close ---- */
   const closeBtn = document.getElementById('btnAdminClose');
   if (closeBtn) {
     closeBtn.onclick = () => {
       if (typeof window.stopListeningActiveSessions === 'function') {
         try { window.stopListeningActiveSessions(); } catch (e) {}
+      }
+      if (typeof stopAdminUnreadTracker === 'function') {
+        try { stopAdminUnreadTracker(); } catch (e) {}
       }
       overlay.remove();
       try {
