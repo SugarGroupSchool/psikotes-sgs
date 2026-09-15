@@ -2,12 +2,13 @@
    js/00e-presence.js
    - Heartbeat kandidat aktif ke Firebase (30 detik)
    - Admin bisa lihat list real-time
-   - FIX: getOrCreateDeviceId() jadi sumber tunggal device ID
+   - getOrCreateDeviceId() = sumber tunggal device ID
+   - FITUR BARU: listen sinyal allow_retake dari admin
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
 const PRESENCE_HEARTBEAT_MS = 30000;         // 30 detik
-const PRESENCE_STALE_MS     = 3 * 60 * 1000; // 3 menit = dianggap offline
+const PRESENCE_STALE_MS     = 3 * 60 * 1000; // 3 menit
 
 let __presenceTimer       = null;
 let __presenceDeviceId    = null;
@@ -17,8 +18,6 @@ let __presenceListenCb    = null;
 
 /* ------------------------------------------------------------
    DEVICE ID — SUMBER TUNGGAL
-   - Dipakai oleh: presence, chat, chat-sync
-   - Persist di localStorage dengan key '_sgs_device_id'
    ------------------------------------------------------------ */
 function getOrCreateDeviceId() {
   try {
@@ -49,7 +48,6 @@ function initPresence() {
   const db = firebase.database();
   __presenceRef = db.ref('sgs_state/sessions/' + __presenceDeviceId);
 
-  // Auto-mark offline saat koneksi putus / tab ditutup
   __presenceRef.onDisconnect().update({
     status: 'offline',
     lastSeen: firebase.database.ServerValue.TIMESTAMP
@@ -61,6 +59,9 @@ function initPresence() {
   __presenceTimer = setInterval(() => pushPresence('active'), PRESENCE_HEARTBEAT_MS);
 
   console.log('[PRESENCE] ✓ device:', __presenceDeviceId);
+
+  // Mulai dengarkan sinyal allow_retake dari admin
+  startListeningAllowRetake();
 }
 
 /* ------------------------------------------------------------
@@ -85,6 +86,12 @@ function pushPresence(status) {
 
   const st = (typeof appState !== 'undefined' && appState) ? appState : {};
 
+  // Cek apakah device sudah selesai tes
+  let isFinished = false;
+  try {
+    isFinished = localStorage.getItem('_sgs_finished') === '1';
+  } catch (e) {}
+
   const payload = {
     deviceId:        __presenceDeviceId,
     name:            identity.name || '(belum isi identitas)',
@@ -97,7 +104,7 @@ function pushPresence(status) {
     totalTests,
     status:          status || 'active',
     inTestView:      (typeof window !== 'undefined' && window.__inTestView === true),
-    finished:        localStorage.getItem('_sgs_finished') === '1',   // ← BARU
+    finished:        isFinished,   // ← BARU: tandai device sudah selesai tes
     lastSeen:        firebase.database.ServerValue.TIMESTAMP
   };
 
@@ -125,6 +132,80 @@ function markPresenceOffline() {
 }
 
 window.addEventListener('beforeunload', markPresenceOffline);
+
+/* ------------------------------------------------------------
+   LISTEN SINYAL allow_retake DARI ADMIN
+   - Kalau admin klik "Izinkan Tes Lagi"
+   - Device otomatis hapus _sgs_finished & reload
+   ------------------------------------------------------------ */
+let __allowRetakeListenRef = null;
+let __allowRetakeListenCb  = null;
+
+function startListeningAllowRetake() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (!__presenceDeviceId) return;
+
+  // Bersihkan listener lama
+  if (__allowRetakeListenRef && __allowRetakeListenCb) {
+    try { __allowRetakeListenRef.off('value', __allowRetakeListenCb); } catch (e) {}
+  }
+
+  __allowRetakeListenRef = firebase.database()
+    .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake');
+
+  __allowRetakeListenCb = (snap) => {
+    const allow = snap.val() === true;
+    if (!allow) return;
+
+    // Cegah loop: kalau flag sudah pernah diproses di sesi ini, skip
+    if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
+
+    console.log('[PRESENCE] 🔓 Admin izinkan tes lagi — reset device...');
+
+    // Tandai sudah diproses (biar tidak loop)
+    try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
+
+    // Hapus flag device finished & lock
+    try {
+      localStorage.removeItem('_sgs_finished');
+      localStorage.removeItem('_sgs_lock');
+    } catch (e) {}
+
+    // Hapus data kandidat lama
+    try {
+      localStorage.removeItem('identity');
+      localStorage.removeItem('completed');
+      localStorage.removeItem('selectedTests');
+      sessionStorage.removeItem('dlClick');
+    } catch (e) {}
+
+    // Reset flag allow_retake di Firebase (biar tidak trigger lagi)
+    firebase.database()
+      .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
+      .set(false)
+      .catch(() => {});
+
+    // Notif ke kandidat
+    alert('🔓 Admin telah mengizinkan Anda mengerjakan tes lagi.\n\n' +
+          'Halaman akan dimuat ulang. Silakan login dengan password dari admin.');
+
+    // Reload
+    setTimeout(() => {
+      try { window.location.reload(); } catch (e) {}
+    }, 800);
+  };
+
+  __allowRetakeListenRef.on('value', __allowRetakeListenCb);
+  console.log('[PRESENCE] 👂 Listening allow_retake untuk device:', __presenceDeviceId);
+}
+
+function stopListeningAllowRetake() {
+  if (__allowRetakeListenRef && __allowRetakeListenCb) {
+    try { __allowRetakeListenRef.off('value', __allowRetakeListenCb); } catch (e) {}
+    __allowRetakeListenRef = null;
+    __allowRetakeListenCb = null;
+  }
+}
 
 /* ------------------------------------------------------------
    READ — untuk admin panel
@@ -155,6 +236,7 @@ function __presenceFilterFresh(data) {
     })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 }
+
 function fetchActiveSessions(callback) {
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
     callback([]); return;
@@ -199,13 +281,15 @@ if (document.readyState === 'loading') {
 /* ------------------------------------------------------------
    EXPORT
    ------------------------------------------------------------ */
-window.initPresence              = initPresence;
-window.pushPresence              = pushPresence;
-window.markPresenceDone          = markPresenceDone;
-window.markPresenceOffline       = markPresenceOffline;
-window.fetchActiveSessions       = fetchActiveSessions;
-window.listenActiveSessions      = listenActiveSessions;
-window.stopListeningActiveSessions = stopListeningActiveSessions;
-window.getOrCreateDeviceId       = getOrCreateDeviceId;
+window.initPresence                 = initPresence;
+window.pushPresence                 = pushPresence;
+window.markPresenceDone             = markPresenceDone;
+window.markPresenceOffline          = markPresenceOffline;
+window.fetchActiveSessions          = fetchActiveSessions;
+window.listenActiveSessions         = listenActiveSessions;
+window.stopListeningActiveSessions  = stopListeningActiveSessions;
+window.getOrCreateDeviceId          = getOrCreateDeviceId;
+window.startListeningAllowRetake    = startListeningAllowRetake;
+window.stopListeningAllowRetake     = stopListeningAllowRetake;
 
 console.log('[PRESENCE] ✓ Loaded');
