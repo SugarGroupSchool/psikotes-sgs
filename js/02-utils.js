@@ -80,19 +80,5 @@ function scrollToElement(el, block = 'start') {
   setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block }), 200);
 }
 
-/** Preload gambar (dengan cache) */
-const __imgCache = new Map();
-function preloadImage(src) {
-  if (!src) return Promise.resolve();
-  if (__imgCache.has(src)) return __imgCache.get(src);
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = src;
-  const p = (img.decode ? img.decode() : new Promise((res, rej) => {
-    img.onload = res; img.onerror = rej;
-  })).catch(() => {});
-  __imgCache.set(src, p);
-  return p;
-}
 
 console.log('[UTILS] ✓ Loaded');
