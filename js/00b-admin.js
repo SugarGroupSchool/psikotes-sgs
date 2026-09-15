@@ -4,7 +4,9 @@
    - Login gate: butuh password untuk akses panel
    - Monitoring kandidat aktif (real-time)
    - Chat per kandidat
-   - FITUR BARU: tombol "Izinkan Tes Lagi" untuk device finished
+   - Unread tracker (badge + blink)
+   - Tombol "Izinkan Tes Lagi" untuk device finished
+   - Auto-cleanup chat device tidak aktif
    ============================================================ */
 
 /* ============================================================
@@ -12,6 +14,14 @@
    ============================================================ */
 const ADMIN_PANEL_PASSWORD = 'pragas ganteng 191225';
 const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
+
+/* ============================================================
+   KONFIGURASI AUTO-CLEANUP CHAT
+   ============================================================ */
+const CHAT_CLEANUP_ENABLED        = true;
+const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;  // 1 jam tidak aktif → hapus
+const CHAT_CLEANUP_DELETE_SESSION = true;
+
 /* ============================================================
    ADMIN UNREAD TRACKER (global per device)
    ============================================================ */
@@ -70,6 +80,7 @@ function scheduleAdminRefresh() {
     }
   }, 200);
 }
+
 /* ============================================================
    STORAGE HELPERS
    ============================================================ */
@@ -247,8 +258,6 @@ function adminUnlockDevice() {
 
 /* ============================================================
    IZINKAN TES LAGI (untuk device tertentu)
-   - Tulis flag allow_retake=true di Firebase
-   - Device kandidat dengar & auto-reset dirinya sendiri
    ============================================================ */
 function adminAllowRetake(deviceId, candidateName) {
   const name = candidateName || 'kandidat';
@@ -256,7 +265,7 @@ function adminAllowRetake(deviceId, candidateName) {
   const ok = confirm(
     'Izinkan "' + name + '" untuk mengerjakan tes lagi?\n\n' +
     '• Device akan di-reset (hapus history tes)\n' +
-    '• Kandidat harus login ulang dengan password FRESH\n' +
+    '• Kandidat harus login ulang dengan password dari admin\n' +
     '• Semua hasil tes sebelumnya tetap ada di Firebase\n\n' +
     'Lanjutkan?'
   );
@@ -288,6 +297,96 @@ function adminAllowRetake(deviceId, candidateName) {
     console.error('[ADMIN] ❌ Gagal allow_retake:', e);
     alert('❌ Gagal kirim sinyal: ' + e.message);
   });
+}
+
+/* ============================================================
+   AUTO-CLEANUP CHAT UNTUK DEVICE TIDAK AKTIF
+   ============================================================ */
+async function cleanupInactiveChatRooms(options = {}) {
+  const {
+    silent = false,
+    minAgeMs = CHAT_CLEANUP_AGE_MS,
+    alsoDeleteSessions = CHAT_CLEANUP_DELETE_SESSION
+  } = options;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    return { removed: 0, deviceIds: [] };
+  }
+
+  const now = Date.now();
+  const myDeviceId = localStorage.getItem('_sgs_device_id');
+
+  try {
+    const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+    const chatsSnap    = await firebase.database().ref('sgs_state/chats').once('value');
+
+    const sessions = sessionsSnap.val() || {};
+    const chats    = chatsSnap.val() || {};
+
+    const toDelete = [];
+
+    Object.keys(chats).forEach(deviceId => {
+      if (deviceId === myDeviceId) return;
+
+      const session = sessions[deviceId] || {};
+      const lastSeen = session.lastSeen || 0;
+      const status   = session.status;
+
+      // Skip device yang sudah selesai
+      if (session.finished === true) return;
+
+      // Skip device yang aktif & baru
+      if (status === 'active' && (now - lastSeen) < minAgeMs) return;
+
+      // Hapus kalau offline atau stale
+      if (status === 'offline' || (now - lastSeen) >= minAgeMs) {
+        toDelete.push(deviceId);
+      }
+    });
+
+    let removed = 0;
+    for (const deviceId of toDelete) {
+      try {
+        await firebase.database().ref('sgs_state/chats/' + deviceId).remove();
+        if (alsoDeleteSessions) {
+          await firebase.database().ref('sgs_state/sessions/' + deviceId).remove();
+        }
+        removed++;
+      } catch (e) {
+        console.warn('[CLEANUP] Gagal hapus room:', deviceId, e);
+      }
+    }
+
+    if (!silent) {
+      console.log('[CLEANUP] 🧹 Removed', removed, 'chat rooms:', toDelete.map(d => d.slice(-8)).join(', '));
+    }
+
+    return { removed, deviceIds: toDelete };
+  } catch (e) {
+    console.error('[CLEANUP] Error:', e);
+    return { removed: 0, deviceIds: [], error: e.message };
+  }
+}
+
+async function adminCleanupInactive() {
+  if (!confirm(
+    'Bersihkan chat dari kandidat yang tidak aktif?\n\n' +
+    '• Chat room device offline / tidak aktif > ' +
+    Math.round(CHAT_CLEANUP_AGE_MS / 60000) + ' menit akan dihapus\n' +
+    '• Device yang masih aktif tidak terpengaruh\n' +
+    '• Device yang sudah selesai tes juga tidak terpengaruh\n\n' +
+    'Lanjutkan?'
+  )) return;
+
+  const result = await cleanupInactiveChatRooms({ silent: false });
+
+  if (result.removed === 0) {
+    alert('✨ Tidak ada chat yang perlu dibersihkan.');
+  } else {
+    alert('✅ ' + result.removed + ' chat room berhasil dibersihkan.');
+  }
+
+  setTimeout(() => renderAdminPanel(), 300);
 }
 
 /* ============================================================
@@ -454,10 +553,9 @@ function adminLogout() {
   if (typeof window.stopListeningActiveSessions === 'function') {
     try { window.stopListeningActiveSessions(); } catch (e) {}
   }
-  if (typeof stopAdminUnreadTracker === 'function') {     // ← BARU
+  if (typeof stopAdminUnreadTracker === 'function') {
     try { stopAdminUnreadTracker(); } catch (e) {}
   }
-  // ... sisanya sama
 
   const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
@@ -502,7 +600,6 @@ function renderActiveSessionsHTML(sessions) {
       ? `${s.completedCount}/${s.totalTests} tes`
       : '—';
 
-    // Status berbeda untuk finished
     const isFinished = s.finished === true;
     const statusColor = isFinished ? '#94a3b8'
                       : s.inTestView ? '#16a34a' : '#f59e0b';
@@ -514,7 +611,6 @@ function renderActiveSessionsHTML(sessions) {
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-    // Tombol "Izinkan Tes Lagi" — hanya muncul untuk device finished
     const allowRetakeBtn = isFinished ? `
       <button onclick="adminAllowRetake('${s.deviceId}', '${safeName}')" style="
         padding: 5px 12px;
@@ -527,11 +623,9 @@ function renderActiveSessionsHTML(sessions) {
       ">🔓 Izinkan Tes Lagi</button>
     ` : '';
 
-    // Cek unread dari kandidat
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
 
-    // Tombol chat — disable kalau finished, blink kalau ada unread
     const chatBtn = isFinished ? `
       <button disabled title="Kandidat sudah selesai" style="
         padding: 5px 12px;
@@ -555,7 +649,6 @@ function renderActiveSessionsHTML(sessions) {
       ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
     `;
 
-    // Background berbeda untuk finished
     const cardBg = isFinished
       ? 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
       : '#fff';
@@ -791,7 +884,7 @@ function renderAdminPanel() {
         </style>
 
         ${locked ? `
-          <!-- KALAU LOCKED, TAMPILKAN PESAN -->
+          <!-- KALAU LOCKED -->
           <div style="
             padding: 24px 20px;
             background: #f8fafc;
@@ -1006,6 +1099,14 @@ function renderAdminPanel() {
             font-family: inherit; font-size: 13px; font-weight: 800;
             cursor: pointer;
           ">🔓 Unlock Device</button>
+          <button onclick="adminCleanupInactive()" style="
+            flex: 1; min-width: 140px;
+            padding: 12px 16px;
+            background: #fff; color: #7c3aed;
+            border: 2px solid #c4b5fd; border-radius: 10px;
+            font-family: inherit; font-size: 13px; font-weight: 800;
+            cursor: pointer;
+          ">🧹 Bersihkan Chat Tidak Aktif</button>
         </div>
 
         <!-- FOOTER -->
@@ -1040,7 +1141,7 @@ function renderAdminPanel() {
     }
 
     window.listenActiveSessions((sessions) => {
-      window.__adminLastSessions = sessions;   // ← simpan untuk refresh
+      window.__adminLastSessions = sessions;
 
       if (countEl) {
         countEl.textContent = sessions.length + ' kandidat';
@@ -1052,6 +1153,17 @@ function renderAdminPanel() {
     // Mulai unread tracker
     if (typeof startAdminUnreadTracker === 'function') {
       startAdminUnreadTracker();
+    }
+
+    // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
+    if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
+      setTimeout(() => {
+        cleanupInactiveChatRooms({ silent: true }).then(r => {
+          if (r.removed > 0) {
+            console.log('[AUTO-CLEANUP] 🧹 ' + r.removed + ' chat lama dibersihkan');
+          }
+        });
+      }, 500);
     }
   }, 200);
 
@@ -1126,10 +1238,14 @@ window.setUsedPwdManual = setUsedPwdManual;
 window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
 window.adminAllowRetake = adminAllowRetake;
+window.adminCleanupInactive = adminCleanupInactive;
 window.adminLogout = adminLogout;
 
 /* ─── Unread Tracker ─── */
 window.startAdminUnreadTracker = startAdminUnreadTracker;
 window.stopAdminUnreadTracker = stopAdminUnreadTracker;
 
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread');
+/* ─── Chat Cleanup ─── */
+window.cleanupInactiveChatRooms = cleanupInactiveChatRooms;
+
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup');
