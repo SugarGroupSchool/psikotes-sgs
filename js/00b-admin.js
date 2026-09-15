@@ -13,7 +13,10 @@
    ============================================================ */
 const ADMIN_PANEL_PASSWORD = 'pragas ganteng 191225';
 const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
-
+/* ============================================================
+   KONFIGURASI GAS (Google Apps Script) UNTUK PDF
+   ============================================================ */
+const GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 /* ============================================================
    KONFIGURASI AUTO-CLEANUP CHAT
    ============================================================ */
@@ -445,7 +448,131 @@ async function adminCleanupInactive() {
 
   setTimeout(() => renderAdminPanel(), 300);
 }
+/* ============================================================
+   AMBIL DAFTAR PDF DARI GOOGLE DRIVE (via GAS)
+   ============================================================ */
+async function fetchResultFiles() {
+  try {
+    const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now();
+    const res = await fetch(url);
+    const data = await res.json();
 
+    if (data.success) {
+      return data.files || [];
+    }
+    console.warn('[PDF-LIST] Gagal:', data.error);
+    return [];
+  } catch (e) {
+    console.error('[PDF-LIST] Error:', e);
+    return [];
+  }
+}
+
+/* ============================================================
+   RENDER DAFTAR PDF DI PANEL ADMIN
+   ============================================================ */
+function renderResultFilesHTML(files) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return `
+      <div style="
+        padding: 20px 14px; text-align: center;
+        color: #94a3b8; font-size: 12px;
+        background: #fff; border-radius: 10px;
+      ">
+        📭 Belum ada PDF yang dikirim kandidat
+      </div>`;
+  }
+
+  return files.map(f => {
+    const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+    const dateStr = f.date ? new Date(f.date).toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    }) : '-';
+
+    // Parse description untuk dapat nama & posisi
+    let name = '-', pos = '-';
+    try {
+      const lines = (f.description || '').split('\n');
+      lines.forEach(l => {
+        if (l.startsWith('Nama:')) name = l.replace('Nama:', '').trim();
+        if (l.startsWith('Posisi:')) pos = l.replace('Posisi:', '').trim();
+      });
+    } catch (e) {}
+
+    const safeFileName = String(f.name || '').replace(/'/g, "\\'");
+
+    return `
+      <div style="
+        padding: 12px 14px; background: #fff;
+        border: 1px solid #dbeafe; border-radius: 10px;
+        font-size: 12px; line-height: 1.5;
+      ">
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: flex-start; gap: 8px; margin-bottom: 6px;
+        ">
+          <div style="font-weight: 800; color: #1e293b; min-width:0; word-break:break-word;">
+            ${__adminEscape(name !== '-' ? name : f.name || '(tanpa nama)')}
+          </div>
+          <div style="
+            font-size: 10px; color: #3b82f6;
+            font-weight: 800; white-space: nowrap;
+            background: #eff6ff; padding: 3px 8px; border-radius: 6px;
+          ">${sizeMB}</div>
+        </div>
+
+        <div style="color: #64748b; font-size: 11px; margin-bottom: 6px;">
+          ${pos !== '-' ? `📍 ${__adminEscape(pos)} &nbsp;·&nbsp; ` : ''}
+          🕐 ${dateStr}
+        </div>
+
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: center; gap: 8px; padding-top: 6px;
+          border-top: 1px dashed #e2e8f0;
+        ">
+          <div style="color: #94a3b8; font-size: 10px; min-width:0; word-break:break-all;">
+            ${__adminEscape((f.name || '').slice(0, 40))}${(f.name || '').length > 40 ? '...' : ''}
+          </div>
+          <a href="${f.url}" target="_blank" rel="noopener"
+             style="
+            padding: 5px 12px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            color: #fff; border: 0; border-radius: 7px;
+            font-size: 11px; font-weight: 800;
+            text-decoration: none; white-space: nowrap;
+            box-shadow: 0 3px 8px rgba(59,130,246,.25);
+          ">⬇️ Buka</a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ============================================================
+   REFRESH DAFTAR PDF DI PANEL
+   ============================================================ */
+async function refreshResultFilesList() {
+  const container = document.getElementById('adminResultFiles');
+  const countEl = document.getElementById('adminResultCount');
+
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px;">
+      ⏳ Memuat daftar PDF...
+    </div>
+  `;
+
+  const files = await fetchResultFiles();
+
+  if (countEl) {
+    countEl.textContent = files.length + ' file';
+    countEl.style.color = files.length > 0 ? '#1e40af' : '#94a3b8';
+  }
+
+  container.innerHTML = renderResultFilesHTML(files);
+}
 /* ============================================================
    ADMIN LOGIN PROMPT
    ============================================================ */
@@ -1035,7 +1162,54 @@ function renderAdminPanel() {
             ">⏳ Memuat data...</div>
           </div>
         </div>
+        <!-- =========================================
+             HASIL TES TERKIRIM (PDF dari Google Drive)
+             ========================================= -->
+        <div style="
+          padding: 18px 20px;
+          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+          border: 2px solid #86efac;
+          border-radius: 14px;
+          margin-bottom: 16px;
+        ">
+          <div style="
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+          ">
+            <div style="
+              font-size: 14px; font-weight: 900; color: #15803d;
+              display: flex; align-items: center; gap: 8px;
+            ">
+              <span style="font-size: 16px;">📄</span>
+              Hasil Tes Terkirim
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <div id="adminResultCount" style="
+                font-size: 12px; font-weight: 800; color: #94a3b8;
+                background: #fff; padding: 4px 10px; border-radius: 999px;
+                border: 1px solid #86efac;
+              ">0 file</div>
+              <button onclick="refreshResultFilesList()" style="
+                padding: 5px 12px;
+                background: linear-gradient(135deg, #16a34a, #059669);
+                color: #fff; border: 0; border-radius: 8px;
+                font-family: inherit; font-size: 11px; font-weight: 800;
+                cursor: pointer;
+                box-shadow: 0 3px 8px rgba(22,163,74,.25);
+              ">🔄 Refresh</button>
+            </div>
+          </div>
 
+          <div id="adminResultFiles" style="
+            display: flex; flex-direction: column; gap: 8px;
+            max-height: 400px; overflow-y: auto;
+          ">
+            <div style="
+              padding: 20px 14px; text-align: center;
+              color: #94a3b8; font-size: 12px;
+            ">⏳ Memuat...</div>
+          </div>
+        </div>
         <style>
           @keyframes adminPulseDot {
             0%, 100% { transform: scale(1); opacity: 1; }
@@ -1319,7 +1493,10 @@ function renderAdminPanel() {
     if (typeof startAdminTimerTick === 'function') {
       startAdminTimerTick();
     }
-
+    // 📄 Auto-load daftar PDF dari Google Drive
+    if (typeof refreshResultFilesList === 'function') {
+      refreshResultFilesList();
+    }
     // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
@@ -1419,5 +1596,7 @@ window.cleanupInactiveChatRooms = cleanupInactiveChatRooms;
 /* ─── Timer Tick ─── */
 window.startAdminTimerTick = startAdminTimerTick;
 window.stopAdminTimerTick = stopAdminTimerTick;
-
+window.fetchResultFiles        = fetchResultFiles;
+window.renderResultFilesHTML   = renderResultFilesHTML;
+window.refreshResultFilesList  = refreshResultFilesList;
 console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer');
