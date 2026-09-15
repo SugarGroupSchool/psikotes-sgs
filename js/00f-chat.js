@@ -4,6 +4,7 @@
    - Anti-cheat SAFE: semua UI di overlay internal (tidak trigger blur)
    - Support text + image (paste Ctrl+V, drag, picker)
    - Reliable send via 00g-chat-sync.js (queue + retry + optimistic UI)
+   - FIX: device ID konsisten pakai getOrCreateDeviceId()
    ============================================================ */
 
 const CHAT_MAX_IMAGE_DIM = 900;
@@ -20,17 +21,34 @@ let __chatAudioCtx = null;
    HELPERS
    ------------------------------------------------------------ */
 function __chatMyDeviceId() {
-  return localStorage.getItem('_sgs_device_id') || 'dev_anon';
+  // Pakai getOrCreateDeviceId (dari 00e-presence.js) supaya konsisten
+  if (typeof getOrCreateDeviceId === 'function') {
+    return getOrCreateDeviceId();
+  }
+  // Fallback: buat sendiri kalau modul presence tidak ada
+  try {
+    let id = localStorage.getItem('_sgs_device_id');
+    if (!id) {
+      id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem('_sgs_device_id', id);
+    }
+    return id;
+  } catch (e) {
+    return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
+  }
 }
+
 function __chatNow() {
   return (typeof firebase !== 'undefined' && firebase.database)
     ? firebase.database.ServerValue.TIMESTAMP : Date.now();
 }
+
 function __chatEscape(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
 function __chatTimeHM(ts) {
   if (!ts) return '';
   const d = new Date(ts);
@@ -398,7 +416,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         ">`;
       }
 
-      // Status icon untuk pesan sendiri
       let statusIcon = '';
       if (isMe && m._pending) {
         statusIcon = m._retries > 0
@@ -426,7 +443,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         </div>`;
     }).join('');
 
-    // Pasang lightbox (in-page — tidak trigger blur)
     messagesEl.querySelectorAll('img[data-lightbox]').forEach(img => {
       img.onclick = (e) => {
         e.preventDefault();
@@ -447,8 +463,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
 
   /* ------------------------------------------------------------
      KIRIM PESAN
-     - Pakai enqueueChatMessage kalau ada (00g-chat-sync.js)
-     - Fallback ke sendChatMessage kalau tidak ada
      ------------------------------------------------------------ */
   async function doSend() {
     const text = textarea.value.trim();
@@ -462,7 +476,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     pendingImage = null;
     updatePreview();
 
-    // Prioritas: queue (retry otomatis). Fallback: kirim langsung.
     if (typeof enqueueChatMessage === 'function') {
       enqueueChatMessage({
         from: role,
@@ -475,7 +488,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
         if (savedText)  { textarea.value = savedText; }
       });
     } else {
-      // Fallback: kirim langsung
       try {
         await sendChatMessage({ from: role, text: savedText, image: savedImage, roomId });
       } catch (e) {
@@ -499,7 +511,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
   });
 
-  // Paste image
   textarea.addEventListener('paste', async e => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -511,7 +522,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     }
   });
 
-  // Drag & drop
   inputArea.addEventListener('dragover', e => e.preventDefault());
   inputArea.addEventListener('drop', async e => {
     e.preventDefault();
@@ -585,7 +595,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     __serverMessages = [];
     snap.forEach(ch => __serverMessages.push({ id: ch.key, ...ch.val() }));
 
-    // Deteksi pesan baru dari lawan
     if (__serverMessages.length > 0) {
       const last = __serverMessages[__serverMessages.length - 1];
       const opposite = role === 'admin' ? 'candidate' : 'admin';
@@ -599,7 +608,6 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
     renderMessages();
   });
 
-  // Re-render saat queue berubah
   function __handleQueueChange() {
     renderMessages();
   }
@@ -609,7 +617,7 @@ function __chatRenderWindow({ title, roomId, role, onClose }) {
   __chatUnsub = () => ref.off('value', handler);
 
   /* ------------------------------------------------------------
-     INITIAL RENDER + mark read
+     INITIAL RENDER
      ------------------------------------------------------------ */
   renderMessages();
   setTimeout(() => { markChatRead(role, roomId); textarea.focus(); }, 300);
@@ -676,7 +684,6 @@ function __chatInjectCandidateBubble() {
   fab.onclick = openChatForCandidate;
   document.body.appendChild(fab);
 
-  // Listen unread count
   setTimeout(() => {
     countUnreadFor('candidate', __chatMyDeviceId(), n => {
       const b = document.getElementById('chatFabBadge');
