@@ -190,14 +190,8 @@ function startListeningAllowRetake() {
       .set(false)
       .catch(() => {});
 
-    // Notif ke kandidat
-    alert('🔓 Admin telah mengizinkan Anda mengerjakan tes lagi.\n\n' +
-          'Halaman akan dimuat ulang. Silakan login dengan password dari admin.');
-
-    // Reload
-    setTimeout(() => {
-      try { window.location.reload(); } catch (e) {}
-    }, 800);
+     // Notif in-page (bukan popup)
+    showRetakeBanner();
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
@@ -210,6 +204,86 @@ function stopListeningAllowRetake() {
     __allowRetakeListenRef = null;
     __allowRetakeListenCb = null;
   }
+}
+
+/* ------------------------------------------------------------
+   BANNER IN-PAGE — notifikasi izin retake dari admin
+   (bukan alert/popup, tapi banner besar di atas halaman)
+   ------------------------------------------------------------ */
+function showRetakeBanner() {
+  // Hapus banner lama kalau ada
+  const old = document.getElementById('retakeNotification');
+  if (old) old.remove();
+
+  // Inject keyframes sekali saja
+  if (!document.getElementById('retakeBannerStyle')) {
+    const style = document.createElement('style');
+    style.id = 'retakeBannerStyle';
+    style.textContent = `
+      @keyframes retakeSlideDown {
+        from { transform: translateY(-100%); opacity: 0; }
+        to   { transform: translateY(0);     opacity: 1; }
+      }
+      @keyframes retakeIconBounce {
+        0%, 100% { transform: scale(1)    rotate(0); }
+        25%      { transform: scale(1.15) rotate(-8deg); }
+        75%      { transform: scale(1.15) rotate(8deg); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const banner = document.createElement('div');
+  banner.id = 'retakeNotification';
+  banner.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 2147483647;
+    background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+    color: #fff;
+    padding: 26px 20px 22px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    animation: retakeSlideDown 0.45s cubic-bezier(.2,.8,.2,1);
+    border-bottom: 3px solid rgba(255,255,255,.35);
+  `;
+  banner.innerHTML = `
+    <div style="
+      font-size: 42px; line-height: 1;
+      margin-bottom: 10px;
+      animation: retakeIconBounce 1.4s ease-in-out infinite;
+    ">🔓</div>
+    <div style="
+      font-size: 20px; font-weight: 900;
+      letter-spacing: -0.3px; margin-bottom: 6px;
+    ">
+      Akses Diberikan oleh Admin
+    </div>
+    <div style="
+      font-size: 14px; opacity: 0.95;
+      line-height: 1.55; max-width: 520px; margin: 0 auto;
+    ">
+      Admin telah mengizinkan Anda mengerjakan tes lagi.<br>
+      Halaman akan dimuat ulang dalam
+      <b><span id="retakeCountdown">3</span></b> detik...
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+
+  // Countdown 3 → 2 → 1 → reload
+  let countdown = 3;
+  const countdownEl = document.getElementById('retakeCountdown');
+
+  const interval = setInterval(() => {
+    countdown--;
+    if (countdownEl) countdownEl.textContent = countdown;
+
+    if (countdown <= 0) {
+      clearInterval(interval);
+      try { window.location.reload(); } catch (e) {}
+    }
+  }, 1000);
 }
 
 /* ------------------------------------------------------------
@@ -296,5 +370,6 @@ window.stopListeningActiveSessions  = stopListeningActiveSessions;
 window.getOrCreateDeviceId          = getOrCreateDeviceId;
 window.startListeningAllowRetake    = startListeningAllowRetake;
 window.stopListeningAllowRetake     = stopListeningAllowRetake;
+window.showRetakeBanner = showRetakeBanner;
 
 console.log('[PRESENCE] ✓ Loaded');
