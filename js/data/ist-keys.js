@@ -45,5 +45,32 @@
     { s2:['regulator harga','regulasi harga','pengertian ekonomi'], s1:['dagang','niaga','penjualan','pembelian','jual beli'] },
     { s2:['pengertian ruang','penyebut ruang'], s1:['arah','letak','penentuan daerah','tempat','ruang','penunjuk tempat'] }
   ];
-  
-  console.log('[DATA-IST-KEYS] ✓ Loaded');
+  /* ============================================================
+   SCORING GE (Gemeinsamkeiten Finden)
+   - Cocokkan jawaban user ke s2 (2 poin) atau s1 (1 poin)
+   - Return: 2 / 1 / 0
+   ============================================================ */
+function scoreGE(questionIdx, answer) {
+  if (answer == null || answer === '-' || answer === '') return 0;
+  const rules = (typeof GE_SCORING !== 'undefined') ? GE_SCORING[questionIdx] : null;
+  if (!rules) return 0;
+
+  const norm = String(answer)
+    .toLowerCase()
+    .replace(/[^\w\s\u00C0-\u024F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!norm) return 0;
+
+  const matchAny = (arr) => Array.isArray(arr) && arr.some(k => {
+    const kk = String(k).toLowerCase().trim();
+    if (!kk) return false;
+    return norm === kk || norm.includes(kk) || kk.includes(norm);
+  });
+
+  if (matchAny(rules.s2)) return 2;
+  if (matchAny(rules.s1)) return 1;
+  return 0;
+}
+window.scoreGE = scoreGE;
+  console.log('[DATA-IST-KEYS] ✓ Loaded — scoreGE aktif');
