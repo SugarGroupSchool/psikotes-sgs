@@ -43,28 +43,40 @@ function initFirebase() {
     const db = firebase.database();
     const ref = db.ref('sgs_state');
 
-    // Listen perubahan real-time
+       let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
+
     ref.on('value', (snapshot) => {
       const data = snapshot.val() || {};
 
-      window.__cloudState.lock = data.lock === true;
-      window.__cloudState.freshPwd = data.freshPwd || '';
-      window.__cloudState.usedPwd = data.usedPwd || '';
+      const newLock = data.lock === true;
+      const newFreshPwd = data.freshPwd || '';
+      const newUsedPwd = data.usedPwd || '';
+
+      // Cek apakah ada yang benar-benar berubah
+      const changed =
+        __lastSync.lock !== newLock ||
+        __lastSync.freshPwd !== newFreshPwd ||
+        __lastSync.usedPwd !== newUsedPwd;
+
+      window.__cloudState.lock = newLock;
+      window.__cloudState.freshPwd = newFreshPwd;
+      window.__cloudState.usedPwd = newUsedPwd;
       window.__cloudState.ready = true;
 
-      console.log('[FIREBASE] 🔄 Sync:', {
-        lock: window.__cloudState.lock,
-        freshPwd: window.__cloudState.freshPwd,
-        usedPwd: window.__cloudState.usedPwd
-      });
+      if (changed) {
+        __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
 
-      // Refresh admin panel kalau terbuka
-      const panel = document.getElementById('adminPanelOverlay');
-      if (panel && typeof renderAdminPanel === 'function') {
-        renderAdminPanel();
+        console.log('[FIREBASE] 🔄 Sync:', {
+          lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd
+        });
+
+        // Refresh admin panel HANYA kalau lock/pwd berubah
+        const panel = document.getElementById('adminPanelOverlay');
+        if (panel && typeof renderAdminPanel === 'function') {
+          renderAdminPanel();
+        }
       }
     });
-
     console.log('[FIREBASE] ✓ Initialized');
 
   } catch (e) {
