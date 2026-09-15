@@ -125,7 +125,7 @@ function resetToLogin() {
 /* ============================================================
    EVENT BINDINGS
    ============================================================ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('dragstart', e => {
   const input = document.getElementById('passwordInput');
   if (input) {
     input.addEventListener('keypress', e => {
