@@ -250,6 +250,45 @@
         animation-duration: 0.5s;
       }
     }
+
+    /* =========================================
+       CHAT BLINK ANIMATIONS
+       ========================================= */
+    @keyframes chatFabBlink {
+      0%, 100% {
+        box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 0 rgba(239,68,68,.7);
+      }
+      50% {
+        box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 16px rgba(239,68,68,0);
+      }
+    }
+    .chat-blink {
+      animation: chatFabBlink 1.5s ease-in-out infinite !important;
+    }
+
+    @keyframes chatBadgeBlink {
+      0%, 100% { transform: scale(1);    opacity: 1; }
+      50%      { transform: scale(1.25); opacity: .85; }
+    }
+    .chat-badge-blink {
+      animation: chatBadgeBlink 1s ease-in-out infinite !important;
+    }
+
+    @keyframes chatBtnBlink {
+      0%, 100% {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        transform: scale(1);
+        box-shadow: 0 3px 8px rgba(59,130,246,.25);
+      }
+      50% {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        transform: scale(1.06);
+        box-shadow: 0 0 0 6px rgba(239,68,68,.22), 0 3px 12px rgba(239,68,68,.5);
+      }
+    }
+    .chat-btn-blink {
+      animation: chatBtnBlink 1.2s ease-in-out infinite !important;
+    }
   </style>
 </head>
 
