@@ -172,10 +172,12 @@ function startListeningAllowRetake() {
     } catch (e) {}
 
     // Hapus data kandidat lama
+       // Hapus data kandidat lama
     try {
       localStorage.removeItem('identity');
       localStorage.removeItem('completed');
       localStorage.removeItem('selectedTests');
+      localStorage.removeItem('usedPragas');   // ← BARU: reset ke FRESH mode
       sessionStorage.removeItem('dlClick');
     } catch (e) {}
 
