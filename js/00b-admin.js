@@ -4,6 +4,7 @@
    - Login gate: butuh password untuk akses panel
    - Monitoring kandidat aktif (real-time)
    - Chat per kandidat
+   - FITUR BARU: tombol "Izinkan Tes Lagi" untuk device finished
    ============================================================ */
 
 /* ============================================================
@@ -188,6 +189,51 @@ function adminUnlockDevice() {
 }
 
 /* ============================================================
+   IZINKAN TES LAGI (untuk device tertentu)
+   - Tulis flag allow_retake=true di Firebase
+   - Device kandidat dengar & auto-reset dirinya sendiri
+   ============================================================ */
+function adminAllowRetake(deviceId, candidateName) {
+  const name = candidateName || 'kandidat';
+
+  const ok = confirm(
+    'Izinkan "' + name + '" untuk mengerjakan tes lagi?\n\n' +
+    '• Device akan di-reset (hapus history tes)\n' +
+    '• Kandidat harus login ulang dengan password FRESH\n' +
+    '• Semua hasil tes sebelumnya tetap ada di Firebase\n\n' +
+    'Lanjutkan?'
+  );
+  if (!ok) return;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    alert('❌ Firebase belum siap');
+    return;
+  }
+
+  const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
+  ref.update({
+    allow_retake: true,
+    allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
+    allow_retake_by: 'admin'
+  })
+  .then(() => {
+    console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
+
+    alert(
+      '✅ Sinyal terkirim ke device "' + name + '".\n\n' +
+      'Kandidat akan otomatis logout & bisa tes lagi dalam beberapa detik.\n\n' +
+      '(Jika device kandidat sedang offline, sinyal akan diproses saat online.)'
+    );
+
+    setTimeout(() => renderAdminPanel(), 500);
+  })
+  .catch(e => {
+    console.error('[ADMIN] ❌ Gagal allow_retake:', e);
+    alert('❌ Gagal kirim sinyal: ' + e.message);
+  });
+}
+
+/* ============================================================
    ADMIN LOGIN PROMPT
    ============================================================ */
 function renderAdminLoginPrompt() {
@@ -368,7 +414,7 @@ function adminLogout() {
 }
 
 /* ============================================================
-   RENDER DAFTAR KANDIDAT AKTIF
+   RENDER DAFTAR KANDIDAT AKTIF + FINISHED
    ============================================================ */
 function renderActiveSessionsHTML(sessions) {
   if (!Array.isArray(sessions) || sessions.length === 0) {
@@ -650,18 +696,18 @@ function renderAdminPanel() {
                 box-shadow: 0 0 0 4px rgba(34,197,94,.2);
                 animation: adminPulseDot 1.4s ease-in-out infinite;
               "></span>
-              Kandidat Aktif
+              Kandidat Aktif & Selesai
             </div>
             <div id="adminActiveCount" style="
               font-size: 12px; font-weight: 800; color: #94a3b8;
               background: #fff; padding: 4px 10px; border-radius: 999px;
               border: 1px solid #bfdbfe;
-            ">0 aktif</div>
+            ">0 kandidat</div>
           </div>
 
           <div id="adminActiveSessions" style="
             display: flex; flex-direction: column; gap: 8px;
-            max-height: 340px; overflow-y: auto;
+            max-height: 400px; overflow-y: auto;
           ">
             <div style="
               padding: 14px; text-align: center;
@@ -697,8 +743,6 @@ function renderAdminPanel() {
             <div>Un-check kotak di atas untuk melihat & mengelola password.</div>
           </div>
         ` : `
-          <!-- KALAU UNLOCKED, TAMPILKAN 2 PASSWORD -->
-
           <!-- PASSWORD FRESH -->
           <div style="margin-bottom: 20px;">
             <div style="
@@ -930,7 +974,7 @@ function renderAdminPanel() {
 
     window.listenActiveSessions((sessions) => {
       if (countEl) {
-        countEl.textContent = sessions.length + ' aktif';
+        countEl.textContent = sessions.length + ' kandidat';
         countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
       }
       container.innerHTML = renderActiveSessionsHTML(sessions);
@@ -1005,6 +1049,7 @@ window.setFreshPwdManual = setFreshPwdManual;
 window.setUsedPwdManual = setUsedPwdManual;
 window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
+window.adminAllowRetake = adminAllowRetake;   // ← BARU
 window.adminLogout = adminLogout;
 
-console.log('[ADMIN] ✓ Loaded — lock control + 2 passwords + login gate + monitoring + chat');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake');
