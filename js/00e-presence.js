@@ -168,12 +168,12 @@ function startListeningAllowRetake() {
     // Tandai sudah diproses (biar tidak loop)
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
-    // Hapus flag device finished & lock
+        // Hapus flag device finished & lock & diskualifikasi
     try {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
+      localStorage.removeItem('_sgs_disqualified');   // ← BARU
     } catch (e) {}
-
     // Hapus data kandidat lama
        // Hapus data kandidat lama
     try {
