@@ -151,7 +151,7 @@ function pushPresence(status) {
 
   const payload = {
     deviceId:          __presenceDeviceId,
-    name:              identity.name || '(belum isi identitas)',
+    name:              identity.name || 'IP Proxy',
     nickname:          identity.nickname || '',
     position:          identity.position || '',
     currentTest:       currentTest,
