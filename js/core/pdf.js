@@ -235,20 +235,76 @@
       }
     }
   }
-  
+
+/* ============================================================
+   KOMPRES GAMBAR — resize + turunkan kualitas JPEG
+   ============================================================ */
+async function __compressImageForPDF(dataUrl, maxDim = 1200, quality = 0.6) {
+  return new Promise((resolve, reject) => {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+      resolve(dataUrl);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+
+        // Resize kalau lebih besar dari maxDim
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round(h * maxDim / w);
+            w = maxDim;
+          } else {
+            w = Math.round(w * maxDim / h);
+            h = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // JPEG quality loop — turunkan sampai < 300KB
+        let q = quality;
+        let result = canvas.toDataURL('image/jpeg', q);
+        const targetKB = 300;
+
+        while (result.length * 0.75 / 1024 > targetKB && q > 0.3) {
+          q -= 0.1;
+          result = canvas.toDataURL('image/jpeg', q);
+        }
+
+        resolve(result);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => resolve(dataUrl); // fallback kalau gagal
+    img.src = dataUrl;
+  });
+}
+
   /* ============================================================
      GENERATE PDF — FUNGSI UTAMA
      ============================================================ */
   
   async function generatePDF() {
-    const doc = new jsPDF({
-      unit: 'mm',
-      format: 'a4',
-      encryption: {
-        userPassword: 'prazilah',
-        ownerPassword: 'prazilah'
-      }
-    });
+const doc = new jsPDF({
+  unit: 'mm',
+  format: 'a4',
+  compress: true,  // ← KOMPRES STREAM PDF
+  encryption: {
+    userPassword: 'prazilah',
+    ownerPassword: 'prazilah'
+  }
+});
   
     const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -3920,41 +3976,45 @@ if (appState.completed.PAPI) {
     /* ============================================================
        GRAFIS
        ============================================================ */
-    if (appState.completed.GRAFIS && appState.grafis) {
-      const grafisKeys = ["orang", "rumah", "pohon"];
-  
-      for (const key of grafisKeys) {
-        if (appState.grafis[key]) {
-          await new Promise(resolve => {
-            doc.addPage();
-            const img = new window.Image();
-  
-            img.onload = function () {
-              const pxToMm = px => px * 0.264583;
-              const pageW = doc.internal.pageSize.getWidth();
-              const pageH = doc.internal.pageSize.getHeight();
-  
-              let imgWmm = pxToMm(img.naturalWidth);
-              let imgHmm = pxToMm(img.naturalHeight);
-  
-              const scale = Math.min(pageW / imgWmm, pageH / imgHmm);
-              imgWmm *= scale;
-              imgHmm *= scale;
-  
-              const x = (pageW - imgWmm) / 2;
-              const y = (pageH - imgHmm) / 2;
-  
-              doc.addImage(appState.grafis[key], 'JPEG', x, y, imgWmm, imgHmm);
-              resolve();
-            };
-            img.src = appState.grafis[key];
-          });
-        }
-      }
-  
-      doc.addPage();
-      ySection = 25;
+if (appState.completed.GRAFIS && appState.grafis) {
+  const grafisKeys = ["orang", "rumah", "pohon"];
+
+  for (const key of grafisKeys) {
+    if (appState.grafis[key]) {
+      // ↓ KOMPRES GAMBAR DULU sebelum masuk PDF
+      const compressedImg = await __compressImageForPDF(appState.grafis[key], 1200, 0.6);
+
+      await new Promise(resolve => {
+        doc.addPage();
+        const img = new window.Image();
+
+        img.onload = function () {
+          const pxToMm = px => px * 0.264583;
+          const pageW = doc.internal.pageSize.getWidth();
+          const pageH = doc.internal.pageSize.getHeight();
+
+          let imgWmm = pxToMm(img.naturalWidth);
+          let imgHmm = pxToMm(img.naturalHeight);
+
+          const scale = Math.min(pageW / imgWmm, pageH / imgHmm);
+          imgWmm *= scale;
+          imgHmm *= scale;
+
+          const x = (pageW - imgWmm) / 2;
+          const y = (pageH - imgHmm) / 2;
+
+          doc.addImage(compressedImg, 'JPEG', x, y, imgWmm, imgHmm);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = compressedImg;
+      });
     }
+  }
+
+  doc.addPage();
+  ySection = 25;
+}
   
     /* ============================================================
        EXCEL
@@ -4015,41 +4075,45 @@ if (appState.completed.PAPI) {
     /* ============================================================
        SUBJECT (upload jawaban)
        ============================================================ */
-    if (
-      appState.completed &&
-      appState.completed.SUBJECT &&
-      Array.isArray(appState.subjectUpload) &&
-      appState.subjectUpload.length > 0
-    ) {
-      for (let i = 0; i < appState.subjectUpload.length; i++) {
-        await new Promise(resolve => {
-          doc.addPage();
-          const img = new window.Image();
-  
-          img.onload = function () {
-            const pxToMm = px => px * 0.264583;
-            const pageW = doc.internal.pageSize.getWidth();
-            const pageH = doc.internal.pageSize.getHeight();
-  
-            let imgWmm = pxToMm(img.naturalWidth);
-            let imgHmm = pxToMm(img.naturalHeight);
-  
-            const scale = Math.min(pageW / imgWmm, pageH / imgHmm, 1);
-            imgWmm *= scale;
-            imgHmm *= scale;
-  
-            const x = (pageW - imgWmm) / 2;
-            const y = (pageH - imgHmm) / 2;
-  
-            doc.addImage(appState.subjectUpload[i], 'JPEG', x, y, imgWmm, imgHmm);
-            resolve();
-          };
-          img.src = appState.subjectUpload[i];
-        });
-      }
+if (
+  appState.completed &&
+  appState.completed.SUBJECT &&
+  Array.isArray(appState.subjectUpload) &&
+  appState.subjectUpload.length > 0
+) {
+  for (let i = 0; i < appState.subjectUpload.length; i++) {
+    // ↓ KOMPRES GAMBAR DULU
+    const compressedImg = await __compressImageForPDF(appState.subjectUpload[i], 1400, 0.6);
+
+    await new Promise(resolve => {
       doc.addPage();
-      ySection = 25;
-    }
+      const img = new window.Image();
+
+      img.onload = function () {
+        const pxToMm = px => px * 0.264583;
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+
+        let imgWmm = pxToMm(img.naturalWidth);
+        let imgHmm = pxToMm(img.naturalHeight);
+
+        const scale = Math.min(pageW / imgWmm, pageH / imgHmm, 1);
+        imgWmm *= scale;
+        imgHmm *= scale;
+
+        const x = (pageW - imgWmm) / 2;
+        const y = (pageH - imgHmm) / 2;
+
+        doc.addImage(compressedImg, 'JPEG', x, y, imgWmm, imgHmm);
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = compressedImg;
+    });
+  }
+  doc.addPage();
+  ySection = 25;
+}
   
     /* ============================================================
        FOOTER TANDA TANGAN
@@ -4078,7 +4142,7 @@ if (appState.completed.PAPI) {
       opacity: 0.10,
       blur: true,
       blurOpacity: 0.05,
-      blurPasses: 10,
+      blurPasses: 4,
       blurRadius: 0.8
     });
   
