@@ -1,9 +1,9 @@
 /* ============================================================
    js/tests/excel.js
    - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Klik cell saat mengetik rumus → referensi otomatis
-   - Drag range → E8:I8 otomatis
+   - Formula, klik cell, drag range otomatis
    - Anti-cheat: 2× warning → diskualifikasi
+   - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
 
 (function() {
@@ -48,7 +48,7 @@ const EXCEL_STUDENTS = [
 const EXCEL_QUESTIONS = [
   "Hitung rata-rata nilai tiap siswa",
   "Tentukan jumlah siswa yang mendapatkan rata-rata nilai di atas 80",
-  "Tambahkan kolom \"Keterangan\", jika rata2 ≥ 75 tulis \"Lulus\", selain itu tulis \"Remedial\"",
+  "Tambahkan kolom \"Keterangan\", jika rata2 >= 75 tulis \"Lulus\", selain itu tulis \"Remedial\"",
   "Hitung jumlah siswa per kelas",
   "Urutkan data siswa berdasarkan nilai rata-rata tertinggi ke terendah",
   "Tampilkan nilai tertinggi dan terendah dari kolom Rata-rata"
@@ -134,7 +134,7 @@ function renderExcelIntro() {
               <ul style="margin:0;padding-left:22px;line-height:1.75;">
                 <li>Kerjakan <b>persis seperti di Excel</b> — semua fitur tersedia.</li>
                 <li>Ketik <code>=</code> lalu <b>klik cell</b> → referensi otomatis masuk.</li>
-                <li>Ketik <code>=</code> lalu <b>drag</b> cell E8 sampai I8 → otomatis jadi <code>E8:I8</code>.</li>
+                <li>Ketik <code>=</code> lalu <b>drag</b> cell E6 sampai I6 → otomatis jadi <code>E6:I6</code>.</li>
                 <li>Tombol <b>Σ</b> di toolbar = AutoSum.</li>
                 <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
                 <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
@@ -215,7 +215,9 @@ function startExcelTest() {
 }
 
 /* ============================================================
-   INIT X-SPREADSHEET (Fix v2 — loadData array + no sheet.go)
+   INIT X-SPREADSHEET — versi final
+   Pakai loadData() array (2 sheet sekaligus)
+   Tidak pakai addSheet / sheet.go / freeze
    ============================================================ */
 function initXSpreadsheet() {
   if (typeof x_spreadsheet === 'undefined') {
@@ -232,7 +234,6 @@ function initXSpreadsheet() {
     day: '2-digit', month: 'long', year: 'numeric'
   });
 
-  // Init x-spreadsheet
   try {
     __xs = x_spreadsheet(container, {
       mode: 'edit',
@@ -252,18 +253,13 @@ function initXSpreadsheet() {
     return;
   }
 
-  // Tunggu lib selesai init, baru load data
+  // Delay 300ms biar library siap
   setTimeout(() => {
     try {
-      /* ----------------------------------------------------------
-         SHEET 1 — Data Siswa + Header Kandidat
-         ---------------------------------------------------------- */
+      // SHEET 1: Data Siswa + Header
       const sheet1Rows = {};
 
-      // Baris 0: Judul
       sheet1Rows[0] = { cells: { 0: { text: 'FORM KANDIDAT' } } };
-
-      // Baris 1: Nama & Posisi
       sheet1Rows[1] = {
         cells: {
           0: { text: 'Nama:' },
@@ -272,8 +268,6 @@ function initXSpreadsheet() {
           4: { text: posisi }
         }
       };
-
-      // Baris 2: Tanggal & Jenis Tes
       sheet1Rows[2] = {
         cells: {
           0: { text: 'Tanggal:' },
@@ -282,8 +276,6 @@ function initXSpreadsheet() {
           4: { text: 'Excel In-App' }
         }
       };
-
-      // Baris 4: Header tabel
       sheet1Rows[4] = {
         cells: {
           0: { text: 'No' },
@@ -297,7 +289,6 @@ function initXSpreadsheet() {
         }
       };
 
-      // Baris 5-34: Data siswa
       EXCEL_STUDENTS.forEach((s, i) => {
         const r = 5 + i;
         sheet1Rows[r] = {
@@ -312,9 +303,7 @@ function initXSpreadsheet() {
         };
       });
 
-      /* ----------------------------------------------------------
-         SHEET 2 — Soal
-         ---------------------------------------------------------- */
+      // SHEET 2: Soal
       const sheet2Rows = {};
 
       sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
@@ -334,9 +323,7 @@ function initXSpreadsheet() {
         };
       });
 
-      /* ----------------------------------------------------------
-         LOAD KEDUA SHEET SEKALIGUS (array)
-         ---------------------------------------------------------- */
+      // LOAD 2 SHEET SEKALIGUS
       __xs.loadData([
         {
           name: 'Data Siswa',
@@ -365,30 +352,20 @@ function initXSpreadsheet() {
       console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
       console.log('[EXCEL] ✓ Sheet: Data Siswa + Soal');
 
-      // Coba freeze (opsional — kalau gagal, abaikan)
-      try {
-        if (typeof __xs.freeze === 'function') {
-          __xs.freeze('B6');
-        }
-      } catch (e) {
-        console.warn('[EXCEL] Freeze tidak tersedia (abaikan):', e.message);
-      }
-
     } catch (err) {
       console.error('[EXCEL] LoadData error:', err);
       alert('Gagal load data spreadsheet: ' + err.message);
     }
   }, 300);
 
-  // Resize handler
   window.addEventListener('resize', () => {
     if (__xs) {
       try { __xs.reRender(); } catch (e) {}
     }
   });
 }
-   
-   /* ============================================================
+
+/* ============================================================
    ANTI-CHEAT
    ============================================================ */
 function attachExcelAntiCheat() {
@@ -571,43 +548,71 @@ async function finishExcelTest(timeUp) {
 }
 
 /* ============================================================
-   GENERATE .xlsx
+   GENERATE .xlsx — ambil dari x-spreadsheet instance
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
-  const sheetNames = ['Data Siswa', 'Soal'];
 
-  for (let s = 0; s < 2; s++) {
-    // Pilih sheet di x-spreadsheet
-    __xs.sheet.go(s);
-
-    const rows = 100;
-    const cols = 12;
-    const aoa = [];
-
-    for (let r = 0; r < rows; r++) {
-      const row = [];
-      for (let c = 0; c < cols; c++) {
-        let val = '';
-        try {
-          val = __xs.cellText(r, c);
-        } catch (e) { val = ''; }
-        row.push(val == null ? '' : val);
-      }
-      aoa.push(row);
+  // Ambil data dari x-spreadsheet
+  let allSheets = [];
+  try {
+    // Cara 1: via getData()
+    if (typeof __xs.getData === 'function') {
+      allSheets = __xs.getData();
     }
-
-    while (aoa.length > 0 && aoa[aoa.length - 1].every(v => v === '')) {
-      aoa.pop();
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = Array.from({ length: cols }, () => ({ wch: 18 }));
-    XLSX.utils.book_append_sheet(wb, ws, sheetNames[s] || ('Sheet' + (s + 1)));
+  } catch (e) {
+    console.warn('[EXCEL] getData gagal:', e);
   }
 
-  // Balik ke sheet 1
-  __xs.sheet.go(0);
+  // Kalau tidak ada, fallback: bikin manual dari sheet 1 & 2
+  if (!Array.isArray(allSheets) || allSheets.length === 0) {
+    // Fallback: sheet 1 dari EXCEL_STUDENTS
+    const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
+    EXCEL_STUDENTS.forEach(s => {
+      dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(dataSheet);
+    ws1['!cols'] = [{wch:5},{wch:22},{wch:10},{wch:6},{wch:6},{wch:6},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Data Siswa');
+
+    const soalSheet = [["No","Soal"]];
+    EXCEL_QUESTIONS.forEach((q, i) => soalSheet.push([i + 1, q]));
+    const ws2 = XLSX.utils.aoa_to_sheet(soalSheet);
+    ws2['!cols'] = [{wch:5},{wch:80}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Soal');
+  } else {
+    // Kalau dapat dari x-spreadsheet, konversi
+    allSheets.forEach((sheetData, idx) => {
+      const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
+      const rows = sheetData.rows || {};
+      const aoa = [];
+
+      // Cari maxRow & maxCol
+      let maxR = 0, maxC = 0;
+      Object.keys(rows).forEach(rk => {
+        const r = parseInt(rk, 10);
+        if (r > maxR) maxR = r;
+        const cells = rows[rk].cells || {};
+        Object.keys(cells).forEach(ck => {
+          const c = parseInt(ck, 10);
+          if (c > maxC) maxC = c;
+        });
+      });
+
+      for (let r = 0; r <= maxR; r++) {
+        const rowArr = [];
+        for (let c = 0; c <= maxC; c++) {
+          const cell = rows[r] && rows[r].cells && rows[r].cells[c];
+          rowArr.push(cell && cell.text != null ? cell.text : '');
+        }
+        aoa.push(rowArr);
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = Array.from({ length: maxC + 1 }, () => ({ wch: 18 }));
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+  }
 
   const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return new Blob([arrayBuf], {
@@ -664,6 +669,6 @@ async function uploadExcelToGAS(blob, filename) {
    ============================================================ */
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
-console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet (IIFE)');
+console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet v3');
 
 })();
