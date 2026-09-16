@@ -1584,13 +1584,61 @@ function renderAdminPanel() {
 function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
-  const isLoggedIn = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+  // Tampilkan loading sementara
+  const loading = document.createElement('div');
+  loading.id = 'adminAuthLoading';
+  loading.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,0.95);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: Inter, system-ui, sans-serif;
+    font-size: 15px; font-weight: 700;
+  `;
+  loading.innerHTML = '⏳ Memeriksa sesi admin...';
+  document.body.appendChild(loading);
 
-  if (isLoggedIn) {
-    renderAdminPanel();
-  } else {
+  // Tunggu Firebase Auth ready (maks 3 detik)
+  let resolved = false;
+
+  const timeout = setTimeout(() => {
+    if (resolved) return;
+    resolved = true;
+    loading.remove();
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
     renderAdminLoginPrompt();
-  }
+  }, 3000);
+
+  const unsubscribe = firebase.auth().onAuthStateChanged(user => {
+    if (resolved) return;
+    resolved = true;
+    clearTimeout(timeout);
+    if (unsubscribe) unsubscribe();
+    loading.remove();
+
+    if (!user) {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      renderAdminLoginPrompt();
+      return;
+    }
+
+    // Cek apakah user ini admin
+    firebase.database().ref('admins/' + user.uid).once('value')
+      .then(snap => {
+        if (snap.exists() && snap.val() === true) {
+          sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+          renderAdminPanel();
+        } else {
+          firebase.auth().signOut();
+          sessionStorage.removeItem(ADMIN_SESSION_KEY);
+          renderAdminLoginPrompt();
+        }
+      })
+      .catch(() => {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        renderAdminLoginPrompt();
+      });
+  });
+
   return true;
 }
 
