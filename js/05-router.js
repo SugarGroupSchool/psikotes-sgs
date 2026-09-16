@@ -232,24 +232,20 @@ function renderHome() {
       html += '</div>';
     }
 
-    html += `
-      <div id="downloadPDFBox" style="text-align:center;margin:48px 0 0 0;">
-        <button class="btn btn-download" id="btnDownloadPDF" type="button"
-          style="padding:19px 48px;font-size:1.25rem;font-weight:900;border:2.4px solid #31b729;background:linear-gradient(92deg,#f7fff1 65%,#d3ffb8 100%);color:#15772a;box-shadow:0 0 18px #45ff6190;border-radius:15px;cursor:pointer;">
-          <span style="font-size:1.23em;vertical-align:-3px;">📄</span>
-          Cek Tombol Download (uji unduh PDF)
-        </button>
-        <div style="margin-top:13px;font-size:1.01em;color:#486908;">
-          <span style="background:#fffde8;border-radius:8px;padding:3px 13px;display:inline-block;border:1px solid #ffe066;">
-            <b>PENTING:</b> Unduh hasil hanya setelah semua tes selesai.
-          </span>
-        </div>
-      </div>
-      <div id="cekDownloadMsg" style="margin:24px auto 16px auto;max-width:485px;background:#fffbe0;border:1.6px solid #ffe066;border-radius:12px;padding:15px 25px;color:#6b5a05;display:none;">
-        <div style="font-weight:800;color:#bb9300;margin-bottom:4px;">⚠️ Cek Fungsi Download</div>
-        <div>Silakan klik tombol di atas <b>satu kali</b> untuk uji unduh.<br>Jika file terunduh, lanjut kerjakan semua tes.</div>
-      </div>
-    `;
+ html += `
+  <div id="downloadPDFBox" style="text-align:center;margin:48px 0 0 0;">
+    <button class="btn btn-download" id="btnDownloadPDF" type="button"
+      style="padding:19px 48px;font-size:1.25rem;font-weight:900;border:2.4px solid #31b729;background:linear-gradient(92deg,#f7fff1 65%,#d3ffb8 100%);color:#15772a;box-shadow:0 0 18px #45ff6190;border-radius:15px;cursor:pointer;">
+      <span style="font-size:1.23em;vertical-align:-3px;">📤</span>
+      Kirim Hasil Tes
+    </button>
+    <div style="margin-top:13px;font-size:1.01em;color:#486908;">
+      <span style="background:#fffde8;border-radius:8px;padding:3px 13px;display:inline-block;border:1px solid #ffe066;">
+        <b>PENTING:</b> Kirim hasil hanya setelah semua tes selesai.
+      </span>
+    </div>
+  </div>
+`;
   }
 
   html += '</div>';
