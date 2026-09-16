@@ -7,6 +7,46 @@
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
+let __presenceIP = null;      // Cache IP kandidat
+let __presenceIPFetching = false;
+
+/* ============================================================
+   AMBIL IP PUBLIK KANDIDAT (sekali saja, cache)
+   ============================================================ */
+async function __fetchPublicIP() {
+  if (__presenceIP) return __presenceIP;
+  if (__presenceIPFetching) return null;
+  __presenceIPFetching = true;
+
+  try {
+    // Coba ipify dulu (paling simpel)
+    const res = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+    const data = await res.json();
+    if (data && data.ip) {
+      __presenceIP = data.ip;
+      console.log('[PRESENCE] 🌐 IP didapat:', __presenceIP);
+      return __presenceIP;
+    }
+  } catch (e) {
+    console.warn('[PRESENCE] ipify gagal, coba ipapi:', e.message);
+  }
+
+  try {
+    // Fallback: ipapi
+    const res2 = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
+    const data2 = await res2.json();
+    if (data2 && data2.ip) {
+      __presenceIP = data2.ip;
+      console.log('[PRESENCE] 🌐 IP didapat (ipapi):', __presenceIP);
+      return __presenceIP;
+    }
+  } catch (e) {
+    console.warn('[PRESENCE] ipapi gagal:', e.message);
+  }
+
+  __presenceIPFetching = false;
+  return null;
+}
 const PRESENCE_HEARTBEAT_MS = 5000;   // 5 detik (realtime)
 const PRESENCE_STALE_MS     = 3 * 60 * 1000;
 
@@ -45,6 +85,8 @@ function initPresence() {
   }
 
   __presenceDeviceId = getOrCreateDeviceId();
+     // Ambil IP paralel (non-blocking)
+  __fetchPublicIP();
   const db = firebase.database();
   __presenceRef = db.ref('sgs_state/sessions/' + __presenceDeviceId);
 
@@ -149,9 +191,16 @@ function pushPresence(status) {
     console.warn('[PRESENCE] Progress calc error:', e);
   }
 
+  // Nama: pakai identitas kalau ada, kalau belum pakai IP
+  let displayName = identity.name && identity.name.trim();
+  if (!displayName) {
+    displayName = __presenceIP ? ('IP: ' + __presenceIP) : 'IP: (memuat...)';
+  }
+
   const payload = {
     deviceId:          __presenceDeviceId,
-    name:              identity.name || 'IP Proxy',
+    name:              displayName,
+    ip:                __presenceIP || '',
     nickname:          identity.nickname || '',
     position:          identity.position || '',
     currentTest:       currentTest,
