@@ -11,7 +11,7 @@
 /* ============================================================
    KONFIGURASI LOGIN ADMIN
    ============================================================ */
-const ADMIN_PANEL_PASSWORD = 'pragas ganteng 191225';
+// Password admin sekarang via Firebase Auth (tidak ada di source code)
 const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
 /* ============================================================
    KONFIGURASI GAS (Google Apps Script) UNTUK PDF
@@ -616,18 +616,15 @@ function renderAdminLoginPrompt() {
           ADMIN PANEL
         </div>
         <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">
-          Akses Terbatas
+          Login Admin
         </div>
         <div style="font-size: 13px; opacity: .85; margin-top: 6px;">
-          Masukkan password untuk melanjutkan
+          Masukkan email & password
         </div>
       </div>
 
       <div style="padding: 26px 28px 28px;">
-        <input
-          type="password"
-          id="adminLoginPassword"
-          placeholder="Password admin..."
+        <input type="email" id="adminLoginEmail" placeholder="Email admin..."
           autocomplete="off"
           style="
             width: 100%; padding: 14px 16px;
@@ -636,8 +633,18 @@ function renderAdminLoginPrompt() {
             font-family: inherit; background: #fff;
             box-sizing: border-box;
             transition: border-color .18s, box-shadow .18s;
-          "
-        >
+            margin-bottom: 10px;
+          ">
+        <input type="password" id="adminLoginPassword" placeholder="Password..."
+          autocomplete="off"
+          style="
+            width: 100%; padding: 14px 16px;
+            border: 2px solid #e2e8f0; border-radius: 12px;
+            font-size: 15px; outline: none;
+            font-family: inherit; background: #fff;
+            box-sizing: border-box;
+            transition: border-color .18s, box-shadow .18s;
+          ">
         <div id="adminLoginError" style="
           color: #dc2626; font-size: 13px;
           min-height: 20px; margin-top: 10px;
@@ -663,76 +670,91 @@ function renderAdminLoginPrompt() {
 
   document.body.appendChild(overlay);
 
-  const input = document.getElementById('adminLoginPassword');
+  const emailEl = document.getElementById('adminLoginEmail');
+  const pwdEl = document.getElementById('adminLoginPassword');
   const btn = document.getElementById('adminLoginBtn');
   const errorEl = document.getElementById('adminLoginError');
 
-  input.addEventListener('focus', () => {
-    input.style.borderColor = '#3b82f6';
-    input.style.boxShadow = '0 0 0 4px rgba(59,130,246,.12)';
-  });
-  input.addEventListener('blur', () => {
-    input.style.borderColor = '#e2e8f0';
-    input.style.boxShadow = 'none';
+  [emailEl, pwdEl].forEach(el => {
+    el.addEventListener('focus', () => {
+      el.style.borderColor = '#3b82f6';
+      el.style.boxShadow = '0 0 0 4px rgba(59,130,246,.12)';
+    });
+    el.addEventListener('blur', () => {
+      el.style.borderColor = '#e2e8f0';
+      el.style.boxShadow = 'none';
+    });
   });
 
-  const attemptLogin = () => {
-    const pwd = (input.value || '').trim();
-    if (!pwd) {
-      errorEl.textContent = '⚠️ Password tidak boleh kosong';
-      input.focus();
+  const attemptLogin = async () => {
+    const email = (emailEl.value || '').trim();
+    const pwd = pwdEl.value || '';
+
+    if (!email || !pwd) {
+      errorEl.textContent = '⚠️ Isi email dan password';
       return;
     }
-    if (pwd === ADMIN_PANEL_PASSWORD) {
+
+    btn.disabled = true;
+    btn.textContent = 'Memeriksa...';
+    errorEl.textContent = '';
+
+    try {
+      const cred = await firebase.auth().signInWithEmailAndPassword(email, pwd);
+      const snap = await firebase.database().ref('admins/' + cred.user.uid).once('value');
+
+      if (!snap.exists() || snap.val() !== true) {
+        await firebase.auth().signOut();
+        throw new Error('Akun ini bukan admin');
+      }
+
       sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
       errorEl.style.color = '#16a34a';
       errorEl.textContent = '✅ Berhasil...';
+
       setTimeout(() => {
         overlay.remove();
         renderAdminPanel();
       }, 200);
-    } else {
-      errorEl.style.color = '#dc2626';
-      errorEl.textContent = '❌ Password salah!';
-      input.value = '';
-      input.focus();
-      const card = overlay.querySelector('div > div');
-      if (card) {
-        card.style.animation = 'adminShake .4s ease';
-        setTimeout(() => { card.style.animation = ''; }, 450);
+
+    } catch (err) {
+      console.error('[ADMIN] Login error:', err);
+
+      let msg = err.message || 'Login gagal';
+      if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+        msg = 'Email atau password salah';
+      } else if (msg.includes('too-many-requests')) {
+        msg = 'Terlalu banyak percobaan. Tunggu sebentar.';
+      } else if (msg.includes('network')) {
+        msg = 'Koneksi bermasalah. Coba lagi.';
       }
+
+      errorEl.style.color = '#dc2626';
+      errorEl.textContent = '❌ ' + msg;
+      pwdEl.value = '';
+      pwdEl.focus();
+      btn.disabled = false;
+      btn.textContent = '🔓 Masuk';
     }
   };
 
   btn.onclick = attemptLogin;
-  input.addEventListener('keydown', (e) => {
+  emailEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); pwdEl.focus(); }
+  });
+  pwdEl.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); attemptLogin(); }
   });
 
-  if (!document.getElementById('adminShakeStyle')) {
-    const style = document.createElement('style');
-    style.id = 'adminShakeStyle';
-    style.textContent = `
-      @keyframes adminShake {
-        0%, 100% { transform: translateX(0); }
-        20% { transform: translateX(-10px); }
-        40% { transform: translateX(10px); }
-        60% { transform: translateX(-6px); }
-        80% { transform: translateX(6px); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  setTimeout(() => input.focus(), 120);
+  setTimeout(() => emailEl.focus(), 120);
 }
-
 /* ============================================================
    ADMIN LOGOUT
    ============================================================ */
 function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
   try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+  try { firebase.auth().signOut(); } catch (e) {}
 
   if (typeof window.stopListeningActiveSessions === 'function') {
     try { window.stopListeningActiveSessions(); } catch (e) {}
