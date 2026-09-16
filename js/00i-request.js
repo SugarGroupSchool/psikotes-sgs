@@ -23,8 +23,13 @@
   /* ============================================================
      TAMPILKAN LAYAR REQUEST
      ============================================================ */
-  function showRequestAccessScreen() {
-    __requestDeviceId = __getDeviceId();
+let __requestScreenRendered = false;
+
+function showRequestAccessScreen() {
+  if (__requestScreenRendered) return;  // ← Cegah render berulang
+  __requestScreenRendered = true;
+
+  __requestDeviceId = __getDeviceId();
 
     const pwdScreen = document.getElementById('passwordScreen');
     if (pwdScreen) pwdScreen.style.display = 'none';
@@ -298,130 +303,208 @@
   /* ============================================================
      RENDER: APPROVED
      ============================================================ */
-  function __renderApprovedScreen() {
-    document.body.innerHTML = `
-      <div style="
-        position: fixed; inset: 0; z-index: 2147483647;
-        display: flex; align-items: center; justify-content: center;
-        padding: 20px;
-        background: linear-gradient(135deg, #065f46 0%, #16a34a 100%);
-        font-family: Inter, system-ui, -apple-system, sans-serif;
-      ">
-        <div style="
-          max-width: 440px; width: 100%;
-          padding: 40px 32px 34px;
-          background: #ffffff;
-          border-radius: 24px;
-          box-shadow: 0 30px 90px rgba(0,0,0,.5);
-          text-align: center;
-        ">
-          <div style="
-            width: 80px; height: 80px;
-            margin: 0 auto 22px;
-            display: grid; place-items: center;
-            background: linear-gradient(135deg, #d1fae5, #ecfdf5);
-            border: 3px solid #86efac;
-            border-radius: 24px;
-            font-size: 40px;
-          ">✅</div>
-
-          <h1 style="
-            margin: 0 0 12px;
-            font-size: 22px;
-            font-weight: 900;
-            color: #065f46;
-          ">Disetujui!</h1>
-
-          <p style="
-            margin: 0;
-            color: #475569;
-            font-size: 14.5px;
-            line-height: 1.65;
-          ">
-            Admin sudah menyetujui permintaan Anda.<br>
-            Halaman akan dimuat ulang otomatis...
-          </p>
-        </div>
-      </div>
-    `;
-
-    setTimeout(() => {
-      try { window.location.reload(); } catch (e) {}
-    }, 2000);
+function __renderApprovedScreen() {
+  // ⛔ STOP listener biar tidak kelap-kelip
+  if (__requestListenerRef && __requestListenerCb) {
+    try { __requestListenerRef.off('value', __requestListenerCb); } catch (e) {}
+    __requestListenerRef = null;
+    __requestListenerCb = null;
   }
 
+  // 🧹 RESET device state (supaya bisa login ulang dengan FRESH)
+  try {
+    localStorage.removeItem('_sgs_finished');
+    localStorage.removeItem('_sgs_disqualified');
+    localStorage.removeItem('usedPragas');
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+    sessionStorage.removeItem('_sgs_retake_processed');
+    sessionStorage.removeItem('dlClick');
+  } catch (e) {}
+
+  // 🗑️ Hapus request dari Firebase (biar bersih)
+  try {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+      firebase.database().ref('sgs_requests/' + __requestDeviceId).remove();
+    }
+  } catch (e) {}
+
+  // 🖥️ Tampilkan layar
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #065f46 0%, #16a34a 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        max-width: 440px; width: 100%;
+        padding: 40px 32px 34px;
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
+      ">
+        <div style="
+          width: 80px; height: 80px;
+          margin: 0 auto 22px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+          border: 3px solid #86efac;
+          border-radius: 24px;
+          font-size: 40px;
+        ">✅</div>
+
+        <h1 style="
+          margin: 0 0 12px;
+          font-size: 22px;
+          font-weight: 900;
+          color: #065f46;
+        ">Disetujui!</h1>
+
+        <p style="
+          margin: 0 0 16px;
+          color: #475569;
+          font-size: 14.5px;
+          line-height: 1.65;
+        ">
+          Admin sudah menyetujui permintaan Anda.<br>
+          Silakan login dengan <b>password FRESH</b> yang diberikan admin.
+        </p>
+
+        <div style="
+          padding: 12px 14px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          font-size: 12.5px;
+          color: #78350f;
+          line-height: 1.6;
+          text-align: left;
+          margin-bottom: 20px;
+        ">
+          <b>⚠️ Penting</b><br>
+          Password FRESH akan diberikan oleh admin.<br>
+          Login dengan password USED akan <b>gagal</b>.
+        </div>
+
+        <div style="
+          font-size: 13px;
+          color: #94a3b8;
+        ">
+          Memuat ulang halaman...
+        </div>
+
+        <div style="
+          width: 100%; height: 4px;
+          background: #e2e8f0; border-radius: 999px;
+          margin-top: 12px; overflow: hidden;
+        ">
+          <div id="__approvedProgress" style="
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            border-radius: inherit;
+            transition: width 2s linear;
+          "></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Animasi progress bar
+  setTimeout(() => {
+    const bar = document.getElementById('__approvedProgress');
+    if (bar) bar.style.width = '100%';
+  }, 100);
+
+  // Reload setelah 2 detik (sekali saja)
+  setTimeout(() => {
+    try { window.location.reload(); } catch (e) {
+      window.location.href = window.location.href;
+    }
+  }, 2000);
+}
   /* ============================================================
      RENDER: REJECTED
      ============================================================ */
-  function __renderRejectedScreen(req) {
-    document.body.innerHTML = `
+function __renderRejectedScreen(req) {
+  // ⛔ STOP listener
+  if (__requestListenerRef && __requestListenerCb) {
+    try { __requestListenerRef.off('value', __requestListenerCb); } catch (e) {}
+    __requestListenerRef = null;
+    __requestListenerCb = null;
+  }
+
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
       <div style="
-        position: fixed; inset: 0; z-index: 2147483647;
-        display: flex; align-items: center; justify-content: center;
-        padding: 20px;
-        background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
-        font-family: Inter, system-ui, -apple-system, sans-serif;
+        max-width: 440px; width: 100%;
+        padding: 40px 32px 34px;
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
       ">
         <div style="
-          max-width: 440px; width: 100%;
-          padding: 40px 32px 34px;
-          background: #ffffff;
+          width: 80px; height: 80px;
+          margin: 0 auto 22px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #fee2e2, #fef2f2);
+          border: 3px solid #fca5a5;
           border-radius: 24px;
-          box-shadow: 0 30px 90px rgba(0,0,0,.5);
-          text-align: center;
+          font-size: 40px;
+        ">❌</div>
+
+        <h1 style="
+          margin: 0 0 12px;
+          font-size: 22px;
+          font-weight: 900;
+          color: #991b1b;
+        ">Permintaan Ditolak</h1>
+
+        <p style="
+          margin: 0 0 22px;
+          color: #475569;
+          font-size: 14.5px;
+          line-height: 1.65;
         ">
-          <div style="
-            width: 80px; height: 80px;
-            margin: 0 auto 22px;
-            display: grid; place-items: center;
-            background: linear-gradient(135deg, #fee2e2, #fef2f2);
-            border: 3px solid #fca5a5;
-            border-radius: 24px;
-            font-size: 40px;
-          ">❌</div>
+          Admin belum menyetujui permintaan Anda.<br>
+          Silakan hubungi admin untuk informasi lebih lanjut.
+        </p>
 
-          <h1 style="
-            margin: 0 0 12px;
-            font-size: 22px;
-            font-weight: 900;
-            color: #991b1b;
-          ">Permintaan Ditolak</h1>
-
-          <p style="
-            margin: 0 0 22px;
-            color: #475569;
-            font-size: 14.5px;
-            line-height: 1.65;
-          ">
-            Admin belum menyetujui permintaan Anda.<br>
-            Silakan hubungi admin untuk informasi lebih lanjut.
-          </p>
-
-          <button id="btnTryAgain" style="
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            color: #fff; border: 0; border-radius: 12px;
-            font-size: 14px; font-weight: 800;
-            cursor: pointer; font-family: inherit;
-            box-shadow: 0 8px 20px rgba(220,38,38,.28);
-          ">🔄 Kirim Ulang Permintaan</button>
-        </div>
+        <button id="btnTryAgain" style="
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, #dc2626, #991b1b);
+          color: #fff; border: 0; border-radius: 12px;
+          font-size: 14px; font-weight: 800;
+          cursor: pointer; font-family: inherit;
+          box-shadow: 0 8px 20px rgba(220,38,38,.28);
+        ">🔄 Kirim Ulang Permintaan</button>
       </div>
-    `;
+    </div>
+  `;
 
-    const btn = document.getElementById('btnTryAgain');
-    if (btn) {
-      btn.onclick = async () => {
-        btn.disabled = true;
-        btn.textContent = 'Menghapus permintaan lama...';
-        try {
-          await firebase.database().ref('sgs_requests/' + __requestDeviceId).remove();
-        } catch (e) {}
-        __renderInitialScreen();
-      };
-    }
+  const btn = document.getElementById('btnTryAgain');
+  if (btn) {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = 'Menghapus permintaan lama...';
+      try {
+        await firebase.database().ref('sgs_requests/' + __requestDeviceId).remove();
+      } catch (e) {}
+      __renderInitialScreen();
+    };
   }
+}
 
   /* ============================================================
      LISTEN STATUS REQUEST
