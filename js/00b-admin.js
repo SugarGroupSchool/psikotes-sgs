@@ -817,7 +817,10 @@ function adminLogout() {
   if (typeof stopAdminTimerTick === 'function') {
     try { stopAdminTimerTick(); } catch (e) {}
   }
-
+  if (window.__pdfAutoRefreshTimer) {
+    clearInterval(window.__pdfAutoRefreshTimer);
+    window.__pdfAutoRefreshTimer = null;
+  }
   const panel = document.getElementById('adminPanelOverlay');
      if (typeof stopListeningAccessRequests === 'function') {
     try { stopListeningAccessRequests(); } catch (e) {}
@@ -1812,6 +1815,15 @@ function renderAdminPanel() {
     if (typeof refreshResultFilesList === 'function') {
       refreshResultFilesList();
     }
+         // Auto-refresh daftar PDF tiap 30 detik
+    if (window.__pdfAutoRefreshTimer) {
+      clearInterval(window.__pdfAutoRefreshTimer);
+    }
+    window.__pdfAutoRefreshTimer = setInterval(() => {
+      if (document.getElementById('adminResultFiles')) {
+        refreshResultFilesList();
+      }
+    }, 30000);
     // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
@@ -1860,6 +1872,13 @@ function renderAdminPanel() {
              if (typeof stopListeningAccessRequests === 'function') {
         try { stopListeningAccessRequests(); } catch (e) {}
       }
+       if (window.__pdfAutoRefreshTimer) {
+        clearInterval(window.__pdfAutoRefreshTimer);
+        window.__pdfAutoRefreshTimer = null;
+      }
+
+      overlay.remove();
+
       try {
         const url = new URL(window.location.href);
         url.searchParams.delete('admin');
