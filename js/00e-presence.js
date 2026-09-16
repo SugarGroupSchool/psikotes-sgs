@@ -237,17 +237,18 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_disqualified');
     } catch (e) {}
 
-    if (!wasDisqualified) {
-      try {
-        localStorage.removeItem('identity');
-        localStorage.removeItem('completed');
-        localStorage.removeItem('selectedTests');
-        sessionStorage.removeItem('dlClick');
-      } catch (e) {}
-      console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh)');
-    } else {
-      console.log('[PRESENCE] 💾 Data kandidat disimpan (lanjut dari progress)');
-    }
+  if (!wasDisqualified) {
+  try {
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+    localStorage.removeItem('usedPragas');  // ← BARU: reset ke FRESH
+    sessionStorage.removeItem('dlClick');
+  } catch (e) {}
+  console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh, FRESH password)');
+} else {
+  console.log('[PRESENCE] 💾 Data kandidat disimpan (lanjut dari progress)');
+}
 
     firebase.database()
       .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
