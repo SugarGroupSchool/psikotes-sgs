@@ -1,7 +1,7 @@
 /* ============================================================
    js/tests/excel.js
-   - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Formula + panel bantuan + auto-fill
+   - Tes Excel IN-APP dengan Luckysheet (persis Excel asli)
+   - Click reference, drag range, fill handle — semua jalan
    - Anti-cheat: 2× warning → diskualifikasi
    - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
@@ -59,7 +59,6 @@ const EXCEL_TIME = 40 * 60;
 /* ============================================================
    STATE
    ============================================================ */
-let __xs = null;
 let __excelTimer = null;
 let __excelTimeLeft = 0;
 let __excelWarnCount = 0;
@@ -132,10 +131,8 @@ function renderExcelIntro() {
             </div>
             <div class="ist-instruction-text">
               <ul style="margin:0;padding-left:22px;line-height:1.75;">
-                <li>Kerjakan <b>persis seperti di Excel</b> — semua fitur tersedia.</li>
-                <li>Ketik <code>=</code> di cell, lalu <b>klik cell</b> untuk referensi.</li>
-                <li>Atau pakai <b>panel Rumus Cepat</b> di atas — cukup klik.</li>
-                <li>Ada tombol <b>Auto-isi</b> untuk isi kolom sekaligus.</li>
+                <li>Kerjakan <b>persis seperti di Excel</b>.</li>
+                <li>Ketik <code>=</code> di cell, lalu <b>klik cell / drag range</b> → referensi otomatis masuk.</li>
                 <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
                 <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
                 <li><b>DILARANG keluar tab</b> — 2× = diskualifikasi.</li>
@@ -187,23 +184,7 @@ function startExcelTest() {
           </button>
         </div>
       </div>
-
-      <!-- PANEL BANTUAN RUMUS -->
-      <div style="padding:8px 14px;background:#f0f9ff;border-bottom:1px solid #bae6fd;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-        <span style="font-size:11.5px;font-weight:800;color:#0369a1;margin-right:4px;">⚡ Rumus Cepat:</span>
-        <button onclick="__insertFormula('=SUM(D6:F6)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">SUM</button>
-        <button onclick="__insertFormula('=AVERAGE(D6:F6)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">AVERAGE</button>
-        <button onclick="__insertFormula('=COUNTIF(C6:C35,\\"X-IPA-1\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">COUNTIF</button>
-        <button onclick="__insertFormula('=COUNTIF(G6:G35,\\">80\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">COUNTIF &gt;80</button>
-        <button onclick="__insertFormula('=IF(G6>=75,\\"Lulus\\",\\"Remedial\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">IF</button>
-        <button onclick="__insertFormula('=MAX(G6:G35)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">MAX</button>
-        <button onclick="__insertFormula('=MIN(G6:G35)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">MIN</button>
-        <button onclick="__autoFillG()" style="padding:5px 10px;background:linear-gradient(135deg,#16a34a,#059669);border:0;border-radius:6px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;">⚡ Auto-isi G6:G35</button>
-        <button onclick="__autoFillH()" style="padding:5px 10px;background:linear-gradient(135deg,#16a34a,#059669);border:0;border-radius:6px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;">⚡ Auto-isi H6:H35</button>
-        <span style="font-size:10.5px;color:#64748b;margin-left:auto;">💡 Klik cell dulu, baru klik tombol rumus</span>
-      </div>
-
-      <div id="excelContainer" style="flex:1;overflow:auto;background:#fff;"></div>
+      <div id="excelContainer" style="flex:1;overflow:hidden;position:relative;"></div>
     </div>
   `;
 
@@ -224,117 +205,21 @@ function startExcelTest() {
     }
   }, 1000);
 
-  initXSpreadsheet();
+  initLuckysheet();
   attachExcelAntiCheat();
 
   document.getElementById('btnFinishExcel').onclick = confirmFinishExcel;
 }
 
-   /* ============================================================
-   SET CELL VALUE — akses langsung ke data sheet
-   (bukan pakai __xs.cell() yang error setelah loadData)
-   ============================================================ */
-function __setCellValue(ri, ci, text) {
-  const sheetIdx = (__xs && __xs.sheet && __xs.sheet.index) || 0;
-  const sheet = __xs && __xs.datas && __xs.datas[sheetIdx];
-  if (!sheet) throw new Error('Sheet tidak ditemukan');
-
-  // Pastikan struktur rows ada
-  if (!sheet.rows) sheet.rows = {};
-  if (!sheet.rows[ri]) sheet.rows[ri] = { cells: {} };
-  if (!sheet.rows[ri].cells) sheet.rows[ri].cells = {};
-
-  // Set cell
-  sheet.rows[ri].cells[ci] = { text: text };
-
-  // Update juga internal cell data jika ada
-  try {
-    if (sheet.getCell && typeof sheet.getCell === 'function') {
-      // no-op, getCell tidak bisa dipakai
-    }
-  } catch (e) {}
-}
-   
 /* ============================================================
-   PANEL BANTUAN — Insert formula ke cell aktif
+   INIT LUCKYSHEET
    ============================================================ */
-function __getActiveCell() {
-  try {
-    // Coba akses dari sheet aktif
-    const sheetIdx = (__xs && __xs.sheet && __xs.sheet.index) || 0;
-    const sheet = __xs && __xs.datas && __xs.datas[sheetIdx];
-    if (sheet && sheet.selector) {
-      return { ri: sheet.selector.ri, ci: sheet.selector.ci };
-    }
-    // Fallback ke selector global
-    if (__xs && __xs.sheet && __xs.sheet.selector) {
-      return { ri: __xs.sheet.selector.ri, ci: __xs.sheet.selector.ci };
-    }
-  } catch (e) {
-    console.warn('[EXCEL] getActiveCell error:', e);
-  }
-  return null;
-}
-
-function __insertFormula(formula) {
-  const cell = __getActiveCell();
-  if (!cell) {
-    alert('Klik dulu cell tujuannya, baru klik tombol rumus.');
+function initLuckysheet() {
+  if (typeof luckysheet === 'undefined') {
+    alert('⚠️ Library Luckysheet belum dimuat. Refresh halaman.');
     return;
   }
 
-  try {
-    __setCellValue(cell.ri, cell.ci, formula);
-    console.log('[EXCEL] ✓ Formula ke cell (' + cell.ri + ',' + cell.ci + '):', formula);
-  } catch (e) {
-    console.error('[EXCEL] Insert formula error:', e);
-    alert('Gagal insert rumus: ' + e.message);
-  }
-}
-
-function __autoFillG() {
-  try {
-    for (let i = 0; i < 30; i++) {
-      const row = 5 + i;
-      const rowNum = row + 1;
-      __setCellValue(row, 6, `=AVERAGE(D${rowNum}:F${rowNum})`);
-    }
-    __xs.reRender();
-    console.log('[EXCEL] ✓ Auto-fill G6:G35 =AVERAGE(Dx:Fx)');
-    alert('✅ Kolom Rata-rata (G6:G35) sudah diisi otomatis.');
-  } catch (e) {
-    console.error('[EXCEL] Auto-fill G error:', e);
-    alert('Gagal auto-isi G: ' + e.message);
-  }
-}
-
-function __autoFillH() {
-  try {
-    for (let i = 0; i < 30; i++) {
-      const row = 5 + i;
-      const rowNum = row + 1;
-      __setCellValue(row, 7, `=IF(G${rowNum}>=75,"Lulus","Remedial")`);
-    }
-    __xs.reRender();
-    console.log('[EXCEL] ✓ Auto-fill H6:H35 =IF(Gx>=75,...)');
-    alert('✅ Kolom Keterangan (H6:H35) sudah diisi otomatis.');
-  } catch (e) {
-    console.error('[EXCEL] Auto-fill H error:', e);
-    alert('Gagal auto-isi H: ' + e.message);
-  }
-}
-
-/* ============================================================
-   INIT X-SPREADSHEET
-   ============================================================ */
-function initXSpreadsheet() {
-  if (typeof x_spreadsheet === 'undefined') {
-    alert('⚠️ Library spreadsheet belum dimuat. Refresh halaman.');
-    return;
-  }
-
-  const container = document.getElementById('excelContainer');
-  const containerH = window.innerHeight - 150;
   const id = appState.identity || {};
   const nama = id.name || 'Kandidat';
   const posisi = id.position || '-';
@@ -342,130 +227,157 @@ function initXSpreadsheet() {
     day: '2-digit', month: 'long', year: 'numeric'
   });
 
-  try {
-    __xs = x_spreadsheet(container, {
-      mode: 'edit',
-      showToolbar: true,
-      showContextmenu: true,
-      showBottomBar: true,
-      view: {
-        height: () => containerH,
-        width: () => container.clientWidth
+  // SHEET 1: Data Siswa — rows array untuk Luckysheet
+  const sheet1Data = [];
+
+  // Baris 0: Judul
+  sheet1Data.push([{ v: 'FORM KANDIDAT', m: 'FORM KANDIDAT', bl: 1, fs: 14, fc: '#1e40af' }]);
+
+  // Baris 1: Nama & Posisi
+  sheet1Data.push([
+    { v: 'Nama:', m: 'Nama:', bl: 1 },
+    { v: nama, m: nama },
+    { v: '', m: '' },
+    { v: 'Posisi:', m: 'Posisi:', bl: 1 },
+    { v: posisi, m: posisi }
+  ]);
+
+  // Baris 2: Tanggal & Tes
+  sheet1Data.push([
+    { v: 'Tanggal:', m: 'Tanggal:', bl: 1 },
+    { v: tanggal, m: tanggal },
+    { v: '', m: '' },
+    { v: 'Tes:', m: 'Tes:', bl: 1 },
+    { v: 'Excel In-App', m: 'Excel In-App' }
+  ]);
+
+  // Baris 3: kosong
+  sheet1Data.push([{ v: '', m: '' }]);
+
+  // Baris 4: Header tabel
+  const headerRow = ['No', 'Nama Siswa', 'Kelas', 'MTK', 'IPA', 'IPS', 'Rata-rata', 'Keterangan'];
+  sheet1Data.push(headerRow.map(h => ({ v: h, m: h, bl: 1, bg: '#dbeafe', fc: '#1e40af' })));
+
+  // Baris 5-34: Data siswa
+  EXCEL_STUDENTS.forEach(s => {
+    sheet1Data.push([
+      { v: s.no, m: String(s.no) },
+      { v: s.nama, m: s.nama },
+      { v: s.kelas, m: s.kelas },
+      { v: s.mtk, m: String(s.mtk) },
+      { v: s.ipa, m: String(s.ipa) },
+      { v: s.ips, m: String(s.ips) },
+      { v: '', m: '' },
+      { v: '', m: '' }
+    ]);
+  });
+
+  // SHEET 2: Soal
+  const sheet2Data = [];
+  sheet2Data.push([{ v: 'DAFTAR SOAL', m: 'DAFTAR SOAL', bl: 1, fs: 14, fc: '#1e40af' }]);
+  sheet2Data.push([{ v: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.', m: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }]);
+  sheet2Data.push([{ v: '', m: '' }]);
+
+  EXCEL_QUESTIONS.forEach((q, i) => {
+    sheet2Data.push([
+      { v: i + 1, m: String(i + 1), bl: 1 },
+      { v: q, m: q }
+    ]);
+  });
+
+  // Create Luckysheet
+  luckysheet.create({
+    container: 'excelContainer',
+    lang: 'en',
+    title: '',
+    data: [
+      {
+        name: 'Data Siswa',
+        color: '',
+        status: '1',
+        order: '0',
+        hide: 0,
+        row: 200,
+        column: 20,
+        defaultRowHeight: 24,
+        defaultColWidth: 100,
+        celldata: [],
+        config: {
+          merge: {},
+          rowlen: {
+            '1': 26,
+            '2': 26
+          },
+          columnlen: {
+            '0': 50,
+            '1': 180,
+            '2': 90,
+            '3': 70,
+            '4': 70,
+            '5': 70,
+            '6': 110,
+            '7': 110
+          }
+        }
       },
-      row: { len: 200, height: 24 },
-      col: { len: 20, width: 100, indexWidth: 46 }
-    });
-  } catch (err) {
-    console.error('[EXCEL] Init error:', err);
-    alert('Gagal init spreadsheet: ' + err.message);
-    return;
-  }
-
-  setTimeout(() => {
-    try {
-      const sheet1Rows = {};
-
-      sheet1Rows[0] = { cells: { 0: { text: 'FORM KANDIDAT' } } };
-      sheet1Rows[1] = {
-        cells: {
-          0: { text: 'Nama:' },
-          1: { text: nama },
-          3: { text: 'Posisi:' },
-          4: { text: posisi }
-        }
-      };
-      sheet1Rows[2] = {
-        cells: {
-          0: { text: 'Tanggal:' },
-          1: { text: tanggal },
-          3: { text: 'Tes:' },
-          4: { text: 'Excel In-App' }
-        }
-      };
-      sheet1Rows[4] = {
-        cells: {
-          0: { text: 'No' },
-          1: { text: 'Nama Siswa' },
-          2: { text: 'Kelas' },
-          3: { text: 'MTK' },
-          4: { text: 'IPA' },
-          5: { text: 'IPS' },
-          6: { text: 'Rata-rata' },
-          7: { text: 'Keterangan' }
-        }
-      };
-
-      EXCEL_STUDENTS.forEach((s, i) => {
-        const r = 5 + i;
-        sheet1Rows[r] = {
-          cells: {
-            0: { text: String(s.no) },
-            1: { text: s.nama },
-            2: { text: s.kelas },
-            3: { text: String(s.mtk) },
-            4: { text: String(s.ipa) },
-            5: { text: String(s.ips) }
-          }
-        };
-      });
-
-      const sheet2Rows = {};
-
-      sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
-      sheet2Rows[1] = {
-        cells: {
-          0: { text: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }
-        }
-      };
-
-      EXCEL_QUESTIONS.forEach((q, i) => {
-        const r = i + 3;
-        sheet2Rows[r] = {
-          cells: {
-            0: { text: String(i + 1) },
-            1: { text: q }
-          }
-        };
-      });
-
-      __xs.loadData([
-        {
-          name: 'Data Siswa',
-          rows: sheet1Rows,
-          cols: {
-            0: { width: 50 },
-            1: { width: 160 },
-            2: { width: 90 },
-            3: { width: 70 },
-            4: { width: 70 },
-            5: { width: 70 },
-            6: { width: 110 },
-            7: { width: 110 }
-          }
-        },
-        {
-          name: 'Soal',
-          rows: sheet2Rows,
-          cols: {
-            0: { width: 50 },
-            1: { width: 500 }
+      {
+        name: 'Soal',
+        color: '',
+        status: '0',
+        order: '1',
+        hide: 0,
+        row: 100,
+        column: 5,
+        defaultRowHeight: 24,
+        defaultColWidth: 100,
+        celldata: [],
+        config: {
+          columnlen: {
+            '0': 50,
+            '1': 600
           }
         }
-      ]);
-
-      console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
-
-    } catch (err) {
-      console.error('[EXCEL] LoadData error:', err);
-      alert('Gagal load data spreadsheet: ' + err.message);
-    }
-  }, 300);
-
-  window.addEventListener('resize', () => {
-    if (__xs) {
-      try { __xs.reRender(); } catch (e) {}
+      }
+    ],
+    // Isi data via celldata — konversi dari rows array
+    hook: {
+      workbookCreateAfter: function() {
+        // Setelah sheet dibuat, baru isi data
+        setTimeout(() => {
+          try {
+            // Sheet 1
+            luckysheet.setSheetActive(0);
+            for (let r = 0; r < sheet1Data.length; r++) {
+              for (let c = 0; c < sheet1Data[r].length; c++) {
+                const cell = sheet1Data[r][c];
+                if (cell && (cell.v !== undefined && cell.v !== '')) {
+                  luckysheet.setCellValue(r, c, cell.v, { isRefresh: false });
+                }
+              }
+            }
+            // Sheet 2
+            luckysheet.setSheetActive(1);
+            for (let r = 0; r < sheet2Data.length; r++) {
+              for (let c = 0; c < sheet2Data[r].length; c++) {
+                const cell = sheet2Data[r][c];
+                if (cell && (cell.v !== undefined && cell.v !== '')) {
+                  luckysheet.setCellValue(r, c, cell.v, { isRefresh: false });
+                }
+              }
+            }
+            // Balik ke sheet 1
+            luckysheet.setSheetActive(0);
+            luckysheet.refresh();
+            console.log('[EXCEL] ✓ Luckysheet siap — kandidat:', nama);
+          } catch (e) {
+            console.error('[EXCEL] Isi data error:', e);
+          }
+        }, 300);
+      }
     }
   });
+
+  console.log('[EXCEL] Luckysheet initialized');
 }
 
 /* ============================================================
@@ -651,21 +563,22 @@ async function finishExcelTest(timeUp) {
 }
 
 /* ============================================================
-   GENERATE .xlsx
+   GENERATE .xlsx — pakai luckysheet.getAllSheets()
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
 
-  let allSheets = [];
+  let sheets = [];
   try {
-    if (typeof __xs.getData === 'function') {
-      allSheets = __xs.getData();
+    if (typeof luckysheet !== 'undefined' && luckysheet.getAllSheets) {
+      sheets = luckysheet.getAllSheets();
     }
   } catch (e) {
-    console.warn('[EXCEL] getData gagal:', e);
+    console.warn('[EXCEL] getAllSheets gagal:', e);
   }
 
-  if (!Array.isArray(allSheets) || allSheets.length === 0) {
+  if (!Array.isArray(sheets) || sheets.length === 0) {
+    // Fallback
     const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
     EXCEL_STUDENTS.forEach(s => {
       dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
@@ -680,27 +593,31 @@ function generateExcelBlob() {
     ws2['!cols'] = [{wch:5},{wch:80}];
     XLSX.utils.book_append_sheet(wb, ws2, 'Soal');
   } else {
-    allSheets.forEach((sheetData, idx) => {
+    sheets.forEach((sheetData, idx) => {
       const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
-      const rows = sheetData.rows || {};
-      const aoa = [];
+      const celldata = sheetData.data || sheetData.celldata || [];
 
+      // Cari max row & col
       let maxR = 0, maxC = 0;
-      Object.keys(rows).forEach(rk => {
-        const r = parseInt(rk, 10);
-        if (r > maxR) maxR = r;
-        const cells = rows[rk].cells || {};
-        Object.keys(cells).forEach(ck => {
-          const c = parseInt(ck, 10);
-          if (c > maxC) maxC = c;
-        });
+      celldata.forEach(c => {
+        if (c.r > maxR) maxR = c.r;
+        if (c.c > maxC) maxC = c.c;
       });
 
+      // Build AOA
+      const aoa = [];
       for (let r = 0; r <= maxR; r++) {
         const rowArr = [];
         for (let c = 0; c <= maxC; c++) {
-          const cell = rows[r] && rows[r].cells && rows[r].cells[c];
-          rowArr.push(cell && cell.text != null ? cell.text : '');
+          const found = celldata.find(x => x.r === r && x.c === c);
+          const cell = found ? found.v : null;
+          if (cell == null) {
+            rowArr.push('');
+          } else if (typeof cell === 'object' && cell.m != null) {
+            rowArr.push(cell.m);
+          } else {
+            rowArr.push(cell);
+          }
         }
         aoa.push(rowArr);
       }
@@ -761,14 +678,8 @@ async function uploadExcelToGAS(blob, filename) {
   return { success: true };
 }
 
-/* ============================================================
-   EXPORT ke window (biar tombol panel bisa akses)
-   ============================================================ */
 window.renderAdminExcelSheet = renderAdminExcelSheet;
-window.__insertFormula = __insertFormula;
-window.__autoFillG = __autoFillG;
-window.__autoFillH = __autoFillH;
 
-console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet v4 + panel rumus');
+console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet');
 
 })();
