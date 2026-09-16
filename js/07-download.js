@@ -11,7 +11,7 @@
 /* ============================================================
    KONFIGURASI UPLOAD — GOOGLE APPS SCRIPT
    ============================================================ */
-const GAS_UPLOAD_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+const GAS_UPLOAD_URL = 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
 const FORM_FALLBACK_URL = 'https://forms.gle/G69K56TRfxNnBXtr9';
 
 /* ============================================================
