@@ -215,7 +215,7 @@ function startExcelTest() {
 }
 
 /* ============================================================
-   INIT X-SPREADSHEET
+   INIT X-SPREADSHEET (Fix — pakai loadData + setTimeout)
    ============================================================ */
 function initXSpreadsheet() {
   if (typeof x_spreadsheet === 'undefined') {
@@ -228,98 +228,181 @@ function initXSpreadsheet() {
   const id = appState.identity || {};
   const nama = id.name || 'Kandidat';
   const posisi = id.position || '-';
-  const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+  const tanggal = new Date().toLocaleDateString('id-ID', {
+    day: '2-digit', month: 'long', year: 'numeric'
+  });
 
-  __xs = x_spreadsheet(container, {
-    mode: 'edit',
-    showToolbar: true,
-    showContextmenu: true,
-    showBottomBar: true,
-    view: {
-      height: () => containerH,
-      width: () => container.clientWidth
-    },
-    row: { len: 200, height: 24 },
-    col: { len: 20, width: 100, indexWidth: 46 },
-    style: {
-      align: 'left',
-      valign: 'middle',
-      fontSize: '12px',
-      fontFamily: 'Calibri, Segoe UI, Inter, sans-serif'
+  // Init x-spreadsheet
+  try {
+    __xs = x_spreadsheet(container, {
+      mode: 'edit',
+      showToolbar: true,
+      showContextmenu: true,
+      showBottomBar: true,
+      view: {
+        height: () => containerH,
+        width: () => container.clientWidth
+      },
+      row: { len: 200, height: 24 },
+      col: { len: 20, width: 100, indexWidth: 46 }
+    });
+  } catch (err) {
+    console.error('[EXCEL] Init error:', err);
+    alert('Gagal init spreadsheet: ' + err.message);
+    return;
+  }
+
+  // Tunggu lib selesai init, baru isi data
+  setTimeout(() => {
+    try {
+      /* ----------------------------------------------------------
+         SHEET 1 — Data Siswa + Header Kandidat
+         ---------------------------------------------------------- */
+      const sheet1Rows = {};
+
+      // Baris 0: Judul
+      sheet1Rows[0] = { cells: { 0: { text: 'FORM KANDIDAT' } } };
+
+      // Baris 1: Nama & Posisi
+      sheet1Rows[1] = {
+        cells: {
+          0: { text: 'Nama:' },
+          1: { text: nama },
+          3: { text: 'Posisi:' },
+          4: { text: posisi }
+        }
+      };
+
+      // Baris 2: Tanggal & Jenis Tes
+      sheet1Rows[2] = {
+        cells: {
+          0: { text: 'Tanggal:' },
+          1: { text: tanggal },
+          3: { text: 'Tes:' },
+          4: { text: 'Excel In-App' }
+        }
+      };
+
+      // Baris 4: Header tabel
+      sheet1Rows[4] = {
+        cells: {
+          0: { text: 'No' },
+          1: { text: 'Nama Siswa' },
+          2: { text: 'Kelas' },
+          3: { text: 'MTK' },
+          4: { text: 'IPA' },
+          5: { text: 'IPS' },
+          6: { text: 'Rata-rata' },
+          7: { text: 'Keterangan' }
+        }
+      };
+
+      // Baris 5-34: Data siswa
+      EXCEL_STUDENTS.forEach((s, i) => {
+        const r = 5 + i;
+        sheet1Rows[r] = {
+          cells: {
+            0: { text: String(s.no) },
+            1: { text: s.nama },
+            2: { text: s.kelas },
+            3: { text: String(s.mtk) },
+            4: { text: String(s.ipa) },
+            5: { text: String(s.ips) }
+          }
+        };
+      });
+
+      // Load data sheet 1
+      __xs.loadData({
+        name: 'Data Siswa',
+        rows: sheet1Rows,
+        cols: {
+          0: { width: 50 },
+          1: { width: 160 },
+          2: { width: 90 },
+          3: { width: 70 },
+          4: { width: 70 },
+          5: { width: 70 },
+          6: { width: 110 },
+          7: { width: 110 }
+        }
+      });
+
+      console.log('[EXCEL] ✓ Sheet 1 (Data Siswa) loaded');
+
+      // Beri waktu render sheet 1, baru tambah sheet 2
+      setTimeout(() => {
+        try {
+          /* ----------------------------------------------------------
+             SHEET 2 — Soal
+             ---------------------------------------------------------- */
+          __xs.addSheet('Soal');
+          // addSheet() otomatis memindahkan ke sheet baru
+
+          setTimeout(() => {
+            try {
+              const sheet2Rows = {};
+
+              sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
+              sheet2Rows[1] = {
+                cells: {
+                  0: { text: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }
+                }
+              };
+
+              EXCEL_QUESTIONS.forEach((q, i) => {
+                const r = i + 3;
+                sheet2Rows[r] = {
+                  cells: {
+                    0: { text: String(i + 1) },
+                    1: { text: q }
+                  }
+                };
+              });
+
+              __xs.loadData({
+                name: 'Soal',
+                rows: sheet2Rows,
+                cols: {
+                  0: { width: 50 },
+                  1: { width: 500 }
+                }
+              });
+
+              console.log('[EXCEL] ✓ Sheet 2 (Soal) loaded');
+
+              // Balik ke sheet 1 setelah semua siap
+              __xs.sheet.go(0);
+
+              // Freeze header tabel di sheet 1
+              try {
+                __xs.freeze('B6');
+              } catch (e) {
+                console.warn('[EXCEL] Freeze gagal (tidak fatal):', e.message);
+              }
+
+              console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
+            } catch (err) {
+              console.error('[EXCEL] Load sheet 2 error:', err);
+            }
+          }, 200);
+        } catch (err) {
+          console.error('[EXCEL] Add sheet 2 error:', err);
+        }
+      }, 200);
+    } catch (err) {
+      console.error('[EXCEL] Load sheet 1 error:', err);
+      alert('Gagal load data: ' + err.message);
     }
-  });
-
-  /* ----------------------------------------------------------
-     SHEET 1 — Data Siswa + Header Kandidat
-     ---------------------------------------------------------- */
-
-  // Baris 1: FORM KANDIDAT (header)
-  __xs.cell(0, 0, 'FORM KANDIDAT');
-  __xs.cell(1, 0, 'Nama:');
-  __xs.cell(1, 1, nama);
-  __xs.cell(1, 3, 'Posisi:');
-  __xs.cell(1, 4, posisi);
-  __xs.cell(2, 0, 'Tanggal:');
-  __xs.cell(2, 1, tanggal);
-  __xs.cell(2, 3, 'Tes:');
-  __xs.cell(2, 4, 'Excel In-App');
-
-  // Baris 4: Header tabel
-  const R0 = 4; // row index (0-based) untuk header tabel
-  __xs.cell(R0, 0, 'No');
-  __xs.cell(R0, 1, 'Nama Siswa');
-  __xs.cell(R0, 2, 'Kelas');
-  __xs.cell(R0, 3, 'MTK');
-  __xs.cell(R0, 4, 'IPA');
-  __xs.cell(R0, 5, 'IPS');
-  __xs.cell(R0, 6, 'Rata-rata');
-  __xs.cell(R0, 7, 'Keterangan');
-
-  // Data siswa
-  EXCEL_STUDENTS.forEach((s, i) => {
-    const r = R0 + 1 + i;
-    __xs.cell(r, 0, String(s.no));
-    __xs.cell(r, 1, s.nama);
-    __xs.cell(r, 2, s.kelas);
-    __xs.cell(r, 3, String(s.mtk));
-    __xs.cell(r, 4, String(s.ipa));
-    __xs.cell(r, 5, String(s.ips));
-  });
-
-  // Freeze header tabel (baris R0+1 dan kolom A tetap terlihat)
-  __xs.freeze('B' + (R0 + 2));
-
-  /* ----------------------------------------------------------
-     SHEET 2 — Soal (otomatis)
-     ---------------------------------------------------------- */
-  __xs.addSheet('Soal');
-  __xs.sheet.go(1);
-
-  __xs.cell(0, 0, 'DAFTAR SOAL');
-  __xs.cell(1, 0, 'Kerjakan pada sheet "Data Siswa". Gunakan formula Excel.');
-
-  EXCEL_QUESTIONS.forEach((q, i) => {
-    const r = i + 3;
-    __xs.cell(r, 0, String(i + 1));
-    __xs.cell(r, 1, q);
-  });
-
-  // Set lebar kolom soal
-  __xs.cell(0, 1, ''); // trigger
-
-  /* ----------------------------------------------------------
-     Balik ke Sheet 1
-     ---------------------------------------------------------- */
-  __xs.sheet.go(0);
+  }, 200);
 
   // Resize handler
   window.addEventListener('resize', () => {
-    if (__xs) __xs.reRender();
+    if (__xs) {
+      try { __xs.reRender(); } catch (e) {}
+    }
   });
-
-  console.log('[EXCEL] ✓ x-spreadsheet initialized — kandidat:', nama);
 }
-
 /* ============================================================
    ANTI-CHEAT
    ============================================================ */
