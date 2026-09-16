@@ -1,564 +1,585 @@
 /* ============================================================
-   js/tests/excel.js
-   - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Formula, fill handle, cell reference click, drag-copy
-   - Anti-cheat: 2× warning → diskualifikasi
-   - Output: .xlsx auto-upload ke Google Drive
+   js/07-download.js
+   - Logika tombol "Kirim Hasil"
+   - markTestCompleted, allTestsCompleted
+   - Generate PDF → Upload ke Google Drive (GAS)
+   - Fallback ke Google Form kalau gagal
+   - Logout otomatis setelah sukses
+   - Warning "jangan keluar" saat submit
    ============================================================ */
-
-(function() {
-  'use strict';
 
 /* ============================================================
-   ⚙️ DATA SISWA
+   KONFIGURASI UPLOAD — GOOGLE APPS SCRIPT
    ============================================================ */
-const EXCEL_STUDENTS = [
-  { no: 1,  nama: "Ahmad Fauzi",    kelas: "X-IPA-1", mtk: 85, ipa: 78, ips: 82 },
-  { no: 2,  nama: "Budi Santoso",   kelas: "X-IPA-1", mtk: 72, ipa: 68, ips: 75 },
-  { no: 3,  nama: "Citra Dewi",     kelas: "X-IPA-1", mtk: 90, ipa: 88, ips: 85 },
-  { no: 4,  nama: "Dedi Kurniawan", kelas: "X-IPA-1", mtk: 65, ipa: 70, ips: 68 },
-  { no: 5,  nama: "Eka Pratiwi",    kelas: "X-IPA-1", mtk: 88, ipa: 92, ips: 90 },
-  { no: 6,  nama: "Fajar Ramadhan", kelas: "X-IPA-1", mtk: 75, ipa: 72, ips: 78 },
-  { no: 7,  nama: "Gita Ayu",       kelas: "X-IPA-1", mtk: 82, ipa: 80, ips: 85 },
-  { no: 8,  nama: "Hendra Wijaya",  kelas: "X-IPA-1", mtk: 68, ipa: 65, ips: 72 },
-  { no: 9,  nama: "Indah Permata",  kelas: "X-IPA-1", mtk: 92, ipa: 89, ips: 91 },
-  { no: 10, nama: "Joko Susilo",    kelas: "X-IPA-1", mtk: 77, ipa: 74, ips: 79 },
-  { no: 11, nama: "Kartika Sari",   kelas: "X-IPA-2", mtk: 86, ipa: 84, ips: 83 },
-  { no: 12, nama: "Lukman Hakim",   kelas: "X-IPA-2", mtk: 70, ipa: 75, ips: 72 },
-  { no: 13, nama: "Maya Anggraini", kelas: "X-IPA-2", mtk: 94, ipa: 91, ips: 92 },
-  { no: 14, nama: "Nanda Pratama",  kelas: "X-IPA-2", mtk: 66, ipa: 68, ips: 70 },
-  { no: 15, nama: "Oki Setiawan",   kelas: "X-IPA-2", mtk: 79, ipa: 76, ips: 81 },
-  { no: 16, nama: "Putri Amelia",   kelas: "X-IPA-2", mtk: 88, ipa: 85, ips: 89 },
-  { no: 17, nama: "Qori Ramadhan",  kelas: "X-IPA-2", mtk: 73, ipa: 71, ips: 74 },
-  { no: 18, nama: "Rina Wulandari", kelas: "X-IPA-2", mtk: 90, ipa: 87, ips: 88 },
-  { no: 19, nama: "Surya Nugraha",  kelas: "X-IPA-2", mtk: 81, ipa: 83, ips: 80 },
-  { no: 20, nama: "Tika Marlina",   kelas: "X-IPA-2", mtk: 69, ipa: 72, ips: 67 },
-  { no: 21, nama: "Umar Abdullah",  kelas: "X-IPS-1", mtk: 76, ipa: 73, ips: 88 },
-  { no: 22, nama: "Vina Oktaviani", kelas: "X-IPS-1", mtk: 84, ipa: 82, ips: 90 },
-  { no: 23, nama: "Wahyu Hidayat",  kelas: "X-IPS-1", mtk: 71, ipa: 69, ips: 78 },
-  { no: 24, nama: "Xavier Tanjung", kelas: "X-IPS-1", mtk: 89, ipa: 86, ips: 92 },
-  { no: 25, nama: "Yuni Astuti",    kelas: "X-IPS-1", mtk: 78, ipa: 80, ips: 85 },
-  { no: 26, nama: "Zaki Rahman",    kelas: "X-IPS-1", mtk: 67, ipa: 71, ips: 74 },
-  { no: 27, nama: "Aisyah Nur",     kelas: "X-IPS-1", mtk: 91, ipa: 88, ips: 93 },
-  { no: 28, nama: "Bagas Wijaya",   kelas: "X-IPS-1", mtk: 74, ipa: 76, ips: 80 },
-  { no: 29, nama: "Cindy Lestari",  kelas: "X-IPS-1", mtk: 83, ipa: 79, ips: 86 },
-  { no: 30, nama: "Dimas Saputra",  kelas: "X-IPS-1", mtk: 80, ipa: 77, ips: 82 }
-];
-
-const EXCEL_QUESTIONS = [
-  "Hitung rata-rata nilai tiap siswa",
-  "Tentukan jumlah siswa yang mendapatkan rata-rata nilai di atas 80",
-  "Tambahkan kolom \"Keterangan\", jika rata2 ≥ 75 tulis \"Lulus\", selain itu tulis \"Remedial\"",
-  "Hitung jumlah siswa per kelas",
-  "Urutkan data siswa berdasarkan nilai rata-rata tertinggi ke terendah",
-  "Tampilkan nilai tertinggi dan terendah dari kolom Rata-rata"
-];
-
-const EXCEL_TIME = 40 * 60;
+const GAS_UPLOAD_URL = 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+const FORM_FALLBACK_URL = 'https://forms.gle/G69K56TRfxNnBXtr9';
 
 /* ============================================================
-   STATE
+   PASSWORD AKTIF (fallback)
    ============================================================ */
-let __xs = null;
-let __excelTimer = null;
-let __excelTimeLeft = 0;
-let __excelWarnCount = 0;
-const __EXCEL_MAX_WARN = 2;
-let __excelCheat = false;
-let __excelAllowTabOut = false;
-let __excelBlurFn = null;
-let __excelVisFn = null;
+if (typeof PASSWORD === 'undefined') {
+  var PASSWORD =
+    localStorage.getItem('usedPragas') === '1'
+      ? "SGS-HC-Talent27"
+      : "SGS-REC-Assessment84";
+}
 
 /* ============================================================
-   ENTRY
+   COUNTER KLIK
    ============================================================ */
-function renderAdminExcelSheet() {
-  window.__inTestView = true;
-  appState.currentTest = 'EXCEL';
+window.downloadClickCount = 0;
+
+/* ============================================================
+   MARK TES SELESAI
+   ============================================================ */
+function markTestCompleted(testId) {
   appState.completed = appState.completed || {};
-  appState.completed.EXCEL = false;
+  appState.completed[testId] = true;
 
-  __excelWarnCount = 0;
-  __excelCheat = false;
-  __excelAllowTabOut = false;
-
-  renderExcelIntro();
-}
-
-/* ============================================================
-   INTRO
-   ============================================================ */
-function renderExcelIntro() {
-  const menit = Math.floor(EXCEL_TIME / 60);
-
-  document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
-      <div class="ist-panel">
-        <div class="ist-panel-header">
-          <div class="ist-header-row">
-            <div>
-              <div class="ist-eyebrow"><span>📊</span> ADMINISTRATIVE TEST</div>
-              <h2 class="ist-title">Tes Excel — In-App</h2>
-              <p class="ist-subtitle">Kerjakan di aplikasi ini. Rasanya seperti Excel asli.</p>
-            </div>
-            <div class="ist-time-chip">
-              <span class="ist-time-chip-icon">⏱</span>
-              <span>${menit} menit</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="ist-body">
-          <div class="ist-info-grid">
-            <div class="ist-info-card">
-              <div class="ist-info-label">Data</div>
-              <div class="ist-info-value">${EXCEL_STUDENTS.length} siswa</div>
-            </div>
-            <div class="ist-info-card">
-              <div class="ist-info-label">Fitur</div>
-              <div class="ist-info-value">Formula + Fill handle</div>
-            </div>
-            <div class="ist-info-card">
-              <div class="ist-info-label">Output</div>
-              <div class="ist-info-value">.xlsx otomatis</div>
-            </div>
-          </div>
-
-          <div class="ist-instruction-card">
-            <div class="ist-section-heading">
-              <span class="ist-section-icon">📘</span> Petunjuk
-            </div>
-            <div class="ist-instruction-text">
-              <ul style="margin:0;padding-left:22px;line-height:1.75;">
-                <li>Kerjakan seperti di Excel — semua fitur Excel tersedia.</li>
-                <li>Ketik <code>=</code> lalu <b>klik cell</b> untuk referensi.</li>
-                <li>Tombol <b>Σ</b> di toolbar = AutoSum.</li>
-                <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy formula.</li>
-                <li>Sheet <b>Jawaban Analisis</b> ada di tab bawah.</li>
-                <li><b>DILARANG keluar tab</b> — 2× pelanggaran = diskualifikasi.</li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="ist-instruction-card" style="background:#fff7ed;border-color:#fed7aa;">
-            <div class="ist-section-heading" style="color:#9a3412;">
-              <span class="ist-section-icon" style="background:#ffedd5;color:#ea580c;">⚠️</span>
-              Anti-Cheat Aktif
-            </div>
-            <div class="ist-instruction-text" style="color:#7c2d12;">
-              Keluar tab = peringatan. 2× = diskualifikasi otomatis.
-            </div>
-          </div>
-
-          <div class="ist-actions">
-            <button class="ist-btn-primary" id="btnStartExcel" type="button">🚀 Mulai Tes Excel</button>
-            <button class="ist-btn-secondary" onclick="window.__inTestView=false;renderHome()" type="button">Kembali</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('btnStartExcel').onclick = startExcelTest;
-}
-
-/* ============================================================
-   START
-   ============================================================ */
-function startExcelTest() {
-  __excelTimeLeft = EXCEL_TIME;
-
-  document.getElementById('app').innerHTML = `
-    <div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Inter,system-ui,sans-serif;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;border-bottom:1px solid #e2e8f0;">
-        <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:#1e293b;">
-          <span style="font-size:16px;">📊</span>
-          <span>Tes Excel</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <span style="font-family:'Courier New',monospace;font-size:15px;font-weight:800;color:#1b4f8f;">
-            ⏱ <span id="excelTimerDisplay">--:--</span>
-          </span>
-          <button id="btnFinishExcel" style="padding:8px 18px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 3px 8px rgba(22,163,74,.28);">
-            ✓ Selesai &amp; Kirim
-          </button>
-        </div>
-      </div>
-      <div id="excelContainer" style="flex:1;overflow:auto;background:#fff;"></div>
-    </div>
-  `;
-
-  clearInterval(__excelTimer);
-  __excelTimer = setInterval(() => {
-    __excelTimeLeft--;
-    const el = document.getElementById('excelTimerDisplay');
-    if (el) {
-      const s = Math.max(0, __excelTimeLeft);
-      const m = Math.floor(s / 60).toString().padStart(2, '0');
-      const sec = (s % 60).toString().padStart(2, '0');
-      el.textContent = `${m}:${sec}`;
-      el.style.color = s <= 60 ? '#c62828' : '#1b4f8f';
-    }
-    if (__excelTimeLeft <= 0) {
-      clearInterval(__excelTimer);
-      finishExcelTest(true);
-    }
-  }, 1000);
-
-  initXSpreadsheet();
-  attachExcelAntiCheat();
-
-  document.getElementById('btnFinishExcel').onclick = confirmFinishExcel;
-}
-
-/* ============================================================
-   INIT X-SPREADSHEET
-   ============================================================ */
-function initXSpreadsheet() {
-  if (typeof x_spreadsheet === 'undefined') {
-    alert('⚠️ Library spreadsheet belum dimuat. Refresh halaman.');
-    return;
-  }
-
-  const container = document.getElementById('excelContainer');
-  const containerH = window.innerHeight - 110;
-
-  __xs = x_spreadsheet(container, {
-    mode: 'edit',
-    showToolbar: true,
-    showContextmenu: true,
-    showBottomBar: true,
-    view: {
-      height: () => containerH,
-      width: () => container.clientWidth
-    },
-    row: { len: 200, height: 24 },
-    col: { len: 20, width: 100, indexWidth: 46 },
-    style: {
-      align: 'left',
-      valign: 'middle',
-      fontSize: '12px',
-      fontFamily: 'Calibri, Segoe UI, Inter, sans-serif'
-    }
-  });
-
-  // Sheet 1: Data Siswa
-  __xs.cell(0, 0, 'No');
-  __xs.cell(0, 1, 'Nama Siswa');
-  __xs.cell(0, 2, 'Kelas');
-  __xs.cell(0, 3, 'MTK');
-  __xs.cell(0, 4, 'IPA');
-  __xs.cell(0, 5, 'IPS');
-  __xs.cell(0, 6, 'Rata-rata');
-  __xs.cell(0, 7, 'Keterangan');
-
-  EXCEL_STUDENTS.forEach((s, i) => {
-    const r = i + 1;
-    __xs.cell(r, 0, String(s.no));
-    __xs.cell(r, 1, s.nama);
-    __xs.cell(r, 2, s.kelas);
-    __xs.cell(r, 3, String(s.mtk));
-    __xs.cell(r, 4, String(s.ipa));
-    __xs.cell(r, 5, String(s.ips));
-  });
-
-  // Freeze header row
-  __xs.freeze('A2');
-
-  // Sheet 2: Jawaban Analisis
-  __xs.addSheet('Jawaban Analisis');
-  __xs.sheet.go(1);
-
-  __xs.cell(0, 0, 'No');
-  __xs.cell(0, 1, 'Pertanyaan');
-  __xs.cell(0, 2, 'Jawaban');
-
-  EXCEL_QUESTIONS.forEach((q, i) => {
-    __xs.cell(i + 1, 0, String(i + 1));
-    __xs.cell(i + 1, 1, q);
-  });
-
-  // Balik ke sheet 1
-  __xs.sheet.go(0);
-
-  window.addEventListener('resize', () => {
-    if (__xs) __xs.reRender();
-  });
-
-  console.log('[EXCEL] ✓ x-spreadsheet initialized');
-}
-
-/* ============================================================
-   ANTI-CHEAT
-   ============================================================ */
-function attachExcelAntiCheat() {
-  if (__excelBlurFn) window.removeEventListener('blur', __excelBlurFn);
-  if (__excelVisFn) document.removeEventListener('visibilitychange', __excelVisFn);
-
-  __excelBlurFn = () => {
-    if (__excelAllowTabOut || __excelCheat) return;
-    if (!window.__inTestView) return;
-    if (appState.currentTest !== 'EXCEL') return;
-
-    __excelWarnCount++;
-    if (__excelWarnCount < __EXCEL_MAX_WARN) {
-      showExcelWarning(__excelWarnCount);
-      return;
-    }
-    __excelCheat = true;
-    clearInterval(__excelTimer);
-    disqualifyExcel();
-  };
-
-  __excelVisFn = () => { if (document.hidden) __excelBlurFn(); };
-
-  window.addEventListener('blur', __excelBlurFn);
-  document.addEventListener('visibilitychange', __excelVisFn);
-}
-
-function showExcelWarning(count) {
-  __excelAllowTabOut = true;
-  const overlay = document.createElement('div');
-  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:rgba(10,20,35,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;`;
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:22px;padding:32px 28px;max-width:460px;width:100%;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.5);">
-      <div style="font-size:52px;line-height:1;margin-bottom:14px;">⚠️</div>
-      <h2 style="margin:0 0 12px;color:#991b1b;font-size:22px;font-weight:900;">Peringatan ${count}/2</h2>
-      <p style="color:#475569;font-size:14.5px;line-height:1.65;margin:0 0 20px;">
-        Anda terdeteksi <b>keluar dari tab tes Excel</b>.<br>
-        Jika terulang sekali lagi → <b>diskualifikasi otomatis</b>.
-      </p>
-      <div style="padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:12px;font-size:13px;color:#78350f;text-align:left;line-height:1.6;">
-        <b>💡 Tips:</b><br>
-        • Aktifkan Do Not Disturb<br>
-        • Tutup notifikasi WhatsApp/Telegram<br>
-        • Jangan klik di luar tab ini
-      </div>
-      <button id="btnExcelWarnOk" style="margin-top:20px;width:100%;padding:14px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:0;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">
-        Saya Mengerti, Lanjutkan
-      </button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  document.getElementById('btnExcelWarnOk').onclick = () => {
-    overlay.remove();
-    setTimeout(() => { __excelAllowTabOut = false; }, 1500);
-  };
-}
-
-function disqualifyExcel() {
-  window.__inTestView = false;
   try {
-    localStorage.setItem('_sgs_disqualified', '1');
-    localStorage.setItem('_sgs_finished', '1');
-    localStorage.setItem('usedPragas', '1');
+    const saved = JSON.parse(localStorage.getItem('completed') || '{}');
+    saved[testId] = true;
+    localStorage.setItem('completed', JSON.stringify(saved));
   } catch (e) {}
 
-  appState.completed = appState.completed || {};
-  appState.completed.EXCEL = false;
+  updateDownloadButtonState();
 
-  document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
-      <div class="ist-panel">
-        <div class="ist-body">
-          <div class="ist-instruction-card" style="text-align:center;padding:40px 24px;background:#fef2f2;border-color:#fecaca;">
-            <div style="font-size:60px;line-height:1;margin-bottom:16px;">❌</div>
-            <h2 style="margin:0 0 12px;color:#991b1b;font-size:24px;font-weight:900;">Diskualifikasi</h2>
-            <p style="color:#7c2d12;font-size:15px;line-height:1.7;margin:0 0 22px;">
-              Anda terdeteksi keluar dari tab tes <b>${__EXCEL_MAX_WARN}×</b>. Hubungi admin.
-            </p>
-            <button onclick="location.reload()" style="padding:14px 32px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">
-              🔒 Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  if (typeof window.pushPresence === 'function') {
+    try { window.pushPresence('active'); } catch (e) {}
+  }
 }
 
 /* ============================================================
-   SELESAI
+   CEK SEMUA TES SELESAI
    ============================================================ */
-function confirmFinishExcel() {
-  if (!confirm('Kirim hasil Tes Excel sekarang?\n\nFile .xlsx akan otomatis terkirim ke admin.')) return;
-  __excelAllowTabOut = true;
-  finishExcelTest(false);
+function allTestsCompleted() {
+  const selected = appState.selectedTests || [];
+  if (selected.length === 0) return false;
+  const completed = appState.completed || {};
+  return selected.every(id => completed[id] === true);
 }
 
-async function finishExcelTest(timeUp) {
-  clearInterval(__excelTimer);
-  __excelAllowTabOut = true;
-  window.__inTestView = false;
+/* ============================================================
+   UPDATE STATUS TOMBOL
+   ============================================================ */
+function updateDownloadButtonState() {
+  const pdfBtn = document.getElementById('btnDownloadPDF');
+  if (!pdfBtn) return;
 
-  if (__excelBlurFn) { window.removeEventListener('blur', __excelBlurFn); __excelBlurFn = null; }
-  if (__excelVisFn) { document.removeEventListener('visibilitychange', __excelVisFn); __excelVisFn = null; }
+  const allDone = allTestsCompleted();
 
-  document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
-      <div class="ist-panel">
-        <div class="ist-body">
-          <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
-            <div id="excelFinishIcon" style="font-size:50px;margin-bottom:14px;">📊</div>
-            <div id="excelFinishTitle" style="font-size:18px;font-weight:900;color:#172033;margin-bottom:10px;">Menyiapkan file Excel...</div>
-            <div id="excelFinishMsg" style="color:#64748b;font-size:13.5px;line-height:1.6;">Mohon tunggu, jangan tutup halaman ini.</div>
-            <div style="margin-top:18px;height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
-              <div id="excelFinishBar" style="width:0%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width .3s;"></div>
-            </div>
-          </div>
+  if (allDone) {
+    pdfBtn.disabled = false;
+    pdfBtn.style.opacity = '1';
+    pdfBtn.style.pointerEvents = 'auto';
+    pdfBtn.classList.add('blink');
+    pdfBtn.innerHTML = `<span style="font-size:1.2em;vertical-align:-2px;">📤</span> Kirim Hasil Tes`;
+  } else {
+    const completed = appState.completed || {};
+    const selected = appState.selectedTests || [];
+    const done = selected.filter(id => completed[id] === true).length;
+    const total = selected.length;
+
+    pdfBtn.disabled = true;
+    pdfBtn.style.opacity = '0.5';
+    pdfBtn.style.pointerEvents = 'none';
+    pdfBtn.classList.remove('blink');
+    pdfBtn.innerHTML = `<span style="font-size:1.15em;vertical-align:-2px;">⏳</span> Selesaikan ${done}/${total} tes dulu`;
+  }
+}
+
+/* ============================================================
+   INSTALL HANDLER TOMBOL
+   ============================================================ */
+function installPdfButtonHandler() {
+  const pdfBtn = document.getElementById('btnDownloadPDF');
+  if (!pdfBtn) return;
+  if (pdfBtn.__handlerInstalled) return;
+  pdfBtn.__handlerInstalled = true;
+
+  pdfBtn.onclick = function () {
+    if (pdfBtn.__busy) return;
+
+    if (!allTestsCompleted()) {
+      alert('Masih ada tes yang belum selesai!');
+      return;
+    }
+
+    pdfBtn.__busy = true;
+    showSubmitPreview();
+    setTimeout(() => { pdfBtn.__busy = false; }, 500);
+  };
+
+  updateDownloadButtonState();
+}
+
+/* ============================================================
+   HELPER: ESCAPE HTML
+   ============================================================ */
+function __escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/* ============================================================
+   HELPER: BLOB → BASE64
+   ============================================================ */
+function __blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* ============================================================
+   PREVIEW KONFIRMASI
+   ============================================================ */
+function showSubmitPreview() {
+  const identity = appState.identity || {};
+  const selected = appState.selectedTests || [];
+  const completed = appState.completed || {};
+  const completedCount = selected.filter(id => completed[id] === true).length;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'submitPreviewOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99998;
+    background: rgba(10,20,35,.92);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <div style="
+      width: min(520px, 100%);
+      background: #fff; border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.55);
+    ">
+      <div style="
+        padding: 26px 28px 22px;
+        background: linear-gradient(135deg, #1e40af, #3b82f6);
+        color: #fff; text-align: center;
+      ">
+        <div style="font-size: 44px; line-height: 1; margin-bottom: 10px;">📋</div>
+        <div style="font-size: 20px; font-weight: 900;">
+          Konfirmasi Pengiriman Hasil
+        </div>
+        <div style="font-size: 13px; opacity: .85; margin-top: 6px;">
+          Pastikan data di bawah sudah benar sebelum dikirim
+        </div>
+      </div>
+
+      <div style="padding: 24px 28px 26px;">
+        <div style="
+          padding: 16px 18px; background: #f8fafc;
+          border: 1px solid #e2e8f0; border-radius: 12px;
+          margin-bottom: 18px; font-size: 13.5px; line-height: 1.9;
+        ">
+          <div><strong>Nama</strong> : ${__escHtml(identity.name || '-')}</div>
+          <div><strong>Posisi</strong> : ${__escHtml(identity.position || '-')}</div>
+          <div><strong>Email</strong> : ${__escHtml(identity.email || '-')}</div>
+          <div><strong>Tes Selesai</strong> : ${completedCount}/${selected.length} tes</div>
+        </div>
+
+        <div style="
+          padding: 14px 16px; background: #fffbeb;
+          border: 1px solid #fde68a; border-radius: 12px;
+          font-size: 12.5px; color: #78350f;
+          line-height: 1.6; margin-bottom: 20px;
+        ">
+          <b>⚠️ Perhatian</b><br>
+          Setelah dikirim, hasil tes <b>tidak dapat diubah</b>.
+          Pastikan semua data sudah benar.
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="btnSubmitCancel" style="
+            flex: 1; padding: 14px;
+            background: #f1f5f9; color: #475569;
+            border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 800;
+            cursor: pointer;
+          ">← Kembali</button>
+          <button id="btnSubmitConfirm" style="
+            flex: 2; padding: 14px;
+            background: linear-gradient(135deg, #16a34a, #059669);
+            color: #fff; border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(5,150,105,.28);
+          ">✅ Kirim Sekarang</button>
         </div>
       </div>
     </div>
   `;
 
-  const setUI = (icon, title, msg, pct) => {
-    const i = document.getElementById('excelFinishIcon');
-    const t = document.getElementById('excelFinishTitle');
-    const m = document.getElementById('excelFinishMsg');
-    const b = document.getElementById('excelFinishBar');
-    if (i) i.textContent = icon;
-    if (t) t.textContent = title;
-    if (m) m.textContent = msg;
-    if (b) b.style.width = pct + '%';
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnSubmitCancel').onclick = () => overlay.remove();
+  document.getElementById('btnSubmitConfirm').onclick = () => {
+    overlay.remove();
+    startSubmitProcess();
+  };
+}
+
+/* ============================================================
+   PROSES KIRIM
+   ============================================================ */
+async function startSubmitProcess() {
+  const overlay = document.createElement('div');
+  overlay.id = 'submitProgressOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,.95);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <div style="
+      width: min(480px, 100%);
+      background: #fff; border-radius: 22px;
+      padding: 36px 28px 32px;
+      box-shadow: 0 30px 90px rgba(0,0,0,.5);
+      text-align: center;
+    ">
+      <div id="submitIcon" style="
+        width: 76px; height: 76px;
+        margin: 0 auto 20px;
+        display: grid; place-items: center;
+        background: linear-gradient(135deg, #dbeafe, #eff6ff);
+        border: 2px solid #bfdbfe;
+        border-radius: 22px;
+        font-size: 36px;
+        animation: submitPulse 1.4s ease-in-out infinite;
+      ">📄</div>
+
+      <div id="submitTitle" style="
+        font-size: 20px; font-weight: 900;
+        color: #1e293b; margin-bottom: 8px;
+      ">Menyiapkan PDF...</div>
+
+      <div id="submitWarning" style="
+        padding: 12px 14px;
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+        font-size: 12.5px;
+        color: #78350f;
+        line-height: 1.6;
+        margin-bottom: 14px;
+        text-align: left;
+      ">
+        <b>⚠️ JANGAN TUTUP / KELUAR DARI HALAMAN INI</b><br>
+        Proses pengiriman sedang berjalan. Keluar sebelum selesai bisa menyebabkan data tidak terkirim.
+      </div>
+
+      <div id="submitMessage" style="
+        font-size: 13.5px; color: #64748b;
+        line-height: 1.6; margin-bottom: 20px;
+      ">Mohon tunggu, ini hanya beberapa detik.</div>
+
+      <div style="
+        height: 8px; background: #e2e8f0;
+        border-radius: 999px; overflow: hidden;
+        margin-bottom: 8px;
+      ">
+        <div id="submitProgressBar" style="
+          height: 100%; width: 0%;
+          background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+          border-radius: inherit;
+          transition: width .35s ease;
+        "></div>
+      </div>
+      <div id="submitProgressText" style="
+        font-size: 12px; color: #94a3b8;
+        font-weight: 800;
+      ">0%</div>
+    </div>
+
+    <style>
+      @keyframes submitPulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.06); }
+      }
+    </style>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Cegah keluar saat submit berlangsung
+  const __beforeUnload = (e) => {
+    e.preventDefault();
+    e.returnValue = 'Proses pengiriman sedang berjalan. Yakin keluar?';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', __beforeUnload);
+  window.__submitBeforeUnload = __beforeUnload;
+
+  const setUI = (icon, title, message, progress, text) => {
+    const iconEl = document.getElementById('submitIcon');
+    const titleEl = document.getElementById('submitTitle');
+    const msgEl = document.getElementById('submitMessage');
+    const barEl = document.getElementById('submitProgressBar');
+    const textEl = document.getElementById('submitProgressText');
+
+    if (iconEl) iconEl.textContent = icon;
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.innerHTML = message;
+    if (barEl && progress !== null) barEl.style.width = progress + '%';
+    if (textEl && text !== null) textEl.textContent = text;
   };
 
   try {
-    if (typeof XLSX === 'undefined') throw new Error('Library XLSX belum dimuat. Refresh halaman.');
-
-    setUI('📊', 'Membuat file .xlsx...', 'Mengumpulkan jawaban Anda...', 30);
+    // Step 1: Generate PDF
+    setUI('📄', 'Menyiapkan PDF...', 'Mengumpulkan semua jawaban Anda.', 15, '15%');
     await new Promise(r => setTimeout(r, 300));
 
-    const xlsxBlob = generateExcelBlob();
-    const filename = buildExcelFilename();
-
-    setUI('📤', 'Mengirim ke admin...', 'Mengunggah file .xlsx...', 60);
-    await uploadExcelToGAS(xlsxBlob, filename);
-
-    setUI('✅', 'Berhasil Terkirim!', 'Hasil Anda sudah diterima admin. Halaman akan dimuat ulang...', 100);
-
-    appState.completed = appState.completed || {};
-    appState.completed.EXCEL = true;
-
-    if (typeof window.markTestCompleted === 'function') {
-      try { window.markTestCompleted('EXCEL'); } catch (e) {}
-    } else {
-      try {
-        const saved = JSON.parse(localStorage.getItem('completed') || '{}');
-        saved.EXCEL = true;
-        localStorage.setItem('completed', JSON.stringify(saved));
-      } catch (e) {}
+    if (typeof window.generatePDFBlob !== 'function') {
+      throw new Error('Fungsi PDF belum tersedia');
     }
 
-    if (typeof window.updateDownloadButtonState === 'function') {
-      try { window.updateDownloadButtonState(); } catch (e) {}
+    const pdfResult = await window.generatePDFBlob();
+    if (!pdfResult || !pdfResult.blob) {
+      throw new Error('Gagal generate PDF');
+    }
+
+    setUI('📄', 'PDF Siap',
+      `Ukuran: ${(pdfResult.size / 1024 / 1024).toFixed(2)} MB — Mengunggah...`,
+      40, '40%');
+    await new Promise(r => setTimeout(r, 300));
+
+    // Step 2: Upload ke GAS
+    await uploadPDFWithRetry(pdfResult, setUI);
+
+    // Step 3: Sukses
+    setUI('✅', 'Terkirim!', `
+      Hasil Anda sudah diterima oleh admin.<br>
+      Anda bisa menutup halaman ini.
+    `, 100, '100%');
+
+    // Lepas beforeunload setelah sukses
+    if (window.__submitBeforeUnload) {
+      window.removeEventListener('beforeunload', window.__submitBeforeUnload);
+      window.__submitBeforeUnload = null;
     }
 
     setTimeout(() => {
-      window.__inTestView = false;
-      if (typeof window.renderHome === 'function') {
-        window.renderHome();
-        setTimeout(() => {
-          const el = document.getElementById('homeCard') || document.getElementById('downloadPDFBox');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 200);
-      }
-    }, 2500);
+      try {
+        localStorage.setItem('_sgs_finished', '1');
+        localStorage.setItem('usedPragas', '1');
+        localStorage.removeItem('identity');
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+      } catch (e) {}
+      window.location.reload();
+    }, 3000);
 
   } catch (err) {
-    console.error('[EXCEL] Finish error:', err);
-    setUI('❌', 'Gagal Kirim', 'Error: ' + err.message + ' — Screenshot & hubungi admin.', 100);
+    console.error('[SUBMIT] Gagal:', err);
+
+    // Lepas beforeunload kalau gagal juga
+    if (window.__submitBeforeUnload) {
+      window.removeEventListener('beforeunload', window.__submitBeforeUnload);
+      window.__submitBeforeUnload = null;
+    }
+
+    showSubmitFallback(err.message || 'Koneksi gagal');
   }
 }
 
 /* ============================================================
-   GENERATE .xlsx
+   UPLOAD PDF KE GAS (dengan retry 3×)
    ============================================================ */
-function generateExcelBlob() {
-  const wb = XLSX.utils.book_new();
-  const sheetNames = ['Data Siswa', 'Jawaban Analisis'];
-  const numSheets = 2;
+async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
+  const identity = appState.identity || {};
 
-  for (let s = 0; s < numSheets; s++) {
-    const rows = 100;
-    const cols = 12;
-    const aoa = [];
+  const pdfBase64 = await __blobToBase64(pdfResult.blob);
 
-    for (let r = 0; r < rows; r++) {
-      const row = [];
-      for (let c = 0; c < cols; c++) {
-        let val = '';
-        try {
-          val = __xs.cellText(r, c);
-        } catch (e) { val = ''; }
-        row.push(val == null ? '' : val);
-      }
-      aoa.push(row);
-    }
-
-    while (aoa.length > 0 && aoa[aoa.length - 1].every(v => v === '')) {
-      aoa.pop();
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = Array.from({ length: cols }, () => ({ wch: 18 }));
-    XLSX.utils.book_append_sheet(wb, ws, sheetNames[s] || ('Sheet' + (s + 1)));
-  }
-
-  const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  return new Blob([arrayBuf], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
-}
-
-function buildExcelFilename() {
-  const id = appState.identity || {};
-  const safeName = (id.name || 'Peserta').replace(/[^a-zA-Z0-9]/g, '-');
-  const ts = new Date().toISOString().slice(0, 10);
-  return `${safeName}-Excel-${ts}.xlsx`;
-}
-
-/* ============================================================
-   UPLOAD KE GAS
-   ============================================================ */
-async function uploadExcelToGAS(blob, filename) {
-  const base64 = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onloadend = () => resolve(r.result.split(',')[1]);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-
-  const id = appState.identity || {};
   const payload = {
-    action: 'upload_excel',
     deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
-    filename: filename,
-    name: id.name || '(tanpa nama)',
-    position: id.position || '',
-    email: id.email || '',
-    xlsxBase64: base64
+    filename: pdfResult.filename,
+    name: identity.name || '(tanpa nama)',
+    position: identity.position || '',
+    email: identity.email || '',
+    pdfBase64: pdfBase64
   };
 
-  const gasUrl = (typeof GAS_UPLOAD_URL !== 'undefined')
-    ? GAS_UPLOAD_URL
-    : 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+  let attempt = 0;
+  let lastError = null;
 
-  await fetch(gasUrl, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
+  while (attempt < maxRetry) {
+    attempt++;
+    try {
+      if (attempt > 1) {
+        setUI('🔄', `Coba ulang (${attempt}/${maxRetry})...`,
+          'Koneksi tidak stabil, mencoba lagi...', null, null);
+        await new Promise(r => setTimeout(r, attempt * 1500));
+      }
 
-  await new Promise(r => setTimeout(r, 1500));
-  return { success: true };
+      setUI('📤', 'Mengunggah...', `Percobaan ke-${attempt}...`, 60, '60%');
+
+      await fetch(GAS_UPLOAD_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      setUI('📤', 'Mengunggah...', 'Menunggu konfirmasi server...', 90, '90%');
+      await new Promise(r => setTimeout(r, 1500));
+
+      return { success: true };
+
+    } catch (err) {
+      lastError = err;
+      console.warn(`[SUBMIT] Attempt ${attempt} gagal:`, err.message);
+    }
+  }
+
+  throw lastError || new Error('Upload gagal setelah ' + maxRetry + ' percobaan');
 }
 
 /* ============================================================
-   EXPORT KE WINDOW (untuk startTest router)
+   FALLBACK — Kalau upload gagal
    ============================================================ */
-window.renderAdminExcelSheet = renderAdminExcelSheet;
+function showSubmitFallback(errorMsg) {
+  const prog = document.getElementById('submitProgressOverlay');
+  if (prog) prog.remove();
 
-console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet (IIFE)');
+  const overlay = document.createElement('div');
+  overlay.id = 'submitFallbackOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,.95);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  `;
 
-})();
+  overlay.innerHTML = `
+    <div style="
+      width: min(520px, 100%);
+      background: #fff; border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.5);
+    ">
+      <div style="
+        padding: 26px 28px 22px;
+        background: linear-gradient(135deg, #dc2626, #f59e0b);
+        color: #fff; text-align: center;
+      ">
+        <div style="font-size: 44px; line-height: 1; margin-bottom: 8px;">⚠️</div>
+        <div style="font-size: 20px; font-weight: 900;">
+          Gagal Mengirim
+        </div>
+        <div style="font-size: 13px; opacity: .9; margin-top: 6px;">
+          ${__escHtml(errorMsg || 'Koneksi tidak stabil')}
+        </div>
+      </div>
+
+      <div style="padding: 24px 28px 26px;">
+        <div style="
+          padding: 16px 18px; background: #fffbeb;
+          border: 1px solid #fde68a; border-radius: 12px;
+          font-size: 13px; color: #78350f;
+          line-height: 1.7; margin-bottom: 20px;
+        ">
+          <b>Jangan khawatir!</b><br>
+          Anda bisa mengirim hasil melalui <b>form online</b> berikut.
+          PDF akan diunduh otomatis, lalu upload di form tersebut.
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btnFallbackForm" style="
+            padding: 16px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            color: #fff; border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(59,130,246,.28);
+          ">📝 Kirim via Form Online</button>
+
+          <button id="btnFallbackRetry" style="
+            padding: 14px;
+            background: #f1f5f9; color: #475569;
+            border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 13px; font-weight: 800;
+            cursor: pointer;
+          ">🔄 Coba Lagi</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnFallbackRetry').onclick = () => {
+    overlay.remove();
+    startSubmitProcess();
+  };
+
+  document.getElementById('btnFallbackForm').onclick = async () => {
+    try {
+      const btn = document.getElementById('btnFallbackForm');
+      btn.disabled = true;
+      btn.textContent = 'Menyiapkan PDF...';
+
+      const pdfResult = await window.generatePDFBlob();
+      if (pdfResult && pdfResult.blob) {
+        const url = URL.createObjectURL(pdfResult.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pdfResult.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+
+      window.open(FORM_FALLBACK_URL, '_blank', 'noopener,noreferrer');
+
+      btn.textContent = '✅ PDF Diunduh — Upload di Form';
+      btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+
+      setTimeout(() => {
+        try {
+          localStorage.setItem('_sgs_finished', '1');
+          localStorage.setItem('usedPragas', '1');
+        } catch (e) {}
+        window.location.reload();
+      }, 5000);
+
+    } catch (e) {
+      alert('Gagal generate PDF: ' + e.message);
+      document.getElementById('btnFallbackForm').disabled = false;
+      document.getElementById('btnFallbackForm').textContent = '📝 Kirim via Form Online';
+    }
+  };
+}
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+window.markTestCompleted         = markTestCompleted;
+window.allTestsCompleted         = allTestsCompleted;
+window.updateDownloadButtonState = updateDownloadButtonState;
+window.installPdfButtonHandler   = installPdfButtonHandler;
+window.showSubmitPreview         = showSubmitPreview;
+window.startSubmitProcess        = startSubmitProcess;
+
+console.log('[DOWNLOAD] ✓ Loaded — submit via Google Drive + fallback Form');
