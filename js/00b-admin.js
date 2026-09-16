@@ -777,6 +777,9 @@ function adminLogout() {
   }
 
   const panel = document.getElementById('adminPanelOverlay');
+     if (typeof stopListeningAccessRequests === 'function') {
+    try { stopListeningAccessRequests(); } catch (e) {}
+  }
   if (panel) panel.remove();
   const login = document.getElementById('adminLoginOverlay');
   if (login) login.remove();
@@ -1020,7 +1023,7 @@ function renderActiveSessionsHTML(sessions) {
 /* ============================================================
    ACCORDION — Section collapsible di admin panel
    ============================================================ */
-window.__adminSectionOpen = window.__adminSectionOpen || { active: false, result: false };
+window.__adminSectionOpen = window.__adminSectionOpen || { active: false, result: false, request: false };
 
 function toggleAdminSection(key) {
   window.__adminSectionOpen[key] = !window.__adminSectionOpen[key];
@@ -1028,6 +1031,160 @@ function toggleAdminSection(key) {
   const arrow = document.getElementById('adminSectionArrow_' + key);
   if (body) body.style.display = window.__adminSectionOpen[key] ? 'block' : 'none';
   if (arrow) arrow.textContent = window.__adminSectionOpen[key] ? '▼' : '▶';
+}
+
+/* ============================================================
+   ACCESS REQUESTS — Kandidat minta izin akses
+   ============================================================ */
+let __adminRequestRef = null;
+let __adminRequestCb = null;
+window.__adminAccessRequests = [];
+
+function listenAccessRequests(callback) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    callback([]);
+    return;
+  }
+  if (__adminRequestRef && __adminRequestCb) {
+    try { __adminRequestRef.off('value', __adminRequestCb); } catch (e) {}
+  }
+  __adminRequestRef = firebase.database().ref('sgs_requests');
+  __adminRequestCb = (snap) => {
+    const data = snap.val() || {};
+    const requests = Object.entries(data)
+      .map(([deviceId, req]) => ({ deviceId, ...req }))
+      .filter(r => r.status === 'pending')
+      .sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
+    window.__adminAccessRequests = requests;
+    callback(requests);
+  };
+  __adminRequestRef.on('value', __adminRequestCb);
+}
+
+function stopListeningAccessRequests() {
+  if (__adminRequestRef && __adminRequestCb) {
+    try { __adminRequestRef.off('value', __adminRequestCb); } catch (e) {}
+    __adminRequestRef = null;
+    __adminRequestCb = null;
+  }
+}
+
+function renderAccessRequestsHTML(requests) {
+  if (!Array.isArray(requests) || requests.length === 0) {
+    return `
+      <div style="
+        padding: 14px; text-align: center;
+        color: #94a3b8; font-size: 12px;
+        background: #fff; border-radius: 10px;
+      ">📭 Belum ada request izin akses</div>`;
+  }
+
+  return requests.map(r => {
+    const ago = r.requestedAt ? Math.round((Date.now() - r.requestedAt) / 1000) : null;
+    const agoStr = ago === null ? '-' :
+                   ago < 60 ? ago + 's lalu' :
+                   ago < 3600 ? Math.floor(ago / 60) + 'm lalu' :
+                   ago < 86400 ? Math.floor(ago / 3600) + 'j lalu' :
+                   Math.floor(ago / 86400) + 'h lalu';
+
+    const safeName = String(r.name || '(tanpa nama)')
+      .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+    return `
+      <div style="
+        padding: 12px 14px; background: #fff;
+        border: 1px solid #fde68a; border-radius: 10px;
+        font-size: 12px; line-height: 1.5;
+      ">
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: flex-start; gap: 8px; margin-bottom: 6px;
+        ">
+          <div style="font-weight: 800; color: #1e293b; min-width:0;">
+            ${__adminEscape(r.name || '(tanpa nama)')}
+          </div>
+          <div style="
+            font-size: 10px; color: #92400e;
+            font-weight: 800; white-space: nowrap;
+            background: #fef3c7; padding: 3px 8px;
+            border-radius: 999px;
+          ">⏳ Menunggu</div>
+        </div>
+
+        <div style="color: #64748b; font-size: 11px; margin-bottom: 8px;">
+          ${r.position ? '📍 ' + __adminEscape(r.position) + ' &nbsp;·&nbsp; ' : ''}
+          🕐 ${agoStr}
+        </div>
+
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: center; gap: 8px;
+          padding-top: 6px;
+          border-top: 1px dashed #fde68a;
+        ">
+          <div style="color: #94a3b8; font-size: 10px;">
+            ID: ${r.deviceId.slice(-8)}
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button onclick="rejectAccessRequest('${r.deviceId}')" style="
+              padding: 5px 12px;
+              background: #fff; color: #dc2626;
+              border: 1.5px solid #fca5a5; border-radius: 7px;
+              font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;
+            ">✕ Tolak</button>
+            <button onclick="approveAccessRequest('${r.deviceId}', '${safeName}')" style="
+              padding: 5px 12px;
+              background: linear-gradient(135deg, #16a34a, #059669);
+              color: #fff; border: 0; border-radius: 7px;
+              font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;
+              box-shadow: 0 3px 8px rgba(22,163,74,.25);
+            ">✓ Setujui</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function approveAccessRequest(deviceId, name) {
+  const n = name || 'kandidat';
+  if (!confirm('Setujui izin akses untuk "' + n + '"?\n\n• Device akan di-reset (mulai dari nol)\n• Kandidat pakai password FRESH\n• Kandidat harus login ulang')) return;
+
+  try {
+    await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
+      allow_retake: true,
+      allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
+      allow_retake_by: 'admin',
+      finished: false,
+      disqualified: false
+    });
+    await firebase.database().ref('sgs_requests/' + deviceId).update({
+      status: 'approved',
+      respondedAt: firebase.database.ServerValue.TIMESTAMP,
+      respondedBy: 'admin'
+    });
+    alert('✅ Izin akses diberikan untuk "' + n + '".\n\nKandidat akan otomatis logout & bisa login dengan password FRESH.');
+  } catch (e) {
+    console.error('[ADMIN] Gagal approve:', e);
+    alert('❌ Gagal: ' + e.message);
+  }
+}
+
+async function rejectAccessRequest(deviceId) {
+  if (!confirm('Tolak request izin ini?')) return;
+  try {
+    await firebase.database().ref('sgs_requests/' + deviceId).update({
+      status: 'rejected',
+      respondedAt: firebase.database.ServerValue.timestamp,
+      respondedBy: 'admin'
+    });
+    alert('✅ Request ditolak.');
+  } catch (e) {
+    console.error('[ADMIN] Gagal reject:', e);
+    alert('❌ Gagal: ' + e.message);
+  }
 }
 
 /* ============================================================
@@ -1165,6 +1322,54 @@ function renderAdminPanel() {
           </label>
         </div>
 
+        <!-- =========================================
+             REQUEST IZIN AKSES (ACCORDION)
+             ========================================= -->
+        <div style="
+          padding: 18px 20px;
+          background: linear-gradient(135deg, #fef3c7, #fffbeb);
+          border: 2px solid #fde68a;
+          border-radius: 14px;
+          margin-bottom: 16px;
+        ">
+          <div onclick="toggleAdminSection('request')" style="
+            cursor: pointer; user-select: none;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 8px;
+          ">
+            <div style="
+              font-size: 14px; font-weight: 900; color: #92400e;
+              display: flex; align-items: center; gap: 8px;
+            ">
+              <span id="adminSectionArrow_request" style="font-size: 11px; color: #92400e; width: 12px;">
+                ${window.__adminSectionOpen.request ? '▼' : '▶'}
+              </span>
+              <span style="font-size: 16px;">📨</span>
+              Request Izin Akses
+            </div>
+            <div id="adminRequestCount" style="
+              font-size: 12px; font-weight: 800; color: #94a3b8;
+              background: #fff; padding: 4px 10px; border-radius: 999px;
+              border: 1px solid #fde68a;
+            ">0 request</div>
+          </div>
+
+          <div id="adminSectionBody_request" style="
+            display: ${window.__adminSectionOpen.request ? 'block' : 'none'};
+            margin-top: 14px;
+          ">
+            <div id="adminAccessRequests" style="
+              display: flex; flex-direction: column; gap: 8px;
+              max-height: 400px; overflow-y: auto;
+            ">
+              <div style="
+                padding: 14px; text-align: center;
+                color: #94a3b8; font-size: 12px;
+              ">⏳ Memuat...</div>
+            </div>
+          </div>
+        </div>
+        
          <!-- =========================================
              MONITORING KANDIDAT AKTIF (ACCORDION)
              ========================================= -->
@@ -1580,6 +1785,26 @@ function renderAdminPanel() {
         });
       }, 500);
     }
+         // Listen access requests
+    if (typeof listenAccessRequests === 'function') {
+      const reqContainer = document.getElementById('adminAccessRequests');
+      const reqCountEl = document.getElementById('adminRequestCount');
+      listenAccessRequests((requests) => {
+        if (reqCountEl) {
+          reqCountEl.textContent = requests.length + ' request';
+          reqCountEl.style.color = requests.length > 0 ? '#92400e' : '#94a3b8';
+          if (requests.length > 0) {
+            reqCountEl.style.animation = 'adminPulseDot 1.4s ease-in-out infinite';
+          } else {
+            reqCountEl.style.animation = '';
+          }
+        }
+        if (reqContainer) {
+          reqContainer.innerHTML = renderAccessRequestsHTML(requests);
+        }
+      });
+    }
+
   }, 200);
 
   const closeBtn = document.getElementById('btnAdminClose');
@@ -1595,6 +1820,9 @@ function renderAdminPanel() {
         try { stopAdminTimerTick(); } catch (e) {}
       }
       overlay.remove();
+             if (typeof stopListeningAccessRequests === 'function') {
+        try { stopListeningAccessRequests(); } catch (e) {}
+      }
       try {
         const url = new URL(window.location.href);
         url.searchParams.delete('admin');
@@ -1720,4 +1948,10 @@ window.stopAdminTimerTick = stopAdminTimerTick;
 window.fetchResultFiles        = fetchResultFiles;
 window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
+/* ─── Access Requests ─── */
+window.listenAccessRequests         = listenAccessRequests;
+window.stopListeningAccessRequests  = stopListeningAccessRequests;
+window.approveAccessRequest         = approveAccessRequest;
+window.rejectAccessRequest          = rejectAccessRequest;
+window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
 console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer');
