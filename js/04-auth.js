@@ -19,14 +19,20 @@ function checkPassword() {
     return;
   }
 
-  /* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
-  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
-    error.textContent = 'Perangkat ini sudah menyelesaikan tes. Hubungi admin.';
-    error.style.color = '#ff6b6b';
-    input.value = '';
-    input.focus();
+/* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
+if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+  if (typeof showRequestAccessScreen === 'function') {
+    const pwdScreen = document.getElementById('passwordScreen');
+    if (pwdScreen) pwdScreen.classList.add('hidden');
+    showRequestAccessScreen();
     return;
   }
+  error.textContent = 'Perangkat ini sudah menyelesaikan tes. Hubungi admin.';
+  error.style.color = '#ff6b6b';
+  input.value = '';
+  input.focus();
+  return;
+}
 
   /* ---------- CEK 3: TENTUKAN PASSWORD YANG BERLAKU ---------- */
   const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
