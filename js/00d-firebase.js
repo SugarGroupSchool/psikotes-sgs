@@ -1,6 +1,7 @@
 /* ============================================================
    js/00d-firebase.js
    - Sync lock state & password antar device via Firebase
+   - FASE 3: Baca data per-node (bukan root sgs_state)
    ============================================================ */
 
 /* ============================================================
@@ -35,59 +36,59 @@ function initFirebase() {
     return;
   }
 
-try {
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
 
-  const db = firebase.database();
+    const db = firebase.database();
 
-  let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
+    let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
 
-  function __handleStateChange() {
-    const newLock = window.__cloudState.lock;
-    const newFreshPwd = window.__cloudState.freshPwd;
-    const newUsedPwd = window.__cloudState.usedPwd;
+    function __handleStateChange() {
+      const newLock = window.__cloudState.lock;
+      const newFreshPwd = window.__cloudState.freshPwd;
+      const newUsedPwd = window.__cloudState.usedPwd;
 
-    const changed =
-      __lastSync.lock !== newLock ||
-      __lastSync.freshPwd !== newFreshPwd ||
-      __lastSync.usedPwd !== newUsedPwd;
+      const changed =
+        __lastSync.lock !== newLock ||
+        __lastSync.freshPwd !== newFreshPwd ||
+        __lastSync.usedPwd !== newUsedPwd;
 
-    window.__cloudState.ready = true;
+      window.__cloudState.ready = true;
 
-    if (changed) {
-      __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
-      console.log('[FIREBASE] Sync:', __lastSync);
+      if (changed) {
+        __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
+        console.log('[FIREBASE] Sync:', __lastSync);
 
-      const panel = document.getElementById('adminPanelOverlay');
-      if (panel && typeof renderAdminPanel === 'function') {
-        renderAdminPanel();
+        const panel = document.getElementById('adminPanelOverlay');
+        if (panel && typeof renderAdminPanel === 'function') {
+          renderAdminPanel();
+        }
       }
     }
+
+    // Listen per-node (bukan root sgs_state) — kompatibel dengan Fase 3
+    db.ref('sgs_state/lock').on('value', s => {
+      window.__cloudState.lock = s.val() === true;
+      __handleStateChange();
+    }, err => console.warn('[FIREBASE] lock read error:', err.message));
+
+    db.ref('sgs_state/freshPwd').on('value', s => {
+      window.__cloudState.freshPwd = s.val() || '';
+      __handleStateChange();
+    }, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
+
+    db.ref('sgs_state/usedPwd').on('value', s => {
+      window.__cloudState.usedPwd = s.val() || '';
+      __handleStateChange();
+    }, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
+
+    console.log('[FIREBASE] ✓ Initialized (per-node)');
+
+  } catch (e) {
+    console.error('[FIREBASE] Init error:', e);
   }
-
-  // Listen per-node (bukan root sgs_state)
-  db.ref('sgs_state/lock').on('value', s => {
-    window.__cloudState.lock = s.val() === true;
-    __handleStateChange();
-  }, err => console.warn('[FIREBASE] lock read error:', err.message));
-
-  db.ref('sgs_state/freshPwd').on('value', s => {
-    window.__cloudState.freshPwd = s.val() || '';
-    __handleStateChange();
-  }, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
-
-  db.ref('sgs_state/usedPwd').on('value', s => {
-    window.__cloudState.usedPwd = s.val() || '';
-    __handleStateChange();
-  }, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
-
-  console.log('[FIREBASE] ✓ Initialized (per-node)');
-
-} catch (e) {
-  console.error('[FIREBASE] Init error:', e);
-}
 }
 
 /* ============================================================
@@ -158,13 +159,8 @@ async function toggleLockState() {
   const locked = cb.checked;
   console.log('[ADMIN] Toggle lock →', locked);
 
-  // Update ke cloud
   await setLockStateCloud(locked);
-
-  // Cache di localStorage
   localStorage.setItem('_sgs_lock', locked ? '1' : '0');
-
-  // Refresh panel
   renderAdminPanel();
 }
 
@@ -176,7 +172,7 @@ async function regenFreshPwd() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let pwd = 'SGS-F-';
   for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-  
+
   await setFreshPwdCloud(pwd);
   localStorage.setItem('_sgs_pwd_fresh', pwd);
   renderAdminPanel();
@@ -187,7 +183,7 @@ async function regenUsedPwd() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let pwd = 'SGS-U-';
   for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-  
+
   await setUsedPwdCloud(pwd);
   localStorage.setItem('_sgs_pwd_used', pwd);
   renderAdminPanel();
