@@ -35,53 +35,59 @@ function initFirebase() {
     return;
   }
 
-  try {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    const db = firebase.database();
-    const ref = db.ref('sgs_state');
-
-       let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
-
-    ref.on('value', (snapshot) => {
-      const data = snapshot.val() || {};
-
-      const newLock = data.lock === true;
-      const newFreshPwd = data.freshPwd || '';
-      const newUsedPwd = data.usedPwd || '';
-
-      // Cek apakah ada yang benar-benar berubah
-      const changed =
-        __lastSync.lock !== newLock ||
-        __lastSync.freshPwd !== newFreshPwd ||
-        __lastSync.usedPwd !== newUsedPwd;
-
-      window.__cloudState.lock = newLock;
-      window.__cloudState.freshPwd = newFreshPwd;
-      window.__cloudState.usedPwd = newUsedPwd;
-      window.__cloudState.ready = true;
-
-      if (changed) {
-        __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
-
-        console.log('[FIREBASE] 🔄 Sync:', {
-          lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd
-        });
-
-        // Refresh admin panel HANYA kalau lock/pwd berubah
-        const panel = document.getElementById('adminPanelOverlay');
-        if (panel && typeof renderAdminPanel === 'function') {
-          renderAdminPanel();
-        }
-      }
-    });
-    console.log('[FIREBASE] ✓ Initialized');
-
-  } catch (e) {
-    console.error('[FIREBASE] Init error:', e);
+try {
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
   }
+
+  const db = firebase.database();
+
+  let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
+
+  function __handleStateChange() {
+    const newLock = window.__cloudState.lock;
+    const newFreshPwd = window.__cloudState.freshPwd;
+    const newUsedPwd = window.__cloudState.usedPwd;
+
+    const changed =
+      __lastSync.lock !== newLock ||
+      __lastSync.freshPwd !== newFreshPwd ||
+      __lastSync.usedPwd !== newUsedPwd;
+
+    window.__cloudState.ready = true;
+
+    if (changed) {
+      __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
+      console.log('[FIREBASE] Sync:', __lastSync);
+
+      const panel = document.getElementById('adminPanelOverlay');
+      if (panel && typeof renderAdminPanel === 'function') {
+        renderAdminPanel();
+      }
+    }
+  }
+
+  // Listen per-node (bukan root sgs_state)
+  db.ref('sgs_state/lock').on('value', s => {
+    window.__cloudState.lock = s.val() === true;
+    __handleStateChange();
+  }, err => console.warn('[FIREBASE] lock read error:', err.message));
+
+  db.ref('sgs_state/freshPwd').on('value', s => {
+    window.__cloudState.freshPwd = s.val() || '';
+    __handleStateChange();
+  }, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
+
+  db.ref('sgs_state/usedPwd').on('value', s => {
+    window.__cloudState.usedPwd = s.val() || '';
+    __handleStateChange();
+  }, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
+
+  console.log('[FIREBASE] ✓ Initialized (per-node)');
+
+} catch (e) {
+  console.error('[FIREBASE] Init error:', e);
+}
 }
 
 /* ============================================================
