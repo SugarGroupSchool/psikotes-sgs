@@ -1,7 +1,7 @@
 /* ============================================================
    js/tests/excel.js
    - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Formula, klik cell, drag range otomatis
+   - Formula + panel bantuan + auto-fill
    - Anti-cheat: 2× warning → diskualifikasi
    - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
@@ -133,9 +133,9 @@ function renderExcelIntro() {
             <div class="ist-instruction-text">
               <ul style="margin:0;padding-left:22px;line-height:1.75;">
                 <li>Kerjakan <b>persis seperti di Excel</b> — semua fitur tersedia.</li>
-                <li>Ketik <code>=</code> lalu <b>klik cell</b> → referensi otomatis masuk.</li>
-                <li>Ketik <code>=</code> lalu <b>drag</b> cell E6 sampai I6 → otomatis jadi <code>E6:I6</code>.</li>
-                <li>Tombol <b>Σ</b> di toolbar = AutoSum.</li>
+                <li>Ketik <code>=</code> di cell, lalu <b>klik cell</b> untuk referensi.</li>
+                <li>Atau pakai <b>panel Rumus Cepat</b> di atas — cukup klik.</li>
+                <li>Ada tombol <b>Auto-isi</b> untuk isi kolom sekaligus.</li>
                 <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
                 <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
                 <li><b>DILARANG keluar tab</b> — 2× = diskualifikasi.</li>
@@ -187,6 +187,22 @@ function startExcelTest() {
           </button>
         </div>
       </div>
+
+      <!-- PANEL BANTUAN RUMUS -->
+      <div style="padding:8px 14px;background:#f0f9ff;border-bottom:1px solid #bae6fd;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+        <span style="font-size:11.5px;font-weight:800;color:#0369a1;margin-right:4px;">⚡ Rumus Cepat:</span>
+        <button onclick="__insertFormula('=SUM(D6:F6)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">SUM</button>
+        <button onclick="__insertFormula('=AVERAGE(D6:F6)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">AVERAGE</button>
+        <button onclick="__insertFormula('=COUNTIF(C6:C35,\\"X-IPA-1\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">COUNTIF</button>
+        <button onclick="__insertFormula('=COUNTIF(G6:G35,\\">80\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">COUNTIF &gt;80</button>
+        <button onclick="__insertFormula('=IF(G6>=75,\\"Lulus\\",\\"Remedial\\")')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">IF</button>
+        <button onclick="__insertFormula('=MAX(G6:G35)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">MAX</button>
+        <button onclick="__insertFormula('=MIN(G6:G35)')" style="padding:5px 10px;background:#fff;border:1px solid #7dd3fc;border-radius:6px;font-size:11px;font-weight:700;color:#0369a1;cursor:pointer;font-family:'Courier New',monospace;">MIN</button>
+        <button onclick="__autoFillG()" style="padding:5px 10px;background:linear-gradient(135deg,#16a34a,#059669);border:0;border-radius:6px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;">⚡ Auto-isi G6:G35</button>
+        <button onclick="__autoFillH()" style="padding:5px 10px;background:linear-gradient(135deg,#16a34a,#059669);border:0;border-radius:6px;font-size:11px;font-weight:700;color:#fff;cursor:pointer;">⚡ Auto-isi H6:H35</button>
+        <span style="font-size:10.5px;color:#64748b;margin-left:auto;">💡 Klik cell dulu, baru klik tombol rumus</span>
+      </div>
+
       <div id="excelContainer" style="flex:1;overflow:auto;background:#fff;"></div>
     </div>
   `;
@@ -215,9 +231,73 @@ function startExcelTest() {
 }
 
 /* ============================================================
-   INIT X-SPREADSHEET — versi final
-   Pakai loadData() array (2 sheet sekaligus)
-   Tidak pakai addSheet / sheet.go / freeze
+   PANEL BANTUAN — Insert formula ke cell aktif
+   ============================================================ */
+function __getActiveCell() {
+  try {
+    if (__xs && __xs.sheet && __xs.sheet.selector) {
+      const sel = __xs.sheet.selector;
+      return { ri: sel.ri, ci: sel.ci };
+    }
+    if (__xs && __xs.datas && __xs.datas.length > 0) {
+      const d = __xs.datas[__xs.sheet.index || 0];
+      if (d && d.selector) return { ri: d.selector.ri, ci: d.selector.ci };
+    }
+  } catch (e) {}
+  return null;
+}
+
+function __insertFormula(formula) {
+  const cell = __getActiveCell();
+  if (!cell) {
+    alert('Klik dulu cell tujuannya, baru klik tombol rumus.');
+    return;
+  }
+
+  try {
+    __xs.cell(cell.ri, cell.ci, formula);
+    __xs.reRender();
+    console.log('[EXCEL] ✓ Formula ke cell (' + cell.ri + ',' + cell.ci + '):', formula);
+  } catch (e) {
+    console.error('[EXCEL] Insert formula error:', e);
+    alert('Gagal insert rumus: ' + e.message);
+  }
+}
+
+function __autoFillG() {
+  try {
+    for (let i = 0; i < 30; i++) {
+      const row = 5 + i;
+      const rowNum = row + 1;
+      __xs.cell(row, 6, `=AVERAGE(D${rowNum}:F${rowNum})`);
+    }
+    __xs.reRender();
+    console.log('[EXCEL] ✓ Auto-fill G6:G35 =AVERAGE(Dx:Fx)');
+    alert('✅ Kolom Rata-rata (G6:G35) sudah diisi otomatis.');
+  } catch (e) {
+    console.error('[EXCEL] Auto-fill G error:', e);
+    alert('Gagal auto-isi G: ' + e.message);
+  }
+}
+
+function __autoFillH() {
+  try {
+    for (let i = 0; i < 30; i++) {
+      const row = 5 + i;
+      const rowNum = row + 1;
+      __xs.cell(row, 7, `=IF(G${rowNum}>=75,"Lulus","Remedial")`);
+    }
+    __xs.reRender();
+    console.log('[EXCEL] ✓ Auto-fill H6:H35 =IF(Gx>=75,...)');
+    alert('✅ Kolom Keterangan (H6:H35) sudah diisi otomatis.');
+  } catch (e) {
+    console.error('[EXCEL] Auto-fill H error:', e);
+    alert('Gagal auto-isi H: ' + e.message);
+  }
+}
+
+/* ============================================================
+   INIT X-SPREADSHEET
    ============================================================ */
 function initXSpreadsheet() {
   if (typeof x_spreadsheet === 'undefined') {
@@ -226,7 +306,7 @@ function initXSpreadsheet() {
   }
 
   const container = document.getElementById('excelContainer');
-  const containerH = window.innerHeight - 110;
+  const containerH = window.innerHeight - 150;
   const id = appState.identity || {};
   const nama = id.name || 'Kandidat';
   const posisi = id.position || '-';
@@ -253,10 +333,8 @@ function initXSpreadsheet() {
     return;
   }
 
-  // Delay 300ms biar library siap
   setTimeout(() => {
     try {
-      // SHEET 1: Data Siswa + Header
       const sheet1Rows = {};
 
       sheet1Rows[0] = { cells: { 0: { text: 'FORM KANDIDAT' } } };
@@ -303,7 +381,6 @@ function initXSpreadsheet() {
         };
       });
 
-      // SHEET 2: Soal
       const sheet2Rows = {};
 
       sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
@@ -323,7 +400,6 @@ function initXSpreadsheet() {
         };
       });
 
-      // LOAD 2 SHEET SEKALIGUS
       __xs.loadData([
         {
           name: 'Data Siswa',
@@ -350,7 +426,6 @@ function initXSpreadsheet() {
       ]);
 
       console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
-      console.log('[EXCEL] ✓ Sheet: Data Siswa + Soal');
 
     } catch (err) {
       console.error('[EXCEL] LoadData error:', err);
@@ -548,15 +623,13 @@ async function finishExcelTest(timeUp) {
 }
 
 /* ============================================================
-   GENERATE .xlsx — ambil dari x-spreadsheet instance
+   GENERATE .xlsx
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
 
-  // Ambil data dari x-spreadsheet
   let allSheets = [];
   try {
-    // Cara 1: via getData()
     if (typeof __xs.getData === 'function') {
       allSheets = __xs.getData();
     }
@@ -564,9 +637,7 @@ function generateExcelBlob() {
     console.warn('[EXCEL] getData gagal:', e);
   }
 
-  // Kalau tidak ada, fallback: bikin manual dari sheet 1 & 2
   if (!Array.isArray(allSheets) || allSheets.length === 0) {
-    // Fallback: sheet 1 dari EXCEL_STUDENTS
     const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
     EXCEL_STUDENTS.forEach(s => {
       dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
@@ -581,13 +652,11 @@ function generateExcelBlob() {
     ws2['!cols'] = [{wch:5},{wch:80}];
     XLSX.utils.book_append_sheet(wb, ws2, 'Soal');
   } else {
-    // Kalau dapat dari x-spreadsheet, konversi
     allSheets.forEach((sheetData, idx) => {
       const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
       const rows = sheetData.rows || {};
       const aoa = [];
 
-      // Cari maxRow & maxCol
       let maxR = 0, maxC = 0;
       Object.keys(rows).forEach(rk => {
         const r = parseInt(rk, 10);
@@ -665,10 +734,13 @@ async function uploadExcelToGAS(blob, filename) {
 }
 
 /* ============================================================
-   EXPORT
+   EXPORT ke window (biar tombol panel bisa akses)
    ============================================================ */
 window.renderAdminExcelSheet = renderAdminExcelSheet;
+window.__insertFormula = __insertFormula;
+window.__autoFillG = __autoFillG;
+window.__autoFillH = __autoFillH;
 
-console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet v3');
+console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet v4 + panel rumus');
 
 })();
