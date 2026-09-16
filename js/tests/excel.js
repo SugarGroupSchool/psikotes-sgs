@@ -230,20 +230,49 @@ function startExcelTest() {
   document.getElementById('btnFinishExcel').onclick = confirmFinishExcel;
 }
 
+   /* ============================================================
+   SET CELL VALUE — akses langsung ke data sheet
+   (bukan pakai __xs.cell() yang error setelah loadData)
+   ============================================================ */
+function __setCellValue(ri, ci, text) {
+  const sheetIdx = (__xs && __xs.sheet && __xs.sheet.index) || 0;
+  const sheet = __xs && __xs.datas && __xs.datas[sheetIdx];
+  if (!sheet) throw new Error('Sheet tidak ditemukan');
+
+  // Pastikan struktur rows ada
+  if (!sheet.rows) sheet.rows = {};
+  if (!sheet.rows[ri]) sheet.rows[ri] = { cells: {} };
+  if (!sheet.rows[ri].cells) sheet.rows[ri].cells = {};
+
+  // Set cell
+  sheet.rows[ri].cells[ci] = { text: text };
+
+  // Update juga internal cell data jika ada
+  try {
+    if (sheet.getCell && typeof sheet.getCell === 'function') {
+      // no-op, getCell tidak bisa dipakai
+    }
+  } catch (e) {}
+}
+   
 /* ============================================================
    PANEL BANTUAN — Insert formula ke cell aktif
    ============================================================ */
 function __getActiveCell() {
   try {
+    // Coba akses dari sheet aktif
+    const sheetIdx = (__xs && __xs.sheet && __xs.sheet.index) || 0;
+    const sheet = __xs && __xs.datas && __xs.datas[sheetIdx];
+    if (sheet && sheet.selector) {
+      return { ri: sheet.selector.ri, ci: sheet.selector.ci };
+    }
+    // Fallback ke selector global
     if (__xs && __xs.sheet && __xs.sheet.selector) {
-      const sel = __xs.sheet.selector;
-      return { ri: sel.ri, ci: sel.ci };
+      return { ri: __xs.sheet.selector.ri, ci: __xs.sheet.selector.ci };
     }
-    if (__xs && __xs.datas && __xs.datas.length > 0) {
-      const d = __xs.datas[__xs.sheet.index || 0];
-      if (d && d.selector) return { ri: d.selector.ri, ci: d.selector.ci };
-    }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[EXCEL] getActiveCell error:', e);
+  }
   return null;
 }
 
@@ -255,8 +284,7 @@ function __insertFormula(formula) {
   }
 
   try {
-    __xs.cell(cell.ri, cell.ci, formula);
-    __xs.reRender();
+    __setCellValue(cell.ri, cell.ci, formula);
     console.log('[EXCEL] ✓ Formula ke cell (' + cell.ri + ',' + cell.ci + '):', formula);
   } catch (e) {
     console.error('[EXCEL] Insert formula error:', e);
@@ -269,7 +297,7 @@ function __autoFillG() {
     for (let i = 0; i < 30; i++) {
       const row = 5 + i;
       const rowNum = row + 1;
-      __xs.cell(row, 6, `=AVERAGE(D${rowNum}:F${rowNum})`);
+      __setCellValue(row, 6, `=AVERAGE(D${rowNum}:F${rowNum})`);
     }
     __xs.reRender();
     console.log('[EXCEL] ✓ Auto-fill G6:G35 =AVERAGE(Dx:Fx)');
@@ -285,7 +313,7 @@ function __autoFillH() {
     for (let i = 0; i < 30; i++) {
       const row = 5 + i;
       const rowNum = row + 1;
-      __xs.cell(row, 7, `=IF(G${rowNum}>=75,"Lulus","Remedial")`);
+      __setCellValue(row, 7, `=IF(G${rowNum}>=75,"Lulus","Remedial")`);
     }
     __xs.reRender();
     console.log('[EXCEL] ✓ Auto-fill H6:H35 =IF(Gx>=75,...)');
