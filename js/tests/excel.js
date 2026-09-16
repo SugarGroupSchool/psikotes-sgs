@@ -215,7 +215,7 @@ function startExcelTest() {
 }
 
 /* ============================================================
-   INIT X-SPREADSHEET (Fix — pakai loadData + setTimeout)
+   INIT X-SPREADSHEET (Fix v2 — loadData array + no sheet.go)
    ============================================================ */
 function initXSpreadsheet() {
   if (typeof x_spreadsheet === 'undefined') {
@@ -252,7 +252,7 @@ function initXSpreadsheet() {
     return;
   }
 
-  // Tunggu lib selesai init, baru isi data
+  // Tunggu lib selesai init, baru load data
   setTimeout(() => {
     try {
       /* ----------------------------------------------------------
@@ -312,89 +312,73 @@ function initXSpreadsheet() {
         };
       });
 
-      // Load data sheet 1
-      __xs.loadData({
-        name: 'Data Siswa',
-        rows: sheet1Rows,
-        cols: {
-          0: { width: 50 },
-          1: { width: 160 },
-          2: { width: 90 },
-          3: { width: 70 },
-          4: { width: 70 },
-          5: { width: 70 },
-          6: { width: 110 },
-          7: { width: 110 }
+      /* ----------------------------------------------------------
+         SHEET 2 — Soal
+         ---------------------------------------------------------- */
+      const sheet2Rows = {};
+
+      sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
+      sheet2Rows[1] = {
+        cells: {
+          0: { text: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }
         }
+      };
+
+      EXCEL_QUESTIONS.forEach((q, i) => {
+        const r = i + 3;
+        sheet2Rows[r] = {
+          cells: {
+            0: { text: String(i + 1) },
+            1: { text: q }
+          }
+        };
       });
 
-      console.log('[EXCEL] ✓ Sheet 1 (Data Siswa) loaded');
-
-      // Beri waktu render sheet 1, baru tambah sheet 2
-      setTimeout(() => {
-        try {
-          /* ----------------------------------------------------------
-             SHEET 2 — Soal
-             ---------------------------------------------------------- */
-          __xs.addSheet('Soal');
-          // addSheet() otomatis memindahkan ke sheet baru
-
-          setTimeout(() => {
-            try {
-              const sheet2Rows = {};
-
-              sheet2Rows[0] = { cells: { 0: { text: 'DAFTAR SOAL' } } };
-              sheet2Rows[1] = {
-                cells: {
-                  0: { text: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }
-                }
-              };
-
-              EXCEL_QUESTIONS.forEach((q, i) => {
-                const r = i + 3;
-                sheet2Rows[r] = {
-                  cells: {
-                    0: { text: String(i + 1) },
-                    1: { text: q }
-                  }
-                };
-              });
-
-              __xs.loadData({
-                name: 'Soal',
-                rows: sheet2Rows,
-                cols: {
-                  0: { width: 50 },
-                  1: { width: 500 }
-                }
-              });
-
-              console.log('[EXCEL] ✓ Sheet 2 (Soal) loaded');
-
-              // Balik ke sheet 1 setelah semua siap
-              __xs.sheet.go(0);
-
-              // Freeze header tabel di sheet 1
-              try {
-                __xs.freeze('B6');
-              } catch (e) {
-                console.warn('[EXCEL] Freeze gagal (tidak fatal):', e.message);
-              }
-
-              console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
-            } catch (err) {
-              console.error('[EXCEL] Load sheet 2 error:', err);
-            }
-          }, 200);
-        } catch (err) {
-          console.error('[EXCEL] Add sheet 2 error:', err);
+      /* ----------------------------------------------------------
+         LOAD KEDUA SHEET SEKALIGUS (array)
+         ---------------------------------------------------------- */
+      __xs.loadData([
+        {
+          name: 'Data Siswa',
+          rows: sheet1Rows,
+          cols: {
+            0: { width: 50 },
+            1: { width: 160 },
+            2: { width: 90 },
+            3: { width: 70 },
+            4: { width: 70 },
+            5: { width: 70 },
+            6: { width: 110 },
+            7: { width: 110 }
+          }
+        },
+        {
+          name: 'Soal',
+          rows: sheet2Rows,
+          cols: {
+            0: { width: 50 },
+            1: { width: 500 }
+          }
         }
-      }, 200);
+      ]);
+
+      console.log('[EXCEL] ✓ x-spreadsheet siap — kandidat:', nama);
+      console.log('[EXCEL] ✓ Sheet: Data Siswa + Soal');
+
+      // Coba freeze (opsional — kalau gagal, abaikan)
+      try {
+        if (typeof __xs.freeze === 'function') {
+          __xs.freeze('B6');
+        }
+      } catch (e) {
+        console.warn('[EXCEL] Freeze tidak tersedia (abaikan):', e.message);
+      }
+
     } catch (err) {
-      console.error('[EXCEL] Load sheet 1 error:', err);
-      alert('Gagal load data: ' + err.message);
+      console.error('[EXCEL] LoadData error:', err);
+      alert('Gagal load data spreadsheet: ' + err.message);
     }
-  }, 200);
+  }, 300);
 
   // Resize handler
   window.addEventListener('resize', () => {
@@ -403,7 +387,8 @@ function initXSpreadsheet() {
     }
   });
 }
-/* ============================================================
+   
+   /* ============================================================
    ANTI-CHEAT
    ============================================================ */
 function attachExcelAntiCheat() {
