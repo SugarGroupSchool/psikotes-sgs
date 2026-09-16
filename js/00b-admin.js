@@ -1016,8 +1016,22 @@ function renderActiveSessionsHTML(sessions) {
   }).join('');
 }
 
+
 /* ============================================================
-   RENDER PANEL ADMIN
+   ACCORDION — Section collapsible di admin panel
+   ============================================================ */
+window.__adminSectionOpen = window.__adminSectionOpen || { active: false, result: false };
+
+function toggleAdminSection(key) {
+  window.__adminSectionOpen[key] = !window.__adminSectionOpen[key];
+  const body = document.getElementById('adminSectionBody_' + key);
+  const arrow = document.getElementById('adminSectionArrow_' + key);
+  if (body) body.style.display = window.__adminSectionOpen[key] ? 'block' : 'none';
+  if (arrow) arrow.textContent = window.__adminSectionOpen[key] ? '▼' : '▶';
+}
+
+/* ============================================================
+   RENDER ADMIN PANEL
    ============================================================ */
 function renderAdminPanel() {
   const old = document.getElementById('adminPanelOverlay');
@@ -1151,16 +1165,62 @@ function renderAdminPanel() {
           </label>
         </div>
 
-        <!-- =========================================
-             MONITORING KANDIDAT AKTIF
-             ========================================= -->
-        <div style="
-          padding: 18px 20px;
-          background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-          border: 2px solid #bfdbfe;
-          border-radius: 14px;
-          margin-bottom: 16px;
-        ">
+     <!-- =========================================
+     MONITORING KANDIDAT AKTIF (ACCORDION)
+     ========================================= -->
+<div style="
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+  border: 2px solid #bfdbfe;
+  border-radius: 14px;
+  margin-bottom: 16px;
+">
+  <div onclick="toggleAdminSection('active')" style="
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  ">
+    <div style="
+      font-size: 14px; font-weight: 900; color: #1e40af;
+      display: flex; align-items: center; gap: 8px;
+    ">
+      <span id="adminSectionArrow_active" style="font-size: 11px; color: #1e40af; width: 12px;">
+        ${window.__adminSectionOpen.active ? '▼' : '▶'}
+      </span>
+      <span style="
+        width: 10px; height: 10px; border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 0 4px rgba(34,197,94,.2);
+        animation: adminPulseDot 1.4s ease-in-out infinite;
+      "></span>
+      Kandidat Aktif & Selesai
+    </div>
+    <div id="adminActiveCount" style="
+      font-size: 12px; font-weight: 800; color: #94a3b8;
+      background: #fff; padding: 4px 10px; border-radius: 999px;
+      border: 1px solid #bfdbfe;
+    ">0 kandidat</div>
+  </div>
+
+  <div id="adminSectionBody_active" style="
+    display: ${window.__adminSectionOpen.active ? 'block' : 'none'};
+    margin-top: 14px;
+  ">
+    <div id="adminActiveSessions" style="
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 400px; overflow-y: auto;
+    ">
+      <div style="
+        padding: 14px; text-align: center;
+        color: #94a3b8; font-size: 12px;
+      ">⏳ Memuat data...</div>
+    </div>
+  </div>
+</div>
           <div style="
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
@@ -1194,16 +1254,67 @@ function renderAdminPanel() {
             ">⏳ Memuat data...</div>
           </div>
         </div>
-        <!-- =========================================
-             HASIL TES TERKIRIM (PDF dari Google Drive)
-             ========================================= -->
-        <div style="
-          padding: 18px 20px;
-          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-          border: 2px solid #86efac;
-          border-radius: 14px;
-          margin-bottom: 16px;
-        ">
+       <!-- =========================================
+     HASIL TES TERKIRIM (ACCORDION)
+     ========================================= -->
+<div style="
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border: 2px solid #86efac;
+  border-radius: 14px;
+  margin-bottom: 16px;
+">
+  <div onclick="toggleAdminSection('result')" style="
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  ">
+    <div style="
+      font-size: 14px; font-weight: 900; color: #15803d;
+      display: flex; align-items: center; gap: 8px;
+    ">
+      <span id="adminSectionArrow_result" style="font-size: 11px; color: #15803d; width: 12px;">
+        ${window.__adminSectionOpen.result ? '▼' : '▶'}
+      </span>
+      <span style="font-size: 16px;">📄</span>
+      Hasil Tes Terkirim
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <div id="adminResultCount" style="
+        font-size: 12px; font-weight: 800; color: #94a3b8;
+        background: #fff; padding: 4px 10px; border-radius: 999px;
+        border: 1px solid #86efac;
+      ">0 file</div>
+      <button onclick="event.stopPropagation(); refreshResultFilesList();" style="
+        padding: 5px 12px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        color: #fff; border: 0; border-radius: 8px;
+        font-family: inherit; font-size: 11px; font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 3px 8px rgba(22,163,74,.25);
+      ">🔄 Refresh</button>
+    </div>
+  </div>
+
+  <div id="adminSectionBody_result" style="
+    display: ${window.__adminSectionOpen.result ? 'block' : 'none'};
+    margin-top: 14px;
+  ">
+    <div id="adminResultFiles" style="
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 400px; overflow-y: auto;
+    ">
+      <div style="
+        padding: 20px 14px; text-align: center;
+        color: #94a3b8; font-size: 12px;
+      ">⏳ Memuat...</div>
+    </div>
+  </div>
+</div>
           <div style="
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
