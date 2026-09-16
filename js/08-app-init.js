@@ -304,26 +304,35 @@
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-  function runInit() {
-
-    /* Cek apakah URL admin → tampilkan panel admin & skip init normal */
-    if (typeof window.checkAdminUrlAndRender === 'function') {
-      if (window.checkAdminUrlAndRender()) {
-        console.log('[INIT] Mode admin — init normal di-skip');
-        return;
-      }
+function runInit() {
+  /* Cek device finished — tampilkan layar request */
+  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+    const pwdScreen = document.getElementById('passwordScreen');
+    if (pwdScreen) pwdScreen.classList.add('hidden');
+    if (typeof showRequestAccessScreen === 'function') {
+      showRequestAccessScreen();
+      console.log('[INIT] Device finished → layar request izin');
+      return;
     }
-
-    /* Init normal */
-    refreshActivePassword();
-    initAppState();
-    attachPasswordEnter();
-    autoFocusPassword();
-    attachAntiCheat();
-    attachCopyGuards();
-    attachBeforeUnload();
   }
 
+  /* Cek URL admin */
+  if (typeof window.checkAdminUrlAndRender === 'function') {
+    if (window.checkAdminUrlAndRender()) {
+      console.log('[INIT] Mode admin — init normal di-skip');
+      return;
+    }
+  }
+
+  /* Init normal */
+  refreshActivePassword();
+  initAppState();
+  attachPasswordEnter();
+  autoFocusPassword();
+  attachAntiCheat();
+  attachCopyGuards();
+  attachBeforeUnload();
+}
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runInit);
   } else {
