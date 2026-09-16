@@ -16,7 +16,7 @@ const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
 /* ============================================================
    KONFIGURASI GAS (Google Apps Script) UNTUK PDF
    ============================================================ */
-const GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+const GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
 /* ============================================================
    KONFIGURASI AUTO-CLEANUP CHAT
    ============================================================ */
@@ -469,6 +469,35 @@ async function fetchResultFiles() {
 }
 
 /* ============================================================
+   HAPUS PDF DARI DRIVE
+   ============================================================ */
+async function deleteResultFile(fileId, fileName) {
+  const name = fileName || 'file ini';
+  if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash (bisa dipulihkan dalam 30 hari).')) return;
+
+  try {
+    const res = await fetch(GAS_ADMIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', fileId: fileId })
+    });
+
+    const data = await res.json();
+    if (data && data.success) {
+      alert('✅ File berhasil dihapus dari Drive');
+      // Refresh list
+      if (typeof refreshResultFilesList === 'function') refreshResultFilesList();
+    } else {
+      alert('❌ Gagal hapus: ' + (data.error || 'Unknown error'));
+    }
+  } catch (e) {
+    console.error('[DELETE-PDF] Error:', e);
+    alert('❌ Gagal hapus: ' + e.message);
+  }
+}
+
+
+/* ============================================================
    RENDER DAFTAR PDF DI PANEL ADMIN
    ============================================================ */
 function renderResultFilesHTML(files) {
@@ -534,15 +563,28 @@ function renderResultFilesHTML(files) {
           <div style="color: #94a3b8; font-size: 10px; min-width:0; word-break:break-all;">
             ${__adminEscape((f.name || '').slice(0, 40))}${(f.name || '').length > 40 ? '...' : ''}
           </div>
-          <a href="${f.url}" target="_blank" rel="noopener"
-             style="
-            padding: 5px 12px;
-            background: linear-gradient(135deg, #3b82f6, #1e40af);
-            color: #fff; border: 0; border-radius: 7px;
-            font-size: 11px; font-weight: 800;
-            text-decoration: none; white-space: nowrap;
-            box-shadow: 0 3px 8px rgba(59,130,246,.25);
-          ">⬇️ Buka</a>
+          <div style="display: flex; gap: 5px;">
+            <a href="${f.url}" target="_blank" rel="noopener"
+               style="
+              padding: 5px 10px;
+              background: linear-gradient(135deg, #3b82f6, #1e40af);
+              color: #fff; border: 0; border-radius: 7px;
+              font-size: 11px; font-weight: 800;
+              text-decoration: none; white-space: nowrap;
+              box-shadow: 0 3px 8px rgba(59,130,246,.25);
+            ">⬇️ Buka</a>
+
+            <button onclick="deleteResultFile('${f.id}', '${safeFileName}')" style="
+              padding: 5px 10px;
+              background: #fff;
+              color: #dc2626;
+              border: 1.5px solid #fca5a5;
+              border-radius: 7px;
+              font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;
+              white-space: nowrap;
+            ">🗑️ Hapus</button>
+          </div>
         </div>
       </div>
     `;
@@ -988,7 +1030,11 @@ function renderActiveSessionsHTML(sessions) {
           📝 <b>${testLabel}</b> &nbsp;·&nbsp;
           ✅ ${progress}
         </div>
-
+        ${(s.ip && !s.position) ? `
+        <div style="color: #3b82f6; font-size: 11px; margin-bottom: 6px; font-family: 'Courier New', monospace;">
+          🌐 IP: ${__adminEscape(s.ip)}
+        </div>
+        ` : ''}
         ${timerProgressHTML}
 
         <div style="
@@ -1939,6 +1985,7 @@ window.stopAdminTimerTick = stopAdminTimerTick;
 window.fetchResultFiles        = fetchResultFiles;
 window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
+window.deleteResultFile         = deleteResultFile;
 /* ─── Access Requests ─── */
 window.listenAccessRequests         = listenAccessRequests;
 window.stopListeningAccessRequests  = stopListeningAccessRequests;
