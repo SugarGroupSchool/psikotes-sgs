@@ -849,18 +849,9 @@ function renderActiveSessionsHTML(sessions) {
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-    // Tombol "Izinkan Tes Lagi"
-    const allowRetakeBtn = (isFinished || isDisqualified) ? `
-      <button onclick="adminAllowRetake('${s.deviceId}', '${safeName}')" style="
-        padding: 5px 12px;
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        color: #fff; border: 0; border-radius: 7px;
-        font-size: 11px; font-weight: 800;
-        cursor: pointer; font-family: inherit;
-        box-shadow: 0 3px 8px rgba(245,158,11,.25);
-        white-space: nowrap;
-      ">🔓 Izinkan Tes Lagi</button>
-    ` : '';
+       // Tombol "Izinkan Tes Lagi" dihapus dari sesi aktif
+    // Akses retake hanya via section "Request Izin Akses"
+    const allowRetakeBtn = '';
 
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
