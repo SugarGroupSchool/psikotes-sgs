@@ -5,6 +5,7 @@
    - Generate PDF → Upload ke Google Drive (GAS)
    - Fallback ke Google Form kalau gagal
    - Logout otomatis setelah sukses
+   - Warning "jangan keluar" saat submit
    ============================================================ */
 
 /* ============================================================
@@ -270,6 +271,21 @@ async function startSubmitProcess() {
         color: #1e293b; margin-bottom: 8px;
       ">Menyiapkan PDF...</div>
 
+      <div id="submitWarning" style="
+        padding: 12px 14px;
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+        font-size: 12.5px;
+        color: #78350f;
+        line-height: 1.6;
+        margin-bottom: 14px;
+        text-align: left;
+      ">
+        <b>⚠️ JANGAN TUTUP / KELUAR DARI HALAMAN INI</b><br>
+        Proses pengiriman sedang berjalan. Keluar sebelum selesai bisa menyebabkan data tidak terkirim.
+      </div>
+
       <div id="submitMessage" style="
         font-size: 13.5px; color: #64748b;
         line-height: 1.6; margin-bottom: 20px;
@@ -302,6 +318,16 @@ async function startSubmitProcess() {
   `;
 
   document.body.appendChild(overlay);
+
+  // ⬇️ BARU — Cegah keluar saat submit berlangsung
+  const __beforeUnload = (e) => {
+    e.preventDefault();
+    e.returnValue = 'Proses pengiriman sedang berjalan. Yakin keluar?';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', __beforeUnload);
+  window.__submitBeforeUnload = __beforeUnload;
+  // ⬆️ SELESAI
 
   const setUI = (icon, title, message, progress, text) => {
     const iconEl = document.getElementById('submitIcon');
@@ -345,6 +371,13 @@ async function startSubmitProcess() {
       Anda bisa menutup halaman ini.
     `, 100, '100%');
 
+    // ⬇️ BARU — Lepas beforeunload setelah sukses
+    if (window.__submitBeforeUnload) {
+      window.removeEventListener('beforeunload', window.__submitBeforeUnload);
+      window.__submitBeforeUnload = null;
+    }
+    // ⬆️ SELESAI
+
     setTimeout(() => {
       try {
         localStorage.setItem('_sgs_finished', '1');
@@ -358,6 +391,13 @@ async function startSubmitProcess() {
 
   } catch (err) {
     console.error('[SUBMIT] Gagal:', err);
+
+    // Lepas beforeunload kalau gagal juga
+    if (window.__submitBeforeUnload) {
+      window.removeEventListener('beforeunload', window.__submitBeforeUnload);
+      window.__submitBeforeUnload = null;
+    }
+
     showSubmitFallback(err.message || 'Koneksi gagal');
   }
 }
