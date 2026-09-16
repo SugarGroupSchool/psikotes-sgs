@@ -1,13 +1,16 @@
 /* ============================================================
    js/tests/excel.js
    - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Formula, fill handle, cell reference click, drag-copy, dll
+   - Formula, fill handle, cell reference click, drag-copy
    - Anti-cheat: 2× warning → diskualifikasi
    - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
 
+(function() {
+  'use strict';
+
 /* ============================================================
-   ⚙️ DATA SISWA — 30 orang
+   ⚙️ DATA SISWA
    ============================================================ */
 const EXCEL_STUDENTS = [
   { no: 1,  nama: "Ahmad Fauzi",    kelas: "X-IPA-1", mtk: 85, ipa: 78, ips: 82 },
@@ -56,7 +59,7 @@ const EXCEL_TIME = 40 * 60;
 /* ============================================================
    STATE
    ============================================================ */
-let __xs = null;              // instance x-spreadsheet
+let __xs = null;
 let __excelTimer = null;
 let __excelTimeLeft = 0;
 let __excelWarnCount = 0;
@@ -67,7 +70,7 @@ let __excelBlurFn = null;
 let __excelVisFn = null;
 
 /* ============================================================
-   ENTRY — dari startTest('EXCEL')
+   ENTRY
    ============================================================ */
 function renderAdminExcelSheet() {
   window.__inTestView = true;
@@ -167,7 +170,6 @@ function startExcelTest() {
 
   document.getElementById('app').innerHTML = `
     <div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Inter,system-ui,sans-serif;">
-      <!-- HEADER -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;border-bottom:1px solid #e2e8f0;">
         <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:#1e293b;">
           <span style="font-size:16px;">📊</span>
@@ -182,13 +184,10 @@ function startExcelTest() {
           </button>
         </div>
       </div>
-
-      <!-- SPREADSHEET CONTAINER -->
       <div id="excelContainer" style="flex:1;overflow:auto;background:#fff;"></div>
     </div>
   `;
 
-  // Timer
   clearInterval(__excelTimer);
   __excelTimer = setInterval(() => {
     __excelTimeLeft--;
@@ -206,7 +205,6 @@ function startExcelTest() {
     }
   }, 1000);
 
-  // Init x-spreadsheet
   initXSpreadsheet();
   attachExcelAntiCheat();
 
@@ -244,7 +242,7 @@ function initXSpreadsheet() {
     }
   });
 
-  // Build data sheet 1
+  // Sheet 1: Data Siswa
   __xs.cell(0, 0, 'No');
   __xs.cell(0, 1, 'Nama Siswa');
   __xs.cell(0, 2, 'Kelas');
@@ -262,13 +260,7 @@ function initXSpreadsheet() {
     __xs.cell(r, 3, String(s.mtk));
     __xs.cell(r, 4, String(s.ipa));
     __xs.cell(r, 5, String(s.ips));
-    // G dan H dikosongkan — kandidat yang isi
   });
-
-  // Set style header bold
-  for (let c = 0; c < 8; c++) {
-    __xs.cell(0, c, __xs.cell(0, c)); // trigger
-  }
 
   // Freeze header row
   __xs.freeze('A2');
@@ -284,17 +276,13 @@ function initXSpreadsheet() {
   EXCEL_QUESTIONS.forEach((q, i) => {
     __xs.cell(i + 1, 0, String(i + 1));
     __xs.cell(i + 1, 1, q);
-    // kolom C dikosongkan
   });
 
-  // Kembali ke sheet 1
+  // Balik ke sheet 1
   __xs.sheet.go(0);
 
-  // Resize on window resize
   window.addEventListener('resize', () => {
-    if (__xs) {
-      __xs.reRender();
-    }
+    if (__xs) __xs.reRender();
   });
 
   console.log('[EXCEL] ✓ x-spreadsheet initialized');
@@ -330,7 +318,6 @@ function attachExcelAntiCheat() {
 
 function showExcelWarning(count) {
   __excelAllowTabOut = true;
-
   const overlay = document.createElement('div');
   overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:rgba(10,20,35,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;`;
   overlay.innerHTML = `
@@ -508,7 +495,6 @@ function generateExcelBlob() {
       aoa.push(row);
     }
 
-    // Trim baris kosong di bawah
     while (aoa.length > 0 && aoa[aoa.length - 1].every(v => v === '')) {
       aoa.pop();
     }
@@ -568,4 +554,11 @@ async function uploadExcelToGAS(blob, filename) {
   return { success: true };
 }
 
-console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet');
+/* ============================================================
+   EXPORT KE WINDOW (untuk startTest router)
+   ============================================================ */
+window.renderAdminExcelSheet = renderAdminExcelSheet;
+
+console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet (IIFE)');
+
+})();
