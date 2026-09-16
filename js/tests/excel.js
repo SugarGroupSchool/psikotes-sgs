@@ -1,9 +1,9 @@
 /* ============================================================
    js/tests/excel.js
    - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
-   - Formula, fill handle, cell reference click, drag-copy
+   - Klik cell saat mengetik rumus → referensi otomatis
+   - Drag range → E8:I8 otomatis
    - Anti-cheat: 2× warning → diskualifikasi
-   - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
 
 (function() {
@@ -90,6 +90,8 @@ function renderAdminExcelSheet() {
    ============================================================ */
 function renderExcelIntro() {
   const menit = Math.floor(EXCEL_TIME / 60);
+  const id = appState.identity || {};
+  const nama = id.name || 'Kandidat';
 
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
@@ -111,8 +113,8 @@ function renderExcelIntro() {
         <div class="ist-body">
           <div class="ist-info-grid">
             <div class="ist-info-card">
-              <div class="ist-info-label">Data</div>
-              <div class="ist-info-value">${EXCEL_STUDENTS.length} siswa</div>
+              <div class="ist-info-label">Kandidat</div>
+              <div class="ist-info-value">${nama}</div>
             </div>
             <div class="ist-info-card">
               <div class="ist-info-label">Fitur</div>
@@ -130,12 +132,13 @@ function renderExcelIntro() {
             </div>
             <div class="ist-instruction-text">
               <ul style="margin:0;padding-left:22px;line-height:1.75;">
-                <li>Kerjakan seperti di Excel — semua fitur Excel tersedia.</li>
-                <li>Ketik <code>=</code> lalu <b>klik cell</b> untuk referensi.</li>
+                <li>Kerjakan <b>persis seperti di Excel</b> — semua fitur tersedia.</li>
+                <li>Ketik <code>=</code> lalu <b>klik cell</b> → referensi otomatis masuk.</li>
+                <li>Ketik <code>=</code> lalu <b>drag</b> cell E8 sampai I8 → otomatis jadi <code>E8:I8</code>.</li>
                 <li>Tombol <b>Σ</b> di toolbar = AutoSum.</li>
-                <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy formula.</li>
-                <li>Sheet <b>Jawaban Analisis</b> ada di tab bawah.</li>
-                <li><b>DILARANG keluar tab</b> — 2× pelanggaran = diskualifikasi.</li>
+                <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
+                <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
+                <li><b>DILARANG keluar tab</b> — 2× = diskualifikasi.</li>
               </ul>
             </div>
           </div>
@@ -222,6 +225,10 @@ function initXSpreadsheet() {
 
   const container = document.getElementById('excelContainer');
   const containerH = window.innerHeight - 110;
+  const id = appState.identity || {};
+  const nama = id.name || 'Kandidat';
+  const posisi = id.position || '-';
+  const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 
   __xs = x_spreadsheet(container, {
     mode: 'edit',
@@ -242,18 +249,35 @@ function initXSpreadsheet() {
     }
   });
 
-  // Sheet 1: Data Siswa
-  __xs.cell(0, 0, 'No');
-  __xs.cell(0, 1, 'Nama Siswa');
-  __xs.cell(0, 2, 'Kelas');
-  __xs.cell(0, 3, 'MTK');
-  __xs.cell(0, 4, 'IPA');
-  __xs.cell(0, 5, 'IPS');
-  __xs.cell(0, 6, 'Rata-rata');
-  __xs.cell(0, 7, 'Keterangan');
+  /* ----------------------------------------------------------
+     SHEET 1 — Data Siswa + Header Kandidat
+     ---------------------------------------------------------- */
 
+  // Baris 1: FORM KANDIDAT (header)
+  __xs.cell(0, 0, 'FORM KANDIDAT');
+  __xs.cell(1, 0, 'Nama:');
+  __xs.cell(1, 1, nama);
+  __xs.cell(1, 3, 'Posisi:');
+  __xs.cell(1, 4, posisi);
+  __xs.cell(2, 0, 'Tanggal:');
+  __xs.cell(2, 1, tanggal);
+  __xs.cell(2, 3, 'Tes:');
+  __xs.cell(2, 4, 'Excel In-App');
+
+  // Baris 4: Header tabel
+  const R0 = 4; // row index (0-based) untuk header tabel
+  __xs.cell(R0, 0, 'No');
+  __xs.cell(R0, 1, 'Nama Siswa');
+  __xs.cell(R0, 2, 'Kelas');
+  __xs.cell(R0, 3, 'MTK');
+  __xs.cell(R0, 4, 'IPA');
+  __xs.cell(R0, 5, 'IPS');
+  __xs.cell(R0, 6, 'Rata-rata');
+  __xs.cell(R0, 7, 'Keterangan');
+
+  // Data siswa
   EXCEL_STUDENTS.forEach((s, i) => {
-    const r = i + 1;
+    const r = R0 + 1 + i;
     __xs.cell(r, 0, String(s.no));
     __xs.cell(r, 1, s.nama);
     __xs.cell(r, 2, s.kelas);
@@ -262,30 +286,38 @@ function initXSpreadsheet() {
     __xs.cell(r, 5, String(s.ips));
   });
 
-  // Freeze header row
-  __xs.freeze('A2');
+  // Freeze header tabel (baris R0+1 dan kolom A tetap terlihat)
+  __xs.freeze('B' + (R0 + 2));
 
-  // Sheet 2: Jawaban Analisis
-  __xs.addSheet('Jawaban Analisis');
+  /* ----------------------------------------------------------
+     SHEET 2 — Soal (otomatis)
+     ---------------------------------------------------------- */
+  __xs.addSheet('Soal');
   __xs.sheet.go(1);
 
-  __xs.cell(0, 0, 'No');
-  __xs.cell(0, 1, 'Pertanyaan');
-  __xs.cell(0, 2, 'Jawaban');
+  __xs.cell(0, 0, 'DAFTAR SOAL');
+  __xs.cell(1, 0, 'Kerjakan pada sheet "Data Siswa". Gunakan formula Excel.');
 
   EXCEL_QUESTIONS.forEach((q, i) => {
-    __xs.cell(i + 1, 0, String(i + 1));
-    __xs.cell(i + 1, 1, q);
+    const r = i + 3;
+    __xs.cell(r, 0, String(i + 1));
+    __xs.cell(r, 1, q);
   });
 
-  // Balik ke sheet 1
+  // Set lebar kolom soal
+  __xs.cell(0, 1, ''); // trigger
+
+  /* ----------------------------------------------------------
+     Balik ke Sheet 1
+     ---------------------------------------------------------- */
   __xs.sheet.go(0);
 
+  // Resize handler
   window.addEventListener('resize', () => {
     if (__xs) __xs.reRender();
   });
 
-  console.log('[EXCEL] ✓ x-spreadsheet initialized');
+  console.log('[EXCEL] ✓ x-spreadsheet initialized — kandidat:', nama);
 }
 
 /* ============================================================
@@ -475,10 +507,12 @@ async function finishExcelTest(timeUp) {
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
-  const sheetNames = ['Data Siswa', 'Jawaban Analisis'];
-  const numSheets = 2;
+  const sheetNames = ['Data Siswa', 'Soal'];
 
-  for (let s = 0; s < numSheets; s++) {
+  for (let s = 0; s < 2; s++) {
+    // Pilih sheet di x-spreadsheet
+    __xs.sheet.go(s);
+
     const rows = 100;
     const cols = 12;
     const aoa = [];
@@ -503,6 +537,9 @@ function generateExcelBlob() {
     ws['!cols'] = Array.from({ length: cols }, () => ({ wch: 18 }));
     XLSX.utils.book_append_sheet(wb, ws, sheetNames[s] || ('Sheet' + (s + 1)));
   }
+
+  // Balik ke sheet 1
+  __xs.sheet.go(0);
 
   const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return new Blob([arrayBuf], {
@@ -555,7 +592,7 @@ async function uploadExcelToGAS(blob, filename) {
 }
 
 /* ============================================================
-   EXPORT KE WINDOW (untuk startTest router)
+   EXPORT
    ============================================================ */
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
