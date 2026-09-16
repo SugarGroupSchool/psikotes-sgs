@@ -1,12 +1,16 @@
 /* ============================================================
    js/tests/excel.js
-   - Tes Excel IN-APP (grid spreadsheet, tidak buka Google Sheets)
+   - Tes Excel IN-APP dengan x-spreadsheet (persis Excel asli)
+   - Formula, fill handle, cell reference click, drag-copy
    - Anti-cheat: 2× warning → diskualifikasi
    - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
 
+(function() {
+  'use strict';
+
 /* ============================================================
-   ⚙️ DATA SISWA (30 siswa, 3 kelas)
+   ⚙️ DATA SISWA
    ============================================================ */
 const EXCEL_STUDENTS = [
   { no: 1,  nama: "Ahmad Fauzi",    kelas: "X-IPA-1", mtk: 85, ipa: 78, ips: 82 },
@@ -41,26 +45,23 @@ const EXCEL_STUDENTS = [
   { no: 30, nama: "Dimas Saputra",  kelas: "X-IPS-1", mtk: 80, ipa: 77, ips: 82 }
 ];
 
-/* ============================================================
-   ⚙️ SOAL ANALISIS
-   ============================================================ */
 const EXCEL_QUESTIONS = [
-  { id: "q2", text: "Tentukan jumlah siswa yang mendapatkan rata-rata nilai di atas 80." },
-  { id: "q4", text: "Hitung jumlah siswa per kelas (X-IPA-1, X-IPA-2, X-IPS-1)." },
-  { id: "q5", text: "Urutkan data siswa berdasarkan nilai rata-rata tertinggi ke terendah. Tulis 5 nama teratas beserta rata-ratanya." },
-  { id: "q6", text: "Tampilkan nilai tertinggi dan terendah dari kolom Rata-rata." }
+  "Hitung rata-rata nilai tiap siswa",
+  "Tentukan jumlah siswa yang mendapatkan rata-rata nilai di atas 80",
+  "Tambahkan kolom \"Keterangan\", jika rata2 ≥ 75 tulis \"Lulus\", selain itu tulis \"Remedial\"",
+  "Hitung jumlah siswa per kelas",
+  "Urutkan data siswa berdasarkan nilai rata-rata tertinggi ke terendah",
+  "Tampilkan nilai tertinggi dan terendah dari kolom Rata-rata"
 ];
 
-const EXCEL_TIME = 40 * 60; // 40 menit
+const EXCEL_TIME = 40 * 60;
 
 /* ============================================================
    STATE
    ============================================================ */
+let __xs = null;
 let __excelTimer = null;
 let __excelTimeLeft = 0;
-let __excelAvgAnswers = {};
-let __excelKetAnswers = {};
-let __excelEssayAnswers = {};
 let __excelWarnCount = 0;
 const __EXCEL_MAX_WARN = 2;
 let __excelCheat = false;
@@ -69,7 +70,7 @@ let __excelBlurFn = null;
 let __excelVisFn = null;
 
 /* ============================================================
-   ENTRY — dari startTest('EXCEL')
+   ENTRY
    ============================================================ */
 function renderAdminExcelSheet() {
   window.__inTestView = true;
@@ -77,9 +78,6 @@ function renderAdminExcelSheet() {
   appState.completed = appState.completed || {};
   appState.completed.EXCEL = false;
 
-  __excelAvgAnswers = {};
-  __excelKetAnswers = {};
-  __excelEssayAnswers = {};
   __excelWarnCount = 0;
   __excelCheat = false;
   __excelAllowTabOut = false;
@@ -101,7 +99,7 @@ function renderExcelIntro() {
             <div>
               <div class="ist-eyebrow"><span>📊</span> ADMINISTRATIVE TEST</div>
               <h2 class="ist-title">Tes Excel — In-App</h2>
-              <p class="ist-subtitle">Kerjakan langsung di dalam aplikasi. Tidak perlu buka Google Sheets.</p>
+              <p class="ist-subtitle">Kerjakan di aplikasi ini. Rasanya seperti Excel asli.</p>
             </div>
             <div class="ist-time-chip">
               <span class="ist-time-chip-icon">⏱</span>
@@ -117,8 +115,8 @@ function renderExcelIntro() {
               <div class="ist-info-value">${EXCEL_STUDENTS.length} siswa</div>
             </div>
             <div class="ist-info-card">
-              <div class="ist-info-label">Soal</div>
-              <div class="ist-info-value">6 pertanyaan</div>
+              <div class="ist-info-label">Fitur</div>
+              <div class="ist-info-value">Formula + Fill handle</div>
             </div>
             <div class="ist-info-card">
               <div class="ist-info-label">Output</div>
@@ -128,16 +126,16 @@ function renderExcelIntro() {
 
           <div class="ist-instruction-card">
             <div class="ist-section-heading">
-              <span class="ist-section-icon">📘</span> Petunjuk Pengerjaan
+              <span class="ist-section-icon">📘</span> Petunjuk
             </div>
             <div class="ist-instruction-text">
               <ul style="margin:0;padding-left:22px;line-height:1.75;">
-                <li>Isi kolom <b>Rata-rata</b> & <b>Keterangan</b> untuk setiap siswa.</li>
-                <li><b>Keterangan</b>: tulis <b>Lulus</b> jika rata-rata ≥ 75, tulis <b>Remedial</b> jika &lt; 75.</li>
-                <li>Jawab 4 soal analisis di bagian bawah grid.</li>
-                <li>Gunakan <b>Tab</b> / <b>Enter</b> untuk pindah cell.</li>
+                <li>Kerjakan seperti di Excel — semua fitur Excel tersedia.</li>
+                <li>Ketik <code>=</code> lalu <b>klik cell</b> untuk referensi.</li>
+                <li>Tombol <b>Σ</b> di toolbar = AutoSum.</li>
+                <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy formula.</li>
+                <li>Sheet <b>Jawaban Analisis</b> ada di tab bawah.</li>
                 <li><b>DILARANG keluar tab</b> — 2× pelanggaran = diskualifikasi.</li>
-                <li>Klik <b>Selesai</b> → file .xlsx otomatis terkirim ke admin.</li>
               </ul>
             </div>
           </div>
@@ -148,7 +146,7 @@ function renderExcelIntro() {
               Anti-Cheat Aktif
             </div>
             <div class="ist-instruction-text" style="color:#7c2d12;">
-              Keluar tab / buka jendela lain = <b>peringatan</b>. 2× = <b>diskualifikasi otomatis</b>.
+              Keluar tab = peringatan. 2× = diskualifikasi otomatis.
             </div>
           </div>
 
@@ -170,245 +168,132 @@ function renderExcelIntro() {
 function startExcelTest() {
   __excelTimeLeft = EXCEL_TIME;
 
+  document.getElementById('app').innerHTML = `
+    <div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#f8fafc;font-family:Inter,system-ui,sans-serif;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;border-bottom:1px solid #e2e8f0;">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:#1e293b;">
+          <span style="font-size:16px;">📊</span>
+          <span>Tes Excel</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-family:'Courier New',monospace;font-size:15px;font-weight:800;color:#1b4f8f;">
+            ⏱ <span id="excelTimerDisplay">--:--</span>
+          </span>
+          <button id="btnFinishExcel" style="padding:8px 18px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;border:0;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 3px 8px rgba(22,163,74,.28);">
+            ✓ Selesai &amp; Kirim
+          </button>
+        </div>
+      </div>
+      <div id="excelContainer" style="flex:1;overflow:auto;background:#fff;"></div>
+    </div>
+  `;
+
   clearInterval(__excelTimer);
   __excelTimer = setInterval(() => {
     __excelTimeLeft--;
-    updateExcelTimer();
+    const el = document.getElementById('excelTimerDisplay');
+    if (el) {
+      const s = Math.max(0, __excelTimeLeft);
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      el.textContent = `${m}:${sec}`;
+      el.style.color = s <= 60 ? '#c62828' : '#1b4f8f';
+    }
     if (__excelTimeLeft <= 0) {
       clearInterval(__excelTimer);
       finishExcelTest(true);
     }
   }, 1000);
 
+  initXSpreadsheet();
   attachExcelAntiCheat();
-  renderExcelGrid();
+
+  document.getElementById('btnFinishExcel').onclick = confirmFinishExcel;
 }
 
 /* ============================================================
-   RENDER GRID + SOAL
+   INIT X-SPREADSHEET
    ============================================================ */
-function renderExcelGrid() {
-  const rowsHTML = EXCEL_STUDENTS.map(s => {
-    const avg = __excelAvgAnswers[s.no] || '';
-    const ket = __excelKetAnswers[s.no] || '';
-    return `
-      <tr>
-        <td style="text-align:center;">${s.no}</td>
-        <td>${s.nama}</td>
-        <td style="text-align:center;">${s.kelas}</td>
-        <td style="text-align:center;">${s.mtk}</td>
-        <td style="text-align:center;">${s.ipa}</td>
-        <td style="text-align:center;">${s.ips}</td>
-        <td><input class="excel-cell" data-type="avg" data-no="${s.no}" value="${avg}" oninput="onExcelInput(this)" onkeydown="onExcelKeyNav(event,this)" autocomplete="off" inputmode="decimal"></td>
-        <td><input class="excel-cell" data-type="ket" data-no="${s.no}" value="${ket}" oninput="onExcelInput(this)" onkeydown="onExcelKeyNav(event,this)" autocomplete="off"></td>
-      </tr>
-    `;
-  }).join('');
-
-  const questionsHTML = EXCEL_QUESTIONS.map((q, i) => `
-    <div style="margin-bottom:16px;">
-      <div style="font-weight:700;color:#1e293b;font-size:13.5px;margin-bottom:6px;">
-        ${i + 1}. ${q.text}
-      </div>
-      <textarea class="excel-essay" data-qid="${q.id}" rows="3"
-        oninput="onExcelEssay(this)"
-        placeholder="Tulis jawaban Anda di sini..."
-        style="width:100%;padding:10px 12px;border:1px solid #d6e1ec;border-radius:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;background:#f9fbfd;box-sizing:border-box;">${__excelEssayAnswers[q.id] || ''}</textarea>
-    </div>
-  `).join('');
-
-  document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
-      <div class="ist-question-panel">
-        <div class="ist-question-top">
-          <div class="ist-question-meta">
-            <div>
-              <div class="ist-question-label">TES EXCEL</div>
-              <div class="ist-question-badge">📊 Data Siswa & Analisis</div>
-            </div>
-            <div class="ist-time-chip">
-              <span class="ist-time-chip-icon">⏱</span>
-              <span id="excelTimerDisplay">--:--</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="ist-question-body">
-          <div class="ist-instruction-card" style="margin-bottom:14px;">
-            <div class="ist-instruction-text">
-              <b>Data Siswa:</b> Isi kolom <b>Rata-rata</b> (dari MTK, IPA, IPS) dan <b>Keterangan</b>
-              (Lulus jika rata-rata ≥ 75, Remedial jika &lt; 75).
-            </div>
-          </div>
-
-          <div class="excel-grid-wrap">
-            <table class="excel-grid">
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama Siswa</th>
-                  <th>Kelas</th>
-                  <th>MTK</th>
-                  <th>IPA</th>
-                  <th>IPS</th>
-                  <th style="background:#dbeafe;">Rata-rata</th>
-                  <th style="background:#dcfce7;">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody>${rowsHTML}</tbody>
-            </table>
-          </div>
-
-          <div class="ist-instruction-card" style="margin-top:24px;">
-            <div class="ist-section-heading">
-              <span class="ist-section-icon">📝</span>
-              Soal Analisis
-            </div>
-          </div>
-
-          <div style="margin-top:14px;">${questionsHTML}</div>
-
-          <div class="ist-question-actions">
-            <div class="ist-action-left"></div>
-            <div class="ist-action-right">
-              <button class="ist-main-btn" style="background:linear-gradient(135deg,#16a34a,#059669);" onclick="confirmFinishExcel()" type="button">
-                ✓ Selesai &amp; Kirim
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  injectExcelStyles();
-  updateExcelTimer();
-}
-
-/* ============================================================
-   INPUT HANDLERS
-   ============================================================ */
-function onExcelInput(el) {
-  const type = el.dataset.type;
-  const no = el.dataset.no;
-  const val = el.value;
-  if (type === 'avg') __excelAvgAnswers[no] = val;
-  else if (type === 'ket') __excelKetAnswers[no] = val;
-}
-
-function onExcelEssay(el) {
-  __excelEssayAnswers[el.dataset.qid] = el.value;
-}
-
-function onExcelKeyNav(e, el) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const type = el.dataset.type;
-    const no = parseInt(el.dataset.no, 10);
-    const next = document.querySelector(`.excel-cell[data-type="${type}"][data-no="${no + 1}"]`);
-    if (next) {
-      next.focus();
-      next.select();
-    } else {
-      el.blur();
-    }
+function initXSpreadsheet() {
+  if (typeof x_spreadsheet === 'undefined') {
+    alert('⚠️ Library spreadsheet belum dimuat. Refresh halaman.');
+    return;
   }
-}
 
-/* ============================================================
-   TIMER
-   ============================================================ */
-function updateExcelTimer() {
-  const el = document.getElementById('excelTimerDisplay');
-  if (!el) return;
-  const s = Math.max(0, __excelTimeLeft);
-  const m = Math.floor(s / 60).toString().padStart(2, '0');
-  const sec = (s % 60).toString().padStart(2, '0');
-  el.textContent = `${m}:${sec}`;
-  el.style.color = s <= 60 ? '#c62828' : '#1b4f8f';
-  el.style.fontWeight = s <= 60 ? '900' : '850';
-}
+  const container = document.getElementById('excelContainer');
+  const containerH = window.innerHeight - 110;
 
-/* ============================================================
-   CSS GRID
-   ============================================================ */
-function injectExcelStyles() {
-  if (document.getElementById('__excelStyles')) return;
-  const css = document.createElement('style');
-  css.id = '__excelStyles';
-  css.textContent = `
-    .excel-grid-wrap {
-      max-height: 480px;
-      overflow: auto;
-      border: 1px solid #d6e1ec;
-      border-radius: 12px;
-      background: #fff;
+  __xs = x_spreadsheet(container, {
+    mode: 'edit',
+    showToolbar: true,
+    showContextmenu: true,
+    showBottomBar: true,
+    view: {
+      height: () => containerH,
+      width: () => container.clientWidth
+    },
+    row: { len: 200, height: 24 },
+    col: { len: 20, width: 100, indexWidth: 46 },
+    style: {
+      align: 'left',
+      valign: 'middle',
+      fontSize: '12px',
+      fontFamily: 'Calibri, Segoe UI, Inter, sans-serif'
     }
-    .excel-grid {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-      font-family: Inter, system-ui, sans-serif;
-    }
-    .excel-grid thead th {
-      position: sticky; top: 0;
-      background: #f1f5f9;
-      font-weight: 800;
-      color: #334155;
-      padding: 9px 10px;
-      border-bottom: 2px solid #cbd5e1;
-      text-align: left;
-      white-space: nowrap;
-      z-index: 2;
-    }
-    .excel-grid tbody td {
-      padding: 0;
-      border-bottom: 1px solid #e2e8f0;
-      color: #334155;
-      padding: 8px 10px;
-    }
-    .excel-grid tbody td:has(input) {
-      padding: 0;
-    }
-    .excel-cell {
-      width: 100%;
-      padding: 8px 10px;
-      border: 0;
-      outline: none;
-      background: #fbfdff;
-      font-family: inherit;
-      font-size: 12.5px;
-      color: #0f172a;
-      box-sizing: border-box;
-      transition: background .15s, box-shadow .15s;
-    }
-    .excel-cell:hover { background: #f0f9ff; }
-    .excel-cell:focus {
-      background: #fff;
-      box-shadow: inset 0 0 0 2px #3b82f6;
-    }
-    .excel-essay:focus {
-      border-color: #3b82f6 !important;
-      background: #fff !important;
-      box-shadow: 0 0 0 3px rgba(59,130,246,.1);
-    }
-  `;
-  document.head.appendChild(css);
+  });
+
+  // Sheet 1: Data Siswa
+  __xs.cell(0, 0, 'No');
+  __xs.cell(0, 1, 'Nama Siswa');
+  __xs.cell(0, 2, 'Kelas');
+  __xs.cell(0, 3, 'MTK');
+  __xs.cell(0, 4, 'IPA');
+  __xs.cell(0, 5, 'IPS');
+  __xs.cell(0, 6, 'Rata-rata');
+  __xs.cell(0, 7, 'Keterangan');
+
+  EXCEL_STUDENTS.forEach((s, i) => {
+    const r = i + 1;
+    __xs.cell(r, 0, String(s.no));
+    __xs.cell(r, 1, s.nama);
+    __xs.cell(r, 2, s.kelas);
+    __xs.cell(r, 3, String(s.mtk));
+    __xs.cell(r, 4, String(s.ipa));
+    __xs.cell(r, 5, String(s.ips));
+  });
+
+  // Freeze header row
+  __xs.freeze('A2');
+
+  // Sheet 2: Jawaban Analisis
+  __xs.addSheet('Jawaban Analisis');
+  __xs.sheet.go(1);
+
+  __xs.cell(0, 0, 'No');
+  __xs.cell(0, 1, 'Pertanyaan');
+  __xs.cell(0, 2, 'Jawaban');
+
+  EXCEL_QUESTIONS.forEach((q, i) => {
+    __xs.cell(i + 1, 0, String(i + 1));
+    __xs.cell(i + 1, 1, q);
+  });
+
+  // Balik ke sheet 1
+  __xs.sheet.go(0);
+
+  window.addEventListener('resize', () => {
+    if (__xs) __xs.reRender();
+  });
+
+  console.log('[EXCEL] ✓ x-spreadsheet initialized');
 }
 
 /* ============================================================
    ANTI-CHEAT
    ============================================================ */
 function attachExcelAntiCheat() {
-  // Cleanup dulu
-  if (__excelBlurFn) {
-    window.removeEventListener('blur', __excelBlurFn);
-    __excelBlurFn = null;
-  }
-  if (__excelVisFn) {
-    document.removeEventListener('visibilitychange', __excelVisFn);
-    __excelVisFn = null;
-  }
+  if (__excelBlurFn) window.removeEventListener('blur', __excelBlurFn);
+  if (__excelVisFn) document.removeEventListener('visibilitychange', __excelVisFn);
 
   __excelBlurFn = () => {
     if (__excelAllowTabOut || __excelCheat) return;
@@ -425,9 +310,7 @@ function attachExcelAntiCheat() {
     disqualifyExcel();
   };
 
-  __excelVisFn = () => {
-    if (document.hidden) __excelBlurFn();
-  };
+  __excelVisFn = () => { if (document.hidden) __excelBlurFn(); };
 
   window.addEventListener('blur', __excelBlurFn);
   document.addEventListener('visibilitychange', __excelVisFn);
@@ -435,14 +318,8 @@ function attachExcelAntiCheat() {
 
 function showExcelWarning(count) {
   __excelAllowTabOut = true;
-
   const overlay = document.createElement('div');
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 99999;
-    background: rgba(10,20,35,.85); backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px; font-family: Inter, system-ui, sans-serif;
-  `;
+  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:rgba(10,20,35,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;`;
   overlay.innerHTML = `
     <div style="background:#fff;border-radius:22px;padding:32px 28px;max-width:460px;width:100%;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.5);">
       <div style="font-size:52px;line-height:1;margin-bottom:14px;">⚠️</div>
@@ -463,7 +340,6 @@ function showExcelWarning(count) {
     </div>
   `;
   document.body.appendChild(overlay);
-
   document.getElementById('btnExcelWarnOk').onclick = () => {
     overlay.remove();
     setTimeout(() => { __excelAllowTabOut = false; }, 1500);
@@ -489,8 +365,7 @@ function disqualifyExcel() {
             <div style="font-size:60px;line-height:1;margin-bottom:16px;">❌</div>
             <h2 style="margin:0 0 12px;color:#991b1b;font-size:24px;font-weight:900;">Diskualifikasi</h2>
             <p style="color:#7c2d12;font-size:15px;line-height:1.7;margin:0 0 22px;">
-              Anda terdeteksi keluar dari tab tes <b>${__EXCEL_MAX_WARN}×</b>.<br>
-              Hubungi admin jika ada kendala.
+              Anda terdeteksi keluar dari tab tes <b>${__EXCEL_MAX_WARN}×</b>. Hubungi admin.
             </p>
             <button onclick="location.reload()" style="padding:14px 32px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">
               🔒 Logout
@@ -516,15 +391,8 @@ async function finishExcelTest(timeUp) {
   __excelAllowTabOut = true;
   window.__inTestView = false;
 
-  // Lepas listener
-  if (__excelBlurFn) {
-    window.removeEventListener('blur', __excelBlurFn);
-    __excelBlurFn = null;
-  }
-  if (__excelVisFn) {
-    document.removeEventListener('visibilitychange', __excelVisFn);
-    __excelVisFn = null;
-  }
+  if (__excelBlurFn) { window.removeEventListener('blur', __excelBlurFn); __excelBlurFn = null; }
+  if (__excelVisFn) { document.removeEventListener('visibilitychange', __excelVisFn); __excelVisFn = null; }
 
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
@@ -544,20 +412,18 @@ async function finishExcelTest(timeUp) {
   `;
 
   const setUI = (icon, title, msg, pct) => {
-    const iconEl = document.getElementById('excelFinishIcon');
-    const titleEl = document.getElementById('excelFinishTitle');
-    const msgEl = document.getElementById('excelFinishMsg');
-    const barEl = document.getElementById('excelFinishBar');
-    if (iconEl) iconEl.textContent = icon;
-    if (titleEl) titleEl.textContent = title;
-    if (msgEl) msgEl.textContent = msg;
-    if (barEl) barEl.style.width = pct + '%';
+    const i = document.getElementById('excelFinishIcon');
+    const t = document.getElementById('excelFinishTitle');
+    const m = document.getElementById('excelFinishMsg');
+    const b = document.getElementById('excelFinishBar');
+    if (i) i.textContent = icon;
+    if (t) t.textContent = title;
+    if (m) m.textContent = msg;
+    if (b) b.style.width = pct + '%';
   };
 
   try {
-    if (typeof XLSX === 'undefined') {
-      throw new Error('Library XLSX belum dimuat. Refresh halaman.');
-    }
+    if (typeof XLSX === 'undefined') throw new Error('Library XLSX belum dimuat. Refresh halaman.');
 
     setUI('📊', 'Membuat file .xlsx...', 'Mengumpulkan jawaban Anda...', 30);
     await new Promise(r => setTimeout(r, 300));
@@ -570,7 +436,6 @@ async function finishExcelTest(timeUp) {
 
     setUI('✅', 'Berhasil Terkirim!', 'Hasil Anda sudah diterima admin. Halaman akan dimuat ulang...', 100);
 
-    // Mark completed
     appState.completed = appState.completed || {};
     appState.completed.EXCEL = true;
 
@@ -588,7 +453,6 @@ async function finishExcelTest(timeUp) {
       try { window.updateDownloadButtonState(); } catch (e) {}
     }
 
-    // Balik ke home setelah 2.5 detik
     setTimeout(() => {
       window.__inTestView = false;
       if (typeof window.renderHome === 'function') {
@@ -607,45 +471,38 @@ async function finishExcelTest(timeUp) {
 }
 
 /* ============================================================
-   GENERATE .xlsx via SheetJS
+   GENERATE .xlsx
    ============================================================ */
 function generateExcelBlob() {
-  // Sheet 1: Data siswa
-  const dataSheet = [
-    ["No", "Nama Siswa", "Kelas", "MTK", "IPA", "IPS", "Rata-rata", "Keterangan"]
-  ];
-  EXCEL_STUDENTS.forEach(s => {
-    dataSheet.push([
-      s.no,
-      s.nama,
-      s.kelas,
-      s.mtk,
-      s.ipa,
-      s.ips,
-      __excelAvgAnswers[s.no] || "",
-      __excelKetAnswers[s.no] || ""
-    ]);
-  });
-
-  // Sheet 2: Jawaban analisis
-  const essaySheet = [["No", "Pertanyaan", "Jawaban"]];
-  EXCEL_QUESTIONS.forEach((q, i) => {
-    essaySheet.push([i + 1, q.text, __excelEssayAnswers[q.id] || ""]);
-  });
-
   const wb = XLSX.utils.book_new();
-  const ws1 = XLSX.utils.aoa_to_sheet(dataSheet);
-  const ws2 = XLSX.utils.aoa_to_sheet(essaySheet);
+  const sheetNames = ['Data Siswa', 'Jawaban Analisis'];
+  const numSheets = 2;
 
-  ws1['!cols'] = [
-    { wch: 5 }, { wch: 22 }, { wch: 10 },
-    { wch: 6 }, { wch: 6 }, { wch: 6 },
-    { wch: 12 }, { wch: 12 }
-  ];
-  ws2['!cols'] = [{ wch: 5 }, { wch: 60 }, { wch: 50 }];
+  for (let s = 0; s < numSheets; s++) {
+    const rows = 100;
+    const cols = 12;
+    const aoa = [];
 
-  XLSX.utils.book_append_sheet(wb, ws1, "Data Siswa");
-  XLSX.utils.book_append_sheet(wb, ws2, "Jawaban Analisis");
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      for (let c = 0; c < cols; c++) {
+        let val = '';
+        try {
+          val = __xs.cellText(r, c);
+        } catch (e) { val = ''; }
+        row.push(val == null ? '' : val);
+      }
+      aoa.push(row);
+    }
+
+    while (aoa.length > 0 && aoa[aoa.length - 1].every(v => v === '')) {
+      aoa.pop();
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = Array.from({ length: cols }, () => ({ wch: 18 }));
+    XLSX.utils.book_append_sheet(wb, ws, sheetNames[s] || ('Sheet' + (s + 1)));
+  }
 
   const arrayBuf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   return new Blob([arrayBuf], {
@@ -655,13 +512,13 @@ function generateExcelBlob() {
 
 function buildExcelFilename() {
   const id = appState.identity || {};
-  const safeName = (id.name || "Peserta").replace(/[^a-zA-Z0-9]/g, "-");
+  const safeName = (id.name || 'Peserta').replace(/[^a-zA-Z0-9]/g, '-');
   const ts = new Date().toISOString().slice(0, 10);
   return `${safeName}-Excel-${ts}.xlsx`;
 }
 
 /* ============================================================
-   UPLOAD .xlsx via GAS
+   UPLOAD KE GAS
    ============================================================ */
 async function uploadExcelToGAS(blob, filename) {
   const base64 = await new Promise((resolve, reject) => {
@@ -697,4 +554,11 @@ async function uploadExcelToGAS(blob, filename) {
   return { success: true };
 }
 
-console.log('[TEST-EXCEL-INAPP] ✓ Loaded');
+/* ============================================================
+   EXPORT KE WINDOW (untuk startTest router)
+   ============================================================ */
+window.renderAdminExcelSheet = renderAdminExcelSheet;
+
+console.log('[TEST-EXCEL] ✓ Loaded — x-spreadsheet (IIFE)');
+
+})();
