@@ -708,14 +708,24 @@ function renderAdminLoginPrompt() {
         throw new Error('Akun ini bukan admin');
       }
 
-      sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
-      errorEl.style.color = '#16a34a';
-      errorEl.textContent = '✅ Berhasil...';
+   sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+errorEl.style.color = '#16a34a';
+errorEl.textContent = '✅ Berhasil...';
 
-      setTimeout(() => {
-        overlay.remove();
+setTimeout(() => {
+  overlay.remove();
+  renderAdminPanel();
+
+  // Retry — pastikan listener Firebase sudah ready
+  setTimeout(() => {
+    if (typeof renderAdminPanel === 'function') {
+      const container = document.getElementById('adminActiveSessions');
+      if (container && container.textContent.includes('Memuat')) {
         renderAdminPanel();
-      }, 200);
+      }
+    }
+  }, 1500);
+}, 200);
 
     } catch (err) {
       console.error('[ADMIN] Login error:', err);
