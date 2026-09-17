@@ -1,17 +1,24 @@
 /* ============================================================
    js/00e-presence.js
    - Heartbeat kandidat aktif ke Firebase (5 detik saat tes)
-   - Admin bisa lihat timer + progress realtime
-   - getOrCreateDeviceId() = sumber tunggal device ID
-   - Listen sinyal allow_retake dari admin
+   - Listen sinyal admin: allow_retake, force_refresh,
+     force_logout, disqualified, reset_progress
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
-let __presenceIP = null;      // Cache IP kandidat
-let __presenceIPFetching = false;
+const PRESENCE_HEARTBEAT_MS = 5000;
+const PRESENCE_STALE_MS     = 3 * 60 * 1000;
+
+let __presenceTimer       = null;
+let __presenceDeviceId    = null;
+let __presenceRef         = null;
+let __presenceListenRef   = null;
+let __presenceListenCb    = null;
+let __presenceIP          = null;
+let __presenceIPFetching  = false;
 
 /* ============================================================
-   AMBIL IP PUBLIK KANDIDAT (sekali saja, cache)
+   IP PUBLIK
    ============================================================ */
 async function __fetchPublicIP() {
   if (__presenceIP) return __presenceIP;
@@ -19,7 +26,6 @@ async function __fetchPublicIP() {
   __presenceIPFetching = true;
 
   try {
-    // Coba ipify dulu (paling simpel)
     const res = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
     const data = await res.json();
     if (data && data.ip) {
@@ -32,7 +38,6 @@ async function __fetchPublicIP() {
   }
 
   try {
-    // Fallback: ipapi
     const res2 = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
     const data2 = await res2.json();
     if (data2 && data2.ip) {
@@ -47,18 +52,10 @@ async function __fetchPublicIP() {
   __presenceIPFetching = false;
   return null;
 }
-const PRESENCE_HEARTBEAT_MS = 5000;   // 5 detik (realtime)
-const PRESENCE_STALE_MS     = 3 * 60 * 1000;
 
-let __presenceTimer       = null;
-let __presenceDeviceId    = null;
-let __presenceRef         = null;
-let __presenceListenRef   = null;
-let __presenceListenCb    = null;
-
-/* ------------------------------------------------------------
-   DEVICE ID — SUMBER TUNGGAL
-   ------------------------------------------------------------ */
+/* ============================================================
+   DEVICE ID
+   ============================================================ */
 function getOrCreateDeviceId() {
   try {
     let id = localStorage.getItem(PRESENCE_DEVICE_KEY);
@@ -75,9 +72,9 @@ function getOrCreateDeviceId() {
   }
 }
 
-/* ------------------------------------------------------------
-   INIT + HEARTBEAT
-   ------------------------------------------------------------ */
+/* ============================================================
+   INIT
+   ============================================================ */
 function initPresence() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
     setTimeout(initPresence, 500);
@@ -85,8 +82,8 @@ function initPresence() {
   }
 
   __presenceDeviceId = getOrCreateDeviceId();
-     // Ambil IP paralel (non-blocking)
   __fetchPublicIP();
+
   const db = firebase.database();
   __presenceRef = db.ref('sgs_state/sessions/' + __presenceDeviceId);
 
@@ -102,13 +99,14 @@ function initPresence() {
 
   console.log('[PRESENCE] ✓ device:', __presenceDeviceId, '— heartbeat:', PRESENCE_HEARTBEAT_MS + 'ms');
 
-  // Mulai dengarkan sinyal allow_retake dari admin
+  // Listen sinyal admin
   startListeningAllowRetake();
+  startListeningAdminSignals();
 }
 
-/* ------------------------------------------------------------
-   PUSH PRESENCE (heartbeat + progress + timer)
-   ------------------------------------------------------------ */
+/* ============================================================
+   PUSH PRESENCE
+   ============================================================ */
 function pushPresence(status) {
   if (!__presenceRef) return;
 
@@ -119,35 +117,31 @@ function pushPresence(status) {
   } catch (e) {}
 
   let completedCount = 0, totalTests = 0;
+  let completedObj = {}, selectedArr = [];
   try {
-    const c = JSON.parse(localStorage.getItem('completed') || '{}');
-    completedCount = Object.values(c || {}).filter(v => v === true).length;
-    const sel = JSON.parse(localStorage.getItem('selectedTests') || '[]');
-    if (Array.isArray(sel)) totalTests = sel.length;
+    completedObj = JSON.parse(localStorage.getItem('completed') || '{}') || {};
+    completedCount = Object.values(completedObj).filter(v => v === true).length;
+    selectedArr = JSON.parse(localStorage.getItem('selectedTests') || '[]') || [];
+    if (Array.isArray(selectedArr)) totalTests = selectedArr.length;
+    else selectedArr = [];
   } catch (e) {}
 
   const st = (typeof appState !== 'undefined' && appState) ? appState : {};
 
-  let isFinished = false;
-  let isDisqualified = false;
+  let isFinished = false, isDisqualified = false;
   try {
     isFinished = localStorage.getItem('_sgs_finished') === '1';
     isDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
   } catch (e) {}
 
-  // ============================================================
-  // DATA WAKTU & PROGRESS
-  // ============================================================
   const currentTest     = st.currentTest || null;
   const timeLeft        = (typeof st.timeLeft === 'number') ? st.timeLeft : null;
   const currentSubtest  = (st.currentSubtest !== undefined) ? st.currentSubtest : null;
   const currentColumn   = (st.currentColumn !== undefined) ? st.currentColumn : null;
   const currentQuestion = (st.currentQuestion !== undefined) ? st.currentQuestion : null;
 
-  let progressPercent    = 0;
-  let questionLabel      = null;
-  let testTotalSubtests  = null;
-  let testTotalColumns   = null;
+  let progressPercent = 0, questionLabel = null;
+  let testTotalSubtests = null, testTotalColumns = null;
 
   try {
     if (currentTest === 'IST' && typeof tests !== 'undefined' && tests.IST) {
@@ -157,8 +151,7 @@ function pushPresence(status) {
         const totalQ = subtests[currentSubtest].questions?.length || 0;
         if (currentQuestion !== null && totalQ > 0) {
           questionLabel = `${currentQuestion + 1}/${totalQ}`;
-          const overallProgress = ((currentSubtest + (currentQuestion / totalQ)) / subtests.length) * 100;
-          progressPercent = Math.round(overallProgress);
+          progressPercent = Math.round(((currentSubtest + (currentQuestion / totalQ)) / subtests.length) * 100);
         }
       }
     } else if (currentTest === 'KRAEPLIN' && typeof tests !== 'undefined' && tests.KRAEPLIN) {
@@ -187,11 +180,8 @@ function pushPresence(status) {
         progressPercent = Math.round((currentQuestion / totalQ) * 100);
       }
     }
-  } catch (e) {
-    console.warn('[PRESENCE] Progress calc error:', e);
-  }
+  } catch (e) {}
 
-  // Nama: pakai identitas kalau ada, kalau belum pakai IP
   let displayName = identity.name && identity.name.trim();
   if (!displayName) {
     displayName = __presenceIP ? ('IP: ' + __presenceIP) : 'IP: (memuat...)';
@@ -214,14 +204,8 @@ function pushPresence(status) {
     testTotalColumns:  testTotalColumns,
     completedCount,
     totalTests,
-    completed:         (function() {
-      try { return JSON.parse(localStorage.getItem('completed') || '{}') || {}; }
-      catch (e) { return {}; }
-    })(),
-    selectedTests:     (function() {
-      try { return JSON.parse(localStorage.getItem('selectedTests') || '[]') || []; }
-      catch (e) { return []; }
-    })(),
+    completed:         completedObj,
+    selectedTests:     selectedArr,
     status:            status || 'active',
     inTestView:        (typeof window !== 'undefined' && window.__inTestView === true),
     finished:          isFinished,
@@ -237,12 +221,7 @@ function pushPresence(status) {
   }).catch(() => __presenceRef.update(payload));
 }
 
-/* ------------------------------------------------------------
-   MARK DONE / OFFLINE
-   ------------------------------------------------------------ */
-function markPresenceDone() {
-  pushPresence('done');
-}
+function markPresenceDone() { pushPresence('done'); }
 
 function markPresenceOffline() {
   if (!__presenceRef) return;
@@ -254,9 +233,9 @@ function markPresenceOffline() {
 
 window.addEventListener('beforeunload', markPresenceOffline);
 
-/* ------------------------------------------------------------
-   LISTEN SINYAL allow_retake DARI ADMIN
-   ------------------------------------------------------------ */
+/* ============================================================
+   LISTEN allow_retake
+   ============================================================ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
 
@@ -282,11 +261,6 @@ function startListeningAllowRetake() {
     const wasFinished     = localStorage.getItem('_sgs_finished') === '1';
 
     console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
-    console.log('[PRESENCE] Mode:',
-      wasDisqualified ? '⚠️ DISKUALIFIKASI (simpan data)' :
-      wasFinished     ? '✅ SELESAI TES (hapus data)' :
-                        '❔ LAINNYA'
-    );
 
     try {
       localStorage.removeItem('_sgs_finished');
@@ -294,29 +268,25 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_disqualified');
     } catch (e) {}
 
-  if (!wasDisqualified) {
-  try {
-    localStorage.removeItem('identity');
-    localStorage.removeItem('completed');
-    localStorage.removeItem('selectedTests');
-    localStorage.removeItem('usedPragas');  // ← BARU: reset ke FRESH
-    sessionStorage.removeItem('dlClick');
-  } catch (e) {}
-  console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh, FRESH password)');
-} else {
-  console.log('[PRESENCE] 💾 Data kandidat disimpan (lanjut dari progress)');
-}
+    if (!wasDisqualified) {
+      try {
+        localStorage.removeItem('identity');
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+        localStorage.removeItem('usedPragas');
+        sessionStorage.removeItem('dlClick');
+      } catch (e) {}
+      console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh)');
+    } else {
+      console.log('[PRESENCE] 💾 Data disimpan (lanjut dari progress)');
+    }
 
     firebase.database()
       .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
-      .set(false)
-      .catch(() => {});
+      .set(false).catch(() => {});
 
-    if (typeof showRetakeBanner === 'function') {
-      showRetakeBanner();
-    } else {
-      setTimeout(() => { window.location.reload(); }, 1500);
-    }
+    if (typeof showRetakeBanner === 'function') showRetakeBanner();
+    else setTimeout(() => window.location.reload(), 1500);
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
@@ -331,85 +301,228 @@ function stopListeningAllowRetake() {
   }
 }
 
-/* ------------------------------------------------------------
-   BANNER IN-PAGE — notifikasi izin retake dari admin
-   ------------------------------------------------------------ */
-function showRetakeBanner() {
-  const old = document.getElementById('retakeNotification');
-  if (old) old.remove();
+/* ============================================================
+   🔥 LISTEN SEMUA SINYAL ADMIN
+   ============================================================ */
+let __adminSignalsRef = null;
+let __adminSignalCb = null;
+let __adminLastValues = null;
 
-  if (!document.getElementById('retakeBannerStyle')) {
-    const style = document.createElement('style');
-    style.id = 'retakeBannerStyle';
-    style.textContent = `
-      @keyframes retakeSlideDown {
-        from { transform: translateY(-100%); opacity: 0; }
-        to   { transform: translateY(0);     opacity: 1; }
-      }
-      @keyframes retakeIconBounce {
-        0%, 100% { transform: scale(1)    rotate(0); }
-        25%      { transform: scale(1.15) rotate(-8deg); }
-        75%      { transform: scale(1.15) rotate(8deg); }
-      }
-    `;
-    document.head.appendChild(style);
+function startListeningAdminSignals() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (!__presenceDeviceId) return;
+
+  if (__adminSignalsRef && __adminSignalCb) {
+    try { __adminSignalsRef.off('value', __adminSignalCb); } catch(e) {}
   }
 
-  const banner = document.createElement('div');
-  banner.id = 'retakeNotification';
-  banner.style.cssText = `
-    position: fixed; top: 0; left: 0; right: 0;
-    z-index: 2147483647;
-    background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
-    color: #fff;
-    padding: 26px 20px 22px;
-    text-align: center;
-    box-shadow: 0 12px 40px rgba(0,0,0,.35);
-    font-family: Inter, system-ui, -apple-system, sans-serif;
-    animation: retakeSlideDown 0.45s cubic-bezier(.2,.8,.2,1);
-    border-bottom: 3px solid rgba(255,255,255,.35);
-  `;
-  banner.innerHTML = `
-    <div style="
-      font-size: 42px; line-height: 1;
-      margin-bottom: 10px;
-      animation: retakeIconBounce 1.4s ease-in-out infinite;
-    ">🔓</div>
-    <div style="
-      font-size: 20px; font-weight: 900;
-      letter-spacing: -0.3px; margin-bottom: 6px;
-    ">
-      Akses Diberikan oleh Admin
-    </div>
-    <div style="
-      font-size: 14px; opacity: 0.95;
-      line-height: 1.55; max-width: 520px; margin: 0 auto;
-    ">
-      Admin telah mengizinkan Anda mengerjakan tes lagi.<br>
-      Halaman akan dimuat ulang dalam
-      <b><span id="retakeCountdown">3</span></b> detik...
-    </div>
-  `;
+  __adminSignalsRef = firebase.database().ref('sgs_state/sessions/' + __presenceDeviceId);
+  __adminLastValues = null;
+
+  __adminSignalCb = function(snap) {
+    var s = snap.val() || {};
+
+    var cur = {
+      force_refresh:   s.force_refresh   || null,
+      force_logout:    s.force_logout    || null,
+      disqualified:    s.disqualified === true ? true : null,
+      reset_progress:  s.reset_progress  || null
+    };
+
+    // Snapshot pertama = inisialisasi, jangan trigger
+    if (__adminLastValues === null) {
+      __adminLastValues = cur;
+      console.log('[PRESENCE] 👂 Sinyal admin siap — initial state:', cur);
+      return;
+    }
+
+    // ============ FORCE REFRESH ============
+    if (cur.force_refresh && cur.force_refresh !== __adminLastValues.force_refresh) {
+      __adminLastValues.force_refresh = cur.force_refresh;
+      var frKey = '_sgs_fr_' + cur.force_refresh;
+      if (sessionStorage.getItem(frKey) === '1') return;
+      sessionStorage.setItem(frKey, '1');
+
+      console.log('[PRESENCE] 🔄 Force refresh diterima');
+      showAdminSignalBanner('🔄', 'Memuat Ulang', 'Admin meminta halaman dimuat ulang.', 2, '#3b82f6');
+      return;
+    }
+
+    // ============ FORCE LOGOUT ============
+    if (cur.force_logout && cur.force_logout !== __adminLastValues.force_logout) {
+      __adminLastValues.force_logout = cur.force_logout;
+      var flKey = '_sgs_fl_' + cur.force_logout;
+      if (sessionStorage.getItem(flKey) === '1') return;
+      sessionStorage.setItem(flKey, '1');
+
+      console.log('[PRESENCE] 🚪 Force logout diterima');
+      try {
+        localStorage.setItem('_sgs_finished', '1');
+        localStorage.setItem('usedPragas', '1');
+      } catch(e) {}
+
+      showAdminSignalBanner('🚪', 'Sesi Diakhiri', 'Admin telah mengakhiri sesi Anda.', 3, '#dc2626');
+      return;
+    }
+
+    // ============ DISQUALIFIED ============
+    if (cur.disqualified && !__adminLastValues.disqualified) {
+      __adminLastValues.disqualified = cur.disqualified;
+      if (sessionStorage.getItem('_sgs_dq_processed') === '1') return;
+      sessionStorage.setItem('_sgs_dq_processed', '1');
+
+      console.log('[PRESENCE] ⚠️ Diskualifikasi diterima');
+      try {
+        localStorage.setItem('_sgs_finished', '1');
+        localStorage.setItem('usedPragas', '1');
+        localStorage.setItem('_sgs_disqualified', '1');
+      } catch(e) {}
+
+      showAdminSignalBanner('⚠️', 'Diskualifikasi', 'Anda telah didiskualifikasi oleh admin.', 3, '#dc2626');
+      return;
+    }
+
+    // ============ RESET PROGRESS ============
+    if (cur.reset_progress && cur.reset_progress !== __adminLastValues.reset_progress) {
+      __adminLastValues.reset_progress = cur.reset_progress;
+      var rpKey = '_sgs_rp_' + cur.reset_progress;
+      if (sessionStorage.getItem(rpKey) === '1') return;
+      sessionStorage.setItem(rpKey, '1');
+
+      console.log('[PRESENCE] 🗑️ Reset progress diterima');
+      try {
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+      } catch(e) {}
+
+      showAdminSignalBanner('🗑️', 'Progres Direset', 'Admin telah me-reset progres tes Anda.', 3, '#f59e0b');
+      return;
+    }
+  };
+
+  __adminSignalsRef.on('value', __adminSignalCb);
+  console.log('[PRESENCE] 👂 Listening sinyal admin (refresh/logout/disqualify/reset)');
+}
+
+function stopListeningAdminSignals() {
+  if (__adminSignalsRef && __adminSignalCb) {
+    try { __adminSignalsRef.off('value', __adminSignalCb); } catch(e) {}
+    __adminSignalsRef = null;
+    __adminSignalCb = null;
+    __adminLastValues = null;
+  }
+}
+
+/* ============================================================
+   BANNER GENERIC untuk sinyal admin
+   ============================================================ */
+function showAdminSignalBanner(icon, title, message, countdownSec, color) {
+  var old = document.getElementById('adminSignalBanner');
+  if (old) old.remove();
+
+  if (!document.getElementById('adminSignalStyle')) {
+    var st = document.createElement('style');
+    st.id = 'adminSignalStyle';
+    st.textContent =
+      '@keyframes adminSigSlide { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '@keyframes adminSigBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }';
+    document.head.appendChild(st);
+  }
+
+  var banner = document.createElement('div');
+  banner.id = 'adminSignalBanner';
+  banner.style.cssText = [
+    'position: fixed', 'top: 0', 'left: 0', 'right: 0',
+    'z-index: 2147483647',
+    'background: ' + color,
+    'color: #fff',
+    'padding: 26px 20px 22px',
+    'text-align: center',
+    'box-shadow: 0 12px 40px rgba(0,0,0,.35)',
+    'font-family: Inter, system-ui, -apple-system, sans-serif',
+    'animation: adminSigSlide .45s cubic-bezier(.2,.8,.2,1)',
+    'border-bottom: 3px solid rgba(255,255,255,.35)'
+  ].join(';');
+
+  banner.innerHTML = [
+    '<div style="font-size:42px;line-height:1;margin-bottom:10px;animation:adminSigBounce 1.4s ease-in-out infinite;">' + icon + '</div>',
+    '<div style="font-size:20px;font-weight:900;letter-spacing:-.3px;margin-bottom:6px;">' + title + '</div>',
+    '<div style="font-size:14px;opacity:.95;line-height:1.55;max-width:520px;margin:0 auto;">' +
+      message + '<br>Halaman akan dimuat ulang dalam <b><span id="adminSigCountdown">' + countdownSec + '</span></b> detik...' +
+    '</div>'
+  ].join('');
 
   document.body.appendChild(banner);
 
-  let countdown = 3;
-  const countdownEl = document.getElementById('retakeCountdown');
-
-  const interval = setInterval(() => {
-    countdown--;
-    if (countdownEl) countdownEl.textContent = countdown;
-
-    if (countdown <= 0) {
+  var remaining = countdownSec;
+  var countdownEl = document.getElementById('adminSigCountdown');
+  var interval = setInterval(function() {
+    remaining--;
+    if (countdownEl) countdownEl.textContent = remaining;
+    if (remaining <= 0) {
       clearInterval(interval);
-      try { window.location.reload(); } catch (e) {}
+      try { window.location.reload(); } catch(e) {}
     }
   }, 1000);
 }
 
-/* ------------------------------------------------------------
-   READ — untuk admin panel
-   ------------------------------------------------------------ */
+/* ============================================================
+   BANNER retake (existing)
+   ============================================================ */
+function showRetakeBanner() {
+  var old = document.getElementById('retakeNotification');
+  if (old) old.remove();
+
+  if (!document.getElementById('retakeBannerStyle')) {
+    var style = document.createElement('style');
+    style.id = 'retakeBannerStyle';
+    style.textContent =
+      '@keyframes retakeSlideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
+      '@keyframes retakeIconBounce { 0%, 100% { transform: scale(1) rotate(0); } 25% { transform: scale(1.15) rotate(-8deg); } 75% { transform: scale(1.15) rotate(8deg); } }';
+    document.head.appendChild(style);
+  }
+
+  var banner = document.createElement('div');
+  banner.id = 'retakeNotification';
+  banner.style.cssText = [
+    'position: fixed', 'top: 0', 'left: 0', 'right: 0',
+    'z-index: 2147483647',
+    'background: linear-gradient(135deg, #16a34a 0%, #059669 100%)',
+    'color: #fff',
+    'padding: 26px 20px 22px',
+    'text-align: center',
+    'box-shadow: 0 12px 40px rgba(0,0,0,.35)',
+    'font-family: Inter, system-ui, -apple-system, sans-serif',
+    'animation: retakeSlideDown 0.45s cubic-bezier(.2,.8,.2,1)',
+    'border-bottom: 3px solid rgba(255,255,255,.35)'
+  ].join(';');
+
+  banner.innerHTML = [
+    '<div style="font-size:42px;line-height:1;margin-bottom:10px;animation:retakeIconBounce 1.4s ease-in-out infinite;">🔓</div>',
+    '<div style="font-size:20px;font-weight:900;letter-spacing:-.3px;margin-bottom:6px;">Akses Diberikan oleh Admin</div>',
+    '<div style="font-size:14px;opacity:.95;line-height:1.55;max-width:520px;margin:0 auto;">',
+    'Admin telah mengizinkan Anda mengerjakan tes lagi.<br>',
+    'Halaman akan dimuat ulang dalam <b><span id="retakeCountdown">3</span></b> detik...',
+    '</div>'
+  ].join('');
+
+  document.body.appendChild(banner);
+
+  var countdown = 3;
+  var countdownEl = document.getElementById('retakeCountdown');
+  var interval = setInterval(function() {
+    countdown--;
+    if (countdownEl) countdownEl.textContent = countdown;
+    if (countdown <= 0) {
+      clearInterval(interval);
+      try { window.location.reload(); } catch(e) {}
+    }
+  }, 1000);
+}
+
+/* ============================================================
+   ADMIN PANEL — fetch & listen active sessions
+   ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
 
@@ -465,18 +578,18 @@ function stopListeningActiveSessions() {
   }
 }
 
-/* ------------------------------------------------------------
+/* ============================================================
    AUTO-INIT
-   ------------------------------------------------------------ */
+   ============================================================ */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => setTimeout(initPresence, 800));
 } else {
   setTimeout(initPresence, 800);
 }
 
-/* ------------------------------------------------------------
+/* ============================================================
    EXPORT
-   ------------------------------------------------------------ */
+   ============================================================ */
 window.initPresence                 = initPresence;
 window.pushPresence                 = pushPresence;
 window.markPresenceDone             = markPresenceDone;
@@ -488,5 +601,8 @@ window.getOrCreateDeviceId          = getOrCreateDeviceId;
 window.startListeningAllowRetake    = startListeningAllowRetake;
 window.stopListeningAllowRetake     = stopListeningAllowRetake;
 window.showRetakeBanner             = showRetakeBanner;
+window.startListeningAdminSignals   = startListeningAdminSignals;
+window.stopListeningAdminSignals    = stopListeningAdminSignals;
+window.showAdminSignalBanner        = showAdminSignalBanner;
 
 console.log('[PRESENCE] ✓ Loaded');
