@@ -81,7 +81,7 @@ function scrollToElement(el, block = 'start') {
 }
 
 /* ============================================================
-   ✅ TEST LOGO HEADER — render logo konsisten
+   ✅ TEST LOGO HEADER — render logo konsisten (tanpa emoji)
    ============================================================ */
 function renderTestLogoBadge(size = 'normal') {
   const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
@@ -103,12 +103,12 @@ function renderTestLogoBadge(size = 'normal') {
   `;
 }
 
-function renderTestLogoHeader({ eyebrow, title, subtitle, icon = '✅', centered = false, size = 'normal' }) {
+function renderTestLogoHeader({ eyebrow, title, subtitle, centered = false, size = 'normal' }) {
   return `
     <div class="test-logo-header ${centered ? 'test-logo-header--centered' : ''}">
       ${renderTestLogoBadge(size)}
       <div${centered ? ' style="text-align:center;"' : ''}>
-        ${eyebrow ? `<div class="ist-eyebrow"><span>${icon}</span> ${eyebrow}</div>` : ''}
+        ${eyebrow ? `<div class="ist-eyebrow">${eyebrow}</div>` : ''}
         ${title ? `<h2 class="ist-title"${centered ? ' style="margin:8px 0 7px;"' : ' style="margin-top:11px;"'}>${title}</h2>` : ''}
         ${subtitle ? `<p class="ist-subtitle">${subtitle}</p>` : ''}
       </div>
@@ -118,5 +118,4 @@ function renderTestLogoHeader({ eyebrow, title, subtitle, icon = '✅', centered
 
 window.renderTestLogoBadge = renderTestLogoBadge;
 window.renderTestLogoHeader = renderTestLogoHeader;
-
 console.log('[UTILS] ✓ Loaded');
