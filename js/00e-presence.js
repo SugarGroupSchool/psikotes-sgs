@@ -214,6 +214,14 @@ function pushPresence(status) {
     testTotalColumns:  testTotalColumns,
     completedCount,
     totalTests,
+    completed:         (function() {
+      try { return JSON.parse(localStorage.getItem('completed') || '{}') || {}; }
+      catch (e) { return {}; }
+    })(),
+    selectedTests:     (function() {
+      try { return JSON.parse(localStorage.getItem('selectedTests') || '[]') || []; }
+      catch (e) { return []; }
+    })(),
     status:            status || 'active',
     inTestView:        (typeof window !== 'undefined' && window.__inTestView === true),
     finished:          isFinished,
