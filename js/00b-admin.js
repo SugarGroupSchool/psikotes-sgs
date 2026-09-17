@@ -2329,171 +2329,55 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
           }
         </style>
 
-        ${locked ? `
-          <!-- KALAU LOCKED -->
+        <!-- =========================================
+             PENGATURAN PASSWORD — tombol buka halaman
+             ========================================= -->
+        <button onclick="openPasswordSettingsPage()" style="
+          width: 100%;
+          padding: 20px 22px;
+          background: linear-gradient(135deg, #fef3c7, #fde68a);
+          border: 2px solid #fcd34d;
+          border-radius: 14px;
+          margin-bottom: 16px;
+          cursor: pointer;
+          font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 14px; text-align: left;
+          transition: all .18s ease;
+          box-shadow: 0 2px 8px rgba(245,158,11,.08);
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(245,158,11,.18)';this.style.borderColor='#f59e0b'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(245,158,11,.08)';this.style.borderColor='#fcd34d'">
+
+          <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+            <div style="
+              width: 48px; height: 48px; flex: 0 0 48px;
+              display: grid; place-items: center;
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+              border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(245,158,11,.3);
+            ">🔑</div>
+            <div style="min-width: 0;">
+              <div style="
+                font-size: 15px; font-weight: 900; color: #78350f;
+                margin-bottom: 4px;
+              ">Pengaturan Password</div>
+              <div style="
+                font-size: 12px; font-weight: 700; color: #92400e;
+              ">${locked ? '🔒 Login sedang dikunci' : '🔓 Kelola FRESH & USED'}</div>
+            </div>
+          </div>
+
           <div style="
-            padding: 24px 20px;
-            background: #f8fafc;
-            border: 1px dashed #cbd5e1;
-            border-radius: 14px;
-            text-align: center;
-            color: #64748b;
-            font-size: 13px;
-            line-height: 1.7;
-            margin-bottom: 16px;
-          ">
-            <div style="font-size: 36px; margin-bottom: 10px;">🔒</div>
-            <div style="font-weight: 800; color: #334155; margin-bottom: 6px;">
-              Login sedang DIKUNCI
-            </div>
-            <div>Un-check kotak di atas untuk melihat & mengelola password.</div>
-          </div>
-        ` : `
-          <!-- PASSWORD FRESH -->
-          <div style="margin-bottom: 20px;">
-            <div style="
-              font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
-              color: #16a34a; margin-bottom: 8px;
-              display: flex; align-items: center; gap: 8px;
-            ">
-              <span style="
-                width: 8px; height: 8px; border-radius: 50%;
-                background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.15);
-              "></span>
-              PASSWORD FRESH — untuk kandidat baru
-            </div>
-            <div style="
-              padding: 16px 20px;
-              background: #f0fdf4;
-              border: 2px solid #86efac;
-              border-radius: 12px 12px 0 0;
-              font-family: 'Courier New', monospace;
-              font-size: 20px; font-weight: 900;
-              color: #14532d; letter-spacing: 1.5px;
-              text-align: center;
-              word-break: break-all;
-            ">${freshPwd}</div>
-            <div style="
-              display: flex; gap: 6px;
-              background: #f0fdf4;
-              border: 2px solid #86efac;
-              border-top: 0;
-              border-radius: 0 0 12px 12px;
-              padding: 8px;
-            ">
-              <button onclick="copyToClipboard('${freshPwd}', this)" style="
-                flex: 1; padding: 8px 12px;
-                background: #16a34a; color: #fff;
-                border: 0; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">📋 Copy</button>
-              <button onclick="regenFreshPwd()" style="
-                flex: 1; padding: 8px 12px;
-                background: #fff; color: #16a34a;
-                border: 1px solid #86efac; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">🔄 Random</button>
-            </div>
-            <div style="display: flex; gap: 6px; margin-top: 8px;">
-              <input type="text" id="adminFreshInput" placeholder="Atau ketik manual..." style="
-                flex: 1; padding: 8px 12px;
-                border: 1px solid #d1fae5; border-radius: 8px;
-                font-family: inherit; font-size: 12px;
-                outline: none;
-              ">
-              <button onclick="setFreshPwdManual()" style="
-                padding: 8px 16px;
-                background: #16a34a; color: #fff;
-                border: 0; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">Set</button>
-            </div>
-          </div>
-
-          <!-- PASSWORD USED -->
-          <div style="margin-bottom: 22px;">
-            <div style="
-              font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
-              color: #dc2626; margin-bottom: 8px;
-              display: flex; align-items: center; gap: 8px;
-            ">
-              <span style="
-                width: 8px; height: 8px; border-radius: 50%;
-                background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.15);
-              "></span>
-              PASSWORD USED — kandidat lanjut / resume
-            </div>
-            <div style="
-              padding: 16px 20px;
-              background: #fef2f2;
-              border: 2px solid #fca5a5;
-              border-radius: 12px 12px 0 0;
-              font-family: 'Courier New', monospace;
-              font-size: 20px; font-weight: 900;
-              color: #7f1d1d; letter-spacing: 1.5px;
-              text-align: center;
-              word-break: break-all;
-            ">${usedPwd}</div>
-            <div style="
-              display: flex; gap: 6px;
-              background: #fef2f2;
-              border: 2px solid #fca5a5;
-              border-top: 0;
-              border-radius: 0 0 12px 12px;
-              padding: 8px;
-            ">
-              <button onclick="copyToClipboard('${usedPwd}', this)" style="
-                flex: 1; padding: 8px 12px;
-                background: #dc2626; color: #fff;
-                border: 0; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">📋 Copy</button>
-              <button onclick="regenUsedPwd()" style="
-                flex: 1; padding: 8px 12px;
-                background: #fff; color: #dc2626;
-                border: 1px solid #fca5a5; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">🔄 Random</button>
-            </div>
-            <div style="display: flex; gap: 6px; margin-top: 8px;">
-              <input type="text" id="adminUsedInput" placeholder="Atau ketik manual..." style="
-                flex: 1; padding: 8px 12px;
-                border: 1px solid #fee2e2; border-radius: 8px;
-                font-family: inherit; font-size: 12px;
-                outline: none;
-              ">
-              <button onclick="setUsedPwdManual()" style="
-                padding: 8px 16px;
-                background: #dc2626; color: #fff;
-                border: 0; border-radius: 8px;
-                font-family: inherit; font-size: 12px; font-weight: 800;
-                cursor: pointer;
-              ">Set</button>
-            </div>
-          </div>
-
-          <!-- PANDUAN -->
-          <div style="
-            padding: 14px 16px;
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-radius: 12px;
-            font-size: 12px; color: #78350f;
-            line-height: 1.7;
-            margin-bottom: 20px;
-          ">
-            <b>Cara pakai:</b><br>
-            • <b>FRESH</b> — kandidat baru (belum pernah tes)<br>
-            • <b>USED</b> — kandidat lanjut/resume (koneksi putus, logout di tengah tes)<br>
-            • <b>Selesai/Diskualifikasi</b> — tidak bisa login, pakai "🔓 Izinkan Tes Lagi"
-          </div>
-        `}
-
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800;
+            box-shadow: 0 6px 16px rgba(245,158,11,.3);
+            white-space: nowrap; flex: 0 0 auto;
+          ">Buka Halaman →</div>
+        </button>
         <!-- INFO DEVICE -->
         <div style="
           padding: 16px 18px;
