@@ -81,9 +81,7 @@ function scrollToElement(el, block = 'start') {
 }
 
 /* ============================================================
-   ✅ TEST LOGO HEADER — render logo konsisten (tanpa emoji)
-   - Logo selalu CENTER (atas) + teks di bawah
-   - Tidak ada emoji di header
+   ✅ TEST LOGO HEADER — badge logo (backward compat)
    ============================================================ */
 function renderTestLogoBadge(size = 'normal') {
   const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
@@ -109,36 +107,20 @@ function renderTestLogoBadge(size = 'normal') {
   `;
 }
 
-/**
- * renderTestLogoHeader — header tes (intro & thank you)
- * @param {Object} opts
- * @param {string} opts.eyebrow   - teks kecil di atas judul
- * @param {string} opts.title     - judul utama
- * @param {string} opts.subtitle  - deskripsi
- * @param {boolean} opts.centered - default TRUE (logo di atas, teks di bawah, semua center)
- * @param {string} opts.size      - 'small' | 'normal' | 'large'
- */
+/** Legacy: renderTestLogoHeader — tetap ada untuk backward compat */
 function renderTestLogoHeader({ eyebrow, title, subtitle, centered = true, size = 'normal' }) {
   if (centered) {
     return `
       <div class="test-logo-header test-logo-header--centered">
         ${renderTestLogoBadge(size)}
         <div style="text-align:center;width:100%;">
-          ${eyebrow
-            ? `<div class="ist-eyebrow" style="justify-content:center;">${eyebrow}</div>`
-            : ''}
-          ${title
-            ? `<h2 class="ist-title" style="margin:8px 0 7px;">${title}</h2>`
-            : ''}
-          ${subtitle
-            ? `<p class="ist-subtitle">${subtitle}</p>`
-            : ''}
+          ${eyebrow ? `<div class="ist-eyebrow" style="justify-content:center;">${eyebrow}</div>` : ''}
+          ${title ? `<h2 class="ist-title" style="margin:8px 0 7px;">${title}</h2>` : ''}
+          ${subtitle ? `<p class="ist-subtitle">${subtitle}</p>` : ''}
         </div>
       </div>
     `;
   }
-
-  // Non-centered: logo & teks berdampingan, tetap rapi
   return `
     <div class="test-logo-header" style="justify-content:center;">
       ${renderTestLogoBadge(size)}
@@ -151,7 +133,110 @@ function renderTestLogoHeader({ eyebrow, title, subtitle, centered = true, size 
   `;
 }
 
-window.renderTestLogoBadge  = renderTestLogoBadge;
-window.renderTestLogoHeader = renderTestLogoHeader;
+/* ============================================================
+   ✅ GO BACK HOME — kembali ke beranda dengan aman
+   - Konfirmasi kalau ada tes yang sedang jalan
+   - Bersihkan semua timer & overlay
+   - Reset __inTestView
+   ============================================================ */
+function goBackHome() {
+  const hasActiveTimer =
+    (typeof appState !== 'undefined' && appState && appState.timer) ||
+    (typeof appState !== 'undefined' && appState && appState.typingTimer) ||
+    (typeof appState !== 'undefined' && appState && appState.timerActive);
+
+  if (hasActiveTimer && window.__inTestView === true) {
+    const ok = confirm('Kembali ke beranda? Progres tes ini tidak akan disimpan.');
+    if (!ok) return;
+  }
+
+  // Clear semua timer yang mungkin jalan
+  try { if (typeof appState !== 'undefined' && appState.timer) clearInterval(appState.timer); } catch (e) {}
+  try { if (typeof appState !== 'undefined' && appState.typingTimer) clearInterval(appState.typingTimer); } catch (e) {}
+  try { clearInterval(__subjectTimerInterval); } catch (e) {}
+  try { clearInterval(__grafisTimer); } catch (e) {}
+  try { clearInterval(__excelTimer); } catch (e) {}
+
+  // Kraeplin cleanup
+  try { if (typeof _kraeplinClickHintCleanup === 'function') _kraeplinClickHintCleanup(); } catch (e) {}
+  try { if (typeof removeOverlay === 'function') removeOverlay(); } catch (e) {}
+  try { if (typeof setKraeplinBlur === 'function') setKraeplinBlur(false); } catch (e) {}
+
+  // Reset state test
+  try {
+    if (typeof appState !== 'undefined' && appState) {
+      appState.timerActive = false;
+      appState.timer = null;
+      appState.typingTimer = null;
+    }
+  } catch (e) {}
+
+  window.__inTestView = false;
+
+  // Render home
+  if (typeof window.renderHome === 'function') {
+    window.renderHome();
+  } else {
+    window.location.reload();
+  }
+}
+
+/* ============================================================
+   ✅ TEST PAGE HEADER — Unified Professional Layout
+   - Logo CENTERED di atas
+   - Tombol Kembali (kiri atas) → default goBackHome()
+   - Time chip (kanan atas)
+   ============================================================ */
+function renderTestPageHeader({
+  eyebrow = '',
+  title = '',
+  subtitle = '',
+  timeLabel = '',
+  onBack = 'goBackHome()',
+  backLabel = 'Kembali',
+  showBack = true,
+  showLogo = true,
+} = {}) {
+  const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
+    ? APP_CONFIG.LOGO
+    : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+
+  return `
+    <div class="test-page-header">
+      ${showBack ? `
+        <button type="button" class="test-page-back" onclick="${onBack}">
+          <span class="test-page-back-icon">←</span>
+          <span class="test-page-back-text">${backLabel}</span>
+        </button>
+      ` : ''}
+
+      ${timeLabel ? `
+        <div class="test-page-time">
+          <span class="test-page-time-icon">⏱</span>
+          <span>${timeLabel}</span>
+        </div>
+      ` : ''}
+
+      ${showLogo ? `
+        <div class="test-page-logo">
+          <img
+            src="${logoUrl}"
+            alt="Sugar Group Schools"
+            onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+          >
+        </div>
+      ` : ''}
+
+      ${eyebrow ? `<div class="ist-eyebrow test-page-eyebrow">${eyebrow}</div>` : ''}
+      ${title ? `<h2 class="ist-title test-page-title">${title}</h2>` : ''}
+      ${subtitle ? `<p class="ist-subtitle test-page-subtitle">${subtitle}</p>` : ''}
+    </div>
+  `;
+}
+
+window.renderTestLogoBadge    = renderTestLogoBadge;
+window.renderTestLogoHeader   = renderTestLogoHeader;
+window.goBackHome             = goBackHome;
+window.renderTestPageHeader   = renderTestPageHeader;
 
 console.log('[UTILS] ✓ Loaded');
