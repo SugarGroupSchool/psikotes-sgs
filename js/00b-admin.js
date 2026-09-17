@@ -6,6 +6,7 @@
    - Chat per kandidat + unread tracker (badge + blink)
    - Tombol "Izinkan Tes Lagi" untuk device finished/diskualifikasi
    - Auto-cleanup chat device tidak aktif
+   - ✅ BARU: Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
    ============================================================ */
 
 /* ============================================================
@@ -498,7 +499,44 @@ async function deleteResultFile(fileId, fileName) {
 
 
 /* ============================================================
-   RENDER DAFTAR PDF DI PANEL ADMIN
+   ✅ BARU: HELPER — Ekstrak info kandidat dari file
+   Prioritas: description ("Nama: X") → fallback dari filename
+   ============================================================ */
+function __extractCandidateInfo(file) {
+  let name = '-';
+  let position = '-';
+
+  try {
+    const lines = String(file.description || '').split('\n');
+    lines.forEach(l => {
+      const t = l.trim();
+      if (t.startsWith('Nama:'))   name     = t.replace('Nama:', '').trim();
+      if (t.startsWith('Posisi:')) position = t.replace('Posisi:', '').trim();
+    });
+  } catch (e) {}
+
+  // Fallback: ambil dari filename
+  if (name === '-' && file.name) {
+    const m = String(file.name).match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2})/i);
+    if (m) name = m[1].replace(/-/g, ' ').trim();
+  }
+
+  return { name, position };
+}
+
+/* ============================================================
+   ✅ BARU: HELPER — Deteksi tipe file dari ekstensi
+   ============================================================ */
+function __detectFileKind(file) {
+  const n = String(file.name || '').toLowerCase();
+  if (/\.pdf$/.test(n))               return 'pdf';
+  if (/\.xlsx?$/.test(n))             return 'excel';
+  if (/\.(csv|ods)$/.test(n))         return 'excel';
+  return 'other';
+}
+
+/* ============================================================
+   ✅ BARU: RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -512,79 +550,161 @@ function renderResultFilesHTML(files) {
       </div>`;
   }
 
-  return files.map(f => {
-    const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-    const dateStr = f.date ? new Date(f.date).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    }) : '-';
+  /* ---------- Grouping by nama ---------- */
+  const groups = new Map();
 
-    // Parse description untuk dapat nama & posisi
-    let name = '-', pos = '-';
-    try {
-      const lines = (f.description || '').split('\n');
-      lines.forEach(l => {
-        if (l.startsWith('Nama:')) name = l.replace('Nama:', '').trim();
-        if (l.startsWith('Posisi:')) pos = l.replace('Posisi:', '').trim();
-      });
-    } catch (e) {}
+  files.forEach(f => {
+    const info = __extractCandidateInfo(f);
+    const key  = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
 
+    if (!groups.has(key)) {
+      groups.set(key, { name: info.name, position: info.position, files: [] });
+    }
+    const g = groups.get(key);
+    if (info.position !== '-' && g.position === '-') g.position = info.position;
+    g.files.push(f);
+  });
+
+  /* ---------- Sort: kandidat paling baru di atas ---------- */
+  const groupArr = Array.from(groups.values()).sort((a, b) => {
+    const latestA = Math.max(...a.files.map(f => f.date || 0));
+    const latestB = Math.max(...b.files.map(f => f.date || 0));
+    return latestB - latestA;
+  });
+
+  /* ---------- Helper: render 1 baris file ---------- */
+  function renderFileRow(f, kind) {
+    const sizeMB = f.size
+      ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
+      : '-';
+
+    const styleMap = {
+      pdf:   { icon: '📄', label: 'Hasil Tes (PDF)',   bg: '#eff6ff', br: '#bfdbfe', iconBg: '#dbeafe', text: '#1e40af' },
+      excel: { icon: '📊', label: 'Jawaban Excel',      bg: '#ecfdf5', br: '#86efac', iconBg: '#d1fae5', text: '#15803d' },
+      other: { icon: '📁', label: 'File Lain',           bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' }
+    };
+    const s = styleMap[kind] || styleMap.other;
     const safeFileName = String(f.name || '').replace(/'/g, "\\'");
+    const shortName = (f.name || '').length > 42
+      ? (f.name || '').slice(0, 42) + '...'
+      : (f.name || '');
 
     return `
       <div style="
-        padding: 12px 14px; background: #fff;
-        border: 1px solid #dbeafe; border-radius: 10px;
-        font-size: 12px; line-height: 1.5;
+        display: flex; align-items: center; gap: 9px;
+        padding: 8px 10px;
+        background: ${s.bg};
+        border: 1px solid ${s.br};
+        border-radius: 9px;
       ">
         <div style="
-          display: flex; justify-content: space-between;
-          align-items: flex-start; gap: 8px; margin-bottom: 6px;
-        ">
-          <div style="font-weight: 800; color: #1e293b; min-width:0; word-break:break-word;">
-            ${__adminEscape(name !== '-' ? name : f.name || '(tanpa nama)')}
-          </div>
+          width: 30px; height: 30px; flex: 0 0 30px;
+          display: grid; place-items: center;
+          background: ${s.iconBg}; border-radius: 8px;
+          font-size: 15px;
+        ">${s.icon}</div>
+
+        <div style="flex: 1; min-width: 0;">
           <div style="
-            font-size: 10px; color: #3b82f6;
-            font-weight: 800; white-space: nowrap;
-            background: #eff6ff; padding: 3px 8px; border-radius: 6px;
-          ">${sizeMB}</div>
-        </div>
-
-        <div style="color: #64748b; font-size: 11px; margin-bottom: 6px;">
-          ${pos !== '-' ? `📍 ${__adminEscape(pos)} &nbsp;·&nbsp; ` : ''}
-          🕐 ${dateStr}
-        </div>
-
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: center; gap: 8px; padding-top: 6px;
-          border-top: 1px dashed #e2e8f0;
-        ">
-          <div style="color: #94a3b8; font-size: 10px; min-width:0; word-break:break-all;">
-            ${__adminEscape((f.name || '').slice(0, 40))}${(f.name || '').length > 40 ? '...' : ''}
+            font-weight: 800; color: ${s.text};
+            font-size: 11.5px; margin-bottom: 2px;
+          ">${s.label}</div>
+          <div style="
+            color: #64748b; font-size: 10px;
+            word-break: break-all; line-height: 1.35;
+          ">
+            ${__adminEscape(shortName)} &nbsp;·&nbsp; ${sizeMB}
           </div>
-          <div style="display: flex; gap: 5px;">
-            <a href="${f.url}" target="_blank" rel="noopener"
-               style="
+        </div>
+
+        <div style="display: flex; gap: 5px; flex: 0 0 auto;">
+          <a href="${f.url}" target="_blank" rel="noopener"
+             style="
               padding: 5px 10px;
               background: linear-gradient(135deg, #3b82f6, #1e40af);
               color: #fff; border: 0; border-radius: 7px;
-              font-size: 11px; font-weight: 800;
+              font-size: 10px; font-weight: 800;
               text-decoration: none; white-space: nowrap;
-              box-shadow: 0 3px 8px rgba(59,130,246,.25);
+              box-shadow: 0 3px 8px rgba(59,130,246,.22);
             ">⬇️ Buka</a>
 
-            <button onclick="deleteResultFile('${f.id}', '${safeFileName}')" style="
-              padding: 5px 10px;
-              background: #fff;
-              color: #dc2626;
-              border: 1.5px solid #fca5a5;
-              border-radius: 7px;
-              font-size: 11px; font-weight: 800;
+          <button onclick="deleteResultFile('${f.id}', '${safeFileName}')"
+            style="
+              padding: 5px 9px;
+              background: #fff; color: #dc2626;
+              border: 1.5px solid #fca5a5; border-radius: 7px;
+              font-size: 10px; font-weight: 800;
               cursor: pointer; font-family: inherit;
               white-space: nowrap;
-            ">🗑️ Hapus</button>
+            ">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ---------- Render tiap kandidat ---------- */
+  return groupArr.map(g => {
+    const pdfs   = g.files.filter(f => __detectFileKind(f) === 'pdf');
+    const excels = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const others = g.files.filter(f => __detectFileKind(f) === 'other');
+
+    const latestDate = Math.max(...g.files.map(f => f.date || 0));
+    const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    }) : '-';
+
+    /* Badge status */
+    let badge;
+    if (pdfs.length > 0 && excels.length > 0) {
+      badge = `
+        <span style="
+          font-size: 10px; color: #15803d; font-weight: 800;
+          background: #dcfce7; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #86efac;
+          white-space: nowrap;
+        ">✓ Lengkap (${g.files.length})</span>`;
+    } else if (g.files.length > 0) {
+      badge = `
+        <span style="
+          font-size: 10px; color: #92400e; font-weight: 800;
+          background: #fef3c7; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #fde68a;
+          white-space: nowrap;
+        ">⚠ ${g.files.length} file</span>`;
+    }
+
+    return `
+      <div style="
+        padding: 12px 14px;
+        background: linear-gradient(180deg, #ffffff, #fbfdff);
+        border: 1px solid #dbeafe; border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(30,64,175,.04);
+      ">
+        <!-- HEADER KANDIDAT -->
+        <div style="
+          display: flex; justify-content: space-between;
+          align-items: flex-start; gap: 10px;
+          margin-bottom: 10px; padding-bottom: 8px;
+          border-bottom: 1px dashed #e2e8f0;
+        ">
+          <div style="min-width: 0;">
+            <div style="
+              font-weight: 800; color: #1e293b;
+              font-size: 13px; word-break: break-word;
+            ">👤 ${__adminEscape(g.name)}</div>
+            <div style="color: #64748b; font-size: 11px; margin-top: 3px;">
+              ${g.position !== '-' ? `📍 ${__adminEscape(g.position)} &nbsp;·&nbsp; ` : ''}
+              🕐 ${dateStr}
+            </div>
           </div>
+          ${badge}
+        </div>
+
+        <!-- DAFTAR FILE -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
+          ${excels.map(f => renderFileRow(f, 'excel')).join('')}
+          ${others.map(f => renderFileRow(f, 'other')).join('')}
         </div>
       </div>
     `;
@@ -592,11 +712,11 @@ function renderResultFilesHTML(files) {
 }
 
 /* ============================================================
-   REFRESH DAFTAR PDF DI PANEL
+   ✅ BARU: REFRESH DAFTAR PDF (hitung kandidat unik)
    ============================================================ */
 async function refreshResultFilesList() {
   const container = document.getElementById('adminResultFiles');
-  const countEl = document.getElementById('adminResultCount');
+  const countEl   = document.getElementById('adminResultCount');
 
   if (!container) return;
 
@@ -608,13 +728,29 @@ async function refreshResultFilesList() {
 
   const files = await fetchResultFiles();
 
+  /* Hitung jumlah kandidat unik */
+  const uniqueNames = new Set();
+  files.forEach(f => {
+    const info = __extractCandidateInfo(f);
+    const key = (info.name || 'tanpa-nama').toLowerCase().trim();
+    uniqueNames.add(key);
+  });
+
   if (countEl) {
-    countEl.textContent = files.length + ' file';
-    countEl.style.color = files.length > 0 ? '#1e40af' : '#94a3b8';
+    const c = uniqueNames.size;
+    const fCount = files.length;
+    if (fCount === 0) {
+      countEl.textContent = '0 file';
+      countEl.style.color = '#94a3b8';
+    } else {
+      countEl.textContent = `${c} kandidat · ${fCount} file`;
+      countEl.style.color = '#1e40af';
+    }
   }
 
   container.innerHTML = renderResultFilesHTML(files);
 }
+
 /* ============================================================
    ADMIN LOGIN PROMPT
    ============================================================ */
@@ -2005,10 +2141,15 @@ window.fetchResultFiles        = fetchResultFiles;
 window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
 window.deleteResultFile         = deleteResultFile;
+
+/* ─── ✅ BARU: Helper grouping ─── */
+window.__extractCandidateInfo  = __extractCandidateInfo;
+window.__detectFileKind        = __detectFileKind;
+
 /* ─── Access Requests ─── */
 window.listenAccessRequests         = listenAccessRequests;
 window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
 window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results');
