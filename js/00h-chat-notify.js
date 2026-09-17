@@ -1,8 +1,8 @@
 /* ============================================================
    js/00h-chat-notify.js
-   - Notifikasi chat global (sound + title + toast + browser)
-   - Kandidat: pesan dari admin
-   - Admin: pesan dari kandidat
+   - Notifikasi chat global (SOUND + TITLE BLINK + TOAST)
+   - TIDAK pakai browser notification (tanpa permission popup)
+   - FAB chat di admin: kelap-kelip saat ada unread
    ============================================================ */
 
 (function() {
@@ -64,36 +64,6 @@
   }
 
   /* ============================================================
-     BROWSER NOTIFICATION (opsional)
-     ============================================================ */
-  function requestBrowserPermission() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'default') {
-      try { Notification.requestPermission(); } catch(e) {}
-    }
-  }
-
-  function showBrowserNotif(title, body, onClick) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    if (document.visibilityState === 'visible') return;
-    try {
-      var n = new Notification(title, {
-        body: body,
-        icon: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
-        tag: 'sgs-chat',
-        renotify: true
-      });
-      n.onclick = function() {
-        try { window.focus(); } catch(e) {}
-        if (typeof onClick === 'function') onClick();
-        n.close();
-      };
-      setTimeout(function() { try { n.close(); } catch(e) {} }, 6000);
-    } catch(e) {}
-  }
-
-  /* ============================================================
      TOAST (in-page, kanan atas)
      ============================================================ */
   function showChatToast(opts) {
@@ -141,6 +111,93 @@
   }
 
   /* ============================================================
+     FAB CHAT ADMIN (kelap-kelip saat unread)
+     ============================================================ */
+  function injectAdminChatFab() {
+    if (!isAdminMode()) return;
+    if (document.getElementById('adminChatFab')) return;
+
+    var fab = document.createElement('button');
+    fab.id = 'adminChatFab';
+    fab.title = 'Pesan Kandidat';
+    fab.innerHTML = [
+      '<span style="font-size:24px;line-height:1;">💬</span>',
+      '<span id="adminChatFabBadge" style="',
+        'position:absolute;top:-4px;right:-4px;',
+        'min-width:20px;height:20px;padding:0 6px;',
+        'background:#ef4444;color:#fff;font-size:11px;',
+        'border-radius:999px;font-weight:800;',
+        'display:none;place-items:center;',
+        'box-shadow:0 0 0 3px #fff;',
+        'font-family:system-ui,sans-serif;',
+      '"></span>'
+    ].join('');
+    fab.style.cssText = [
+      'position:fixed;bottom:22px;right:22px;',
+      'width:58px;height:58px;',
+      'border-radius:50%;',
+      'background:linear-gradient(135deg,#3b82f6,#1e40af);',
+      'color:#fff;',
+      'border:0;cursor:pointer;',
+      'box-shadow:0 12px 28px rgba(30,64,175,.4);',
+      'z-index:99999;',
+      'transition:transform .18s ease;',
+      'font-family:inherit;',
+      'display:grid;place-items:center;'
+    ].join('');
+    fab.onmouseenter = function() { fab.style.transform = 'scale(1.08)'; };
+    fab.onmouseleave = function() { fab.style.transform = 'scale(1)'; };
+    fab.onclick = function() {
+      if (typeof window.openActiveCandidatesPage === 'function') {
+        window.openActiveCandidatesPage();
+      }
+    };
+    document.body.appendChild(fab);
+
+    if (!document.getElementById('adminChatFabStyle')) {
+      var st = document.createElement('style');
+      st.id = 'adminChatFabStyle';
+      st.textContent = [
+        '@keyframes adminChatFabBlink {',
+        '  0%, 100% { box-shadow: 0 12px 28px rgba(30,64,175,.4), 0 0 0 0 rgba(239,68,68,.7); }',
+        '  50%      { box-shadow: 0 12px 28px rgba(30,64,175,.4), 0 0 0 16px rgba(239,68,68,0); }',
+        '}',
+        '@keyframes adminChatBadgeBlink {',
+        '  0%, 100% { transform: scale(1); opacity: 1; }',
+        '  50%      { transform: scale(1.25); opacity: .85; }',
+        '}',
+        '.admin-chat-fab-blink { animation: adminChatFabBlink 1.5s ease-in-out infinite !important; }',
+        '.admin-chat-badge-blink { animation: adminChatBadgeBlink 1s ease-in-out infinite !important; }'
+      ].join('\n');
+      document.head.appendChild(st);
+    }
+  }
+
+  function updateAdminChatFab() {
+    var fab = document.getElementById('adminChatFab');
+    var badge = document.getElementById('adminChatFabBadge');
+    if (!fab || !badge) return;
+
+    var unreadMap = window.__adminUnreadMap || {};
+    var total = 0;
+    Object.keys(unreadMap).forEach(function(k) {
+      var n = Number(unreadMap[k]) || 0;
+      if (n > 0) total += n;
+    });
+
+    if (total > 0) {
+      badge.textContent = total > 99 ? '99+' : total;
+      badge.style.display = 'grid';
+      badge.classList.add('admin-chat-badge-blink');
+      fab.classList.add('admin-chat-fab-blink');
+    } else {
+      badge.style.display = 'none';
+      badge.classList.remove('admin-chat-badge-blink');
+      fab.classList.remove('admin-chat-fab-blink');
+    }
+  }
+
+  /* ============================================================
      NOTIFY MAIN
      ============================================================ */
   function notifyNewMessage(opts) {
@@ -171,17 +228,9 @@
       }
     });
 
-    showBrowserNotif(senderName, bodyText, function() {
-      if (isAdmin) {
-        if (typeof window.openChatForAdmin === 'function') {
-          window.openChatForAdmin(opts.roomId, opts.name);
-        }
-      } else {
-        if (typeof window.openChatForCandidate === 'function') {
-          window.openChatForCandidate();
-        }
-      }
-    });
+    if (isAdmin) {
+      setTimeout(updateAdminChatFab, 100);
+    }
   }
 
   /* ============================================================
@@ -235,18 +284,6 @@
         text: m.text || '',
         unreadCount: 1
       });
-
-      if (typeof window.countUnreadFor === 'function') {
-        window.countUnreadFor('candidate', deviceId, function(n) {
-          var badge = document.getElementById('chatFabBadge');
-          if (!badge) return;
-          if (n > 0) {
-            badge.textContent = n > 99 ? '99+' : n;
-            badge.style.display = 'grid';
-            badge.classList.add('chat-badge-blink');
-          }
-        });
-      }
     });
 
     console.log('[CHAT-NOTIFY] ✓ Candidate listener active —', deviceId);
@@ -289,39 +326,27 @@
           unread = window.__adminUnreadMap[deviceId];
         }
 
-        // Ambil nama kandidat dari session
         try {
-          if (typeof firebase !== 'undefined' && firebase.apps.length) {
-            firebase.database().ref('sgs_state/sessions/' + deviceId + '/name').once('value')
-              .then(function(nameSnap) {
-                var n = nameSnap.val();
-                notifyNewMessage({
-                  role: 'admin',
-                  roomId: deviceId,
-                  name: n || name,
-                  text: m.text || '',
-                  unreadCount: unread
-                });
-              })
-              .catch(function() {
-                notifyNewMessage({
-                  role: 'admin',
-                  roomId: deviceId,
-                  name: name,
-                  text: m.text || '',
-                  unreadCount: unread
-                });
+          firebase.database().ref('sgs_state/sessions/' + deviceId + '/name').once('value')
+            .then(function(nameSnap) {
+              var n = nameSnap.val();
+              notifyNewMessage({
+                role: 'admin', roomId: deviceId,
+                name: n || name, text: m.text || '', unreadCount: unread
               });
-            return;
-          }
+            })
+            .catch(function() {
+              notifyNewMessage({
+                role: 'admin', roomId: deviceId,
+                name: name, text: m.text || '', unreadCount: unread
+              });
+            });
+          return;
         } catch(e) {}
 
         notifyNewMessage({
-          role: 'admin',
-          roomId: deviceId,
-          name: name,
-          text: m.text || '',
-          unreadCount: unread
+          role: 'admin', roomId: deviceId,
+          name: name, text: m.text || '', unreadCount: unread
         });
       });
     });
@@ -341,15 +366,15 @@
      INIT
      ============================================================ */
   function init() {
-    requestBrowserPermission();
-
     if (typeof firebase === 'undefined' || !firebase.apps.length) {
       setTimeout(init, 500);
       return;
     }
 
     if (isAdminMode()) {
+      injectAdminChatFab();
       startAdminListener();
+      setInterval(updateAdminChatFab, 800);
     } else {
       startCandidateListener();
     }
@@ -360,6 +385,7 @@
   window.__sgsNotifyChat = notifyNewMessage;
   window.__sgsStopTitleBlink = stopTitleBlink;
   window.__sgsPlayNotifySound = playNotifySound;
+  window.__sgsUpdateAdminChatFab = updateAdminChatFab;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 800); });
