@@ -702,30 +702,51 @@ function renderResultFilesHTML(files) {
 
     let badge;
     if (pdfs.length > 0 && excels.length > 0) {
-      badge = `
-        <span style="
-          font-size: 10px; color: #15803d; font-weight: 800;
-          background: #dcfce7; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #86efac;
-          white-space: nowrap;
-        ">✓ Lengkap (${g.files.length})</span>`;
+     badge = `
+  <span style="
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; color: #15803d; font-weight: 800;
+    background: #dcfce7; padding: 3px 9px;
+    border-radius: 999px; border: 1px solid #86efac;
+    white-space: nowrap;
+  ">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+      <circle cx="12" cy="12" r="10" fill="#16a34a"/>
+      <path d="M7 12.5l3.2 3L17 9" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Lengkap (${g.files.length})
+  </span>`;
     } else if (pdfs.length > 0 && excels.length === 0) {
-      badge = `
-        <span style="
-          font-size: 10px; color: #1e40af; font-weight: 800;
-          background: #eff6ff; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #bfdbfe;
-          white-space: nowrap;
-        ">📄 PDF</span>`;
-    } else if (excels.length > 0 && pdfs.length === 0) {
-      badge = `
-        <span style="
-          font-size: 10px; color: #92400e; font-weight: 800;
-          background: #fef3c7; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #fde68a;
-          white-space: nowrap;
-        ">⚠ Excel saja</span>`;
-    } else if (g.files.length > 0) {
+     badge = `
+  <span style="
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; color: #1e40af; font-weight: 800;
+    background: #eff6ff; padding: 3px 9px;
+    border-radius: 999px; border: 1px solid #bfdbfe;
+    white-space: nowrap;
+  ">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+      <rect x="3" y="3" width="18" height="18" rx="2" fill="#2563eb"/>
+      <path d="M7 7h6M7 11h6M7 15h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    PDF
+  </span>`;
+ } else if (excels.length > 0 && pdfs.length === 0) {
+  badge = `
+    <span style="
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; color: #15803d; font-weight: 800;
+      background: #dcfce7; padding: 3px 9px;
+      border-radius: 999px; border: 1px solid #86efac;
+      white-space: nowrap;
+    ">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+        <rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/>
+        <path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      Excel
+    </span>`;
+}else if (g.files.length > 0) {
       badge = `
         <span style="
           font-size: 10px; color: #475569; font-weight: 800;
@@ -1876,9 +1897,10 @@ function __renderResultPageContent() {
       badge = '✓ Lengkap'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
     } else if (pdfs.length > 0) {
       badge = '📄 PDF'; badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd' };
-    } else if (excels.length > 0) {
-      badge = '⚠ Excel saja'; badgeColor = { bg: 'rgba(245,158,11,.15)', br: 'rgba(245,158,11,.4)', text: '#fcd34d' };
-    } else {
+   } else if (excels.length > 0) {
+  badge = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" style="flex:0 0 11px;"><rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/><path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Excel</span>';
+  badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
+} else {
       badge = `📁 ${g.files.length} file`; badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1' };
     }
 
