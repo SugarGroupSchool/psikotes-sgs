@@ -74,14 +74,12 @@ let __excelFinished = false;
    ENTRY
    ============================================================ */
 function renderAdminExcelSheet() {
-  // ✅ GUARD: cek dulu — kalau sudah selesai, tolak
   if (appState.completed && appState.completed.EXCEL === true) {
     alert('🔒 Tes Excel sudah selesai dan terkirim ke admin. Tidak bisa diulang.');
     if (typeof window.renderHome === 'function') window.renderHome();
     return;
   }
 
-  // Cek juga di localStorage (kalau appState belum sync)
   try {
     const saved = JSON.parse(localStorage.getItem('completed') || '{}');
     if (saved.EXCEL === true) {
@@ -93,11 +91,9 @@ function renderAdminExcelSheet() {
     }
   } catch (e) {}
 
-  // ✅ BARU: masuk tes Excel
   window.__inTestView = true;
   appState.currentTest = 'EXCEL';
 
-  // Reset guard flags — kita baru mulai tes
   __excelFinishing = false;
   __excelFinished = false;
   __excelWarnCount = 0;
@@ -118,22 +114,12 @@ function renderExcelIntro() {
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
-        <div class="ist-panel-header">
-          <div class="ist-header-row">
-           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
-              ${renderTestLogoBadge()}
-              <div>
-                <div class="ist-eyebrow">ADMINISTRATIVE TEST</div>
-                <h2 class="ist-title" style="margin-top:11px;">Tes Excel — In-App</h2>
-                <p class="ist-subtitle">Kerjakan di aplikasi ini. Rasanya seperti Excel asli.</p>
-              </div>
-            </div>
-            <div class="ist-time-chip">
-              <span class="ist-time-chip-icon">⏱</span>
-              <span>${menit} menit</span>
-            </div>
-          </div>
-        </div>
+        ${renderTestPageHeader({
+          eyebrow: 'ADMINISTRATIVE TEST',
+          title: 'Tes Excel — In-App',
+          subtitle: 'Kerjakan di aplikasi ini. Rasanya seperti Excel asli.',
+          timeLabel: `${menit} menit`
+        })}
 
         <div class="ist-body">
           <div class="ist-info-grid">
@@ -178,7 +164,6 @@ function renderExcelIntro() {
 
           <div class="ist-actions">
             <button class="ist-btn-primary" id="btnStartExcel" type="button">🚀 Mulai Tes Excel</button>
-            <button class="ist-btn-secondary" onclick="window.__inTestView=false;renderHome()" type="button">Kembali</button>
           </div>
         </div>
       </div>
@@ -321,19 +306,10 @@ function initLuckysheet() {
         celldata: [],
         config: {
           merge: {},
-          rowlen: {
-            '1': 26,
-            '2': 26
-          },
+          rowlen: { '1': 26, '2': 26 },
           columnlen: {
-            '0': 50,
-            '1': 180,
-            '2': 90,
-            '3': 70,
-            '4': 70,
-            '5': 70,
-            '6': 110,
-            '7': 110
+            '0': 50, '1': 180, '2': 90, '3': 70,
+            '4': 70, '5': 70, '6': 110, '7': 110
           }
         }
       },
@@ -349,10 +325,7 @@ function initLuckysheet() {
         defaultColWidth: 100,
         celldata: [],
         config: {
-          columnlen: {
-            '0': 50,
-            '1': 600
-          }
+          columnlen: { '0': 50, '1': 600 }
         }
       }
     ],
@@ -464,6 +437,12 @@ function disqualifyExcel() {
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
+        ${renderTestPageHeader({
+          eyebrow: 'ADMINISTRATIVE TEST',
+          title: 'Tes Excel',
+          subtitle: 'Diskualifikasi',
+          showBack: false
+        })}
         <div class="ist-body">
           <div class="ist-instruction-card" style="text-align:center;padding:40px 24px;background:#fef2f2;border-color:#fecaca;">
             <div style="font-size:60px;line-height:1;margin-bottom:16px;">❌</div>
@@ -502,7 +481,6 @@ function confirmFinishExcel() {
 }
 
 async function finishExcelTest(timeUp) {
-  // Guard: cegah dobel eksekusi
   if (__excelFinishing || __excelFinished) {
     console.warn('[EXCEL] finishExcelTest dipanggil lagi — diabaikan');
     return;
@@ -519,19 +497,15 @@ async function finishExcelTest(timeUp) {
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
+        ${renderTestPageHeader({
+          eyebrow: 'ADMINISTRATIVE TEST',
+          title: 'Tes Excel',
+          subtitle: 'Mengirim hasil…',
+          showBack: false
+        })}
         <div class="ist-body">
           <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
-            <div style="display:flex;justify-content:center;margin-bottom:14px;">
-              <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
-                <img
-                  src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
-                  alt="Sugar Group Schools"
-                  style="width:100%;height:100%;object-fit:contain;padding:6px;"
-                  onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
-                >
-              </div>
-            </div>
-            <div id="excelFinishIcon" style="display:none;">📊</div>
+            <div id="excelFinishIcon" style="font-size:60px;line-height:1;margin-bottom:14px;">📊</div>
             <div id="excelFinishTitle" style="font-size:18px;font-weight:900;color:#172033;margin-bottom:10px;">Menyiapkan file Excel...</div>
             <div id="excelFinishMsg" style="color:#64748b;font-size:13.5px;line-height:1.6;">Mohon tunggu, jangan tutup halaman ini.</div>
             <div style="margin-top:18px;height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
@@ -566,10 +540,8 @@ async function finishExcelTest(timeUp) {
     setUI('📤', 'Mengirim ke admin...', 'Mengunggah file .xlsx...', 60);
     await uploadExcelToGAS(xlsxBlob, filename);
 
-    // ✅ Tandai selesai
     __excelFinished = true;
 
-    // ✅ Simpan flag di localStorage — biar tahan refresh
     try {
       const saved = JSON.parse(localStorage.getItem('completed') || '{}');
       saved.EXCEL = true;
@@ -589,7 +561,6 @@ async function finishExcelTest(timeUp) {
       try { window.updateDownloadButtonState(); } catch (e) {}
     }
 
-    // ✅ RELOAD halaman (bukan renderHome) — paksa state fresh dari localStorage
     setTimeout(() => {
       window.__inTestView = false;
       try {
@@ -601,7 +572,6 @@ async function finishExcelTest(timeUp) {
 
   } catch (err) {
     console.error('[EXCEL] Finish error:', err);
-    // Reset guard supaya bisa retry
     __excelFinishing = false;
     setUI('❌', 'Gagal Kirim', 'Error: ' + err.message + ' — Screenshot & hubungi admin.', 100);
   }
