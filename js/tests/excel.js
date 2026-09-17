@@ -123,7 +123,7 @@ function renderExcelIntro() {
             <div style="display:flex;align-items:center;gap:15px;">
               ${renderTestLogoBadge()}
               <div>
-                <div class="ist-eyebrow"><span>📊</span> ADMINISTRATIVE TEST</div>
+                <div class="ist-eyebrow">ADMINISTRATIVE TEST</div>
                 <h2 class="ist-title" style="margin-top:11px;">Tes Excel — In-App</h2>
                 <p class="ist-subtitle">Kerjakan di aplikasi ini. Rasanya seperti Excel asli.</p>
               </div>
@@ -531,7 +531,7 @@ async function finishExcelTest(timeUp) {
                 >
               </div>
             </div>
-            <div id="excelFinishIcon" style="font-size:50px;margin-bottom:14px;">📊</div>
+            <div id="excelFinishIcon" style="display:none;">📊</div>
             <div id="excelFinishTitle" style="font-size:18px;font-weight:900;color:#172033;margin-bottom:10px;">Menyiapkan file Excel...</div>
             <div id="excelFinishMsg" style="color:#64748b;font-size:13.5px;line-height:1.6;">Mohon tunggu, jangan tutup halaman ini.</div>
             <div style="margin-top:18px;height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;">
