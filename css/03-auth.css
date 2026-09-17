@@ -1,168 +1,426 @@
 /* =========================================================
-   PASSWORD SCREEN
+   PASSWORD SCREEN — Card Style (Professional)
    ========================================================= */
-   .password-screen {
-    position: fixed; inset: 0;
-    background: linear-gradient(135deg,#1a2a6c 0%,#2c3e50 100%);
-    display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
-    z-index: 1000;
-    transition: all .8s cubic-bezier(.65,0,.35,1);
-    padding: 20px;
+
+.password-screen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(91, 92, 240, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.14), transparent 45%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  transition: all .8s cubic-bezier(.65, 0, .35, 1);
+  padding: 24px 20px;
+  overflow-y: auto;
+}
+
+.password-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-30px);
+}
+
+/* ---------- Card ---------- */
+.password-card {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 48px 36px 32px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 254, 0.98));
+  border: 1px solid rgba(226, 229, 239, 0.95);
+  border-radius: 28px;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.5),
+    0 8px 24px rgba(15, 23, 42, 0.15);
+  text-align: center;
+  overflow: hidden;
+  animation: passwordCardIn 0.55s cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes passwordCardIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.password-card-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #5b5cf0, #7c3aed 50%, #06b6d4);
+}
+
+/* ---------- Logo ---------- */
+.password-logo {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 20px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 22px rgba(91, 92, 240, 0.16));
+  will-change: transform;
+  animation: logoJumpIn 1s ease-out both;
+  transform-origin: center bottom;
+}
+
+@keyframes logoJumpIn {
+  0%   { opacity: 0; transform: translateY(40px) scale(0.75); }
+  42%  { opacity: 1; transform: translateY(-14px) scale(1.08); }
+  62%  { transform: translateY(6px) scale(0.97); }
+  80%  { transform: translateY(-6px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.password-logo.small {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 12px;
+  animation: none;
+}
+
+/* ---------- Text ---------- */
+.password-eyebrow {
+  display: inline-block;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  background: rgba(91, 92, 240, 0.08);
+  border: 1px solid rgba(91, 92, 240, 0.16);
+  color: #5b5cf0;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.password-title {
+  margin: 0 0 10px;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #111827;
+}
+
+.welcome-message {
+  font-size: 13.5px;
+  color: #667085;
+  margin: 0 auto 26px;
+  line-height: 1.55;
+  font-weight: 500;
+  max-width: 320px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all .5s ease .25s;
+}
+
+.welcome-message.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Form ---------- */
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  transition: all .4s ease;
+}
+
+.password-input {
+  padding: 15px 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 15px;
+  text-align: center;
+  background: #fff;
+  color: #172033;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  letter-spacing: 0.5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.password-input:focus {
+  border-color: #5b5cf0;
+  box-shadow: 0 0 0 4px rgba(91, 92, 240, 0.1);
+  transform: translateY(-1px);
+}
+
+.password-input::placeholder {
+  color: #94a3b8;
+  letter-spacing: 0;
+}
+
+.password-submit {
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #5b5cf0, #7c3aed);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 22px rgba(91, 92, 240, 0.28);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  width: 100%;
+}
+
+.password-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(91, 92, 240, 0.35);
+  filter: brightness(1.05);
+}
+
+.password-submit:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 16px rgba(91, 92, 240, 0.25);
+}
+
+.password-error {
+  color: #dc2626;
+  min-height: 20px;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* ---------- Footer ---------- */
+.password-footer {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid #e7ecf3;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.password-footer span:nth-child(2) {
+  color: #cbd5e1;
+}
+
+/* =========================================================
+   ERROR EFFECTS — dipicu saat password salah
+   ========================================================= */
+
+/* Logo bergetar + glow merah */
+.password-image-error {
+  animation: passwordImageError 0.9s cubic-bezier(.36, .07, .19, .97) !important;
+  filter:
+    brightness(0.65)
+    saturate(2.8)
+    drop-shadow(0 0 10px rgba(255, 0, 0, 1))
+    drop-shadow(0 0 25px rgba(255, 0, 0, 0.95))
+    drop-shadow(0 0 45px rgba(255, 0, 0, 0.75));
+}
+
+@keyframes passwordImageError {
+  0%   { transform: translateX(0) scale(1); }
+  8%   { transform: translateX(-16px) scale(1.03); }
+  16%  { transform: translateX(16px)  scale(1.03); }
+  24%  { transform: translateX(-14px) scale(1.025); }
+  32%  { transform: translateX(14px)  scale(1.025); }
+  40%  { transform: translateX(-12px) scale(1.02); }
+  48%  { transform: translateX(12px)  scale(1.02); }
+  56%  { transform: translateX(-9px)  scale(1.015); }
+  64%  { transform: translateX(9px)   scale(1.015); }
+  72%  { transform: translateX(-6px)  scale(1.01); }
+  80%  { transform: translateX(6px)   scale(1.01); }
+  90%  { transform: translateX(-3px)  scale(1); }
+  100% { transform: translateX(0)     scale(1); }
+}
+
+/* Overlay merah satu layar */
+.password-screen-error {
+  animation: passwordScreenError 0.9s ease-out;
+}
+
+@keyframes passwordScreenError {
+  0% {
+    background-color: rgba(255, 0, 0, 0);
+    box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
   }
-  .password-screen.hidden {
-    opacity: 0; pointer-events: none; transform: translateY(-30px);
+  10% {
+    background-color: rgba(255, 0, 0, 0.48);
+    box-shadow:
+      inset 0 0 160px rgba(255, 0, 0, 0.85),
+      inset 0 0 320px rgba(255, 0, 0, 0.65);
   }
-  
+  22% {
+    background-color: rgba(150, 0, 0, 0.58);
+    box-shadow:
+      inset 0 0 100px rgba(255, 0, 0, 1),
+      inset 0 0 260px rgba(255, 0, 0, 0.9),
+      inset 0 0 500px rgba(255, 0, 0, 0.55);
+  }
+  38% {
+    background-color: rgba(255, 0, 0, 0.35);
+    box-shadow:
+      inset 0 0 180px rgba(255, 0, 0, 0.95),
+      inset 0 0 360px rgba(255, 0, 0, 0.7);
+  }
+  55% {
+    background-color: rgba(255, 0, 0, 0.20);
+    box-shadow:
+      inset 0 0 120px rgba(255, 0, 0, 0.75),
+      inset 0 0 300px rgba(255, 0, 0, 0.55);
+  }
+  75% {
+    background-color: rgba(255, 0, 0, 0.10);
+    box-shadow:
+      inset 0 0 80px rgba(255, 0, 0, 0.45),
+      inset 0 0 220px rgba(255, 0, 0, 0.30);
+  }
+  100% {
+    background-color: rgba(255, 0, 0, 0);
+    box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
+  }
+}
+
+/* Red overlay */
+.password-screen-error::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 0, 0, 0.05) 0%,
+    rgba(255, 0, 0, 0.18) 45%,
+    rgba(255, 0, 0, 0.55) 100%
+  );
+  animation: passwordRedOverlay 0.9s ease-out;
+}
+
+@keyframes passwordRedOverlay {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  25%  { opacity: 0.95; }
+  45%  { opacity: 0.72; }
+  65%  { opacity: 0.42; }
+  82%  { opacity: 0.18; }
+  100% { opacity: 0; }
+}
+
+/* Border flash */
+.password-screen-error::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+  border: 6px solid rgba(255, 0, 0, 0);
+  box-sizing: border-box;
+  animation: passwordBorderFlash 0.9s ease-out;
+}
+
+@keyframes passwordBorderFlash {
+  0%   { border-color: rgba(255, 0, 0, 0);    box-shadow: inset 0 0 0 rgba(255, 0, 0, 0); }
+  12%  { border-color: rgba(255, 0, 0, 0.95); box-shadow: inset 0 0 45px rgba(255, 0, 0, 0.75); }
+  30%  { border-color: rgba(255, 0, 0, 0.85); box-shadow: inset 0 0 70px rgba(255, 0, 0, 0.65); }
+  60%  { border-color: rgba(255, 0, 0, 0.35); box-shadow: inset 0 0 35px rgba(255, 0, 0, 0.35); }
+  100% { border-color: rgba(255, 0, 0, 0);    box-shadow: inset 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+/* Error text flash */
+.password-screen-error .password-error {
+  animation: passwordErrorText 0.9s ease-out;
+}
+
+@keyframes passwordErrorText {
+  0%   { color: inherit; text-shadow: 0 0 0 rgba(255, 0, 0, 0); }
+  15%  {
+    color: #ff0000;
+    text-shadow:
+      0 0 8px rgba(255, 0, 0, 1),
+      0 0 18px rgba(255, 0, 0, 0.8);
+  }
+  35%  {
+    color: #ff2020;
+    text-shadow:
+      0 0 12px rgba(255, 0, 0, 1),
+      0 0 25px rgba(255, 0, 0, 0.9);
+  }
+  100% { text-shadow: 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 480px) {
+  .password-screen {
+    padding: 16px 14px;
+  }
+  .password-card {
+    padding: 36px 24px 26px;
+    border-radius: 22px;
+  }
   .password-logo {
-    width: 300px; height: 250px;
-    margin-bottom: 30px;
-    transition: var(--transition);
-    will-change: transform, opacity;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,.3));
-    animation: float 4s ease-in-out infinite;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 16px;
   }
-  @keyframes float {
-    0%,100% { transform: translateY(0) }
-    50%     { transform: translateY(-15px) }
+  .password-title {
+    font-size: 20px;
   }
-  .password-logo.small { width: 150px; height: 125px; margin-bottom: 15px; }
-  
-  .password-form {
-    display: flex; flex-direction: column;
-    align-items: center; gap: 15px;
-    width: 100%; max-width: 400px;
-    transition: var(--transition);
-  }
-  .password-input {
-    padding: 15px 25px;
-    border: 2px solid rgba(255,255,255,.3);
-    border-radius: 12px;
-    font-size: 16px; width: 100%;
-    text-align: center;
-    background: rgba(255,255,255,.1);
-    color: #fff;
-    transition: var(--transition);
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 15px rgba(0,0,0,.1);
-    font-family: inherit;
-  }
-  .password-input:focus {
-    outline: none;
-    border-color: var(--secondary);
-    background: rgba(255,255,255,.2);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,.2);
-  }
-  .password-input::placeholder { color: rgba(255,255,255,.7); }
-  
-  .password-submit {
-    padding: 15px 35px;
-    background: linear-gradient(135deg,var(--secondary) 0%,#2980b9 100%);
-    color: #fff; border: none; border-radius: 12px;
-    font-size: 16px; font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition);
-    width: 100%;
-    box-shadow: 0 4px 15px rgba(0,0,0,.15);
-    letter-spacing: .5px;
-    text-transform: uppercase;
-    font-family: inherit;
-  }
-  .password-submit:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(0,0,0,.2);
-    background: linear-gradient(135deg,#2980b9 0%,var(--secondary) 100%);
-  }
-  
-  .password-error {
-    color: #ff6b6b;
-    margin-top: 10px;
-    height: 20px;
-    font-weight: 500;
-    text-align: center;
-  }
-  
   .welcome-message {
-    font-size: 28px; color: #fff;
-    margin-bottom: 30px;
-    text-align: center;
-    opacity: 0; transform: translateY(20px);
-    transition: all .6s ease .3s;
-    font-weight: 600;
-    text-shadow: 0 2px 10px rgba(0,0,0,.3);
-    max-width: 800px; line-height: 1.4;
+    font-size: 12.5px;
+    margin-bottom: 20px;
   }
-  .welcome-message.show { opacity: 1; transform: translateY(0); }
-  
-  /* Error state */
+  .password-input,
+  .password-submit {
+    font-size: 14px;
+    padding: 13px 16px;
+  }
+  .password-footer {
+    font-size: 10px;
+    margin-top: 20px;
+    padding-top: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .password-card {
+    padding: 30px 18px 22px;
+  }
+  .password-logo {
+    width: 68px;
+    height: 68px;
+  }
+  .password-title {
+    font-size: 18px;
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .password-logo,
+  .password-card {
+    animation-duration: 0.4s !important;
+  }
+  .password-screen-error::before,
+  .password-screen-error::after,
+  .password-screen-error,
   .password-image-error {
-    animation: passwordImageError .9s cubic-bezier(.36,.07,.19,.97);
-    filter: brightness(.65) saturate(2.8)
-            drop-shadow(0 0 10px rgba(255,0,0,1))
-            drop-shadow(0 0 25px rgba(255,0,0,.95))
-            drop-shadow(0 0 45px rgba(255,0,0,.75));
+    animation-duration: 0.5s;
   }
-  @keyframes passwordImageError {
-    0%   { transform: translateX(0) scale(1) }
-    8%   { transform: translateX(-16px) scale(1.03) }
-    16%  { transform: translateX(16px)  scale(1.03) }
-    24%  { transform: translateX(-14px) scale(1.025) }
-    32%  { transform: translateX(14px)  scale(1.025) }
-    40%  { transform: translateX(-12px) scale(1.02) }
-    48%  { transform: translateX(12px)  scale(1.02) }
-    56%  { transform: translateX(-9px)  scale(1.015) }
-    64%  { transform: translateX(9px)   scale(1.015) }
-    72%  { transform: translateX(-6px)  scale(1.01) }
-    80%  { transform: translateX(6px)   scale(1.01) }
-    90%  { transform: translateX(-3px)  scale(1) }
-    100% { transform: translateX(0)     scale(1) }
-  }
-  
-  .password-screen-error { animation: passwordScreenError .9s ease-out; }
-  @keyframes passwordScreenError {
-    0%   { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0) }
-    10%  { background-color: rgba(255,0,0,.48);  box-shadow: inset 0 0 160px rgba(255,0,0,.85), inset 0 0 320px rgba(255,0,0,.65) }
-    22%  { background-color: rgba(150,0,0,.58);  box-shadow: inset 0 0 100px rgba(255,0,0,1), inset 0 0 260px rgba(255,0,0,.9), inset 0 0 500px rgba(255,0,0,.55) }
-    38%  { background-color: rgba(255,0,0,.35);  box-shadow: inset 0 0 180px rgba(255,0,0,.95), inset 0 0 360px rgba(255,0,0,.7) }
-    55%  { background-color: rgba(255,0,0,.20);  box-shadow: inset 0 0 120px rgba(255,0,0,.75), inset 0 0 300px rgba(255,0,0,.55) }
-    75%  { background-color: rgba(255,0,0,.10);  box-shadow: inset 0 0 80px rgba(255,0,0,.45), inset 0 0 220px rgba(255,0,0,.3) }
-    100% { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0) }
-  }
-  .password-screen-error::before {
-    content: ""; position: fixed; inset: 0;
-    width: 100vw; height: 100vh;
-    pointer-events: none; z-index: 9999;
-    background: radial-gradient(ellipse at center, rgba(255,0,0,.05) 0%, rgba(255,0,0,.18) 45%, rgba(255,0,0,.55) 100%);
-    animation: passwordRedOverlay .9s ease-out;
-  }
-  @keyframes passwordRedOverlay {
-    0%{opacity:0} 12%{opacity:1} 25%{opacity:.95} 45%{opacity:.72}
-    65%{opacity:.42} 82%{opacity:.18} 100%{opacity:0}
-  }
-  .password-screen-error::after {
-    content: ""; position: fixed; inset: 0;
-    pointer-events: none; z-index: 10000;
-    border: 6px solid rgba(255,0,0,0);
-    box-sizing: border-box;
-    animation: passwordBorderFlash .9s ease-out;
-  }
-  @keyframes passwordBorderFlash {
-    0%  { border-color: rgba(255,0,0,0);   box-shadow: inset 0 0 0 rgba(255,0,0,0) }
-    12% { border-color: rgba(255,0,0,.95); box-shadow: inset 0 0 45px rgba(255,0,0,.75) }
-    30% { border-color: rgba(255,0,0,.85); box-shadow: inset 0 0 70px rgba(255,0,0,.65) }
-    60% { border-color: rgba(255,0,0,.35); box-shadow: inset 0 0 35px rgba(255,0,0,.35) }
-    100%{ border-color: rgba(255,0,0,0);   box-shadow: inset 0 0 0 rgba(255,0,0,0) }
-  }
-  .password-screen-error .password-error { animation: passwordErrorText .9s ease-out; }
-  @keyframes passwordErrorText {
-    0%  { color: inherit; text-shadow: 0 0 0 rgba(255,0,0,0) }
-    15% { color: #ff0000; text-shadow: 0 0 8px  rgba(255,0,0,1), 0 0 18px rgba(255,0,0,.8) }
-    35% { color: #ff2020; text-shadow: 0 0 12px rgba(255,0,0,1), 0 0 25px rgba(255,0,0,.9) }
-    100%{ text-shadow: 0 0 0 rgba(255,0,0,0) }
-  }
-  
-  @media (max-width: 480px) {
-    .password-logo { width: 220px; height: 180px; }
-    .welcome-message { font-size: 22px; }
-  }
+}
