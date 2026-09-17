@@ -540,6 +540,7 @@ async function finishExcelTest(timeUp) {
     setUI('📤', 'Mengirim ke admin...', 'Mengunggah file .xlsx...', 60);
     await uploadExcelToGAS(xlsxBlob, filename);
 
+    // ✅ Tandai selesai
     __excelFinished = true;
 
     try {
@@ -547,8 +548,6 @@ async function finishExcelTest(timeUp) {
       saved.EXCEL = true;
       localStorage.setItem('completed', JSON.stringify(saved));
     } catch (e) {}
-
-    setUI('✅', 'Berhasil Terkirim!', 'Hasil Anda sudah diterima admin. Halaman akan dimuat ulang...', 100);
 
     appState.completed = appState.completed || {};
     appState.completed.EXCEL = true;
@@ -561,17 +560,47 @@ async function finishExcelTest(timeUp) {
       try { window.updateDownloadButtonState(); } catch (e) {}
     }
 
+    // ✅ Cek apakah semua tes selesai
+    setUI('✅', 'Excel Terkirim!', 'Memeriksa status tes...', 100);
+
     setTimeout(() => {
       window.__inTestView = false;
-      try {
-        window.location.reload();
-      } catch (e) {
-        if (typeof window.renderHome === 'function') window.renderHome();
+
+      const allDone = (typeof window.allTestsCompleted === 'function')
+        ? window.allTestsCompleted()
+        : false;
+
+      if (allDone) {
+        // Semua tes selesai → otomatis kirim PDF ke admin
+        setUI('📤', 'Semua tes selesai!', 'Mengirim hasil tes (PDF) ke admin...', 100);
+
+        setTimeout(() => {
+          // Bersihkan app container supaya tidak numpuk dengan overlay PDF
+          try { document.getElementById('app').innerHTML = ''; } catch (e) {}
+
+          if (typeof window.startSubmitProcess === 'function') {
+            window.startSubmitProcess();
+          } else if (typeof window.renderHome === 'function') {
+            window.renderHome();
+          }
+        }, 1200);
+      } else {
+        // Belum semua selesai → balik ke home
+        setUI('🏠', 'Kembali ke beranda…', 'Excel sudah terkirim ke admin.', 100);
+
+        setTimeout(() => {
+          if (typeof window.renderHome === 'function') {
+            window.renderHome();
+          } else {
+            window.location.reload();
+          }
+        }, 1000);
       }
-    }, 2500);
+    }, 800);
 
   } catch (err) {
     console.error('[EXCEL] Finish error:', err);
+    // Reset guard supaya bisa retry
     __excelFinishing = false;
     setUI('❌', 'Gagal Kirim', 'Error: ' + err.message + ' — Screenshot & hubungi admin.', 100);
   }
