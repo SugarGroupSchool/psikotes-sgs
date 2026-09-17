@@ -17,7 +17,6 @@
         <div style="display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:8px;">
           ${renderTestLogoBadge()}
           <div style="text-align:left;">
-            <div class="instruction-icon" style="font-size:1.8em;margin-bottom:2px;">🧮</div>
             <h2 style="margin:0;">Instruksi Tes Kraeplin</h2>
           </div>
         </div>
