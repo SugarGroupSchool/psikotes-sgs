@@ -103,12 +103,13 @@ function renderTestLogoBadge(size = 'normal') {
   `;
 }
 
-function renderTestLogoHeader({ eyebrow, title, subtitle, centered = false, size = 'normal' }) {
+function renderTestLogoHeader({ eyebrow, title, subtitle, centered = true, size = 'normal' }) {
+  // Default centered = true → logo di atas, teks di bawah
   return `
     <div class="test-logo-header ${centered ? 'test-logo-header--centered' : ''}">
       ${renderTestLogoBadge(size)}
-      <div${centered ? ' style="text-align:center;"' : ''}>
-        ${eyebrow ? `<div class="ist-eyebrow">${eyebrow}</div>` : ''}
+      <div style="${centered ? 'text-align:center;' : ''}">
+        ${eyebrow ? `<div class="ist-eyebrow"${centered ? ' style="justify-content:center;"' : ''}>${eyebrow}</div>` : ''}
         ${title ? `<h2 class="ist-title"${centered ? ' style="margin:8px 0 7px;"' : ' style="margin-top:11px;"'}>${title}</h2>` : ''}
         ${subtitle ? `<p class="ist-subtitle">${subtitle}</p>` : ''}
       </div>
