@@ -27,13 +27,15 @@ function renderSubjectTestHome() {
       <div class="subject-test-container">
         <div class="subject-hero">
           <div class="subject-hero-accent"></div>
-          <div class="subject-hero-content">
-            <div class="subject-hero-icon">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-              </svg>
-            </div>
+           <div class="subject-hero-content">
+             <div class="test-logo-badge" style="width:62px;height:62px;min-width:62px;flex-basis:62px;border-radius:18px;">
+               <img
+                 src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+                 alt="Sugar Group Schools"
+                 style="width:100%;height:100%;object-fit:contain;padding:7px;"
+                 onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+               >
+             </div>
             <div class="subject-hero-text">
               <div class="subject-eyebrow">ASSESSMENT CENTER</div>
               <h1>${tests.SUBJECT.name}</h1>
@@ -374,7 +376,16 @@ function selesaiSubjectUpload() {
       max-width:820px;margin:34px auto;padding:32px 28px;border-radius:22px;
       background:linear-gradient(135deg,#f5fff8 86%,#e8fff1 100%);
       box-shadow:0 10px 34px #c7f4da55;border:1.6px solid #c8f1d6;text-align:center;">
-      <div style="font-size:3rem;line-height:1;margin-bottom:10px;">🎉</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">
+        <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
+          <img
+            src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+            alt="Sugar Group Schools"
+            style="width:100%;height:100%;object-fit:contain;padding:6px;"
+            onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+          >
+        </div>
+      </div>
       <h2 style="margin:6px 0 8px 0;font-weight:900;color:#13693a;">
         Terima kasih! Tes Subjek sudah selesai
       </h2>
