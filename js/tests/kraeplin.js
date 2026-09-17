@@ -263,7 +263,7 @@
      let html = `
        <div class="card kraeplin-card${dangerEffect}" aria-hidden="${(!appState.kraeplinStarted && !isSelesai) ? 'true' : 'false'}">
          <div class="header">
-           <span class="test-icon">🧮</span>
+           ${renderTestLogoBadge('small')}
            <h2>${tests.KRAEPLIN.name}</h2>
            <p>${tests.KRAEPLIN.description}</p>
            <p>Waktu per kolom: <strong style="color:#4f46e5;"><span id="timer-desc">${appState.timeLeft || 15}s</span></strong></p>
