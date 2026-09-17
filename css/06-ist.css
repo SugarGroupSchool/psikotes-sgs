@@ -819,12 +819,19 @@
     .ist-prev-btn, .ist-main-btn { width: 100%; }
   }
 /* ============================================================
-   ✅ TEST LOGO HEADER — konsisten untuk semua sesi tes
+   ✅ TEST LOGO HEADER — centered by default
    ============================================================ */
 .test-logo-header {
   display: flex;
   align-items: center;
+  justify-content: center;    /* ✅ TAMBAHAN: center horizontal */
+  text-align: center;          /* ✅ TAMBAHAN: center text */
   gap: 15px;
+  flex-wrap: wrap;             /* ✅ TAMBAHAN: biar tidak overflow di mobile */
+}
+
+.test-logo-header > div:last-child {
+  min-width: 0;
 }
 
 .test-logo-badge {
@@ -849,7 +856,6 @@
   display: block;
 }
 
-/* Variasi untuk thank-you screen (centered) */
 .test-logo-header--centered {
   flex-direction: column;
   text-align: center;
@@ -866,7 +872,6 @@
   box-shadow: 0 12px 28px rgba(91,92,240,.14);
 }
 
-/* Variasi kecil untuk intro compact */
 .test-logo-badge--small {
   width: 44px;
   height: 44px;
@@ -879,7 +884,6 @@
   padding: 5px;
 }
 
-/* Fallback monogram kalau logo gagal load */
 .test-logo-badge__fallback {
   width: 100%;
   height: 100%;
@@ -890,4 +894,12 @@
   font-weight: 900;
   font-size: 1.15rem;
   letter-spacing: -.5px;
+}
+
+/* Kalau header di dalam .ist-header-row (kanan-kiri), 
+   paksa kolom tengah */
+.ist-header-row .test-logo-header,
+.ist-header-row > div > .test-logo-header {
+  justify-content: center;
+  flex: 1;
 }
