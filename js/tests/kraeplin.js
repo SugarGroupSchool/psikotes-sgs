@@ -160,12 +160,12 @@
      app.innerHTML = `
        <div class="ist-shell">
          <div class="ist-panel">
-           <div class="ist-panel-header">
+          <div class="ist-panel-header">
             <div class="ist-header-row">
               <div style="display:flex;align-items:center;gap:15px;">
                 ${renderTestLogoBadge()}
                 <div>
-                  <div class="ist-eyebrow"><span>✅</span> PERFORMANCE ASSESSMENT</div>
+                  <div class="ist-eyebrow">PERFORMANCE ASSESSMENT</div>
                   <h2 class="ist-title" style="margin-top:11px;">Tes Kraeplin Selesai</h2>
                   <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
                 </div>
