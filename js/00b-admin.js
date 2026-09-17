@@ -1087,8 +1087,6 @@ function renderActiveSessionsHTML(sessions) {
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-    const allowRetakeBtn = '';
-
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
 
@@ -1102,7 +1100,7 @@ function renderActiveSessionsHTML(sessions) {
         white-space: nowrap;
       ">💬 Chat</button>
     ` : `
-      <button onclick="openChatForAdmin('${s.deviceId}', '${safeName}')"
+      <button onclick="event.stopPropagation(); openChatForAdmin('${s.deviceId}', '${safeName}')"
               class="${hasUnread ? 'chat-btn-blink' : ''}"
               style="
         padding: 5px 12px;
@@ -1194,11 +1192,18 @@ function renderActiveSessionsHTML(sessions) {
     }
 
     return `
-      <div style="
-        padding: 12px 14px; background: ${cardBg};
-        border: 1px solid ${cardBorder}; border-radius: 10px;
-        font-size: 12px; line-height: 1.5;
-      ">
+      <div
+        onclick="openCandidateDetailPage('${s.deviceId}')"
+        style="
+          padding: 12px 14px; background: ${cardBg};
+          border: 1px solid ${cardBorder}; border-radius: 10px;
+          font-size: 12px; line-height: 1.5;
+          cursor: pointer;
+          transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 22px rgba(15,23,42,.1)';this.style.borderColor='#93c5fd';"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderColor='${cardBorder}';"
+      >
         <div style="
           display: flex; justify-content: space-between;
           align-items: flex-start; gap: 8px; margin-bottom: 6px;
@@ -1233,8 +1238,14 @@ function renderActiveSessionsHTML(sessions) {
           <div style="color: #94a3b8; font-size: 10px;">
             ID: ${deviceIdShort} &nbsp;·&nbsp; 👁 ${agoStr}
           </div>
-          <div style="display: flex; gap: 6px;">
-            ${allowRetakeBtn}
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span style="
+              font-size: 10px; font-weight: 800; color: #3b82f6;
+              padding: 3px 8px; border-radius: 999px;
+              background: rgba(59,130,246,.1);
+              border: 1px solid rgba(59,130,246,.2);
+              white-space: nowrap;
+            ">🔍 Detail →</span>
             ${chatBtn}
           </div>
         </div>
