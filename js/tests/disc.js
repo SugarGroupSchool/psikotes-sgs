@@ -26,7 +26,7 @@
               <div style="display:flex;align-items:center;gap:15px;">
                 ${renderTestLogoBadge()}
                 <div>
-                  <div class="ist-eyebrow"><span>👤</span> PERSONALITY ASSESSMENT</div>
+                  <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
                   <h2 class="ist-title" style="margin-top:11px;">${tests.DISC.name}</h2>
                   <p class="ist-subtitle">${tests.DISC.description || 'Tes kepribadian DISC'}</p>
                 </div>
@@ -301,13 +301,13 @@
               <div style="display:flex;align-items:center;gap:15px;">
                 ${renderTestLogoBadge()}
                 <div>
-                  <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
+                  <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
                   <h2 class="ist-title" style="margin-top:11px;">Tes DISC Selesai</h2>
                   <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
                 </div>
               </div>
             </div>
-          </div>  
+          </div>
           <div class="ist-body">
             <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
               <div style="font-size:4rem;line-height:1;margin-bottom:16px;">🎉</div>
