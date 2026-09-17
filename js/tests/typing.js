@@ -64,9 +64,12 @@
         box-shadow:0 10px 36px #c9eaff33,0 1.5px 6px #fff9;border:1.7px solid #bfe3fc;">
   
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
-          <h2 style="margin:0;font-weight:900;color:#1662a5;letter-spacing:.2px;text-shadow:0 1.5px 10px #e1efff99;">
-            Tes Mengetik (Typing Test)
-          </h2>
+          <div style="display:flex;align-items:center;gap:13px;min-width:0;">
+            ${renderTestLogoBadge('small')}
+            <h2 style="margin:0;font-weight:900;color:#1662a5;letter-spacing:.2px;text-shadow:0 1.5px 10px #e1efff99;">
+              Tes Mengetik (Typing Test)
+            </h2>
+          </div>
           <div class="timer-container" style="text-align:right;">
             <span class="timer-icon" style="margin-right:6px;">⏱️</span>
             <span class="timer" id="typingTimer" style="font-weight:800;font-size:1.07em;">${formatTypingTime(waktuTyping)}</span>
@@ -228,7 +231,16 @@
         max-width:820px;margin:34px auto;padding:32px 28px;border-radius:22px;
         background:linear-gradient(135deg,#f5fff8 86%,#e8fff1 100%);
         box-shadow:0 10px 34px #c7f4da55;border:1.6px solid #c8f1d6;text-align:center;">
-        <div style="font-size:3rem;line-height:1;margin-bottom:10px;">🎉</div>
+        <div style="display:flex;justify-content:center;margin-bottom:14px;">
+          <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
+            <img
+              src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+              alt="Sugar Group Schools"
+              style="width:100%;height:100%;object-fit:contain;padding:6px;"
+              onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+            >
+          </div>
+        </div>
         <h2 style="margin:6px 0 8px 0;font-weight:900;color:#13693a;">
           Terima kasih! Tes Mengetik sudah selesai
         </h2>
