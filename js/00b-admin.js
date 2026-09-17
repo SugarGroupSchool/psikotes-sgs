@@ -7,6 +7,7 @@
    - Tombol "Izinkan Tes Lagi" untuk device finished/diskualifikasi
    - Auto-cleanup chat device tidak aktif
    - ✅ BARU: Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
+   - ✅ FIX: Halaman hasil tes z-index 100000 (di atas panel admin)
    ============================================================ */
 
 /* ============================================================
@@ -1394,6 +1395,7 @@ async function rejectAccessRequest(deviceId) {
    ✅ HALAMAN HASIL TES TERKIRIM — fullscreen overlay
    - Filter by posisi + search nama
    - Grouping per kandidat
+   - ✅ FIX: z-index 100000 (di atas panel admin 99999)
    ============================================================ */
 window.__resultFilesCache = [];
 window.__resultFilterPosition = 'all';
@@ -1401,203 +1403,216 @@ window.__resultSearchQuery = '';
 window.__resultFilesPageOpen = false;
 
 function openResultFilesPage() {
-  if (window.__resultFilesPageOpen) return;
-  window.__resultFilesPageOpen = true;
+  // Kalau overlay lama masih ada, buang dulu (hindari stuck)
+  const existing = document.getElementById('resultFilesPageOverlay');
+  if (existing) existing.remove();
 
-  const overlay = document.createElement('div');
-  overlay.id = 'resultFilesPageOverlay';
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 99998;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    display: flex; flex-direction: column;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
-    color: #e2e8f0;
-    animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);
-  `;
+  // Reset flag (biar tidak nyangkut kalau sebelumnya error)
+  window.__resultFilesPageOpen = false;
 
-  overlay.innerHTML = `
-    <style>
-      @keyframes resultPageIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes resultCardIn {
-        from { opacity: 0; transform: translateY(12px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes resultSpinner {
-        to { transform: rotate(360deg); }
-      }
-      #resultFilesPageOverlay ::-webkit-scrollbar { width: 8px; height: 8px; }
-      #resultFilesPageOverlay ::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
-      #resultFilesPageOverlay ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
-      #resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.25); }
-      .rf-chip {
-        padding: 8px 16px; border-radius: 999px;
-        background: rgba(255,255,255,.06);
-        border: 1.5px solid rgba(255,255,255,.1);
-        color: #cbd5e1; font-size: 13px; font-weight: 700;
-        cursor: pointer; transition: all .18s ease;
-        font-family: inherit; white-space: nowrap;
-      }
-      .rf-chip:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
-      .rf-chip.active {
-        background: linear-gradient(135deg, #3b82f6, #6366f1);
-        border-color: transparent; color: #fff;
-        box-shadow: 0 4px 14px rgba(59,130,246,.4);
-      }
-      .rf-card {
-        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-        border: 1px solid rgba(255,255,255,.08);
-        border-radius: 18px; padding: 20px;
-        transition: all .22s ease;
-        backdrop-filter: blur(10px);
-        animation: resultCardIn .35s ease both;
-      }
-      .rf-card:hover {
-        border-color: rgba(99,102,241,.4);
-        transform: translateY(-3px);
-        box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2);
-      }
-      .rf-btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 8px 14px; border-radius: 9px;
-        font-size: 12px; font-weight: 800;
-        cursor: pointer; transition: all .18s ease;
-        font-family: inherit; text-decoration: none;
-        border: 0;
-      }
-      .rf-btn:hover { transform: translateY(-1px); }
-      .rf-btn-primary {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(59,130,246,.3);
-      }
-      .rf-btn-primary:hover { box-shadow: 0 6px 16px rgba(59,130,246,.4); }
-      .rf-btn-danger {
-        background: rgba(239,68,68,.12);
-        color: #fca5a5;
-        border: 1px solid rgba(239,68,68,.3);
-      }
-      .rf-btn-danger:hover { background: rgba(239,68,68,.2); color: #fecaca; }
-    </style>
+  try {
+    window.__resultFilesPageOpen = true;
 
-    <!-- HEADER -->
-    <div style="
-      padding: 20px 28px;
-      background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      display: flex; align-items: center; gap: 18px;
-      flex-wrap: wrap;
-    ">
-      <button id="rfBackBtn" style="
-        width: 42px; height: 42px; flex: 0 0 42px;
-        display: grid; place-items: center;
-        background: rgba(255,255,255,.08);
-        border: 1.5px solid rgba(255,255,255,.14);
-        border-radius: 12px; color: #fff;
-        font-size: 18px; cursor: pointer;
-        font-family: inherit; transition: all .18s ease;
-      " onmouseover="this.style.background='rgba(255,255,255,.15)'"
-         onmouseout="this.style.background='rgba(255,255,255,.08)'">←</button>
+    const overlay = document.createElement('div');
+    overlay.id = 'resultFilesPageOverlay';
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: 100000;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      display: flex; flex-direction: column;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      color: #e2e8f0;
+      animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);
+    `;
 
-      <div style="flex: 1; min-width: 0;">
-        <div style="
-          font-size: 11px; font-weight: 800;
-          letter-spacing: 2px; color: #818cf8;
-          margin-bottom: 4px;
-        ">ADMIN PANEL · HASIL TES</div>
-        <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">
-          📄 Hasil Tes Terkirim
-        </div>
-      </div>
+    overlay.innerHTML = `
+      <style>
+        @keyframes resultPageIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes resultCardIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes resultSpinner {
+          to { transform: rotate(360deg); }
+        }
+        #resultFilesPageOverlay ::-webkit-scrollbar { width: 8px; height: 8px; }
+        #resultFilesPageOverlay ::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
+        #resultFilesPageOverlay ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+        #resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.25); }
+        .rf-chip {
+          padding: 8px 16px; border-radius: 999px;
+          background: rgba(255,255,255,.06);
+          border: 1.5px solid rgba(255,255,255,.1);
+          color: #cbd5e1; font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: all .18s ease;
+          font-family: inherit; white-space: nowrap;
+        }
+        .rf-chip:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
+        .rf-chip.active {
+          background: linear-gradient(135deg, #3b82f6, #6366f1);
+          border-color: transparent; color: #fff;
+          box-shadow: 0 4px 14px rgba(59,130,246,.4);
+        }
+        .rf-card {
+          background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 18px; padding: 20px;
+          transition: all .22s ease;
+          backdrop-filter: blur(10px);
+          animation: resultCardIn .35s ease both;
+        }
+        .rf-card:hover {
+          border-color: rgba(99,102,241,.4);
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2);
+        }
+        .rf-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 8px 14px; border-radius: 9px;
+          font-size: 12px; font-weight: 800;
+          cursor: pointer; transition: all .18s ease;
+          font-family: inherit; text-decoration: none;
+          border: 0;
+        }
+        .rf-btn:hover { transform: translateY(-1px); }
+        .rf-btn-primary {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(59,130,246,.3);
+        }
+        .rf-btn-primary:hover { box-shadow: 0 6px 16px rgba(59,130,246,.4); }
+        .rf-btn-danger {
+          background: rgba(239,68,68,.12);
+          color: #fca5a5;
+          border: 1px solid rgba(239,68,68,.3);
+        }
+        .rf-btn-danger:hover { background: rgba(239,68,68,.2); color: #fecaca; }
+      </style>
 
-      <div id="rfStats" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
-
-      <button id="rfRefreshBtn" style="
-        padding: 10px 18px;
-        background: linear-gradient(135deg, #16a34a, #059669);
-        border: 0; border-radius: 11px; color: #fff;
-        font-size: 13px; font-weight: 800;
-        cursor: pointer; font-family: inherit;
-        box-shadow: 0 6px 16px rgba(22,163,74,.3);
-        transition: all .18s ease;
-      " onmouseover="this.style.transform='translateY(-1px)'"
-         onmouseout="this.style.transform='translateY(0)'">🔄 Refresh</button>
-    </div>
-
-    <!-- FILTER BAR -->
-    <div style="
-      padding: 18px 28px;
-      background: rgba(0,0,0,.15);
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    ">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
-        <div style="flex: 1; min-width: 240px; position: relative;">
-          <input id="rfSearchInput" type="text" placeholder="Cari nama kandidat atau posisi..."
-            autocomplete="off"
-            style="
-              width: 100%; padding: 12px 16px 12px 42px;
-              background: rgba(255,255,255,.06);
-              border: 1.5px solid rgba(255,255,255,.1);
-              border-radius: 12px;
-              color: #fff; font-size: 14px;
-              font-family: inherit; outline: none;
-              transition: all .18s ease;
-              box-sizing: border-box;
-            "
-            onfocus="this.style.borderColor='rgba(99,102,241,.6)';this.style.background='rgba(255,255,255,.09)'"
-            onblur="this.style.borderColor='rgba(255,255,255,.1)';this.style.background='rgba(255,255,255,.06)'">
-          <span style="
-            position: absolute; left: 15px; top: 50%;
-            transform: translateY(-50%);
-            font-size: 16px; color: #64748b;
-            pointer-events: none;
-          ">🔍</span>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-        <span style="
-          font-size: 11px; font-weight: 800;
-          letter-spacing: 1px; color: #64748b;
-          margin-right: 4px;
-        ">FILTER POSISI:</span>
-        <div id="rfPositionChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
-      </div>
-    </div>
-
-    <!-- CONTENT -->
-    <div id="rfContent" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
+      <!-- HEADER -->
       <div style="
-        display: flex; align-items: center; justify-content: center;
-        padding: 60px 20px; color: #64748b;
-        font-size: 14px; flex-direction: column; gap: 14px;
+        padding: 20px 28px;
+        background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        display: flex; align-items: center; gap: 18px;
+        flex-wrap: wrap;
       ">
-        <div style="
-          width: 40px; height: 40px;
-          border: 3px solid rgba(255,255,255,.1);
-          border-top-color: #6366f1;
-          border-radius: 50%;
-          animation: resultSpinner 0.8s linear infinite;
-        "></div>
-        Memuat daftar hasil tes...
+        <button id="rfBackBtn" style="
+          width: 42px; height: 42px; flex: 0 0 42px;
+          display: grid; place-items: center;
+          background: rgba(255,255,255,.08);
+          border: 1.5px solid rgba(255,255,255,.14);
+          border-radius: 12px; color: #fff;
+          font-size: 18px; cursor: pointer;
+          font-family: inherit; transition: all .18s ease;
+        " onmouseover="this.style.background='rgba(255,255,255,.15)'"
+           onmouseout="this.style.background='rgba(255,255,255,.08)'">←</button>
+
+        <div style="flex: 1; min-width: 0;">
+          <div style="
+            font-size: 11px; font-weight: 800;
+            letter-spacing: 2px; color: #818cf8;
+            margin-bottom: 4px;
+          ">ADMIN PANEL · HASIL TES</div>
+          <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">
+            📄 Hasil Tes Terkirim
+          </div>
+        </div>
+
+        <div id="rfStats" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
+
+        <button id="rfRefreshBtn" style="
+          padding: 10px 18px;
+          background: linear-gradient(135deg, #16a34a, #059669);
+          border: 0; border-radius: 11px; color: #fff;
+          font-size: 13px; font-weight: 800;
+          cursor: pointer; font-family: inherit;
+          box-shadow: 0 6px 16px rgba(22,163,74,.3);
+          transition: all .18s ease;
+        " onmouseover="this.style.transform='translateY(-1px)'"
+           onmouseout="this.style.transform='translateY(0)'">🔄 Refresh</button>
       </div>
-    </div>
-  `;
 
-  document.body.appendChild(overlay);
+      <!-- FILTER BAR -->
+      <div style="
+        padding: 18px 28px;
+        background: rgba(0,0,0,.15);
+        border-bottom: 1px solid rgba(255,255,255,.06);
+      ">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
+          <div style="flex: 1; min-width: 240px; position: relative;">
+            <input id="rfSearchInput" type="text" placeholder="Cari nama kandidat atau posisi..."
+              autocomplete="off"
+              style="
+                width: 100%; padding: 12px 16px 12px 42px;
+                background: rgba(255,255,255,.06);
+                border: 1.5px solid rgba(255,255,255,.1);
+                border-radius: 12px;
+                color: #fff; font-size: 14px;
+                font-family: inherit; outline: none;
+                transition: all .18s ease;
+                box-sizing: border-box;
+              "
+              onfocus="this.style.borderColor='rgba(99,102,241,.6)';this.style.background='rgba(255,255,255,.09)'"
+              onblur="this.style.borderColor='rgba(255,255,255,.1)';this.style.background='rgba(255,255,255,.06)'">
+            <span style="
+              position: absolute; left: 15px; top: 50%;
+              transform: translateY(-50%);
+              font-size: 16px; color: #64748b;
+              pointer-events: none;
+            ">🔍</span>
+          </div>
+        </div>
 
-  document.getElementById('rfBackBtn').onclick = closeResultFilesPage;
-  document.getElementById('rfRefreshBtn').onclick = () => loadResultFilesForPage();
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <span style="
+            font-size: 11px; font-weight: 800;
+            letter-spacing: 1px; color: #64748b;
+            margin-right: 4px;
+          ">FILTER POSISI:</span>
+          <div id="rfPositionChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+        </div>
+      </div>
 
-  const searchInput = document.getElementById('rfSearchInput');
-  searchInput.addEventListener('input', (e) => {
-    window.__resultSearchQuery = (e.target.value || '').toLowerCase().trim();
-    __renderResultPageContent();
-  });
+      <!-- CONTENT -->
+      <div id="rfContent" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
+        <div style="
+          display: flex; align-items: center; justify-content: center;
+          padding: 60px 20px; color: #64748b;
+          font-size: 14px; flex-direction: column; gap: 14px;
+        ">
+          <div style="
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,.1);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: resultSpinner 0.8s linear infinite;
+          "></div>
+          Memuat daftar hasil tes...
+        </div>
+      </div>
+    `;
 
-  loadResultFilesForPage();
+    document.body.appendChild(overlay);
+
+    document.getElementById('rfBackBtn').onclick = closeResultFilesPage;
+    document.getElementById('rfRefreshBtn').onclick = () => loadResultFilesForPage();
+
+    const searchInput = document.getElementById('rfSearchInput');
+    searchInput.addEventListener('input', (e) => {
+      window.__resultSearchQuery = (e.target.value || '').toLowerCase().trim();
+      __renderResultPageContent();
+    });
+
+    loadResultFilesForPage();
+
+  } catch (err) {
+    console.error('[RESULT-PAGE] Gagal buka halaman:', err);
+    window.__resultFilesPageOpen = false;
+    alert('❌ Gagal membuka halaman hasil tes: ' + err.message);
+  }
 }
 
 function closeResultFilesPage() {
