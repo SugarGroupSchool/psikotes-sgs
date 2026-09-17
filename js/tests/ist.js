@@ -119,22 +119,12 @@ function renderISTSubtestIntro() {
   app.innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
-        <div class="ist-panel-header">
-          <div class="ist-header-row">
-           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
-                            ${renderTestLogoBadge()}
-              <div>
-                <div class="ist-eyebrow">INTELLIGENCE ASSESSMENT</div>
-                <h2 class="ist-title" style="margin-top:8px;">Subtes ${subtest.name}</h2>
-                <p class="ist-subtitle">${subtest.description || 'Tes kemampuan intelektual'}</p>
-              </div>
-            </div>
-            <div class="ist-time-chip">
-              <span class="ist-time-chip-icon">⏱</span>
-              <span>${Math.floor((subtest.time || 0) / 60)} menit</span>
-            </div>
-          </div>
-        </div>
+        ${renderTestPageHeader({
+          eyebrow: 'INTELLIGENCE ASSESSMENT',
+          title: `Subtes ${subtest.name}`,
+          subtitle: subtest.description || 'Tes kemampuan intelektual',
+          timeLabel: `${Math.floor((subtest.time || 0) / 60)} menit`
+        })}
 
         <div class="ist-body">
           <div class="ist-info-grid">
@@ -259,7 +249,7 @@ function renderISTMemorizePhase() {
 
   const app = document.getElementById('app');
 
-  function renderMemorize() {
+   function renderMemorize() {
     const mm = String(Math.floor(appState.timeLeft / 60)).padStart(2, '0');
     const ss = String(appState.timeLeft % 60).padStart(2, '0');
 
@@ -273,23 +263,17 @@ function renderISTMemorizePhase() {
     app.innerHTML = `
       <div class="ist-shell">
         <div class="ist-panel ist-memory-panel">
-          <div class="ist-panel-header">
-            <div class="ist-memory-header">
-              <div>
-                <div class="ist-eyebrow">🧠 MEMORY PHASE</div>
-                <h2 class="ist-title" style="margin-top:11px;">
-                  ${subtest.memorizePhase.title || 'Hafalkan daftar berikut'}
-                </h2>
-                <p class="ist-subtitle">
-                  Perhatikan informasi berikut dan hafalkan sebaik mungkin sebelum waktu berakhir.
-                </p>
-              </div>
+          ${renderTestPageHeader({
+            eyebrow: 'MEMORY PHASE',
+            title: subtest.memorizePhase.title || 'Hafalkan daftar berikut',
+            subtitle: 'Perhatikan informasi berikut dan hafalkan sebaik mungkin sebelum waktu berakhir.'
+          })}
+          <div class="ist-body">
+            <div style="display:flex;justify-content:center;margin-bottom:20px;">
               <div class="ist-memory-timer" id="memorize-timer-display">
                 ⏳ ${mm}:${ss}
               </div>
             </div>
-          </div>
-          <div class="ist-body">
             <div class="ist-memory-groups">${groupsHTML}</div>
           </div>
         </div>
@@ -618,18 +602,12 @@ function showThankYouAndHomeIST() {
   app.innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
-        <div class="ist-panel-header">
-          <div class="ist-header-row">
-           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
-              ${renderTestLogoBadge()}
-              <div>
-                <div class="ist-eyebrow">COGNITIVE ASSESSMENT</div>
-                <h2 class="ist-title" style="margin-top:11px;">Tes IST Selesai</h2>
-                <p class="ist-subtitle">Jawaban Anda telah berhasil disimpan.</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        ${renderTestPageHeader({
+          eyebrow: 'COGNITIVE ASSESSMENT',
+          title: 'Tes IST Selesai',
+          subtitle: 'Jawaban Anda telah berhasil disimpan.',
+          showBack: false
+        })}
         <div class="ist-body">
           <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
             <div style="font-size:4rem;line-height:1;margin-bottom:16px;">🎉</div>
