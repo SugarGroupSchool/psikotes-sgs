@@ -82,13 +82,19 @@ function scrollToElement(el, block = 'start') {
 
 /* ============================================================
    ✅ TEST LOGO HEADER — render logo konsisten (tanpa emoji)
+   - Logo selalu CENTER (atas) + teks di bawah
+   - Tidak ada emoji di header
    ============================================================ */
 function renderTestLogoBadge(size = 'normal') {
   const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
     ? APP_CONFIG.LOGO
     : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
 
-  const cls = size === 'small' ? 'test-logo-badge test-logo-badge--small' : 'test-logo-badge';
+  const cls = size === 'small'
+    ? 'test-logo-badge test-logo-badge--small'
+    : (size === 'large'
+        ? 'test-logo-badge test-logo-badge--large'
+        : 'test-logo-badge');
 
   return `
     <div class="${cls}">
@@ -103,20 +109,49 @@ function renderTestLogoBadge(size = 'normal') {
   `;
 }
 
+/**
+ * renderTestLogoHeader — header tes (intro & thank you)
+ * @param {Object} opts
+ * @param {string} opts.eyebrow   - teks kecil di atas judul
+ * @param {string} opts.title     - judul utama
+ * @param {string} opts.subtitle  - deskripsi
+ * @param {boolean} opts.centered - default TRUE (logo di atas, teks di bawah, semua center)
+ * @param {string} opts.size      - 'small' | 'normal' | 'large'
+ */
 function renderTestLogoHeader({ eyebrow, title, subtitle, centered = true, size = 'normal' }) {
-  // Default centered = true → logo di atas, teks di bawah
+  if (centered) {
+    return `
+      <div class="test-logo-header test-logo-header--centered">
+        ${renderTestLogoBadge(size)}
+        <div style="text-align:center;width:100%;">
+          ${eyebrow
+            ? `<div class="ist-eyebrow" style="justify-content:center;">${eyebrow}</div>`
+            : ''}
+          ${title
+            ? `<h2 class="ist-title" style="margin:8px 0 7px;">${title}</h2>`
+            : ''}
+          ${subtitle
+            ? `<p class="ist-subtitle">${subtitle}</p>`
+            : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Non-centered: logo & teks berdampingan, tetap rapi
   return `
-    <div class="test-logo-header ${centered ? 'test-logo-header--centered' : ''}">
+    <div class="test-logo-header" style="justify-content:center;">
       ${renderTestLogoBadge(size)}
-      <div style="${centered ? 'text-align:center;' : ''}">
-        ${eyebrow ? `<div class="ist-eyebrow"${centered ? ' style="justify-content:center;"' : ''}>${eyebrow}</div>` : ''}
-        ${title ? `<h2 class="ist-title"${centered ? ' style="margin:8px 0 7px;"' : ' style="margin-top:11px;"'}>${title}</h2>` : ''}
+      <div>
+        ${eyebrow ? `<div class="ist-eyebrow">${eyebrow}</div>` : ''}
+        ${title ? `<h2 class="ist-title" style="margin-top:11px;">${title}</h2>` : ''}
         ${subtitle ? `<p class="ist-subtitle">${subtitle}</p>` : ''}
       </div>
     </div>
   `;
 }
 
-window.renderTestLogoBadge = renderTestLogoBadge;
+window.renderTestLogoBadge  = renderTestLogoBadge;
 window.renderTestLogoHeader = renderTestLogoHeader;
+
 console.log('[UTILS] ✓ Loaded');
