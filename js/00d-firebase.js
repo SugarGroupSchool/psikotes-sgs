@@ -35,6 +35,8 @@ function initFirebase() {
     console.warn('[FIREBASE] SDK belum ke-load — cek CDN di index.html');
     return;
   }
+  // Note: Firebase tetap di-init untuk admin (dibutuhkan auth admin)
+  // Tapi kita skip modul lain (presence) saat mode admin
 
   try {
     if (!firebase.apps.length) {
