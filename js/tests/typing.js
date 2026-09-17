@@ -63,18 +63,21 @@
         background:linear-gradient(135deg,#f5faff 88%,#e5f3ff 100%);
         box-shadow:0 10px 36px #c9eaff33,0 1.5px 6px #fff9;border:1.7px solid #bfe3fc;">
   
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:13px;min-width:0;">
-            ${renderTestLogoBadge('small')}
-            <h2 style="margin:0;font-weight:900;color:#1662a5;letter-spacing:.2px;text-shadow:0 1.5px 10px #e1efff99;">
-              Tes Mengetik (Typing Test)
-            </h2>
-          </div>
-          <div class="timer-container" style="text-align:right;">
-            <span class="timer-icon" style="margin-right:6px;">⏱️</span>
-            <span class="timer" id="typingTimer" style="font-weight:800;font-size:1.07em;">${formatTypingTime(waktuTyping)}</span>
-          </div>
-        </div>
+<div style="position:relative;margin-bottom:10px;">
+  <!-- ⏱ Timer absolute di kanan atas -->
+  <div class="timer-container" style="position:absolute;top:0;right:0;text-align:right;z-index:2;">
+    <span class="timer-icon" style="margin-right:6px;">⏱️</span>
+    <span class="timer" id="typingTimer" style="font-weight:800;font-size:1.07em;">${formatTypingTime(waktuTyping)}</span>
+  </div>
+
+  <!-- 🏷 Logo + Judul di tengah -->
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:6px 80px 0;">
+    ${renderTestLogoBadge()}
+    <h2 style="margin:0;font-weight:900;color:#1662a5;letter-spacing:.2px;text-shadow:0 1.5px 10px #e1efff99;font-size:1.35em;">
+      Tes Mengetik (Typing Test)
+    </h2>
+  </div>
+</div>
   
         <div class="progress-container" style="height:10px;width:100%;background:#dde7f5;border-radius:10px;overflow:hidden;margin:6px 0 14px 0;">
           <div id="progressTypingBarInner" class="progress-bar" style="height:100%;width:0%;background:#31b729;transition:width .18s;"></div>
