@@ -2223,62 +2223,55 @@ function renderAdminPanel() {
           </div>
         </div>
         
-         <!-- =========================================
-             MONITORING KANDIDAT AKTIF (ACCORDION)
+           <!-- =========================================
+             KANDIDAT AKTIF — tombol buka halaman
              ========================================= -->
-        <div style="
-          padding: 18px 20px;
-          background: linear-gradient(135deg, #eff6ff, #f0f9ff);
-          border: 2px solid #bfdbfe;
+        <button onclick="openActiveCandidatesPage()" style="
+          width: 100%;
+          padding: 20px 22px;
+          background: linear-gradient(135deg, #eff6ff, #dbeafe);
+          border: 2px solid #93c5fd;
           border-radius: 14px;
           margin-bottom: 16px;
-        ">
-          <div onclick="toggleAdminSection('active')" style="
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-          ">
+          cursor: pointer;
+          font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 14px; text-align: left;
+          transition: all .18s ease;
+          box-shadow: 0 2px 8px rgba(59,130,246,.08);
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(59,130,246,.18)';this.style.borderColor='#60a5fa'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(59,130,246,.08)';this.style.borderColor='#93c5fd'">
+
+          <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
             <div style="
-              font-size: 14px; font-weight: 900; color: #1e40af;
-              display: flex; align-items: center; gap: 8px;
-            ">
-              <span id="adminSectionArrow_active" style="font-size: 11px; color: #1e40af; width: 12px;">
-                ${window.__adminSectionOpen.active ? '▼' : '▶'}
-              </span>
-              <span style="
-                width: 10px; height: 10px; border-radius: 50%;
-                background: #22c55e;
-                box-shadow: 0 0 0 4px rgba(34,197,94,.2);
-                animation: adminPulseDot 1.4s ease-in-out infinite;
-              "></span>
-              Kandidat Aktif & Selesai
+              width: 48px; height: 48px; flex: 0 0 48px;
+              display: grid; place-items: center;
+              background: linear-gradient(135deg, #3b82f6, #1e40af);
+              border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(59,130,246,.3);
+            ">📊</div>
+            <div style="min-width: 0;">
+              <div style="
+                font-size: 15px; font-weight: 900; color: #1e3a8a;
+                margin-bottom: 4px;
+              ">Kandidat Aktif &amp; Selesai</div>
+              <div id="adminActiveCount" style="
+                font-size: 12px; font-weight: 700; color: #1e40af;
+              ">Memuat...</div>
             </div>
-            <div id="adminActiveCount" style="
-              font-size: 12px; font-weight: 800; color: #94a3b8;
-              background: #fff; padding: 4px 10px; border-radius: 999px;
-              border: 1px solid #bfdbfe;
-            ">0 kandidat</div>
           </div>
 
-          <div id="adminSectionBody_active" style="
-            display: ${window.__adminSectionOpen.active ? 'block' : 'none'};
-            margin-top: 14px;
-          ">
-            <div id="adminActiveSessions" style="
-              display: flex; flex-direction: column; gap: 8px;
-              max-height: 400px; overflow-y: auto;
-            ">
-              <div style="
-                padding: 14px; text-align: center;
-                color: #94a3b8; font-size: 12px;
-              ">⏳ Memuat data...</div>
-            </div>
-          </div>
-        </div>
+          <div style="
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800;
+            box-shadow: 0 6px 16px rgba(59,130,246,.3);
+            white-space: nowrap; flex: 0 0 auto;
+          ">Buka Halaman →</div>
+        </button>
 
 <!-- =========================================
      HASIL TES TERKIRIM — tombol buka halaman
@@ -2579,28 +2572,17 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
 
   /* ---- Listen kandidat aktif (real-time) ---- */
   setTimeout(() => {
-    const container = document.getElementById('adminActiveSessions');
-    const countEl   = document.getElementById('adminActiveCount');
-    if (!container || typeof window.listenActiveSessions !== 'function') {
-      if (container) {
-        container.innerHTML = `
-          <div style="
-            padding: 14px; text-align: center;
-            color: #94a3b8; font-size: 11px;
-            background: #fff; border-radius: 10px;
-          ">⚠️ Modul monitoring belum siap</div>`;
-      }
-      return;
-    }
+    const countEl = document.getElementById('adminActiveCount');
+    if (!countEl || typeof window.listenActiveSessions !== 'function') return;
 
-    window.listenActiveSessions((sessions) => {
+       window.listenActiveSessions((sessions) => {
       window.__adminLastSessions = sessions;
 
       if (countEl) {
         countEl.textContent = sessions.length + ' kandidat';
         countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
       }
-      container.innerHTML = renderActiveSessionsHTML(sessions);
+      // List tidak dirender di panel — dibuka di halaman terpisah
     });
 
     if (typeof startAdminUnreadTracker === 'function') {
