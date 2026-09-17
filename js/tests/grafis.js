@@ -382,7 +382,16 @@
      <div class="grafis-page">
        <div class="grafis-container">
          <div class="grafis-thank">
-           <div class="grafis-thank-icon">🎉</div>
+           <div style="display:flex;justify-content:center;margin-bottom:14px;">
+             <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
+               <img
+                 src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+                 alt="Sugar Group Schools"
+                 style="width:100%;height:100%;object-fit:contain;padding:6px;"
+                 onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+               >
+             </div>
+           </div>
            <h2>Tes Grafis Selesai</h2>
            <p>Semua gambar Anda telah tersimpan. Silakan lanjut ke tes berikutnya.</p>
            <div class="grafis-actions">
