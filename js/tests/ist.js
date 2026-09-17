@@ -122,9 +122,7 @@ function renderISTSubtestIntro() {
         <div class="ist-panel-header">
           <div class="ist-header-row">
             <div style="display:flex;align-items:center;gap:15px;">
-              <div style="width:58px;height:58px;min-width:58px;border-radius:16px;background:#fff;border:1px solid #e2e5ef;display:grid;place-items:center;box-shadow:0 8px 18px rgba(15,23,42,.07);overflow:hidden;">
-                <img src="${APP_CONFIG.LOGO}" alt="Logo" style="width:100%;height:100%;object-fit:contain;padding:6px;">
-              </div>
+                            ${renderTestLogoBadge()}
               <div>
                 <div class="ist-eyebrow">INTELLIGENCE ASSESSMENT</div>
                 <h2 class="ist-title" style="margin-top:8px;">Subtes ${subtest.name}</h2>
@@ -625,7 +623,7 @@ function showThankYouAndHomeIST() {
             <div style="display:flex;align-items:center;gap:15px;">
               ${renderTestLogoBadge()}
               <div>
-                <div class="ist-eyebrow"><span>✅</span> COGNITIVE ASSESSMENT</div>
+                <div class="ist-eyebrow">COGNITIVE ASSESSMENT</div>
                 <h2 class="ist-title" style="margin-top:11px;">Tes IST Selesai</h2>
                 <p class="ist-subtitle">Jawaban Anda telah berhasil disimpan.</p>
               </div>
