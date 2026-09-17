@@ -121,7 +121,7 @@ function renderISTSubtestIntro() {
       <div class="ist-panel">
         <div class="ist-panel-header">
           <div class="ist-header-row">
-            <div style="display:flex;align-items:center;gap:15px;">
+           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
                             ${renderTestLogoBadge()}
               <div>
                 <div class="ist-eyebrow">INTELLIGENCE ASSESSMENT</div>
@@ -620,7 +620,7 @@ function showThankYouAndHomeIST() {
       <div class="ist-panel">
         <div class="ist-panel-header">
           <div class="ist-header-row">
-            <div style="display:flex;align-items:center;gap:15px;">
+           <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
               ${renderTestLogoBadge()}
               <div>
                 <div class="ist-eyebrow">COGNITIVE ASSESSMENT</div>
