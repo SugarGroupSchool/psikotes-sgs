@@ -24,10 +24,13 @@
           <div class="ist-panel">
             <div class="ist-panel-header">
               <div class="ist-header-row">
-                <div>
-                  <div class="ist-eyebrow"><span>📊</span> PERSONALITY ASSESSMENT</div>
-                  <h2 class="ist-title">${tests.BIGFIVE.name}</h2>
-                  <p class="ist-subtitle">${tests.BIGFIVE.description || ''}</p>
+                <div style="display:flex;align-items:center;gap:15px;">
+                  ${renderTestLogoBadge()}
+                  <div>
+                    <div class="ist-eyebrow"><span>📊</span> PERSONALITY ASSESSMENT</div>
+                    <h2 class="ist-title" style="margin-top:11px;">${tests.BIGFIVE.name}</h2>
+                    <p class="ist-subtitle">${tests.BIGFIVE.description || ''}</p>
+                  </div>
                 </div>
                 <div class="ist-time-chip">
                   <span class="ist-time-chip-icon">⏱</span>
@@ -460,10 +463,13 @@
           <div class="ist-panel">
             <div class="ist-panel-header">
               <div class="ist-header-row">
-                <div>
-                  <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
-                  <h2 class="ist-title">Tes Big Five Selesai</h2>
-                  <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+                <div style="display:flex;align-items:center;gap:15px;">
+                  ${renderTestLogoBadge()}
+                  <div>
+                    <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
+                    <h2 class="ist-title" style="margin-top:11px;">Tes Big Five Selesai</h2>
+                    <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+                  </div>
                 </div>
               </div>
             </div>
