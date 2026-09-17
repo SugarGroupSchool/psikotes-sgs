@@ -622,10 +622,13 @@ function showThankYouAndHomeIST() {
       <div class="ist-panel">
         <div class="ist-panel-header">
           <div class="ist-header-row">
-            <div>
-              <div class="ist-eyebrow"><span>✅</span> COGNITIVE ASSESSMENT</div>
-              <h2 class="ist-title">Tes IST Selesai</h2>
-              <p class="ist-subtitle">Jawaban Anda telah berhasil disimpan.</p>
+            <div style="display:flex;align-items:center;gap:15px;">
+              ${renderTestLogoBadge()}
+              <div>
+                <div class="ist-eyebrow"><span>✅</span> COGNITIVE ASSESSMENT</div>
+                <h2 class="ist-title" style="margin-top:11px;">Tes IST Selesai</h2>
+                <p class="ist-subtitle">Jawaban Anda telah berhasil disimpan.</p>
+              </div>
             </div>
           </div>
         </div>
