@@ -298,14 +298,16 @@
         <div class="ist-panel">
           <div class="ist-panel-header">
             <div class="ist-header-row">
-              <div>
-                <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
-                <h2 class="ist-title">Tes DISC Selesai</h2>
-                <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+              <div style="display:flex;align-items:center;gap:15px;">
+                ${renderTestLogoBadge()}
+                <div>
+                  <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
+                  <h2 class="ist-title" style="margin-top:11px;">Tes DISC Selesai</h2>
+                  <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+                </div>
               </div>
             </div>
-          </div>
-  
+          </div>  
           <div class="ist-body">
             <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
               <div style="font-size:4rem;line-height:1;margin-bottom:16px;">🎉</div>
