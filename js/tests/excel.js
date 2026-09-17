@@ -521,6 +521,16 @@ async function finishExcelTest(timeUp) {
       <div class="ist-panel">
         <div class="ist-body">
           <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
+            <div style="display:flex;justify-content:center;margin-bottom:14px;">
+              <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
+                <img
+                  src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+                  alt="Sugar Group Schools"
+                  style="width:100%;height:100%;object-fit:contain;padding:6px;"
+                  onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+                >
+              </div>
+            </div>
             <div id="excelFinishIcon" style="font-size:50px;margin-bottom:14px;">📊</div>
             <div id="excelFinishTitle" style="font-size:18px;font-weight:900;color:#172033;margin-bottom:10px;">Menyiapkan file Excel...</div>
             <div id="excelFinishMsg" style="color:#64748b;font-size:13.5px;line-height:1.6;">Mohon tunggu, jangan tutup halaman ini.</div>
