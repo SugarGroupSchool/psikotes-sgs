@@ -818,3 +818,76 @@
     .ist-action-left, .ist-action-right { flex: 1; }
     .ist-prev-btn, .ist-main-btn { width: 100%; }
   }
+/* ============================================================
+   ✅ TEST LOGO HEADER — konsisten untuk semua sesi tes
+   ============================================================ */
+.test-logo-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.test-logo-badge {
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  flex: 0 0 58px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e2e5ef;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 8px 18px rgba(15,23,42,.07);
+  overflow: hidden;
+}
+
+.test-logo-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+  display: block;
+}
+
+/* Variasi untuk thank-you screen (centered) */
+.test-logo-header--centered {
+  flex-direction: column;
+  text-align: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.test-logo-header--centered .test-logo-badge {
+  width: 74px;
+  height: 74px;
+  min-width: 74px;
+  flex: 0 0 74px;
+  border-radius: 22px;
+  box-shadow: 0 12px 28px rgba(91,92,240,.14);
+}
+
+/* Variasi kecil untuk intro compact */
+.test-logo-badge--small {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  flex-basis: 44px;
+  border-radius: 12px;
+}
+
+.test-logo-badge--small img {
+  padding: 5px;
+}
+
+/* Fallback monogram kalau logo gagal load */
+.test-logo-badge__fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #5b5cf0, #7c3aed);
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: -.5px;
+}
