@@ -3,6 +3,7 @@
    - Halaman daftar kandidat aktif (openActiveCandidatesPage)
    - Halaman detail kandidat (openCandidateDetailPage)
    - Event delegation (CSP-safe, tanpa onclick inline)
+   - Badge unread + blink animation di setiap tombol chat
    ============================================================ */
 
 (function() {
@@ -63,6 +64,7 @@
   var __detailRef = null;
   var __detailCb = null;
   var __listenerAttached = false;
+  var __chatBadgeInterval = null;
 
   /* ============================================================
      HALAMAN DAFTAR KANDIDAT
@@ -86,6 +88,16 @@
       '<style>',
       '  @keyframes acPageIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }',
       '  @keyframes acSpin { to { transform: rotate(360deg); } }',
+      '  @keyframes acChatBlink {',
+      '    0%, 100% { background: linear-gradient(135deg, #3b82f6, #1e40af); box-shadow: 0 3px 8px rgba(59,130,246,.25), 0 0 0 0 rgba(239,68,68,.6); }',
+      '    50%      { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 3px 12px rgba(239,68,68,.5), 0 0 0 6px rgba(239,68,68,0); }',
+      '  }',
+      '  @keyframes acBadgeBlink {',
+      '    0%, 100% { transform: scale(1); opacity: 1; }',
+      '    50%      { transform: scale(1.2); opacity: .85; }',
+      '  }',
+      '  .ac-chat-btn-blink { animation: acChatBlink 1.3s ease-in-out infinite !important; }',
+      '  .ac-chat-badge-blink { animation: acBadgeBlink 1s ease-in-out infinite !important; }',
       '  .ac-scroll::-webkit-scrollbar { width: 8px; }',
       '  .ac-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }',
       '  .ac-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }',
@@ -133,9 +145,14 @@
       document.getElementById('acContent').innerHTML =
         '<div style="text-align:center;padding:40px;color:#f87171;">❌ Modul monitoring tidak tersedia</div>';
     }
+
+    // Start polling badge update
+    startChatBadgeUpdater();
   }
 
   function closeActiveCandidatesPage() {
+    stopChatBadgeUpdater();
+
     if (typeof window.stopListeningActiveSessions === 'function') {
       try { window.stopListeningActiveSessions(); } catch(e) {}
     }
@@ -169,10 +186,18 @@
       var finishedCount = sessions.filter(function(s) { return s.finished === true; }).length;
       var disqCount = sessions.filter(function(s) { return s.disqualified === true; }).length;
 
+      var unreadMap = window.__adminUnreadMap || {};
+      var totalUnread = 0;
+      Object.keys(unreadMap).forEach(function(k) {
+        var n = Number(unreadMap[k]) || 0;
+        if (n > 0) totalUnread += n;
+      });
+
       stats.innerHTML = [
         '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">🟢 ' + activeCount + ' aktif</div>',
         '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.3); font-size: 12px; font-weight: 800; color: #cbd5e1;">✅ ' + finishedCount + ' selesai</div>',
-        '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); font-size: 12px; font-weight: 800; color: #fca5a5;">⚠️ ' + disqCount + ' diskualifikasi</div>'
+        '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); font-size: 12px; font-weight: 800; color: #fca5a5;">⚠️ ' + disqCount + ' diskualifikasi</div>',
+        totalUnread > 0 ? '<div data-total-unread="1" style="padding: 8px 14px; border-radius: 10px; background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.4); font-size: 12px; font-weight: 800; color: #93c5fd;">💬 ' + totalUnread + ' pesan baru</div>' : ''
       ].join('');
     }
 
@@ -208,22 +233,57 @@
       var totalTests = s.totalTests || 0;
       var pct = totalTests ? Math.round((completedCount / totalTests) * 100) : 0;
 
-      var chatBtnHTML = (isFinished || isDisq) ? '' :
-        '<button class="ac-chat-btn" data-device-id="' + s.deviceId + '" data-name="' + esc(safeName) + '" style="' +
-        'padding: 4px 10px; background: linear-gradient(135deg, #3b82f6, #1e40af);' +
-        'border: 0; color: #fff; font-size: 10px; font-weight: 800;' +
-        'border-radius: 7px; cursor: pointer; font-family: inherit;' +
-        '">💬 Chat</button>';
+      // === Unread info ===
+      var unreadMap = window.__adminUnreadMap || {};
+      var unreadCount = Number(unreadMap[s.deviceId]) || 0;
+      var hasUnread = unreadCount > 0;
+
+      var chatBtnHTML = '';
+      if (!isFinished && !isDisq) {
+        chatBtnHTML = [
+          '<button class="ac-chat-btn ' + (hasUnread ? 'ac-chat-btn-blink' : '') + '" ',
+          '  data-device-id="' + s.deviceId + '" ',
+          '  data-name="' + esc(safeName) + '" ',
+          '  style="',
+          '    position: relative;',
+          '    padding: 5px 12px;',
+          '    background: linear-gradient(135deg, #3b82f6, #1e40af);',
+          '    border: 0; color: #fff; font-size: 10px; font-weight: 800;',
+          '    border-radius: 7px; cursor: pointer; font-family: inherit;',
+          '    box-shadow: 0 3px 8px rgba(59,130,246,.25);',
+          '    white-space: nowrap;',
+          '  ">',
+          '  💬 Chat',
+          '  <span class="ac-chat-badge ' + (hasUnread ? 'ac-chat-badge-blink' : '') + '" style="',
+          '    position: absolute;',
+          '    top: -6px; right: -6px;',
+          '    min-width: 18px; height: 18px;',
+          '    padding: 0 5px;',
+          '    background: #ef4444; color: #fff;',
+          '    font-size: 10px; font-weight: 900;',
+          '    border-radius: 999px;',
+          '    display: ' + (hasUnread ? 'grid' : 'none') + ';',
+          '    place-items: center;',
+          '    box-shadow: 0 0 0 2px rgba(15,23,42,.9);',
+          '    font-family: system-ui, sans-serif;',
+          '  ">' + (hasUnread ? (unreadCount > 99 ? '99+' : unreadCount) : '') + '</span>',
+          '</button>'
+        ].join('');
+      }
+
+      var cardBorderColor = hasUnread ? 'rgba(59,130,246,.45)' : 'rgba(255,255,255,.08)';
+      var cardShadow = hasUnread ? 'box-shadow: 0 8px 24px rgba(59,130,246,.15);' : '';
 
       return [
-        '<div class="ac-candidate-card" data-device-id="' + s.deviceId + '" style="',
+        '<div class="ac-candidate-card" data-device-id="' + s.deviceId + '" data-chat-unread="' + unreadCount + '" style="',
         '  padding: 16px;',
         '  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));',
-        '  border: 1px solid rgba(255,255,255,.08);',
+        '  border: 1px solid ' + cardBorderColor + ';',
         '  border-radius: 16px; cursor: pointer;',
         '  transition: all .2s ease;',
+        cardShadow,
         '" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.borderColor=\'rgba(99,102,241,.4)\';this.style.boxShadow=\'0 12px 32px rgba(0,0,0,.3)\';"',
-        '   onmouseout="this.style.transform=\'translateY(0)\';this.style.borderColor=\'rgba(255,255,255,.08)\';this.style.boxShadow=\'none\';">',
+        '   onmouseout="this.style.transform=\'translateY(0)\';this.style.borderColor=\'' + cardBorderColor + '\';this.style.boxShadow=\'' + (hasUnread ? '0 8px 24px rgba(59,130,246,.15)' : 'none') + '\';">',
 
         '  <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">',
         '    <div style="',
@@ -232,7 +292,11 @@
         '      background: linear-gradient(135deg, ' + pal[0] + ', ' + pal[1] + ');',
         '      border-radius: 13px; font-size: 16px; font-weight: 900; color: #fff;',
         '      box-shadow: 0 6px 14px ' + pal[0] + '44;',
-        '    ">' + initial + '</div>',
+        '      position: relative;',
+        '    ">',
+        initial,
+        hasUnread ? '<span style="position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px #1e293b;"></span>' : '',
+        '</div>',
         '    <div style="flex: 1; min-width: 0;">',
         '      <div style="font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 4px; word-break: break-word;">' + escapeFn(safeName) + '</div>',
         '      <div style="font-size: 11px; color: #94a3b8;">',
@@ -269,6 +333,95 @@
       '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px;">' +
         cardsHTML +
       '</div>';
+
+    // Update badge setelah render
+    setTimeout(updateChatBadges, 100);
+  }
+
+  /* ============================================================
+     UPDATE CHAT BADGES — Real-time tanpa re-render
+     ============================================================ */
+  function updateChatBadges() {
+    var cards = document.querySelectorAll('.ac-candidate-card[data-device-id]');
+    if (!cards.length) return;
+
+    var unreadMap = window.__adminUnreadMap || {};
+    var totalUnread = 0;
+
+    cards.forEach(function(card) {
+      var deviceId = card.getAttribute('data-device-id');
+      var unread = Number(unreadMap[deviceId]) || 0;
+      if (unread > 0) totalUnread += unread;
+
+      var hasUnread = unread > 0;
+      var chatBtn = card.querySelector('.ac-chat-btn');
+      var badge = card.querySelector('.ac-chat-badge');
+
+      // Update badge
+      if (badge) {
+        if (hasUnread) {
+          badge.textContent = unread > 99 ? '99+' : unread;
+          badge.style.display = 'grid';
+          badge.classList.add('ac-chat-badge-blink');
+        } else {
+          badge.style.display = 'none';
+          badge.textContent = '';
+          badge.classList.remove('ac-chat-badge-blink');
+        }
+      }
+
+      // Update blink class
+      if (chatBtn) {
+        if (hasUnread) {
+          chatBtn.classList.add('ac-chat-btn-blink');
+        } else {
+          chatBtn.classList.remove('ac-chat-btn-blink');
+        }
+      }
+
+      // Update card border
+      var newBorder = hasUnread ? 'rgba(59,130,246,.45)' : 'rgba(255,255,255,.08)';
+      card.setAttribute('data-chat-unread', String(unread));
+      if (!card.matches(':hover')) {
+        card.style.borderColor = newBorder;
+        card.style.boxShadow = hasUnread ? '0 8px 24px rgba(59,130,246,.15)' : 'none';
+      }
+    });
+
+    // Update total di header stats
+    var stats = document.getElementById('acStats');
+    if (stats) {
+      var existingBadge = stats.querySelector('[data-total-unread]');
+      if (totalUnread > 0) {
+        if (existingBadge) {
+          existingBadge.textContent = '💬 ' + totalUnread + ' pesan baru';
+        } else {
+          var badge2 = document.createElement('div');
+          badge2.setAttribute('data-total-unread', '1');
+          badge2.style.cssText = 'padding: 8px 14px; border-radius: 10px; background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.4); font-size: 12px; font-weight: 800; color: #93c5fd;';
+          badge2.textContent = '💬 ' + totalUnread + ' pesan baru';
+          stats.appendChild(badge2);
+        }
+      } else if (existingBadge) {
+        existingBadge.remove();
+      }
+    }
+  }
+
+  function startChatBadgeUpdater() {
+    if (__chatBadgeInterval) return;
+    __chatBadgeInterval = setInterval(function() {
+      if (document.getElementById('activeCandidatesPageOverlay')) {
+        updateChatBadges();
+      }
+    }, 1500);
+  }
+
+  function stopChatBadgeUpdater() {
+    if (__chatBadgeInterval) {
+      clearInterval(__chatBadgeInterval);
+      __chatBadgeInterval = null;
+    }
   }
 
   /* ============================================================
@@ -630,6 +783,9 @@
   window.closeActiveCandidatesPage = closeActiveCandidatesPage;
   window.openCandidateDetailPage = openCandidateDetailPage;
   window.closeCandidateDetailPage = closeCandidateDetailPage;
+  window.updateChatBadges = updateChatBadges;
+  window.startChatBadgeUpdater = startChatBadgeUpdater;
+  window.stopChatBadgeUpdater = stopChatBadgeUpdater;
 
   /* ============================================================
      INIT
@@ -642,5 +798,5 @@
     setTimeout(attachEventDelegation, 200);
   }
 
-  console.log('[ADMIN-CANDIDATE] ✓ Loaded — daftar + detail + event delegation');
+  console.log('[ADMIN-CANDIDATE] ✓ Loaded — daftar + detail + event delegation + chat badge');
 })();
