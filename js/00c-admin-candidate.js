@@ -4,6 +4,7 @@
    - Halaman detail kandidat (openCandidateDetailPage)
    - Event delegation (CSP-safe, tanpa onclick inline)
    - Badge unread + blink animation di setiap tombol chat
+   - Independent chat listener (auto-start saat halaman dibuka)
    ============================================================ */
 
 (function() {
@@ -65,6 +66,8 @@
   var __detailCb = null;
   var __listenerAttached = false;
   var __chatBadgeInterval = null;
+  var __indepChatRefs = [];
+  var __indepChatActive = false;
 
   /* ============================================================
      HALAMAN DAFTAR KANDIDAT
@@ -148,10 +151,14 @@
 
     // Start polling badge update
     startChatBadgeUpdater();
+
+    // 🔥 Start listener unread independen
+    startIndependentChatListener();
   }
 
   function closeActiveCandidatesPage() {
     stopChatBadgeUpdater();
+    stopIndependentChatListener();
 
     if (typeof window.stopListeningActiveSessions === 'function') {
       try { window.stopListeningActiveSessions(); } catch(e) {}
@@ -422,6 +429,77 @@
       clearInterval(__chatBadgeInterval);
       __chatBadgeInterval = null;
     }
+  }
+
+  /* ============================================================
+     🔥 INDEPENDENT CHAT LISTENER
+     - Jalan otomatis saat halaman daftar kandidat terbuka
+     - Listen semua chat rooms di Firebase
+     - Update window.__adminUnreadMap secara real-time
+     - Trigger updateChatBadges() tiap ada perubahan
+     ============================================================ */
+  function startIndependentChatListener() {
+    if (__indepChatActive) {
+      console.log('[ADMIN-CANDIDATE] ℹ️ Independent listener sudah aktif');
+      return;
+    }
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      setTimeout(startIndependentChatListener, 500);
+      return;
+    }
+
+    __indepChatActive = true;
+
+    // Inisialisasi map
+    window.__adminUnreadMap = window.__adminUnreadMap || {};
+
+    var chatsRef = firebase.database().ref('sgs_state/chats');
+
+    var onRoomAdded = function(roomSnap) {
+      var deviceId = roomSnap.key;
+      var msgRef = roomSnap.ref.child('messages');
+
+      var onMsgsChange = function(snap) {
+        var count = 0;
+        snap.forEach(function(ch) {
+          var v = ch.val();
+          if (v && v.from === 'candidate' && !v.read) count++;
+        });
+
+        window.__adminUnreadMap[deviceId] = count;
+
+        // Debug log
+        if (count > 0) {
+          console.log('[ADMIN-CANDIDATE] 📬 Unread dari', deviceId.slice(-8), '=', count);
+        }
+
+        // Trigger badge update
+        if (typeof updateChatBadges === 'function') {
+          updateChatBadges();
+        }
+      };
+
+      msgRef.on('value', onMsgsChange);
+      __indepChatRefs.push({ ref: msgRef, cb: onMsgsChange, type: 'value' });
+    };
+
+    chatsRef.on('child_added', onRoomAdded);
+    __indepChatRefs.push({ ref: chatsRef, cb: onRoomAdded, type: 'child_added' });
+
+    console.log('[ADMIN-CANDIDATE] ✓ Independent chat listener started');
+  }
+
+  function stopIndependentChatListener() {
+    __indepChatRefs.forEach(function(item) {
+      try {
+        if (item.type === 'value') item.ref.off('value', item.cb);
+        else item.ref.off('child_added', item.cb);
+      } catch(e) {}
+    });
+    __indepChatRefs = [];
+    __indepChatActive = false;
+    console.log('[ADMIN-CANDIDATE] ✓ Independent chat listener stopped');
   }
 
   /* ============================================================
@@ -786,6 +864,8 @@
   window.updateChatBadges = updateChatBadges;
   window.startChatBadgeUpdater = startChatBadgeUpdater;
   window.stopChatBadgeUpdater = stopChatBadgeUpdater;
+  window.startIndependentChatListener = startIndependentChatListener;
+  window.stopIndependentChatListener = stopIndependentChatListener;
 
   /* ============================================================
      INIT
@@ -798,5 +878,5 @@
     setTimeout(attachEventDelegation, 200);
   }
 
-  console.log('[ADMIN-CANDIDATE] ✓ Loaded — daftar + detail + event delegation + chat badge');
+  console.log('[ADMIN-CANDIDATE] ✓ Loaded — daftar + detail + event delegation + chat badge + independent listener');
 })();
