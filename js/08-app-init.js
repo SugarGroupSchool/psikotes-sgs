@@ -239,6 +239,9 @@
      ============================================================ */
   function attachBeforeUnload() {
     window.addEventListener('beforeunload', function (e) {
+      // 🔥 Skip kalau ada flag khusus (misal: admin paksa reload)
+      if (window.__skipBeforeUnload === true) return;
+
       if (window.__inTestView === true) {
         e.preventDefault();
         e.returnValue = '';
