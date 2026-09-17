@@ -32,10 +32,13 @@
         <div class="ist-panel">
           <div class="ist-panel-header">
             <div class="ist-header-row">
-              <div>
-                <div class="ist-eyebrow"><span>📊</span> PERSONALITY ASSESSMENT</div>
-                <h2 class="ist-title">${tests.PAPI.name}</h2>
-                <p class="ist-subtitle">${tests.PAPI.description || ''}</p>
+              <div style="display:flex;align-items:center;gap:15px;">
+                ${renderTestLogoBadge()}
+                <div>
+                  <div class="ist-eyebrow"><span>📊</span> PERSONALITY ASSESSMENT</div>
+                  <h2 class="ist-title" style="margin-top:11px;">${tests.PAPI.name}</h2>
+                  <p class="ist-subtitle">${tests.PAPI.description || ''}</p>
+                </div>
               </div>
               <div class="ist-time-chip">
                 <span class="ist-time-chip-icon">⏱</span>
@@ -503,10 +506,13 @@
         <div class="ist-panel">
           <div class="ist-panel-header">
             <div class="ist-header-row">
-              <div>
-                <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
-                <h2 class="ist-title">Tes PAPI Selesai</h2>
-                <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+              <div style="display:flex;align-items:center;gap:15px;">
+                ${renderTestLogoBadge()}
+                <div>
+                  <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
+                  <h2 class="ist-title" style="margin-top:11px;">Tes PAPI Selesai</h2>
+                  <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+                </div>
               </div>
             </div>
           </div>
