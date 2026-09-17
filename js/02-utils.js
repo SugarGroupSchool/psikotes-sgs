@@ -80,5 +80,43 @@ function scrollToElement(el, block = 'start') {
   setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block }), 200);
 }
 
+/* ============================================================
+   ✅ TEST LOGO HEADER — render logo konsisten
+   ============================================================ */
+function renderTestLogoBadge(size = 'normal') {
+  const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
+    ? APP_CONFIG.LOGO
+    : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+
+  const cls = size === 'small' ? 'test-logo-badge test-logo-badge--small' : 'test-logo-badge';
+
+  return `
+    <div class="${cls}">
+      <img
+        src="${logoUrl}"
+        alt="Sugar Group Schools"
+        loading="eager"
+        decoding="async"
+        onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+      >
+    </div>
+  `;
+}
+
+function renderTestLogoHeader({ eyebrow, title, subtitle, icon = '✅', centered = false, size = 'normal' }) {
+  return `
+    <div class="test-logo-header ${centered ? 'test-logo-header--centered' : ''}">
+      ${renderTestLogoBadge(size)}
+      <div${centered ? ' style="text-align:center;"' : ''}>
+        ${eyebrow ? `<div class="ist-eyebrow"><span>${icon}</span> ${eyebrow}</div>` : ''}
+        ${title ? `<h2 class="ist-title"${centered ? ' style="margin:8px 0 7px;"' : ' style="margin-top:11px;"'}>${title}</h2>` : ''}
+        ${subtitle ? `<p class="ist-subtitle">${subtitle}</p>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+window.renderTestLogoBadge = renderTestLogoBadge;
+window.renderTestLogoHeader = renderTestLogoHeader;
 
 console.log('[UTILS] ✓ Loaded');
