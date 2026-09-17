@@ -351,7 +351,16 @@
            ${grafisHeader("Tes Grafis Selesai", "Semua hasil gambar telah diunggah.")}
            <div class="grafis-content">
              <div class="grafis-final">
-               <div class="grafis-final-icon">✓</div>
+               <div style="display:flex;justify-content:center;margin-bottom:12px;">
+                 <div class="test-logo-badge" style="width:60px;height:60px;border-radius:18px;">
+                   <img
+                     src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+                     alt="Sugar Group Schools"
+                     style="width:100%;height:100%;object-fit:contain;padding:6px;"
+                     onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+                   >
+                 </div>
+               </div>
                <h3>Semua gambar berhasil diunggah</h3>
                <p>Klik Selesai untuk melanjutkan ke tahap berikutnya.</p>
              </div>
