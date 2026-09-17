@@ -454,13 +454,28 @@ function showAdminSignalBanner(icon, title, message, countdownSec, color) {
 
   document.body.appendChild(banner);
 
-  var remaining = countdownSec;
+   var remaining = countdownSec;
   var countdownEl = document.getElementById('adminSigCountdown');
   var interval = setInterval(function() {
     remaining--;
     if (countdownEl) countdownEl.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(interval);
+
+      // 🔥 Matikan beforeunload guard supaya tidak muncul konfirmasi
+      try {
+        window.__inTestView = false;
+        window.__skipBeforeUnload = true;
+        window.__submitBeforeUnload = null;
+      } catch(e) {}
+
+      // Hapus listener beforeunload yang mungkin masih aktif
+      try {
+        if (typeof window.__submitBeforeUnload === 'function') {
+          window.removeEventListener('beforeunload', window.__submitBeforeUnload);
+        }
+      } catch(e) {}
+
       try { window.location.reload(); } catch(e) {}
     }
   }, 1000);
