@@ -595,11 +595,28 @@ function stopListeningActiveSessions() {
 
 /* ============================================================
    AUTO-INIT
+   - Skip kalau mode admin (admin cuma monitoring, bukan kandidat)
+   - Supaya device ID admin tidak bentrok dengan kandidat di browser yang sama
    ============================================================ */
+function __shouldInitPresence() {
+  // Skip kalau mode admin
+  if (typeof window.isAdminUrl === 'function' && window.isAdminUrl()) {
+    console.log('[PRESENCE] ⏭️ Mode admin — presence dinonaktifkan');
+    return false;
+  }
+  return true;
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(initPresence, 800));
+  document.addEventListener('DOMContentLoaded', function() {
+    if (__shouldInitPresence()) {
+      setTimeout(initPresence, 800);
+    }
+  });
 } else {
-  setTimeout(initPresence, 800);
+  if (__shouldInitPresence()) {
+    setTimeout(initPresence, 800);
+  }
 }
 
 /* ============================================================
