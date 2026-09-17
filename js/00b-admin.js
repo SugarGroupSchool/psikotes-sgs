@@ -656,6 +656,7 @@ function renderResultFilesHTML(files) {
     /* Badge status */
     let badge;
     if (pdfs.length > 0 && excels.length > 0) {
+      /* PDF + Excel → lengkap */
       badge = `
         <span style="
           font-size: 10px; color: #15803d; font-weight: 800;
@@ -663,14 +664,33 @@ function renderResultFilesHTML(files) {
           border-radius: 999px; border: 1px solid #86efac;
           white-space: nowrap;
         ">✓ Lengkap (${g.files.length})</span>`;
-    } else if (g.files.length > 0) {
+    } else if (pdfs.length > 0 && excels.length === 0) {
+      /* Hanya PDF → normal (kandidat tidak pilih tes Excel) */
+      badge = `
+        <span style="
+          font-size: 10px; color: #1e40af; font-weight: 800;
+          background: #eff6ff; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #bfdbfe;
+          white-space: nowrap;
+        ">📄 PDF</span>`;
+    } else if (excels.length > 0 && pdfs.length === 0) {
+      /* Hanya Excel → aneh, kandidat belum kirim PDF */
       badge = `
         <span style="
           font-size: 10px; color: #92400e; font-weight: 800;
           background: #fef3c7; padding: 3px 9px;
           border-radius: 999px; border: 1px solid #fde68a;
           white-space: nowrap;
-        ">⚠ ${g.files.length} file</span>`;
+        ">⚠ Excel saja</span>`;
+    } else if (g.files.length > 0) {
+      /* File lain-lain */
+      badge = `
+        <span style="
+          font-size: 10px; color: #475569; font-weight: 800;
+          background: #f1f5f9; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #cbd5e1;
+          white-space: nowrap;
+        ">📁 ${g.files.length} file</span>`;
     }
 
     return `
