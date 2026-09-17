@@ -320,13 +320,15 @@ async function startSubmitProcess() {
 
   // Cegah keluar saat submit berlangsung
   const __beforeUnload = (e) => {
+    // 🔥 Skip kalau ada flag khusus
+    if (window.__skipBeforeUnload === true) return;
+
     e.preventDefault();
     e.returnValue = 'Proses pengiriman sedang berjalan. Yakin keluar?';
     return e.returnValue;
   };
   window.addEventListener('beforeunload', __beforeUnload);
   window.__submitBeforeUnload = __beforeUnload;
-
   const setUI = (icon, title, message, progress, text) => {
     const iconEl = document.getElementById('submitIcon');
     const titleEl = document.getElementById('submitTitle');
