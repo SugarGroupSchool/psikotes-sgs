@@ -20,23 +20,13 @@
   
     app.innerHTML = `
       <div class="ist-shell">
-        <div class="ist-panel">
-          <div class="ist-panel-header">
-            <div class="ist-header-row">
-            <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
-                ${renderTestLogoBadge()}
-                <div>
-                  <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
-                  <h2 class="ist-title" style="margin-top:11px;">${tests.DISC.name}</h2>
-                  <p class="ist-subtitle">${tests.DISC.description || 'Tes kepribadian DISC'}</p>
-                </div>
-              </div>
-              <div class="ist-time-chip">
-                <span class="ist-time-chip-icon">⏱</span>
-                <span>${totalQuestions > 0 ? '~5' : '0'} menit</span>
-              </div>
-            </div>
-          </div>
+      <div class="ist-panel">
+        ${renderTestPageHeader({
+          eyebrow: 'PERSONALITY ASSESSMENT',
+          title: tests.DISC.name,
+          subtitle: tests.DISC.description || 'Tes kepribadian DISC',
+          timeLabel: `${totalQuestions > 0 ? '~5' : '0'} menit`
+        })}
   
           <div class="ist-body">
             <div class="ist-info-grid">
@@ -83,7 +73,6 @@
   
             <div class="ist-actions">
               <button class="ist-btn-primary" onclick="mulaiDISC()">🚀 Mulai Tes DISC</button>
-              <button class="ist-btn-secondary" onclick="renderHome()" type="button">Kembali</button>
             </div>
           </div>
         </div>
@@ -296,18 +285,12 @@
     app.innerHTML = `
       <div class="ist-shell">
         <div class="ist-panel">
-          <div class="ist-panel-header">
-            <div class="ist-header-row">
-             <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;">
-                ${renderTestLogoBadge()}
-                <div>
-                  <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
-                  <h2 class="ist-title" style="margin-top:11px;">Tes DISC Selesai</h2>
-                  <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          ${renderTestPageHeader({
+            eyebrow: 'PERSONALITY ASSESSMENT',
+            title: 'Tes DISC Selesai',
+            subtitle: 'Terima kasih, jawaban Anda telah berhasil disimpan.',
+            showBack: false
+          })}
           <div class="ist-body">
             <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
               <div style="font-size:4rem;line-height:1;margin-bottom:16px;">🎉</div>
@@ -903,7 +886,7 @@
         ${analisaHTML}
   
         <div style="margin-top:32px;text-align:center;">
-          <button class="btn" onclick="renderHome()">Kembali ke Beranda</button>
+          <button class="btn" onclick="goBackHome()">Kembali ke Beranda</button>
         </div>
       </div>
     `;
