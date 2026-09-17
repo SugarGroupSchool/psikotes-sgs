@@ -27,7 +27,7 @@
                 <div style="display:flex;align-items:center;gap:15px;">
                   ${renderTestLogoBadge()}
                   <div>
-                    <div class="ist-eyebrow"><span>📊</span> PERSONALITY ASSESSMENT</div>
+                    <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
                     <h2 class="ist-title" style="margin-top:11px;">${tests.BIGFIVE.name}</h2>
                     <p class="ist-subtitle">${tests.BIGFIVE.description || ''}</p>
                   </div>
@@ -466,7 +466,7 @@
                 <div style="display:flex;align-items:center;gap:15px;">
                   ${renderTestLogoBadge()}
                   <div>
-                    <div class="ist-eyebrow"><span>✅</span> PERSONALITY ASSESSMENT</div>
+                    <div class="ist-eyebrow">PERSONALITY ASSESSMENT</div>
                     <h2 class="ist-title" style="margin-top:11px;">Tes Big Five Selesai</h2>
                     <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
                   </div>
