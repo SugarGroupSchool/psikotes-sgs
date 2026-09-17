@@ -486,8 +486,15 @@ async function deleteResultFile(fileId, fileName) {
     const data = await res.json();
     if (data && data.success) {
       alert('✅ File berhasil dihapus dari Drive');
-      // Refresh list
-      if (typeof refreshResultFilesList === 'function') refreshResultFilesList();
+
+      // Refresh halaman baru jika sedang terbuka
+      if (window.__resultFilesPageOpen && typeof loadResultFilesForPage === 'function') {
+        loadResultFilesForPage();
+      }
+      // Update counter di panel admin
+      if (typeof __updateAdminResultCounter === 'function') {
+        __updateAdminResultCounter();
+      }
     } else {
       alert('❌ Gagal hapus: ' + (data.error || 'Unknown error'));
     }
@@ -1384,6 +1391,564 @@ async function rejectAccessRequest(deviceId) {
 }
 
 /* ============================================================
+   ✅ HALAMAN HASIL TES TERKIRIM — fullscreen overlay
+   - Filter by posisi + search nama
+   - Grouping per kandidat
+   ============================================================ */
+window.__resultFilesCache = [];
+window.__resultFilterPosition = 'all';
+window.__resultSearchQuery = '';
+window.__resultFilesPageOpen = false;
+
+function openResultFilesPage() {
+  if (window.__resultFilesPageOpen) return;
+  window.__resultFilesPageOpen = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'resultFilesPageOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99998;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex; flex-direction: column;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: #e2e8f0;
+    animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);
+  `;
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes resultPageIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes resultCardIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes resultSpinner {
+        to { transform: rotate(360deg); }
+      }
+      #resultFilesPageOverlay ::-webkit-scrollbar { width: 8px; height: 8px; }
+      #resultFilesPageOverlay ::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
+      #resultFilesPageOverlay ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+      #resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.25); }
+      .rf-chip {
+        padding: 8px 16px; border-radius: 999px;
+        background: rgba(255,255,255,.06);
+        border: 1.5px solid rgba(255,255,255,.1);
+        color: #cbd5e1; font-size: 13px; font-weight: 700;
+        cursor: pointer; transition: all .18s ease;
+        font-family: inherit; white-space: nowrap;
+      }
+      .rf-chip:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
+      .rf-chip.active {
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        border-color: transparent; color: #fff;
+        box-shadow: 0 4px 14px rgba(59,130,246,.4);
+      }
+      .rf-card {
+        background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 18px; padding: 20px;
+        transition: all .22s ease;
+        backdrop-filter: blur(10px);
+        animation: resultCardIn .35s ease both;
+      }
+      .rf-card:hover {
+        border-color: rgba(99,102,241,.4);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2);
+      }
+      .rf-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 14px; border-radius: 9px;
+        font-size: 12px; font-weight: 800;
+        cursor: pointer; transition: all .18s ease;
+        font-family: inherit; text-decoration: none;
+        border: 0;
+      }
+      .rf-btn:hover { transform: translateY(-1px); }
+      .rf-btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(59,130,246,.3);
+      }
+      .rf-btn-primary:hover { box-shadow: 0 6px 16px rgba(59,130,246,.4); }
+      .rf-btn-danger {
+        background: rgba(239,68,68,.12);
+        color: #fca5a5;
+        border: 1px solid rgba(239,68,68,.3);
+      }
+      .rf-btn-danger:hover { background: rgba(239,68,68,.2); color: #fecaca; }
+    </style>
+
+    <!-- HEADER -->
+    <div style="
+      padding: 20px 28px;
+      background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex; align-items: center; gap: 18px;
+      flex-wrap: wrap;
+    ">
+      <button id="rfBackBtn" style="
+        width: 42px; height: 42px; flex: 0 0 42px;
+        display: grid; place-items: center;
+        background: rgba(255,255,255,.08);
+        border: 1.5px solid rgba(255,255,255,.14);
+        border-radius: 12px; color: #fff;
+        font-size: 18px; cursor: pointer;
+        font-family: inherit; transition: all .18s ease;
+      " onmouseover="this.style.background='rgba(255,255,255,.15)'"
+         onmouseout="this.style.background='rgba(255,255,255,.08)'">←</button>
+
+      <div style="flex: 1; min-width: 0;">
+        <div style="
+          font-size: 11px; font-weight: 800;
+          letter-spacing: 2px; color: #818cf8;
+          margin-bottom: 4px;
+        ">ADMIN PANEL · HASIL TES</div>
+        <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">
+          📄 Hasil Tes Terkirim
+        </div>
+      </div>
+
+      <div id="rfStats" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
+
+      <button id="rfRefreshBtn" style="
+        padding: 10px 18px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        border: 0; border-radius: 11px; color: #fff;
+        font-size: 13px; font-weight: 800;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 6px 16px rgba(22,163,74,.3);
+        transition: all .18s ease;
+      " onmouseover="this.style.transform='translateY(-1px)'"
+         onmouseout="this.style.transform='translateY(0)'">🔄 Refresh</button>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div style="
+      padding: 18px 28px;
+      background: rgba(0,0,0,.15);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    ">
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
+        <div style="flex: 1; min-width: 240px; position: relative;">
+          <input id="rfSearchInput" type="text" placeholder="Cari nama kandidat atau posisi..."
+            autocomplete="off"
+            style="
+              width: 100%; padding: 12px 16px 12px 42px;
+              background: rgba(255,255,255,.06);
+              border: 1.5px solid rgba(255,255,255,.1);
+              border-radius: 12px;
+              color: #fff; font-size: 14px;
+              font-family: inherit; outline: none;
+              transition: all .18s ease;
+              box-sizing: border-box;
+            "
+            onfocus="this.style.borderColor='rgba(99,102,241,.6)';this.style.background='rgba(255,255,255,.09)'"
+            onblur="this.style.borderColor='rgba(255,255,255,.1)';this.style.background='rgba(255,255,255,.06)'">
+          <span style="
+            position: absolute; left: 15px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px; color: #64748b;
+            pointer-events: none;
+          ">🔍</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <span style="
+          font-size: 11px; font-weight: 800;
+          letter-spacing: 1px; color: #64748b;
+          margin-right: 4px;
+        ">FILTER POSISI:</span>
+        <div id="rfPositionChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="rfContent" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        padding: 60px 20px; color: #64748b;
+        font-size: 14px; flex-direction: column; gap: 14px;
+      ">
+        <div style="
+          width: 40px; height: 40px;
+          border: 3px solid rgba(255,255,255,.1);
+          border-top-color: #6366f1;
+          border-radius: 50%;
+          animation: resultSpinner 0.8s linear infinite;
+        "></div>
+        Memuat daftar hasil tes...
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('rfBackBtn').onclick = closeResultFilesPage;
+  document.getElementById('rfRefreshBtn').onclick = () => loadResultFilesForPage();
+
+  const searchInput = document.getElementById('rfSearchInput');
+  searchInput.addEventListener('input', (e) => {
+    window.__resultSearchQuery = (e.target.value || '').toLowerCase().trim();
+    __renderResultPageContent();
+  });
+
+  loadResultFilesForPage();
+}
+
+function closeResultFilesPage() {
+  const overlay = document.getElementById('resultFilesPageOverlay');
+  if (overlay) overlay.remove();
+  window.__resultFilesPageOpen = false;
+  if (typeof __updateAdminResultCounter === 'function') {
+    __updateAdminResultCounter();
+  }
+}
+
+async function loadResultFilesForPage() {
+  const content = document.getElementById('rfContent');
+  if (!content) return;
+
+  content.innerHTML = `
+    <div style="
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px 20px; color: #64748b;
+      font-size: 14px; flex-direction: column; gap: 14px;
+    ">
+      <div style="
+        width: 40px; height: 40px;
+        border: 3px solid rgba(255,255,255,.1);
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: resultSpinner 0.8s linear infinite;
+      "></div>
+      Memuat daftar hasil tes...
+    </div>
+  `;
+
+  const files = await fetchResultFiles();
+  window.__resultFilesCache = Array.isArray(files) ? files : [];
+
+  __renderResultPageContent();
+}
+
+function __renderResultPageContent() {
+  const content = document.getElementById('rfContent');
+  const chipsContainer = document.getElementById('rfPositionChips');
+  const statsContainer = document.getElementById('rfStats');
+  if (!content || !chipsContainer || !statsContainer) return;
+
+  const files = window.__resultFilesCache || [];
+
+  /* ---------- Grouping by nama ---------- */
+  const groups = new Map();
+  files.forEach(f => {
+    const info = __extractCandidateInfo(f);
+    const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
+    if (!groups.has(key)) {
+      groups.set(key, { name: info.name, position: info.position, files: [] });
+    }
+    const g = groups.get(key);
+    if (info.position !== '-' && g.position === '-') g.position = info.position;
+    g.files.push(f);
+  });
+
+  let groupArr = Array.from(groups.values());
+
+  /* ---------- Sort terbaru ---------- */
+  groupArr.sort((a, b) => {
+    const latestA = Math.max(...a.files.map(f => f.date || 0));
+    const latestB = Math.max(...b.files.map(f => f.date || 0));
+    return latestB - latestA;
+  });
+
+  /* ---------- Kumpulkan semua posisi unik ---------- */
+  const positionSet = new Set();
+  groupArr.forEach(g => {
+    if (g.position && g.position !== '-') positionSet.add(g.position);
+  });
+  const positions = Array.from(positionSet).sort();
+
+  /* ---------- Render chips posisi ---------- */
+  const currentFilter = window.__resultFilterPosition || 'all';
+  let chipsHTML = `
+    <button class="rf-chip ${currentFilter === 'all' ? 'active' : ''}"
+      onclick="__setResultFilter('all')">Semua (${groupArr.length})</button>
+  `;
+  positions.forEach(p => {
+    const count = groupArr.filter(g => g.position === p).length;
+    const isActive = currentFilter === p;
+    const safeP = String(p).replace(/'/g, "\\'");
+    chipsHTML += `
+      <button class="rf-chip ${isActive ? 'active' : ''}"
+        onclick="__setResultFilter('${safeP}')">${__adminEscape(p)} (${count})</button>
+    `;
+  });
+
+  const noPosCount = groupArr.filter(g => !g.position || g.position === '-').length;
+  if (noPosCount > 0) {
+    const isActive = currentFilter === '__no_position__';
+    chipsHTML += `
+      <button class="rf-chip ${isActive ? 'active' : ''}"
+        onclick="__setResultFilter('__no_position__')">Tanpa Posisi (${noPosCount})</button>
+    `;
+  }
+
+  chipsContainer.innerHTML = chipsHTML;
+
+  /* ---------- Stats ---------- */
+  const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
+  statsContainer.innerHTML = `
+    <div style="
+      padding: 8px 14px; border-radius: 10px;
+      background: rgba(99,102,241,.12);
+      border: 1px solid rgba(99,102,241,.3);
+      font-size: 12px; font-weight: 800; color: #a5b4fc;
+    ">👥 ${groupArr.length} kandidat</div>
+    <div style="
+      padding: 8px 14px; border-radius: 10px;
+      background: rgba(34,197,94,.12);
+      border: 1px solid rgba(34,197,94,.3);
+      font-size: 12px; font-weight: 800; color: #86efac;
+    ">📎 ${totalFiles} file</div>
+  `;
+
+  /* ---------- Filter: search + posisi ---------- */
+  const search = window.__resultSearchQuery || '';
+  const filterPos = window.__resultFilterPosition || 'all';
+
+  let filtered = groupArr;
+
+  if (filterPos === '__no_position__') {
+    filtered = filtered.filter(g => !g.position || g.position === '-');
+  } else if (filterPos !== 'all') {
+    filtered = filtered.filter(g => g.position === filterPos);
+  }
+
+  if (search) {
+    filtered = filtered.filter(g =>
+      (g.name || '').toLowerCase().includes(search) ||
+      (g.position || '').toLowerCase().includes(search)
+    );
+  }
+
+  /* ---------- Render kartu ---------- */
+  if (filtered.length === 0) {
+    content.innerHTML = `
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        padding: 80px 20px; color: #64748b;
+        font-size: 14px; flex-direction: column; gap: 12px;
+        text-align: center;
+      ">
+        <div style="font-size: 52px; opacity: .5;">📭</div>
+        <div style="font-weight: 700; color: #94a3b8;">
+          ${files.length === 0 ? 'Belum ada hasil tes yang terkirim' : 'Tidak ada kandidat yang cocok dengan filter'}
+        </div>
+        ${files.length > 0 ? `
+          <button onclick="__resetResultFilter()" style="
+            margin-top: 8px; padding: 9px 20px;
+            background: rgba(99,102,241,.15);
+            border: 1px solid rgba(99,102,241,.4);
+            color: #a5b4fc; border-radius: 9px;
+            font-family: inherit; font-size: 13px; font-weight: 800;
+            cursor: pointer;
+          ">Reset Filter</button>
+        ` : ''}
+      </div>
+    `;
+    return;
+  }
+
+  const cardsHTML = filtered.map(g => {
+    const pdfs   = g.files.filter(f => __detectFileKind(f) === 'pdf');
+    const excels = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const others = g.files.filter(f => __detectFileKind(f) === 'other');
+
+    const latestDate = Math.max(...g.files.map(f => f.date || 0));
+    const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    }) : '-';
+
+    const initials = (g.name || '?')
+      .split(/\s+/).slice(0, 2)
+      .map(w => w[0] || '').join('').toUpperCase() || '?';
+
+    const hash = (g.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const avatarColors = [
+      ['#3b82f6', '#1e40af'],
+      ['#8b5cf6', '#6d28d9'],
+      ['#10b981', '#047857'],
+      ['#f59e0b', '#b45309'],
+      ['#ec4899', '#be185d'],
+      ['#06b6d4', '#0e7490']
+    ];
+    const [c1, c2] = avatarColors[hash % avatarColors.length];
+
+    let badge, badgeColor;
+    if (pdfs.length > 0 && excels.length > 0) {
+      badge = '✓ Lengkap'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
+    } else if (pdfs.length > 0) {
+      badge = '📄 PDF'; badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd' };
+    } else if (excels.length > 0) {
+      badge = '⚠ Excel saja'; badgeColor = { bg: 'rgba(245,158,11,.15)', br: 'rgba(245,158,11,.4)', text: '#fcd34d' };
+    } else {
+      badge = `📁 ${g.files.length} file`; badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1' };
+    }
+
+    function fileRow(f, kind) {
+      const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+      const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
+      const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
+      const safeFileName = String(f.name || '').replace(/'/g, "\\'");
+
+      return `
+        <div style="
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px;
+          background: rgba(255,255,255,.03);
+          border: 1px solid rgba(255,255,255,.06);
+          border-radius: 11px;
+          transition: all .15s ease;
+        " onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)'"
+           onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='rgba(255,255,255,.06)'">
+
+          <div style="
+            width: 34px; height: 34px; flex: 0 0 34px;
+            display: grid; place-items: center;
+            background: rgba(255,255,255,.06);
+            border-radius: 9px; font-size: 16px;
+          ">${iconMap[kind] || iconMap.other}</div>
+
+          <div style="flex: 1; min-width: 0;">
+            <div style="
+              font-weight: 800; color: #e2e8f0;
+              font-size: 12px; margin-bottom: 3px;
+            ">${labelMap[kind] || labelMap.other}</div>
+            <div style="
+              color: #64748b; font-size: 10.5px;
+              word-break: break-all; line-height: 1.4;
+            ">${__adminEscape((f.name || '').slice(0, 45))}${(f.name || '').length > 45 ? '...' : ''} · ${sizeMB}</div>
+          </div>
+
+          <div style="display: flex; gap: 6px; flex: 0 0 auto;">
+            <a href="${f.url}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
+            <button onclick="deleteResultFile('${f.id}', '${safeFileName}')" class="rf-btn rf-btn-danger">🗑</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="rf-card">
+        <div style="
+          display: flex; align-items: flex-start; gap: 14px;
+          margin-bottom: 14px; padding-bottom: 14px;
+          border-bottom: 1px solid rgba(255,255,255,.06);
+        ">
+          <div style="
+            width: 48px; height: 48px; flex: 0 0 48px;
+            display: grid; place-items: center;
+            background: linear-gradient(135deg, ${c1}, ${c2});
+            border-radius: 14px;
+            font-size: 17px; font-weight: 900; color: #fff;
+            letter-spacing: -.5px;
+            box-shadow: 0 6px 16px ${c1}55;
+          ">${initials}</div>
+
+          <div style="flex: 1; min-width: 0;">
+            <div style="
+              display: flex; align-items: center; gap: 10px;
+              flex-wrap: wrap; margin-bottom: 6px;
+            ">
+              <div style="
+                font-size: 15px; font-weight: 900; color: #fff;
+                letter-spacing: -.2px;
+                word-break: break-word;
+              ">${__adminEscape(g.name)}</div>
+              <span style="
+                padding: 3px 10px; border-radius: 999px;
+                background: ${badgeColor.bg};
+                border: 1px solid ${badgeColor.br};
+                color: ${badgeColor.text};
+                font-size: 10px; font-weight: 800;
+                white-space: nowrap;
+              ">${badge}</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
+              ${g.position !== '-' ? `💼 ${__adminEscape(g.position)}` : '💼 <span style="opacity:.6">Tanpa posisi</span>'}
+              <span style="opacity:.4; margin: 0 8px;">•</span>
+              🕐 ${dateStr}
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
+          ${excels.map(f => fileRow(f, 'excel')).join('')}
+          ${others.map(f => fileRow(f, 'other')).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  content.innerHTML = `
+    <div style="
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 16px;
+    ">
+      ${cardsHTML}
+    </div>
+  `;
+}
+
+function __setResultFilter(pos) {
+  window.__resultFilterPosition = pos;
+  __renderResultPageContent();
+}
+
+function __resetResultFilter() {
+  window.__resultFilterPosition = 'all';
+  window.__resultSearchQuery = '';
+  const input = document.getElementById('rfSearchInput');
+  if (input) input.value = '';
+  __renderResultPageContent();
+}
+
+/* ============================================================
+   ✅ Counter di panel admin (update teks N kandidat · M file)
+   ============================================================ */
+async function __updateAdminResultCounter() {
+  const countEl = document.getElementById('adminResultCount');
+  if (!countEl) return;
+
+  const files = await fetchResultFiles();
+  window.__resultFilesCache = Array.isArray(files) ? files : [];
+
+  if (!files.length) {
+    countEl.textContent = 'Belum ada hasil tes';
+    countEl.style.color = '#94a3b8';
+    return;
+  }
+
+  const uniqueNames = new Set();
+  files.forEach(f => {
+    const info = __extractCandidateInfo(f);
+    const key = (info.name || 'tanpa-nama').toLowerCase().trim();
+    uniqueNames.add(key);
+  });
+
+  countEl.textContent = `${uniqueNames.size} kandidat · ${files.length} file`;
+  countEl.style.color = '#15803d';
+}
+
+/* ============================================================
    RENDER ADMIN PANEL
    ============================================================ */
 function renderAdminPanel() {
@@ -1623,67 +2188,55 @@ function renderAdminPanel() {
           </div>
         </div>
 
-        <!-- =========================================
-             HASIL TES TERKIRIM (ACCORDION)
-             ========================================= -->
-        <div style="
-          padding: 18px 20px;
-          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-          border: 2px solid #86efac;
-          border-radius: 14px;
-          margin-bottom: 16px;
-        ">
-          <div onclick="toggleAdminSection('result')" style="
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-          ">
-            <div style="
-              font-size: 14px; font-weight: 900; color: #15803d;
-              display: flex; align-items: center; gap: 8px;
-            ">
-              <span id="adminSectionArrow_result" style="font-size: 11px; color: #15803d; width: 12px;">
-                ${window.__adminSectionOpen.result ? '▼' : '▶'}
-              </span>
-              <span style="font-size: 16px;">📄</span>
-              Hasil Tes Terkirim
-            </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
-              <div id="adminResultCount" style="
-                font-size: 12px; font-weight: 800; color: #94a3b8;
-                background: #fff; padding: 4px 10px; border-radius: 999px;
-                border: 1px solid #86efac;
-              ">0 file</div>
-              <button onclick="event.stopPropagation(); refreshResultFilesList();" style="
-                padding: 5px 12px;
-                background: linear-gradient(135deg, #16a34a, #059669);
-                color: #fff; border: 0; border-radius: 8px;
-                font-family: inherit; font-size: 11px; font-weight: 800;
-                cursor: pointer;
-                box-shadow: 0 3px 8px rgba(22,163,74,.25);
-              ">🔄 Refresh</button>
-            </div>
-          </div>
+<!-- =========================================
+     HASIL TES TERKIRIM — tombol buka halaman
+     ========================================= -->
+<button onclick="openResultFilesPage()" style="
+  width: 100%;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border: 2px solid #86efac;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; text-align: left;
+  transition: all .18s ease;
+  box-shadow: 0 2px 8px rgba(34,197,94,.08);
+"
+onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(34,197,94,.18)';this.style.borderColor='#4ade80'"
+onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(34,197,94,.08)';this.style.borderColor='#86efac'">
 
-          <div id="adminSectionBody_result" style="
-            display: ${window.__adminSectionOpen.result ? 'block' : 'none'};
-            margin-top: 14px;
-          ">
-            <div id="adminResultFiles" style="
-              display: flex; flex-direction: column; gap: 8px;
-              max-height: 400px; overflow-y: auto;
-            ">
-              <div style="
-                padding: 20px 14px; text-align: center;
-                color: #94a3b8; font-size: 12px;
-              ">⏳ Memuat...</div>
-            </div>
-          </div>
-        </div>
+  <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+    <div style="
+      width: 48px; height: 48px; flex: 0 0 48px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-radius: 14px; font-size: 22px;
+      box-shadow: 0 6px 16px rgba(34,197,94,.3);
+    ">📄</div>
+    <div style="min-width: 0;">
+      <div style="
+        font-size: 15px; font-weight: 900; color: #14532d;
+        margin-bottom: 4px;
+      ">Hasil Tes Terkirim</div>
+      <div id="adminResultCount" style="
+        font-size: 12px; font-weight: 700; color: #15803d;
+      ">Memuat...</div>
+    </div>
+  </div>
+
+  <div style="
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff; border-radius: 11px;
+    font-size: 13px; font-weight: 800;
+    box-shadow: 0 6px 16px rgba(34,197,94,.3);
+    white-space: nowrap; flex: 0 0 auto;
+  ">Buka Halaman →</div>
+</button>
 
         <style>          @keyframes adminPulseDot {
             0%, 100% { transform: scale(1); opacity: 1; }
@@ -1967,17 +2520,17 @@ function renderAdminPanel() {
     if (typeof startAdminTimerTick === 'function') {
       startAdminTimerTick();
     }
-    // 📄 Auto-load daftar PDF dari Google Drive
-    if (typeof refreshResultFilesList === 'function') {
-      refreshResultFilesList();
+    // 📄 Auto-load counter hasil tes dari Google Drive
+    if (typeof __updateAdminResultCounter === 'function') {
+      __updateAdminResultCounter();
     }
-         // Auto-refresh daftar PDF tiap 30 detik
+    // Auto-refresh counter tiap 30 detik
     if (window.__pdfAutoRefreshTimer) {
       clearInterval(window.__pdfAutoRefreshTimer);
     }
     window.__pdfAutoRefreshTimer = setInterval(() => {
-      if (document.getElementById('adminResultFiles')) {
-        refreshResultFilesList();
+      if (document.getElementById('adminResultCount')) {
+        __updateAdminResultCounter();
       }
     }, 30000);
     // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
@@ -2166,6 +2719,13 @@ window.deleteResultFile         = deleteResultFile;
 window.__extractCandidateInfo  = __extractCandidateInfo;
 window.__detectFileKind        = __detectFileKind;
 
+/* ─── ✅ BARU: Halaman hasil tes ─── */
+window.openResultFilesPage     = openResultFilesPage;
+window.closeResultFilesPage    = closeResultFilesPage;
+window.loadResultFilesForPage  = loadResultFilesForPage;
+window.__setResultFilter       = __setResultFilter;
+window.__resetResultFilter     = __resetResultFilter;
+window.__updateAdminResultCounter = __updateAdminResultCounter;
 /* ─── Access Requests ─── */
 window.listenAccessRequests         = listenAccessRequests;
 window.stopListeningAccessRequests  = stopListeningAccessRequests;
