@@ -139,12 +139,15 @@ function startSubjectTest(subjId) {
           </div>
 
           <div class="subject-instruction-main-card">
-            <div class="subject-instruction-main-icon">
-              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 18h6"/>
-                <path d="M10 22h4"/>
-                <path d="M12 2a7 7 0 0 0-4 12.74c.65.5 1 1.27 1 2.09V17h6v-.17c0-.82.35-1.59 1-2.09A7 7 0 0 0 12 2z"/>
-              </svg>
+             <div style="display:flex;justify-content:center;margin-bottom:22px;">
+              <div class="test-logo-badge" style="width:76px;height:76px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
+                <img
+                  src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+                  alt="Sugar Group Schools"
+                  style="width:100%;height:100%;object-fit:contain;padding:6px;"
+                  onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
+                >
+              </div>
             </div>
             <div class="subject-instruction-eyebrow">PETUNJUK PELAKSANAAN TES</div>
             <h1>${subj.name}</h1>
