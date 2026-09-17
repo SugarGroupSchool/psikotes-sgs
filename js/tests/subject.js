@@ -6,9 +6,7 @@ let subjectCheatFlag = false;
 let allowTabOutSubject = false;
 let __subjectTimerInterval = null;
 
-function injectSubjectStyles() {
-  // CSS sudah dimuat via <link>
-}
+function injectSubjectStyles() {}
 
 /* =========================================================
    HOME — Pilih Mata Pelajaran
@@ -17,7 +15,6 @@ function renderSubjectTestHome() {
   window.__inTestView = true;
   appState.currentTest = 'SUBJECT';
 
-  // Filter subjek yang belum punya soal
   const subs = (tests.SUBJECT.subjects || []).filter(
     s => Array.isArray(s.questions) && s.questions.length > 0
   );
@@ -25,34 +22,26 @@ function renderSubjectTestHome() {
   document.getElementById('app').innerHTML = `
     <div class="subject-test-page">
       <div class="subject-test-container">
-        <div class="subject-hero">
+        <div class="subject-hero" style="padding:0;overflow:hidden;">
           <div class="subject-hero-accent"></div>
-           <div class="subject-hero-content">
-             <div class="test-logo-badge" style="width:62px;height:62px;min-width:62px;flex-basis:62px;border-radius:18px;">
-               <img
-                 src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
-                 alt="Sugar Group Schools"
-                 style="width:100%;height:100%;object-fit:contain;padding:7px;"
-                 onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
-               >
-             </div>
-            <div class="subject-hero-text">
-              <div class="subject-eyebrow">ASSESSMENT CENTER</div>
-              <h1>${tests.SUBJECT.name}</h1>
-              <p>${tests.SUBJECT.description}</p>
-            </div>
-          </div>
-          <div class="subject-instruction">
-            <div class="subject-instruction-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="16" x2="12" y2="12"/>
-                <line x1="12" y1="8" x2="12.01" y2="8"/>
-              </svg>
-            </div>
-            <div>
-              <strong>Petunjuk</strong>
-              <span>${tests.SUBJECT.instruction}</span>
+          ${renderTestPageHeader({
+            eyebrow: 'ASSESSMENT CENTER',
+            title: tests.SUBJECT.name,
+            subtitle: tests.SUBJECT.description
+          })}
+          <div style="padding: 22px 38px 34px;">
+            <div class="subject-instruction">
+              <div class="subject-instruction-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Petunjuk</strong>
+                <span>${tests.SUBJECT.instruction}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -113,7 +102,7 @@ function renderSubjectTestHome() {
 function startSubjectTest(subjId) {
   const subj = (tests.SUBJECT.subjects || []).find(s => s.id === subjId);
   if (!subj) { alert("Subjek tidak ditemukan!"); return; }
-  // ↓ TAMBAHKAN BARIS INI
+
   if (!Array.isArray(subj.questions) || subj.questions.length === 0) {
     alert("Soal untuk subjek ini belum tersedia. Silakan pilih subjek lain.");
     return;
@@ -127,31 +116,17 @@ function startSubjectTest(subjId) {
     document.getElementById('app').innerHTML = `
       <div class="subject-instruction-page">
         <div class="subject-instruction-container">
-          <div class="subject-instruction-topbar">
-            <button type="button" class="subject-back-button" onclick="renderSubjectTestHome()">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"/>
-                <polyline points="12 19 5 12 12 5"/>
-              </svg>
-              <span>Kembali</span>
-            </button>
-            <div class="subject-ready-status"><span></span>Siap Dimulai</div>
-          </div>
+          ${renderTestPageHeader({
+            eyebrow: 'PETUNJUK PELAKSANAAN TES',
+            title: subj.name,
+            subtitle: '',
+            onBack: 'renderSubjectTestHome()'
+          })}
 
-          <div class="subject-instruction-main-card">
-             <div style="display:flex;justify-content:center;margin-bottom:22px;">
-              <div class="test-logo-badge" style="width:76px;height:76px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
-                <img
-                  src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
-                  alt="Sugar Group Schools"
-                  style="width:100%;height:100%;object-fit:contain;padding:6px;"
-                  onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
-                >
-              </div>
+          <div class="subject-instruction-main-card" style="margin-top:20px;">
+            <div class="subject-ready-status" style="display:inline-flex;margin-bottom:18px;">
+              <span></span>Siap Dimulai
             </div>
-            <div class="subject-instruction-eyebrow">PETUNJUK PELAKSANAAN TES</div>
-            <h1>${subj.name}</h1>
-            <div class="subject-instruction-divider"></div>
 
             <div class="subject-instruction-content">
               <div class="subject-instruction-content-title">
@@ -212,30 +187,49 @@ function renderSubjectQuestionSlide(qIdx) {
   const timerHTML = `<span id="subject-timer">${(m < 10 ? "0" : "") + m}:${(s < 10 ? "0" : "") + s}</span>`;
 
   const q = subj.questions[qIdx];
-if (!q) {
+  if (!q) {
+    document.getElementById('app').innerHTML = `
+      <div class="subject-test-page">
+        <div class="subject-test-container">
+          <div class="card" style="max-width:480px;margin:60px auto;padding:30px;text-align:center;">
+            <h2>Soal belum tersedia</h2>
+            <p>Soal untuk subjek <b>${subj.name}</b> belum tersedia.</p>
+            <button class="btn" onclick="renderSubjectTestHome()">Kembali</button>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
   document.getElementById('app').innerHTML = `
-    <div class="card" style="max-width:480px;margin:60px auto;padding:30px;text-align:center;">
-      <h2>Soal belum tersedia</h2>
-      <p>Soal untuk subjek <b>${subj.name}</b> belum tersedia.</p>
-      <button class="btn" onclick="renderSubjectTestHome()">Kembali</button>
-    </div>`;
-  return;
-}
-  document.getElementById('app').innerHTML = `
-    <div class="card" style="max-width:650px;margin:40px auto 0;padding:32px 18px 30px 18px;border-radius:18px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2 style="margin-bottom:0;">${subj.name}</h2>
-        <div style="font-size:1.05em;background:#f2fbe5;padding:7px 16px;border-radius:9px;">${timerHTML}</div>
-      </div>
-      <div style="margin:14px 0 17px 0;font-weight:500;font-size:1.05em;">
-        Kerjakan soal berikut di kertas Anda. Jika selesai, klik <b>Selesai & Upload</b>!
-      </div>
-      <div style="font-size:1.14em;margin-bottom:34px;min-height:100px;">${q.question}</div>
-      <div style="display:flex;justify-content:${qIdx === 0 ? 'flex-end' : 'space-between'}">
-        ${qIdx > 0 ? `<button class="btn btn-outline" onclick="renderSubjectQuestionSlide(${qIdx - 1})">Sebelumnya</button>` : ""}
-        <button class="btn" onclick="nextSubjectQuestionSlide(${qIdx})">
-          ${qIdx === subj.questions.length - 1 ? 'Selesai & Upload' : 'Lanjut'}
-        </button>
+    <div class="subject-test-page" style="min-height:auto;padding:20px;">
+      <div class="subject-test-container" style="max-width:650px;">
+        <div class="subject-hero" style="padding:0;overflow:hidden;">
+          <div class="subject-hero-accent"></div>
+          ${renderTestPageHeader({
+            eyebrow: 'PELAKSANAAN TES',
+            title: subj.name,
+            subtitle: 'Kerjakan soal berikut di kertas Anda',
+            onBack: 'renderSubjectTestHome()'
+          })}
+          <div style="padding: 22px 32px 28px;">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+              <div class="subject-count" style="background:#f2fbe5;border-color:#c8e6a3;color:#4d6b1f;">
+                ⏱ ${timerHTML}
+              </div>
+            </div>
+            <div style="font-size:1.05em;font-weight:500;margin-bottom:17px;color:#475569;">
+              Kerjakan soal berikut di kertas Anda. Jika selesai, klik <b>Selesai & Upload</b>!
+            </div>
+            <div style="font-size:1.14em;margin-bottom:34px;min-height:100px;line-height:1.6;">${q.question}</div>
+            <div style="display:flex;justify-content:${qIdx === 0 ? 'flex-end' : 'space-between'};gap:10px;">
+              ${qIdx > 0 ? `<button class="btn btn-outline" onclick="renderSubjectQuestionSlide(${qIdx - 1})">Sebelumnya</button>` : ""}
+              <button class="btn" onclick="nextSubjectQuestionSlide(${qIdx})">
+                ${qIdx === subj.questions.length - 1 ? 'Selesai & Upload' : 'Lanjut'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -276,18 +270,30 @@ function renderSubjectUpload() {
   if (__subjectTimerInterval) clearInterval(__subjectTimerInterval);
 
   document.getElementById('app').innerHTML = `
-    <div class="card" style="max-width:540px;margin:44px auto;padding:32px 19px 34px 19px;border-radius:17px;text-align:center;">
-      <h2>Upload Foto Jawaban</h2>
-      <div style="margin:14px 0 24px 0;">
-        Upload foto lembar jawaban kertas Anda di sini.<br>
-        Bisa lebih dari 3 gambar (<b>klik</b> atau <b>drag dari WA</b> ke area bawah).
+    <div class="subject-test-page" style="min-height:auto;padding:20px;">
+      <div class="subject-test-container" style="max-width:600px;">
+        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
+          <div class="subject-hero-accent"></div>
+          ${renderTestPageHeader({
+            eyebrow: 'UPLOAD JAWABAN',
+            title: 'Upload Foto Jawaban',
+            subtitle: 'Foto lembar jawaban kertas Anda',
+            onBack: 'renderSubjectTestHome()'
+          })}
+          <div style="padding: 24px 28px 30px;">
+            <div style="margin:6px 0 24px 0;color:#475569;line-height:1.6;">
+              Upload foto lembar jawaban kertas Anda di sini.<br>
+              Bisa lebih dari 3 gambar (<b>klik</b> atau <b>drag dari WA</b> ke area bawah).
+            </div>
+            <div id="drop-area" style="border:2px dashed #83c980;border-radius:12px;padding:28px 12px;cursor:pointer;background:#f6fff3;">
+              <input type="file" id="subject-upload-multi" accept="image/*" multiple style="display:none;">
+              <div style="color:#789;font-size:1.08em;">Klik di sini atau drag gambar ke area ini</div>
+              <div id="subject-upload-preview" style="margin-top:16px;display:flex;flex-wrap:wrap;justify-content:center;gap:11px;"></div>
+            </div>
+            <button class="btn" style="margin-top:28px;padding:12px 38px;" onclick="selesaiSubjectUpload()">Selesai</button>
+          </div>
+        </div>
       </div>
-      <div id="drop-area" style="border:2px dashed #83c980;border-radius:12px;padding:28px 12px;cursor:pointer;background:#f6fff3;">
-        <input type="file" id="subject-upload-multi" accept="image/*" multiple style="display:none;">
-        <div style="color:#789;font-size:1.08em;">Klik di sini atau drag gambar ke area ini</div>
-        <div id="subject-upload-preview" style="margin-top:16px;display:flex;flex-wrap:wrap;justify-content:center;gap:11px;"></div>
-      </div>
-      <button class="btn" style="margin-top:28px;padding:12px 38px;" onclick="selesaiSubjectUpload()">Selesai</button>
     </div>
   `;
 
@@ -375,35 +381,36 @@ function selesaiSubjectUpload() {
 
   const app = document.getElementById('app');
   app.innerHTML = `
-    <div class="card" style="
-      max-width:820px;margin:34px auto;padding:32px 28px;border-radius:22px;
-      background:linear-gradient(135deg,#f5fff8 86%,#e8fff1 100%);
-      box-shadow:0 10px 34px #c7f4da55;border:1.6px solid #c8f1d6;text-align:center;">
-      <div style="display:flex;justify-content:center;margin-bottom:14px;">
-        <div class="test-logo-badge" style="width:74px;height:74px;border-radius:22px;box-shadow:0 12px 28px rgba(91,92,240,.14);">
-          <img
-            src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) ? APP_CONFIG.LOGO : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
-            alt="Sugar Group Schools"
-            style="width:100%;height:100%;object-fit:contain;padding:6px;"
-            onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;test-logo-badge__fallback&quot;>SGS</div>';"
-          >
-        </div>
-      </div>
-      <h2 style="margin:6px 0 8px 0;font-weight:900;color:#13693a;">
-        Terima kasih! Tes Subjek sudah selesai
-      </h2>
-      <p style="font-size:1.08rem;color:#244;max-width:680px;margin:0 auto 16px auto;line-height:1.6;">
-        Jawaban Anda untuk Tes <b>Subjek</b> telah berhasil diupload.
-        Silakan lanjut mengerjakan tes berikutnya yang Anda pilih.
-        Tombol <b>Download PDF</b> akan aktif kembali setelah <b>semua</b> tes selesai dikerjakan.
-      </p>
+    <div class="subject-test-page" style="min-height:auto;padding:20px;">
+      <div class="subject-test-container" style="max-width:820px;">
+        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
+          <div class="subject-hero-accent"></div>
+          ${renderTestPageHeader({
+            eyebrow: 'SUBJECT TEST',
+            title: 'Tes Subjek Selesai',
+            subtitle: 'Jawaban Anda telah berhasil diupload',
+            showBack: false
+          })}
+          <div style="padding: 26px 28px 30px;">
+            <div style="font-size:4rem;line-height:1;margin-bottom:12px;">🎉</div>
+            <h2 style="margin:6px 0 8px 0;font-weight:900;color:#13693a;">
+              Terima kasih! Tes Subjek sudah selesai
+            </h2>
+            <p style="font-size:1.08rem;color:#244;max-width:680px;margin:0 auto 16px auto;line-height:1.6;">
+              Jawaban Anda untuk Tes <b>Subjek</b> telah berhasil diupload.
+              Silakan lanjut mengerjakan tes berikutnya yang Anda pilih.
+              Tombol <b>Download PDF</b> akan aktif kembali setelah <b>semua</b> tes selesai dikerjakan.
+            </p>
 
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
-        <button id="btnContinueSubjek" class="btn" style="
-          padding:12px 24px;font-weight:800;border-radius:11px;
-          background:#18a35d;color:#fff;border:0;box-shadow:0 4px 18px #bff1d7;">
-          ✅ Lanjut Tes Berikutnya
-        </button>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
+              <button id="btnContinueSubjek" class="btn" style="
+                padding:12px 24px;font-weight:800;border-radius:11px;
+                background:#18a35d;color:#fff;border:0;box-shadow:0 4px 18px #bff1d7;">
+                ✅ Lanjut Tes Berikutnya
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -431,16 +438,29 @@ function onSubjectBlur() {
     appState.subjectDisqualified = true;
 
     document.getElementById('app').innerHTML = `
-      <div class="card" style="max-width:480px;margin:80px auto;padding:32px 25px 35px 25px;border-radius:17px;text-align:center;">
-        <div style="font-size:2.3em;margin-bottom:13px;">❌</div>
-        <h2 style="color:#c91b1b;margin-bottom:13px;">Diskualifikasi!</h2>
-        <div style="font-size:1.09em;margin-bottom:24px;">
-          Anda terdeteksi membuka tab/jendela lain saat mengerjakan tes subjek.<br>
-          Mohon hubungi panitia jika ada kendala.
+      <div class="subject-test-page" style="min-height:auto;padding:20px;">
+        <div class="subject-test-container" style="max-width:520px;">
+          <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
+            <div class="subject-hero-accent"></div>
+            ${renderTestPageHeader({
+              eyebrow: 'SUBJECT TEST',
+              title: 'Tes Subjek',
+              subtitle: 'Diskualifikasi',
+              showBack: false
+            })}
+            <div style="padding: 30px 26px 34px;">
+              <div style="font-size:2.3em;margin-bottom:13px;">❌</div>
+              <h2 style="color:#c91b1b;margin-bottom:13px;">Diskualifikasi!</h2>
+              <div style="font-size:1.09em;margin-bottom:24px;color:#475569;line-height:1.6;">
+                Anda terdeteksi membuka tab/jendela lain saat mengerjakan tes subjek.<br>
+                Mohon hubungi panitia jika ada kendala.
+              </div>
+              <button class="btn btn-danger" style="padding:12px 46px;font-size:1.15em;" onclick="logoutDiskualifikasi()">
+                🔒 Logout
+              </button>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-danger" style="padding:12px 46px;font-size:1.15em;" onclick="logoutDiskualifikasi()">
-          🔒 Logout
-        </button>
       </div>
     `;
   }
@@ -448,16 +468,8 @@ function onSubjectBlur() {
 
 /* =========================================================
    LOGOUT DISKUALIFIKASI — TANPA RELOAD
-   - Device terkunci (seperti selesai tes)
-   - Tampilkan halaman "Menunggu Admin"
-   - Identitas & progress tetap tersimpan
-   - Admin bisa izinkan → banner → reload → lanjut
    ========================================================= */
 function logoutDiskualifikasi() {
-  /* Set flag:
-     - _sgs_finished    = '1' → terkunci
-     - _sgs_disqualified = '1' → tanda diskualifikasi
-     - usedPragas       = '1' → password USED aktif */
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
@@ -470,15 +482,12 @@ function logoutDiskualifikasi() {
   subjectCheatFlag = false;
   allowTabOutSubject = false;
 
-  // Sembunyikan password screen kalau ada
   const pwdScreen = document.getElementById('passwordScreen');
   if (pwdScreen) pwdScreen.classList.add('hidden');
 
-  // Sembunyikan app container lama
   const appEl = document.getElementById('app');
   if (appEl) appEl.innerHTML = '';
 
-  // Tampilkan halaman khusus "Menunggu Admin"
   document.body.innerHTML = `
     <div style="
       position: fixed; inset: 0; z-index: 2147483647;
@@ -495,7 +504,6 @@ function logoutDiskualifikasi() {
         box-shadow: 0 30px 90px rgba(0,0,0,.5);
         text-align: center;
       ">
-        <!-- Icon -->
         <div style="
           width: 90px; height: 90px;
           margin: 0 auto 22px;
@@ -507,7 +515,6 @@ function logoutDiskualifikasi() {
           animation: diskualifikasiPulse 2s ease-in-out infinite;
         ">❌</div>
 
-        <!-- Title -->
         <h1 style="
           margin: 0 0 14px;
           font-size: 26px;
@@ -516,7 +523,6 @@ function logoutDiskualifikasi() {
           letter-spacing: -0.5px;
         ">Diskualifikasi</h1>
 
-        <!-- Message -->
         <p style="
           margin: 0 0 22px;
           color: #475569;
@@ -528,7 +534,6 @@ function logoutDiskualifikasi() {
           Hubungi admin untuk diizinkan melanjutkan tes.
         </p>
 
-        <!-- Info box -->
         <div style="
           padding: 16px 18px;
           background: #fef3c7;
@@ -545,7 +550,6 @@ function logoutDiskualifikasi() {
           • Setelah reload, Anda bisa login dan <b>lanjut dari tes terakhir</b>
         </div>
 
-        <!-- Waiting indicator -->
         <div style="
           margin-top: 24px;
           display: flex;
