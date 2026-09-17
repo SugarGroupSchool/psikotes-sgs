@@ -1,8 +1,8 @@
 /* ============================================================
    js/tests/excel.js
    - Tes Excel IN-APP dengan Luckysheet (persis Excel asli)
-   - Click reference, drag range, fill handle — semua jalan
-   - Anti-cheat: 2× warning → diskualifikasi
+   - Sheet 1 = Data Siswa + Tabel Soal (di halaman yang sama)
+   - Anti-dobel guard + Anti-cheat
    - Output: .xlsx auto-upload ke Google Drive
    ============================================================ */
 
@@ -67,16 +67,35 @@ let __excelCheat = false;
 let __excelAllowTabOut = false;
 let __excelBlurFn = null;
 let __excelVisFn = null;
+let __excelFinishing = false;
+let __excelFinished = false;
 
 /* ============================================================
    ENTRY
    ============================================================ */
 function renderAdminExcelSheet() {
+  if (appState.completed && appState.completed.EXCEL === true) {
+    alert('🔒 Tes Excel sudah selesai dan terkirim ke admin. Tidak bisa diulang.');
+    if (typeof window.renderHome === 'function') window.renderHome();
+    return;
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('completed') || '{}');
+    if (saved.EXCEL === true) {
+      appState.completed = appState.completed || {};
+      appState.completed.EXCEL = true;
+      alert('🔒 Tes Excel sudah selesai dan terkirim ke admin. Tidak bisa diulang.');
+      if (typeof window.renderHome === 'function') window.renderHome();
+      return;
+    }
+  } catch (e) {}
+
   window.__inTestView = true;
   appState.currentTest = 'EXCEL';
-  appState.completed = appState.completed || {};
-  appState.completed.EXCEL = false;
 
+  __excelFinishing = false;
+  __excelFinished = false;
   __excelWarnCount = 0;
   __excelCheat = false;
   __excelAllowTabOut = false;
@@ -134,7 +153,8 @@ function renderExcelIntro() {
                 <li>Kerjakan <b>persis seperti di Excel</b>.</li>
                 <li>Ketik <code>=</code> di cell, lalu <b>klik cell / drag range</b> → referensi otomatis masuk.</li>
                 <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
-                <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
+                <li><b>Daftar Soal</b> ada di bawah tabel Data Siswa (scroll ke bawah).</li>
+                <li>Isi jawaban di kolom <b>Jawaban</b> di tabel soal.</li>
                 <li><b>DILARANG keluar tab</b> — 2× = diskualifikasi.</li>
               </ul>
             </div>
@@ -212,7 +232,7 @@ function startExcelTest() {
 }
 
 /* ============================================================
-   INIT LUCKYSHEET
+   INIT LUCKYSHEET — 1 Sheet (Data Siswa + Tabel Soal)
    ============================================================ */
 function initLuckysheet() {
   if (typeof luckysheet === 'undefined') {
@@ -227,152 +247,116 @@ function initLuckysheet() {
     day: '2-digit', month: 'long', year: 'numeric'
   });
 
-  // SHEET 1: Data Siswa — rows array untuk Luckysheet
-  const sheet1Data = [];
+  const celldata = [];
+  const merges = {};
+  const rowlen = {
+    0: 30,
+    1: 26,
+    2: 26,
+    36: 30,
+    38: 32
+  };
 
-  // Baris 0: Judul
-  sheet1Data.push([{ v: 'FORM KANDIDAT', m: 'FORM KANDIDAT', bl: 1, fs: 14, fc: '#1e40af' }]);
+  // Lebar kolom
+  const columnlen = {
+    0: 50,    // A: No
+    1: 180,   // B: Nama Siswa / Soal
+    2: 90,    // C: Kelas
+    3: 70,    // D: MTK
+    4: 70,    // E: IPA
+    5: 70,    // F: IPS
+    6: 110,   // G: Rata-rata
+    7: 110    // H: Keterangan
+  };
 
-  // Baris 1: Nama & Posisi
-  sheet1Data.push([
-    { v: 'Nama:', m: 'Nama:', bl: 1 },
-    { v: nama, m: nama },
-    { v: '', m: '' },
-    { v: 'Posisi:', m: 'Posisi:', bl: 1 },
-    { v: posisi, m: posisi }
-  ]);
+  /* ============ HEADER FORM KANDIDAT ============ */
+  celldata.push({ r: 0, c: 0, v: { v: 'FORM KANDIDAT', m: 'FORM KANDIDAT', bl: 1, fs: 14, fc: '#1e40af' } });
 
-  // Baris 2: Tanggal & Tes
-  sheet1Data.push([
-    { v: 'Tanggal:', m: 'Tanggal:', bl: 1 },
-    { v: tanggal, m: tanggal },
-    { v: '', m: '' },
-    { v: 'Tes:', m: 'Tes:', bl: 1 },
-    { v: 'Excel In-App', m: 'Excel In-App' }
-  ]);
+  celldata.push({ r: 1, c: 0, v: { v: 'Nama:', m: 'Nama:', bl: 1 } });
+  celldata.push({ r: 1, c: 1, v: { v: nama, m: nama } });
+  celldata.push({ r: 1, c: 3, v: { v: 'Posisi:', m: 'Posisi:', bl: 1 } });
+  celldata.push({ r: 1, c: 4, v: { v: posisi, m: posisi } });
 
-  // Baris 3: kosong
-  sheet1Data.push([{ v: '', m: '' }]);
+  celldata.push({ r: 2, c: 0, v: { v: 'Tanggal:', m: 'Tanggal:', bl: 1 } });
+  celldata.push({ r: 2, c: 1, v: { v: tanggal, m: tanggal } });
+  celldata.push({ r: 2, c: 3, v: { v: 'Tes:', m: 'Tes:', bl: 1 } });
+  celldata.push({ r: 2, c: 4, v: { v: 'Excel In-App', m: 'Excel In-App' } });
 
-  // Baris 4: Header tabel
-  const headerRow = ['No', 'Nama Siswa', 'Kelas', 'MTK', 'IPA', 'IPS', 'Rata-rata', 'Keterangan'];
-  sheet1Data.push(headerRow.map(h => ({ v: h, m: h, bl: 1, bg: '#dbeafe', fc: '#1e40af' })));
-
-  // Baris 5-34: Data siswa
-  EXCEL_STUDENTS.forEach(s => {
-    sheet1Data.push([
-      { v: s.no, m: String(s.no) },
-      { v: s.nama, m: s.nama },
-      { v: s.kelas, m: s.kelas },
-      { v: s.mtk, m: String(s.mtk) },
-      { v: s.ipa, m: String(s.ipa) },
-      { v: s.ips, m: String(s.ips) },
-      { v: '', m: '' },
-      { v: '', m: '' }
-    ]);
+  /* ============ HEADER TABEL DATA SISWA ============ */
+  const hdrs = ['No', 'Nama Siswa', 'Kelas', 'MTK', 'IPA', 'IPS', 'Rata-rata', 'Keterangan'];
+  hdrs.forEach((h, c) => {
+    celldata.push({ r: 4, c: c, v: { v: h, m: h, bl: 1, bg: '#dbeafe', fc: '#1e40af', ht: 0, vt: 0 } });
   });
 
-  // SHEET 2: Soal
-  const sheet2Data = [];
-  sheet2Data.push([{ v: 'DAFTAR SOAL', m: 'DAFTAR SOAL', bl: 1, fs: 14, fc: '#1e40af' }]);
-  sheet2Data.push([{ v: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.', m: 'Kerjakan pada sheet "Data Siswa" menggunakan formula Excel.' }]);
-  sheet2Data.push([{ v: '', m: '' }]);
+  /* ============ 30 SISWA (baris 5-34) ============ */
+  EXCEL_STUDENTS.forEach((s, i) => {
+    const r = 5 + i;
+    celldata.push({ r: r, c: 0, v: { v: s.no, m: String(s.no), ht: 0 } });
+    celldata.push({ r: r, c: 1, v: { v: s.nama, m: s.nama } });
+    celldata.push({ r: r, c: 2, v: { v: s.kelas, m: s.kelas, ht: 0 } });
+    celldata.push({ r: r, c: 3, v: { v: s.mtk, m: String(s.mtk), ht: 0 } });
+    celldata.push({ r: r, c: 4, v: { v: s.ipa, m: String(s.ipa), ht: 0 } });
+    celldata.push({ r: r, c: 5, v: { v: s.ips, m: String(s.ips), ht: 0 } });
+    // G & H dikosongkan untuk kandidat
+  });
 
+  /* ============ JUDUL SOAL ============ */
+  celldata.push({ r: 36, c: 0, v: { v: 'DAFTAR SOAL', m: 'DAFTAR SOAL', bl: 1, fs: 14, fc: '#6d28d9' } });
+  celldata.push({ r: 37, c: 0, v: { v: 'Isi jawaban di kolom "Jawaban" pada setiap baris soal.', m: 'Isi jawaban di kolom "Jawaban" pada setiap baris soal.', fs: 11, fc: '#64748b' } });
+
+  /* ============ HEADER TABEL SOAL ============ */
+  celldata.push({ r: 38, c: 0, v: { v: 'No', m: 'No', bl: 1, bg: '#e9d5ff', fc: '#6d28d9', ht: 0, vt: 0 } });
+  celldata.push({ r: 38, c: 1, v: { v: 'Soal', m: 'Soal', bl: 1, bg: '#e9d5ff', fc: '#6d28d9', ht: 0, vt: 0 } });
+  celldata.push({ r: 38, c: 5, v: { v: 'Jawaban', m: 'Jawaban', bl: 1, bg: '#e9d5ff', fc: '#6d28d9', ht: 0, vt: 0 } });
+
+  // Merge header: B:E untuk "Soal", F:H untuk "Jawaban"
+  merges['r38_c1'] = { r: 38, c: 1, rs: 1, cs: 4 };
+  merges['r38_c5'] = { r: 38, c: 5, rs: 1, cs: 3 };
+
+  /* ============ 6 SOAL (baris 39-44) ============ */
   EXCEL_QUESTIONS.forEach((q, i) => {
-    sheet2Data.push([
-      { v: i + 1, m: String(i + 1), bl: 1 },
-      { v: q, m: q }
-    ]);
+    const r = 39 + i;
+
+    celldata.push({ r: r, c: 0, v: { v: i + 1, m: String(i + 1), bl: 1, ht: 0, vt: 1 } });
+    celldata.push({ r: r, c: 1, v: { v: q, m: q, tb: 2, vt: 1, fs: 11 } });
+    celldata.push({ r: r, c: 5, v: { v: '', m: '', vt: 1 } });
+
+    // Merge B:E untuk soal, F:H untuk jawaban
+    merges['r' + r + '_c1'] = { r: r, c: 1, rs: 1, cs: 4 };
+    merges['r' + r + '_c5'] = { r: r, c: 5, rs: 1, cs: 3 };
+
+    // Tinggi baris untuk soal + jawaban
+    rowlen[r] = 55;
   });
 
-  // Create Luckysheet
+  /* ============ CREATE LUCKYSHEET ============ */
   luckysheet.create({
     container: 'excelContainer',
     lang: 'en',
     title: '',
     data: [
       {
-        name: 'Data Siswa',
+        name: 'Data & Soal',
         color: '',
         status: '1',
         order: '0',
         hide: 0,
-        row: 200,
+        row: 100,
         column: 20,
         defaultRowHeight: 24,
         defaultColWidth: 100,
-        celldata: [],
+        celldata: celldata,
         config: {
-          merge: {},
-          rowlen: {
-            '1': 26,
-            '2': 26
-          },
-          columnlen: {
-            '0': 50,
-            '1': 180,
-            '2': 90,
-            '3': 70,
-            '4': 70,
-            '5': 70,
-            '6': 110,
-            '7': 110
-          }
-        }
-      },
-      {
-        name: 'Soal',
-        color: '',
-        status: '0',
-        order: '1',
-        hide: 0,
-        row: 100,
-        column: 5,
-        defaultRowHeight: 24,
-        defaultColWidth: 100,
-        celldata: [],
-        config: {
-          columnlen: {
-            '0': 50,
-            '1': 600
-          }
+          merge: merges,
+          rowlen: rowlen,
+          columnlen: columnlen
         }
       }
     ],
-    // Isi data via celldata — konversi dari rows array
     hook: {
       workbookCreateAfter: function() {
-        // Setelah sheet dibuat, baru isi data
-        setTimeout(() => {
-          try {
-            // Sheet 1
-            luckysheet.setSheetActive(0);
-            for (let r = 0; r < sheet1Data.length; r++) {
-              for (let c = 0; c < sheet1Data[r].length; c++) {
-                const cell = sheet1Data[r][c];
-                if (cell && (cell.v !== undefined && cell.v !== '')) {
-                  luckysheet.setCellValue(r, c, cell.v, { isRefresh: false });
-                }
-              }
-            }
-            // Sheet 2
-            luckysheet.setSheetActive(1);
-            for (let r = 0; r < sheet2Data.length; r++) {
-              for (let c = 0; c < sheet2Data[r].length; c++) {
-                const cell = sheet2Data[r][c];
-                if (cell && (cell.v !== undefined && cell.v !== '')) {
-                  luckysheet.setCellValue(r, c, cell.v, { isRefresh: false });
-                }
-              }
-            }
-            // Balik ke sheet 1
-            luckysheet.setSheetActive(0);
-            luckysheet.refresh();
-            console.log('[EXCEL] ✓ Luckysheet siap — kandidat:', nama);
-          } catch (e) {
-            console.error('[EXCEL] Isi data error:', e);
-          }
-        }, 300);
+        console.log('[EXCEL] ✓ Luckysheet siap — kandidat:', nama);
+        console.log('[EXCEL] ✓ Data Siswa (30 baris) + Tabel Soal (6 baris)');
       }
     }
   });
@@ -473,12 +457,29 @@ function disqualifyExcel() {
    SELESAI
    ============================================================ */
 function confirmFinishExcel() {
+  if (__excelFinishing || __excelFinished) return;
   if (!confirm('Kirim hasil Tes Excel sekarang?\n\nFile .xlsx akan otomatis terkirim ke admin.')) return;
+
   __excelAllowTabOut = true;
+
+  const btnFinish = document.getElementById('btnFinishExcel');
+  if (btnFinish) {
+    btnFinish.disabled = true;
+    btnFinish.style.opacity = '0.5';
+    btnFinish.style.cursor = 'not-allowed';
+    btnFinish.textContent = '⏳ Mengirim...';
+  }
+
   finishExcelTest(false);
 }
 
 async function finishExcelTest(timeUp) {
+  if (__excelFinishing || __excelFinished) {
+    console.warn('[EXCEL] finishExcelTest dipanggil lagi — diabaikan');
+    return;
+  }
+  __excelFinishing = true;
+
   clearInterval(__excelTimer);
   __excelAllowTabOut = true;
   window.__inTestView = false;
@@ -526,6 +527,14 @@ async function finishExcelTest(timeUp) {
     setUI('📤', 'Mengirim ke admin...', 'Mengunggah file .xlsx...', 60);
     await uploadExcelToGAS(xlsxBlob, filename);
 
+    __excelFinished = true;
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('completed') || '{}');
+      saved.EXCEL = true;
+      localStorage.setItem('completed', JSON.stringify(saved));
+    } catch (e) {}
+
     setUI('✅', 'Berhasil Terkirim!', 'Hasil Anda sudah diterima admin. Halaman akan dimuat ulang...', 100);
 
     appState.completed = appState.completed || {};
@@ -533,12 +542,6 @@ async function finishExcelTest(timeUp) {
 
     if (typeof window.markTestCompleted === 'function') {
       try { window.markTestCompleted('EXCEL'); } catch (e) {}
-    } else {
-      try {
-        const saved = JSON.parse(localStorage.getItem('completed') || '{}');
-        saved.EXCEL = true;
-        localStorage.setItem('completed', JSON.stringify(saved));
-      } catch (e) {}
     }
 
     if (typeof window.updateDownloadButtonState === 'function') {
@@ -547,23 +550,22 @@ async function finishExcelTest(timeUp) {
 
     setTimeout(() => {
       window.__inTestView = false;
-      if (typeof window.renderHome === 'function') {
-        window.renderHome();
-        setTimeout(() => {
-          const el = document.getElementById('homeCard') || document.getElementById('downloadPDFBox');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 200);
+      try {
+        window.location.reload();
+      } catch (e) {
+        if (typeof window.renderHome === 'function') window.renderHome();
       }
     }, 2500);
 
   } catch (err) {
     console.error('[EXCEL] Finish error:', err);
+    __excelFinishing = false;
     setUI('❌', 'Gagal Kirim', 'Error: ' + err.message + ' — Screenshot & hubungi admin.', 100);
   }
 }
 
 /* ============================================================
-   GENERATE .xlsx — pakai luckysheet.getAllSheets()
+   GENERATE .xlsx
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
@@ -578,33 +580,24 @@ function generateExcelBlob() {
   }
 
   if (!Array.isArray(sheets) || sheets.length === 0) {
-    // Fallback
     const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
     EXCEL_STUDENTS.forEach(s => {
       dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
     });
     const ws1 = XLSX.utils.aoa_to_sheet(dataSheet);
     ws1['!cols'] = [{wch:5},{wch:22},{wch:10},{wch:6},{wch:6},{wch:6},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws1, 'Data Siswa');
-
-    const soalSheet = [["No","Soal"]];
-    EXCEL_QUESTIONS.forEach((q, i) => soalSheet.push([i + 1, q]));
-    const ws2 = XLSX.utils.aoa_to_sheet(soalSheet);
-    ws2['!cols'] = [{wch:5},{wch:80}];
-    XLSX.utils.book_append_sheet(wb, ws2, 'Soal');
+    XLSX.utils.book_append_sheet(wb, ws1, 'Data & Soal');
   } else {
     sheets.forEach((sheetData, idx) => {
       const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
       const celldata = sheetData.data || sheetData.celldata || [];
 
-      // Cari max row & col
       let maxR = 0, maxC = 0;
       celldata.forEach(c => {
         if (c.r > maxR) maxR = c.r;
         if (c.c > maxC) maxC = c.c;
       });
 
-      // Build AOA
       const aoa = [];
       for (let r = 0; r <= maxR; r++) {
         const rowArr = [];
@@ -680,6 +673,6 @@ async function uploadExcelToGAS(blob, filename) {
 
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
-console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet');
+console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + Soal di halaman yang sama');
 
 })();
