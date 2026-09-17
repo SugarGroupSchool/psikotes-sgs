@@ -6,14 +6,14 @@
    - Chat per kandidat + unread tracker (badge + blink)
    - Tombol "Izinkan Tes Lagi" untuk device finished/diskualifikasi
    - Auto-cleanup chat device tidak aktif
-   - ✅ BARU: Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
-   - ✅ FIX: Halaman hasil tes z-index 100000 (di atas panel admin)
+   - ✅ Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
+   - ✅ FIX: Halaman hasil tes z-index 100000
+   - ✅ OPTIMASI: Cache + dedupe + SWR + debounce search
    ============================================================ */
 
 /* ============================================================
    KONFIGURASI LOGIN ADMIN
    ============================================================ */
-// Password admin sekarang via Firebase Auth (tidak ada di source code)
 const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
 /* ============================================================
    KONFIGURASI GAS (Google Apps Script) UNTUK PDF
@@ -38,7 +38,6 @@ let __adminRefreshTimer = null;
 function startAdminUnreadTracker() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
-  // Skip kalau sudah jalan
   if (__adminUnreadRefs.length > 0) {
     console.log('[ADMIN] 👂 Unread tracker sudah jalan, skip restart');
     return;
@@ -113,7 +112,6 @@ function startAdminTimerTick() {
         textEl.textContent = __formatTimeAdmin(remaining);
       }
 
-      // Warna merah kalau ≤ 30 detik
       if (remaining <= 30) {
         el.style.background = '#fee2e2';
         el.style.color = '#991b1b';
@@ -136,7 +134,6 @@ function stopAdminTimerTick() {
   }
 }
 
-/* Helper format waktu MM:SS */
 function __formatTimeAdmin(sec) {
   const s = Math.max(0, Math.floor(sec));
   const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -450,28 +447,70 @@ async function adminCleanupInactive() {
 
   setTimeout(() => renderAdminPanel(), 300);
 }
-/* ============================================================
-   AMBIL DAFTAR PDF DARI GOOGLE DRIVE (via GAS)
-   ============================================================ */
-async function fetchResultFiles() {
-  try {
-    const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now();
-    const res = await fetch(url);
-    const data = await res.json();
 
-    if (data.success) {
-      return data.files || [];
-    }
-    console.warn('[PDF-LIST] Gagal:', data.error);
-    return [];
-  } catch (e) {
-    console.error('[PDF-LIST] Error:', e);
-    return [];
+/* ============================================================
+   ✅ OPTIMASI: Cache hasil fetch GAS (shared global)
+   - TTL 30 detik: hemat request, tetap relatif fresh
+   - Dedupe: 2 request bersamaan → 1 network call
+   - SWR (stale-while-revalidate): tampilkan cache dulu,
+     lalu refresh di background
+   ============================================================ */
+window.__resultFilesCacheData  = null;
+window.__resultFilesCacheTime  = 0;
+window.__resultFilesFetchPromise = null;
+window.__resultFilesCache = [];
+
+const RESULT_CACHE_TTL_MS = 30000;  // 30 detik
+
+async function fetchResultFiles(forceRefresh = false) {
+  const now = Date.now();
+  const cacheAge = now - (window.__resultFilesCacheTime || 0);
+
+  // ✅ 1. Kalau ada cache fresh & tidak dipaksa refresh → pakai cache
+  if (!forceRefresh
+      && window.__resultFilesCacheData
+      && cacheAge < RESULT_CACHE_TTL_MS) {
+    return window.__resultFilesCacheData;
   }
+
+  // ✅ 2. Kalau ada request sedang berjalan → tunggu yang sama (dedupe)
+  if (window.__resultFilesFetchPromise) {
+    return window.__resultFilesFetchPromise;
+  }
+
+  // ✅ 3. Fetch baru
+  window.__resultFilesFetchPromise = (async () => {
+    try {
+      const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now();
+      const res = await fetch(url, { cache: 'no-store' });
+      const data = await res.json();
+
+      if (data && data.success) {
+        window.__resultFilesCacheData = data.files || [];
+        window.__resultFilesCacheTime = Date.now();
+        return window.__resultFilesCacheData;
+      }
+      console.warn('[PDF-LIST] Gagal:', data?.error);
+      return window.__resultFilesCacheData || [];
+    } catch (e) {
+      console.error('[PDF-LIST] Error:', e);
+      return window.__resultFilesCacheData || [];
+    } finally {
+      window.__resultFilesFetchPromise = null;
+    }
+  })();
+
+  return window.__resultFilesFetchPromise;
+}
+
+/* Invalidate cache (dipanggil setelah delete) */
+function __invalidateResultCache() {
+  window.__resultFilesCacheData = null;
+  window.__resultFilesCacheTime = 0;
 }
 
 /* ============================================================
-   HAPUS PDF DARI DRIVE
+   HAPUS FILE DARI DRIVE
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
@@ -487,6 +526,11 @@ async function deleteResultFile(fileId, fileName) {
     const data = await res.json();
     if (data && data.success) {
       alert('✅ File berhasil dihapus dari Drive');
+
+      // ✅ Invalidate cache dulu supaya fetch ulang
+      if (typeof __invalidateResultCache === 'function') {
+        __invalidateResultCache();
+      }
 
       // Refresh halaman baru jika sedang terbuka
       if (window.__resultFilesPageOpen && typeof loadResultFilesForPage === 'function') {
@@ -507,7 +551,7 @@ async function deleteResultFile(fileId, fileName) {
 
 
 /* ============================================================
-   ✅ BARU: HELPER — Ekstrak info kandidat dari file
+   HELPER — Ekstrak info kandidat dari file
    Prioritas: description ("Nama: X") → fallback dari filename
    ============================================================ */
 function __extractCandidateInfo(file) {
@@ -523,7 +567,6 @@ function __extractCandidateInfo(file) {
     });
   } catch (e) {}
 
-  // Fallback: ambil dari filename
   if (name === '-' && file.name) {
     const m = String(file.name).match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2})/i);
     if (m) name = m[1].replace(/-/g, ' ').trim();
@@ -533,7 +576,7 @@ function __extractCandidateInfo(file) {
 }
 
 /* ============================================================
-   ✅ BARU: HELPER — Deteksi tipe file dari ekstensi
+   HELPER — Deteksi tipe file dari ekstensi
    ============================================================ */
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
@@ -544,7 +587,7 @@ function __detectFileKind(file) {
 }
 
 /* ============================================================
-   ✅ BARU: RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
+   RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -558,7 +601,6 @@ function renderResultFilesHTML(files) {
       </div>`;
   }
 
-  /* ---------- Grouping by nama ---------- */
   const groups = new Map();
 
   files.forEach(f => {
@@ -573,14 +615,12 @@ function renderResultFilesHTML(files) {
     g.files.push(f);
   });
 
-  /* ---------- Sort: kandidat paling baru di atas ---------- */
   const groupArr = Array.from(groups.values()).sort((a, b) => {
     const latestA = Math.max(...a.files.map(f => f.date || 0));
     const latestB = Math.max(...b.files.map(f => f.date || 0));
     return latestB - latestA;
   });
 
-  /* ---------- Helper: render 1 baris file ---------- */
   function renderFileRow(f, kind) {
     const sizeMB = f.size
       ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
@@ -650,7 +690,6 @@ function renderResultFilesHTML(files) {
     `;
   }
 
-  /* ---------- Render tiap kandidat ---------- */
   return groupArr.map(g => {
     const pdfs   = g.files.filter(f => __detectFileKind(f) === 'pdf');
     const excels = g.files.filter(f => __detectFileKind(f) === 'excel');
@@ -661,10 +700,8 @@ function renderResultFilesHTML(files) {
       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
     }) : '-';
 
-    /* Badge status */
     let badge;
     if (pdfs.length > 0 && excels.length > 0) {
-      /* PDF + Excel → lengkap */
       badge = `
         <span style="
           font-size: 10px; color: #15803d; font-weight: 800;
@@ -673,7 +710,6 @@ function renderResultFilesHTML(files) {
           white-space: nowrap;
         ">✓ Lengkap (${g.files.length})</span>`;
     } else if (pdfs.length > 0 && excels.length === 0) {
-      /* Hanya PDF → normal (kandidat tidak pilih tes Excel) */
       badge = `
         <span style="
           font-size: 10px; color: #1e40af; font-weight: 800;
@@ -682,7 +718,6 @@ function renderResultFilesHTML(files) {
           white-space: nowrap;
         ">📄 PDF</span>`;
     } else if (excels.length > 0 && pdfs.length === 0) {
-      /* Hanya Excel → aneh, kandidat belum kirim PDF */
       badge = `
         <span style="
           font-size: 10px; color: #92400e; font-weight: 800;
@@ -691,7 +726,6 @@ function renderResultFilesHTML(files) {
           white-space: nowrap;
         ">⚠ Excel saja</span>`;
     } else if (g.files.length > 0) {
-      /* File lain-lain */
       badge = `
         <span style="
           font-size: 10px; color: #475569; font-weight: 800;
@@ -708,7 +742,6 @@ function renderResultFilesHTML(files) {
         border: 1px solid #dbeafe; border-radius: 12px;
         box-shadow: 0 2px 8px rgba(30,64,175,.04);
       ">
-        <!-- HEADER KANDIDAT -->
         <div style="
           display: flex; justify-content: space-between;
           align-items: flex-start; gap: 10px;
@@ -728,7 +761,6 @@ function renderResultFilesHTML(files) {
           ${badge}
         </div>
 
-        <!-- DAFTAR FILE -->
         <div style="display: flex; flex-direction: column; gap: 6px;">
           ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
           ${excels.map(f => renderFileRow(f, 'excel')).join('')}
@@ -740,7 +772,7 @@ function renderResultFilesHTML(files) {
 }
 
 /* ============================================================
-   ✅ BARU: REFRESH DAFTAR PDF (hitung kandidat unik)
+   REFRESH DAFTAR PDF (hitung kandidat unik)
    ============================================================ */
 async function refreshResultFilesList() {
   const container = document.getElementById('adminResultFiles');
@@ -756,7 +788,6 @@ async function refreshResultFilesList() {
 
   const files = await fetchResultFiles();
 
-  /* Hitung jumlah kandidat unik */
   const uniqueNames = new Set();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
@@ -914,24 +945,23 @@ function renderAdminLoginPrompt() {
         throw new Error('Akun ini bukan admin');
       }
 
-   sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
-errorEl.style.color = '#16a34a';
-errorEl.textContent = '✅ Berhasil...';
+      sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+      errorEl.style.color = '#16a34a';
+      errorEl.textContent = '✅ Berhasil...';
 
-setTimeout(() => {
-  overlay.remove();
-  renderAdminPanel();
-
-  // Retry — pastikan listener Firebase sudah ready
-  setTimeout(() => {
-    if (typeof renderAdminPanel === 'function') {
-      const container = document.getElementById('adminActiveSessions');
-      if (container && container.textContent.includes('Memuat')) {
+      setTimeout(() => {
+        overlay.remove();
         renderAdminPanel();
-      }
-    }
-  }, 1500);
-}, 200);
+
+        setTimeout(() => {
+          if (typeof renderAdminPanel === 'function') {
+            const container = document.getElementById('adminActiveSessions');
+            if (container && container.textContent.includes('Memuat')) {
+              renderAdminPanel();
+            }
+          }
+        }, 1500);
+      }, 200);
 
     } catch (err) {
       console.error('[ADMIN] Login error:', err);
@@ -964,6 +994,7 @@ setTimeout(() => {
 
   setTimeout(() => emailEl.focus(), 120);
 }
+
 /* ============================================================
    ADMIN LOGOUT
    ============================================================ */
@@ -986,7 +1017,7 @@ function adminLogout() {
     window.__pdfAutoRefreshTimer = null;
   }
   const panel = document.getElementById('adminPanelOverlay');
-     if (typeof stopListeningAccessRequests === 'function') {
+  if (typeof stopListeningAccessRequests === 'function') {
     try { stopListeningAccessRequests(); } catch (e) {}
   }
   if (panel) panel.remove();
@@ -1029,12 +1060,10 @@ function renderActiveSessionsHTML(sessions) {
       ? `${s.completedCount}/${s.totalTests} tes`
       : '—';
 
-    // Subtes label untuk IST
     const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null && s.testTotalSubtests
       ? `Subtes ${(s.currentSubtest || 0) + 1}/${s.testTotalSubtests}`
       : '';
 
-    // Status
     const isFinished = s.finished === true;
     const isDisqualified = s.disqualified === true;
 
@@ -1058,14 +1087,11 @@ function renderActiveSessionsHTML(sessions) {
 
     const deviceIdShort = s.deviceId.slice(-8);
 
-       // Tombol "Izinkan Tes Lagi" dihapus dari sesi aktif
-    // Akses retake hanya via section "Request Izin Akses"
     const allowRetakeBtn = '';
 
     const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
     const hasUnread = unreadCount > 0;
 
-    // Tombol chat
     const chatBtn = (isFinished || isDisqualified) ? `
       <button disabled title="${isDisqualified ? 'Kandidat diskualifikasi' : 'Kandidat sudah selesai'}" style="
         padding: 5px 12px;
@@ -1089,7 +1115,6 @@ function renderActiveSessionsHTML(sessions) {
       ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
     `;
 
-    // Background
     const cardBg = isDisqualified
       ? 'linear-gradient(135deg, #fef2f2, #fee2e2)'
       : isFinished
@@ -1099,13 +1124,9 @@ function renderActiveSessionsHTML(sessions) {
                      : isFinished ? '#cbd5e1'
                      : '#dbeafe';
 
-    // ============================================================
-    // TIMER & PROGRESS BAR (muncul hanya kalau sedang tes)
-    // ============================================================
     let timerProgressHTML = '';
 
     if (!isFinished && !isDisqualified && s.inTestView && s.currentTest) {
-      // Timer — hitung estimasi time left
       const hasTimer = s.timeLeft !== null && s.timeLeft !== undefined;
       const timeLeftInit = hasTimer ? s.timeLeft : 0;
       const lastSeenOffset = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : 0;
@@ -1127,7 +1148,6 @@ function renderActiveSessionsHTML(sessions) {
         </div>
       ` : '';
 
-      // Progress bar
       const pct = Math.max(0, Math.min(100, s.progressPercent || 0));
       const progressHTML = `
         <div style="margin-top: 6px;">
@@ -1393,21 +1413,19 @@ async function rejectAccessRequest(deviceId) {
 
 /* ============================================================
    ✅ HALAMAN HASIL TES TERKIRIM — fullscreen overlay
-   - Filter by posisi + search nama
+   - Filter by posisi + search nama (debounced)
    - Grouping per kandidat
-   - ✅ FIX: z-index 100000 (di atas panel admin 99999)
+   - z-index 100000
+   - SWR loading (instant dari cache)
    ============================================================ */
-window.__resultFilesCache = [];
 window.__resultFilterPosition = 'all';
 window.__resultSearchQuery = '';
 window.__resultFilesPageOpen = false;
 
 function openResultFilesPage() {
-  // Kalau overlay lama masih ada, buang dulu (hindari stuck)
   const existing = document.getElementById('resultFilesPageOverlay');
   if (existing) existing.remove();
 
-  // Reset flag (biar tidak nyangkut kalau sebelumnya error)
   window.__resultFilesPageOpen = false;
 
   try {
@@ -1598,12 +1616,38 @@ function openResultFilesPage() {
     document.body.appendChild(overlay);
 
     document.getElementById('rfBackBtn').onclick = closeResultFilesPage;
-    document.getElementById('rfRefreshBtn').onclick = () => loadResultFilesForPage();
 
+    // ✅ Refresh button — force fetch (bypass cache)
+    document.getElementById('rfRefreshBtn').onclick = async (e) => {
+      const btn = e.currentTarget;
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '⏳ Memuat...';
+
+      try {
+        if (typeof __invalidateResultCache === 'function') {
+          __invalidateResultCache();
+        }
+        const files = await fetchResultFiles(true);
+        window.__resultFilesCache = files;
+        __renderResultPageContent();
+      } catch (err) {
+        console.error('[RESULT-PAGE] Refresh error:', err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    };
+
+    // ✅ Search input — debounce 250ms
     const searchInput = document.getElementById('rfSearchInput');
+    let __searchDebounceTimer = null;
     searchInput.addEventListener('input', (e) => {
       window.__resultSearchQuery = (e.target.value || '').toLowerCase().trim();
-      __renderResultPageContent();
+      clearTimeout(__searchDebounceTimer);
+      __searchDebounceTimer = setTimeout(() => {
+        __renderResultPageContent();
+      }, 250);
     });
 
     loadResultFilesForPage();
@@ -1624,10 +1668,29 @@ function closeResultFilesPage() {
   }
 }
 
+/* ============================================================
+   ✅ SWR — load dengan stale-while-revalidate
+   ============================================================ */
 async function loadResultFilesForPage() {
   const content = document.getElementById('rfContent');
   if (!content) return;
 
+  // ✅ Kalau ada cache → tampil INSTAN
+  if (window.__resultFilesCacheData && window.__resultFilesCacheData.length >= 0) {
+    window.__resultFilesCache = window.__resultFilesCacheData;
+    __renderResultPageContent();
+
+    const cacheAge = Date.now() - (window.__resultFilesCacheTime || 0);
+    if (cacheAge > 10000) {
+      fetchResultFiles(true).then(files => {
+        window.__resultFilesCache = files;
+        __renderResultPageContent();
+      });
+    }
+    return;
+  }
+
+  // Tidak ada cache → loading + fetch
   content.innerHTML = `
     <div style="
       display: flex; align-items: center; justify-content: center;
@@ -1646,8 +1709,7 @@ async function loadResultFilesForPage() {
   `;
 
   const files = await fetchResultFiles();
-  window.__resultFilesCache = Array.isArray(files) ? files : [];
-
+  window.__resultFilesCache = files;
   __renderResultPageContent();
 }
 
@@ -1659,7 +1721,6 @@ function __renderResultPageContent() {
 
   const files = window.__resultFilesCache || [];
 
-  /* ---------- Grouping by nama ---------- */
   const groups = new Map();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
@@ -1674,21 +1735,18 @@ function __renderResultPageContent() {
 
   let groupArr = Array.from(groups.values());
 
-  /* ---------- Sort terbaru ---------- */
   groupArr.sort((a, b) => {
     const latestA = Math.max(...a.files.map(f => f.date || 0));
     const latestB = Math.max(...b.files.map(f => f.date || 0));
     return latestB - latestA;
   });
 
-  /* ---------- Kumpulkan semua posisi unik ---------- */
   const positionSet = new Set();
   groupArr.forEach(g => {
     if (g.position && g.position !== '-') positionSet.add(g.position);
   });
   const positions = Array.from(positionSet).sort();
 
-  /* ---------- Render chips posisi ---------- */
   const currentFilter = window.__resultFilterPosition || 'all';
   let chipsHTML = `
     <button class="rf-chip ${currentFilter === 'all' ? 'active' : ''}"
@@ -1715,7 +1773,6 @@ function __renderResultPageContent() {
 
   chipsContainer.innerHTML = chipsHTML;
 
-  /* ---------- Stats ---------- */
   const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
   statsContainer.innerHTML = `
     <div style="
@@ -1732,7 +1789,6 @@ function __renderResultPageContent() {
     ">📎 ${totalFiles} file</div>
   `;
 
-  /* ---------- Filter: search + posisi ---------- */
   const search = window.__resultSearchQuery || '';
   const filterPos = window.__resultFilterPosition || 'all';
 
@@ -1751,7 +1807,6 @@ function __renderResultPageContent() {
     );
   }
 
-  /* ---------- Render kartu ---------- */
   if (filtered.length === 0) {
     content.innerHTML = `
       <div style="
@@ -1937,16 +1992,27 @@ function __resetResultFilter() {
 }
 
 /* ============================================================
-   ✅ Counter di panel admin (update teks N kandidat · M file)
+   ✅ Counter di panel admin (pakai cache — instan)
    ============================================================ */
 async function __updateAdminResultCounter() {
   const countEl = document.getElementById('adminResultCount');
   if (!countEl) return;
 
-  const files = await fetchResultFiles();
-  window.__resultFilesCache = Array.isArray(files) ? files : [];
+  // ✅ Tampilkan cache dulu (instan) kalau ada
+  if (window.__resultFilesCacheData && window.__resultFilesCacheData.length >= 0) {
+    __renderCounterFromData(window.__resultFilesCacheData);
+  }
 
-  if (!files.length) {
+  // ✅ Refresh dari network (pakai cache TTL, tidak selalu fetch)
+  const files = await fetchResultFiles();
+  __renderCounterFromData(files);
+}
+
+function __renderCounterFromData(files) {
+  const countEl = document.getElementById('adminResultCount');
+  if (!countEl) return;
+
+  if (!files || !files.length) {
     countEl.textContent = 'Belum ada hasil tes';
     countEl.style.color = '#94a3b8';
     return;
@@ -2526,12 +2592,10 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
       container.innerHTML = renderActiveSessionsHTML(sessions);
     });
 
-    // Mulai unread tracker
     if (typeof startAdminUnreadTracker === 'function') {
       startAdminUnreadTracker();
     }
 
-    // ⏱ Mulai timer tick (update angka tiap detik)
     if (typeof startAdminTimerTick === 'function') {
       startAdminTimerTick();
     }
@@ -2548,7 +2612,7 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
         __updateAdminResultCounter();
       }
     }, 30000);
-    // 🔄 AUTO-CLEANUP: hapus chat kandidat yang sudah lama tidak aktif
+
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
         cleanupInactiveChatRooms({ silent: true }).then(r => {
@@ -2558,7 +2622,7 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
         });
       }, 500);
     }
-         // Listen access requests
+
     if (typeof listenAccessRequests === 'function') {
       const reqContainer = document.getElementById('adminAccessRequests');
       const reqCountEl = document.getElementById('adminRequestCount');
@@ -2593,10 +2657,10 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
         try { stopAdminTimerTick(); } catch (e) {}
       }
       overlay.remove();
-             if (typeof stopListeningAccessRequests === 'function') {
+      if (typeof stopListeningAccessRequests === 'function') {
         try { stopListeningAccessRequests(); } catch (e) {}
       }
-       if (window.__pdfAutoRefreshTimer) {
+      if (window.__pdfAutoRefreshTimer) {
         clearInterval(window.__pdfAutoRefreshTimer);
         window.__pdfAutoRefreshTimer = null;
       }
@@ -2612,13 +2676,11 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
     };
   }
 
-  /* ---- Tombol logout ---- */
   const logoutBtn = document.getElementById('btnAdminLogout');
   if (logoutBtn) {
     logoutBtn.onclick = adminLogout;
   }
 
-  /* ---- ESC untuk tutup ---- */
   document.addEventListener('keydown', function adminEsc(e) {
     if (e.key === 'Escape') {
       closeBtn && closeBtn.click();
@@ -2633,7 +2695,6 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
 function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
-  // Tampilkan loading sementara
   const loading = document.createElement('div');
   loading.id = 'adminAuthLoading';
   loading.style.cssText = `
@@ -2646,7 +2707,6 @@ function checkAdminUrlAndRender() {
   loading.innerHTML = '⏳ Memeriksa sesi admin...';
   document.body.appendChild(loading);
 
-  // Tunggu Firebase Auth ready (maks 3 detik)
   let resolved = false;
 
   const timeout = setTimeout(() => {
@@ -2670,7 +2730,6 @@ function checkAdminUrlAndRender() {
       return;
     }
 
-    // Cek apakah user ini admin
     firebase.database().ref('admins/' + user.uid).once('value')
       .then(snap => {
         if (snap.exists() && snap.val() === true) {
@@ -2730,21 +2789,25 @@ window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
 window.deleteResultFile         = deleteResultFile;
 
-/* ─── ✅ BARU: Helper grouping ─── */
+/* ─── Helper grouping ─── */
 window.__extractCandidateInfo  = __extractCandidateInfo;
 window.__detectFileKind        = __detectFileKind;
 
-/* ─── ✅ BARU: Halaman hasil tes ─── */
+/* ─── Halaman hasil tes ─── */
 window.openResultFilesPage     = openResultFilesPage;
 window.closeResultFilesPage    = closeResultFilesPage;
 window.loadResultFilesForPage  = loadResultFilesForPage;
 window.__setResultFilter       = __setResultFilter;
 window.__resetResultFilter     = __resetResultFilter;
 window.__updateAdminResultCounter = __updateAdminResultCounter;
+
+/* ─── ✅ Cache control ─── */
+window.__invalidateResultCache = __invalidateResultCache;
+
 /* ─── Access Requests ─── */
 window.listenAccessRequests         = listenAccessRequests;
 window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
 window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized');
