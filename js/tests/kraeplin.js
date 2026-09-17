@@ -13,11 +13,16 @@
    
      app.innerHTML = `
        <div class="kraeplin-instruction">
-         <div class="instruction-header">
-           <div class="instruction-icon">🧮</div>
-           <h2>Instruksi Tes Kraeplin</h2>
-           <p>Baca instruksi singkat berikut sebelum memulai tes.</p>
-         </div>
+      <div class="instruction-header">
+        <div style="display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:8px;">
+          ${renderTestLogoBadge()}
+          <div style="text-align:left;">
+            <div class="instruction-icon" style="font-size:1.8em;margin-bottom:2px;">🧮</div>
+            <h2 style="margin:0;">Instruksi Tes Kraeplin</h2>
+          </div>
+        </div>
+        <p>Baca instruksi singkat berikut sebelum memulai tes.</p>
+      </div>
    
          <div class="instruction-content">
            <div class="instruction-row">
@@ -157,14 +162,17 @@
        <div class="ist-shell">
          <div class="ist-panel">
            <div class="ist-panel-header">
-             <div class="ist-header-row">
-               <div>
-                 <div class="ist-eyebrow"><span>✅</span> PERFORMANCE ASSESSMENT</div>
-                 <h2 class="ist-title">Tes Kraeplin Selesai</h2>
-                 <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
-               </div>
-             </div>
-           </div>
+            <div class="ist-header-row">
+              <div style="display:flex;align-items:center;gap:15px;">
+                ${renderTestLogoBadge()}
+                <div>
+                  <div class="ist-eyebrow"><span>✅</span> PERFORMANCE ASSESSMENT</div>
+                  <h2 class="ist-title" style="margin-top:11px;">Tes Kraeplin Selesai</h2>
+                  <p class="ist-subtitle">Terima kasih, jawaban Anda telah berhasil disimpan.</p>
+                </div>
+              </div>
+            </div>
+          </div>
    
            <div class="ist-body">
              <div class="ist-instruction-card" style="text-align:center;padding:32px 22px;">
