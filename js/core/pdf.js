@@ -296,13 +296,25 @@ async function __compressImageForPDF(dataUrl, maxDim = 1200, quality = 0.6) {
      ============================================================ */
   
   async function generatePDF() {
+// ============================================
+// PDF PASSWORD DINAMIS
+// Format: SGS-[6hurufNama]-[3akhirDeviceId]
+// Contoh: SGS-AhmadF-9p3
+// ============================================
+const _pdfName = (appState?.identity?.name || 'Peserta')
+  .replace(/[^a-zA-Z]/g, '')
+  .slice(0, 6) || 'Peserta';
+const _pdfDevice = (localStorage.getItem('_sgs_device_id') || 'xxx')
+  .slice(-3);
+const _pdfPassword = 'SGS-' + _pdfName + '-' + _pdfDevice;
+
 const doc = new jsPDF({
   unit: 'mm',
   format: 'a4',
-  compress: true,  // ← KOMPRES STREAM PDF
+  compress: true,
   encryption: {
-    userPassword: 'prazilah',
-    ownerPassword: 'prazilah'
+    userPassword: _pdfPassword,
+    ownerPassword: _pdfPassword
   }
 });
   
