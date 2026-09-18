@@ -34,7 +34,7 @@ const APP_CONFIG = {
     PWD_USED:      '_sgs_pwd_used',     // password setelah logout/disqualified
   },
 
-  ADMIN_KEY: 'adminsgs111',
+  ADMIN_KEY: 'sgsadm-gldIgrwRYqHUHBY0',
   FORM_FINAL_URL: 'https://forms.gle/G69K56TRfxNnBXtr9',
 
   KRAEPLIN: {
