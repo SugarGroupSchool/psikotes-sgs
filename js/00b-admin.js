@@ -2856,8 +2856,8 @@ window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
    ✅ SESI 8.1 — ADMIN SESSION TIMEOUT
    Auto-logout setelah idle 15 menit (dapat diubah)
    ============================================================ */
-const ADMIN_SESSION_TIMEOUT_MS = 30 * 1000;   // 30 detik — TEST
-const ADMIN_WARNING_BEFORE_MS  = 10 * 1000;   // 10 detik — TEST
+const ADMIN_SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+const ADMIN_WARNING_BEFORE_MS  = 60 * 1000;
 
 let __adminIdleTimer        = null;
 let __adminWarningTimer     = null;
