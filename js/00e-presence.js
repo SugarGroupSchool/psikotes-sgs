@@ -610,12 +610,12 @@ function __shouldInitPresence() {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
     if (__shouldInitPresence()) {
-      setTimeout(initPresence, 800);
+      setTimeout(initPresence, 2000);
     }
   });
 } else {
   if (__shouldInitPresence()) {
-    setTimeout(initPresence, 800);
+    setTimeout(initPresence, 2000);
   }
 }
 
