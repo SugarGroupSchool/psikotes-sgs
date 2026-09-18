@@ -71,8 +71,6 @@ function initFirebase() {
     console.warn('[FIREBASE] SDK belum ke-load — cek CDN di index.html');
     return;
   }
-  // Note: Firebase tetap di-init untuk admin (dibutuhkan auth admin)
-  // Tapi kita skip modul lain (presence) saat mode admin
 
   try {
     if (!firebase.apps.length) {
@@ -81,48 +79,88 @@ function initFirebase() {
 
     const db = firebase.database();
 
-    let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
+    // ============================================================
+    // AUTH-AWARE LISTENERS
+    // Re-attach listener setiap auth berubah (login/logout/switch)
+    // Solusi untuk race condition: anonim → admin email
+    // ============================================================
+    let __fbStateRefs = [];
 
-    function __handleStateChange() {
-      const newLock = window.__cloudState.lock;
-      const newFreshPwd = window.__cloudState.freshPwd;
-      const newUsedPwd = window.__cloudState.usedPwd;
-
-      const changed =
-        __lastSync.lock !== newLock ||
-        __lastSync.freshPwd !== newFreshPwd ||
-        __lastSync.usedPwd !== newUsedPwd;
-
-      window.__cloudState.ready = true;
-
-      if (changed) {
-        __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
-        console.log('[FIREBASE] Sync:', __lastSync);
-
-        const panel = document.getElementById('adminPanelOverlay');
-        if (panel && typeof renderAdminPanel === 'function') {
-          renderAdminPanel();
-        }
-      }
+    function __detachFbListeners() {
+      __fbStateRefs.forEach(({ ref, cb }) => {
+        try { ref.off('value', cb); } catch (e) {}
+      });
+      __fbStateRefs = [];
     }
 
-    // Listen per-node (bukan root sgs_state) — kompatibel dengan Fase 3
-    db.ref('sgs_state/lock').on('value', s => {
-      window.__cloudState.lock = s.val() === true;
-      __handleStateChange();
-    }, err => console.warn('[FIREBASE] lock read error:', err.message));
+    function __attachFbListeners() {
+      __detachFbListeners();
 
-    db.ref('sgs_state/freshPwd').on('value', s => {
-      window.__cloudState.freshPwd = s.val() || '';
-      __handleStateChange();
-    }, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
+      let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
 
-    db.ref('sgs_state/usedPwd').on('value', s => {
-      window.__cloudState.usedPwd = s.val() || '';
-      __handleStateChange();
-    }, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
+      function __handleStateChange() {
+        const newLock = window.__cloudState.lock;
+        const newFreshPwd = window.__cloudState.freshPwd;
+        const newUsedPwd = window.__cloudState.usedPwd;
 
-    console.log('[FIREBASE] ✓ Initialized (per-node)');
+        const changed =
+          __lastSync.lock !== newLock ||
+          __lastSync.freshPwd !== newFreshPwd ||
+          __lastSync.usedPwd !== newUsedPwd;
+
+        window.__cloudState.ready = true;
+
+        if (changed) {
+          __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
+          console.log('[FIREBASE] Sync:', __lastSync);
+
+          const panel = document.getElementById('adminPanelOverlay');
+          if (panel && typeof renderAdminPanel === 'function') {
+            renderAdminPanel();
+          }
+        }
+      }
+
+      // ─── lock ───
+      const lockRef = db.ref('sgs_state/lock');
+      const lockCb = s => {
+        window.__cloudState.lock = s.val() === true;
+        __handleStateChange();
+      };
+      lockRef.on('value', lockCb, err => console.warn('[FIREBASE] lock read error:', err.message));
+      __fbStateRefs.push({ ref: lockRef, cb: lockCb });
+
+      // ─── freshPwd ───
+      const freshRef = db.ref('sgs_state/freshPwd');
+      const freshCb = s => {
+        window.__cloudState.freshPwd = s.val() || '';
+        __handleStateChange();
+      };
+      freshRef.on('value', freshCb, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
+      __fbStateRefs.push({ ref: freshRef, cb: freshCb });
+
+      // ─── usedPwd ───
+      const usedRef = db.ref('sgs_state/usedPwd');
+      const usedCb = s => {
+        window.__cloudState.usedPwd = s.val() || '';
+        __handleStateChange();
+      };
+      usedRef.on('value', usedCb, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
+      __fbStateRefs.push({ ref: usedRef, cb: usedCb });
+    }
+
+    // Attach pertama (saat page load)
+    __attachFbListeners();
+
+    // Re-attach setiap auth berubah
+    firebase.auth().onAuthStateChanged((user) => {
+      const type = user ? (user.isAnonymous ? 'anonim' : 'email') : 'logout';
+      console.log('[FIREBASE] 🔄 Auth changed:', type);
+      // Tunggu token refresh selesai sebelum re-attach
+      setTimeout(__attachFbListeners, 400);
+    });
+
+    console.log('[FIREBASE] ✓ Initialized (auth-aware listeners)');
 
   } catch (e) {
     console.error('[FIREBASE] Init error:', e);
