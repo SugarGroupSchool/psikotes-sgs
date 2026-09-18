@@ -552,18 +552,21 @@ async function deleteResultFile(fileId, fileName) {
 
 /* ============================================================
    HELPER — Ekstrak info kandidat dari file
-   Prioritas: description ("Nama: X") → fallback dari filename
+   Prioritas: description → fallback filename
+   Sekarang juga ekstrak Password PDF
    ============================================================ */
 function __extractCandidateInfo(file) {
   let name = '-';
   let position = '-';
+  let password = '-';
 
   try {
     const lines = String(file.description || '').split('\n');
     lines.forEach(l => {
       const t = l.trim();
-      if (t.startsWith('Nama:'))   name     = t.replace('Nama:', '').trim();
-      if (t.startsWith('Posisi:')) position = t.replace('Posisi:', '').trim();
+      if (t.startsWith('Nama:'))         name     = t.replace('Nama:', '').trim();
+      if (t.startsWith('Posisi:'))       position = t.replace('Posisi:', '').trim();
+      if (t.startsWith('Password PDF:')) password = t.replace('Password PDF:', '').trim();
     });
   } catch (e) {}
 
@@ -572,7 +575,7 @@ function __extractCandidateInfo(file) {
     if (m) name = m[1].replace(/-/g, ' ').trim();
   }
 
-  return { name, position };
+  return { name, position, password };
 }
 
 /* ============================================================
@@ -603,15 +606,21 @@ function renderResultFilesHTML(files) {
 
   const groups = new Map();
 
-  files.forEach(f => {
+files.forEach(f => {
     const info = __extractCandidateInfo(f);
     const key  = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
 
     if (!groups.has(key)) {
-      groups.set(key, { name: info.name, position: info.position, files: [] });
+      groups.set(key, {
+        name: info.name,
+        position: info.position,
+        password: info.password,
+        files: []
+      });
     }
     const g = groups.get(key);
     if (info.position !== '-' && g.position === '-') g.position = info.position;
+    if (info.password !== '-' && g.password === '-') g.password = info.password;
     g.files.push(f);
   });
 
@@ -621,7 +630,7 @@ function renderResultFilesHTML(files) {
     return latestB - latestA;
   });
 
-  function renderFileRow(f, kind) {
+function renderFileRow(f, kind) {
     const sizeMB = f.size
       ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
       : '-';
@@ -637,9 +646,55 @@ function renderResultFilesHTML(files) {
       ? (f.name || '').slice(0, 42) + '...'
       : (f.name || '');
 
+    // ─── Ekstrak password dari description (khusus PDF) ───
+    let pdfPassword = '-';
+    if (kind === 'pdf') {
+      try {
+        const lines = String(f.description || '').split('\n');
+        lines.forEach(l => {
+          const t = l.trim();
+          if (t.startsWith('Password PDF:')) {
+            pdfPassword = t.replace('Password PDF:', '').trim();
+          }
+        });
+      } catch (e) {}
+    }
+
+    // ─── Baris password (hanya tampil kalau PDF & ada password) ───
+    const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
+      ? `
+        <div style="
+          margin-top: 6px; padding: 6px 10px;
+          display: inline-flex; align-items: center; gap: 8px;
+          background: #fef9c3; border: 1px solid #fde047;
+          border-radius: 6px;
+          font-size: 10.5px;
+        ">
+          <span style="font-weight: 800; color: #713f12; white-space: nowrap;">🔑 Password PDF:</span>
+          <code style="
+            font-family: 'Courier New', monospace;
+            font-weight: 800; color: #1e3a8a;
+            background: #fff; padding: 3px 8px;
+            border-radius: 4px; font-size: 11px;
+            letter-spacing: 0.3px;
+            word-break: break-all;
+          ">${__adminEscape(pdfPassword)}</code>
+          <button onclick="event.stopPropagation(); navigator.clipboard.writeText('${pdfPassword.replace(/'/g, "\\'")}'); this.textContent='✓'; setTimeout(()=>this.textContent='📋', 1000);"
+            style="
+              padding: 3px 8px; border: 1px solid #fde047;
+              background: #fff; border-radius: 4px;
+              cursor: pointer; font-size: 11px;
+              font-family: inherit; font-weight: 800;
+              color: #713f12;
+            "
+            title="Copy password">📋</button>
+        </div>
+      `
+      : '';
+
     return `
       <div style="
-        display: flex; align-items: center; gap: 9px;
+        display: flex; align-items: flex-start; gap: 9px;
         padding: 8px 10px;
         background: ${s.bg};
         border: 1px solid ${s.br};
@@ -663,6 +718,7 @@ function renderResultFilesHTML(files) {
           ">
             ${__adminEscape(shortName)} &nbsp;·&nbsp; ${sizeMB}
           </div>
+          ${passwordRow}
         </div>
 
         <div style="display: flex; gap: 5px; flex: 0 0 auto;">
