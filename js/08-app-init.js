@@ -307,7 +307,7 @@
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-function runInit() {
+async function runInit() {
   /* Cek device finished — tampilkan layar request */
   if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
     const pwdScreen = document.getElementById('passwordScreen');
