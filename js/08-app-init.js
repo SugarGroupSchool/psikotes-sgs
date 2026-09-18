@@ -327,6 +327,15 @@ async function runInit() {
     }
   }
 
+  /* ✅ Login anonim Firebase untuk kandidat */
+  if (typeof window.initAnonymousAuth === 'function') {
+    try {
+      await window.initAnonymousAuth();
+    } catch (e) {
+      console.warn('[INIT] Anonymous auth error:', e);
+    }
+  }
+
   /* Init normal */
   refreshActivePassword();
   initAppState();
