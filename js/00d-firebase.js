@@ -28,6 +28,42 @@ window.__cloudState = {
 };
 
 /* ============================================================
+   ANONYMOUS AUTH — Login otomatis untuk kandidat
+   ============================================================ */
+function initAnonymousAuth() {
+  return new Promise((resolve) => {
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      console.warn('[AUTH] Firebase Auth belum siap');
+      resolve(null);
+      return;
+    }
+
+    const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        console.log('[AUTH] User login:', user.uid.slice(0, 8));
+        unsubscribe();
+        resolve(user);
+      } else {
+        firebase.auth().signInAnonymously()
+          .catch((err) => {
+            console.warn('[AUTH] Anonymous gagal:', err.message);
+            unsubscribe();
+            resolve(null);
+          });
+      }
+    });
+
+    setTimeout(() => {
+      unsubscribe();
+      resolve(firebase.auth().currentUser);
+    }, 5000);
+  });
+}
+
+window.initAnonymousAuth = initAnonymousAuth;
+
+
+/* ============================================================
    INIT FIREBASE
    ============================================================ */
 function initFirebase() {
