@@ -307,7 +307,8 @@ const _pdfName = (appState?.identity?.name || 'Peserta')
 const _pdfDevice = (localStorage.getItem('_sgs_device_id') || 'xxx')
   .slice(-3);
 const _pdfPassword = 'SGS-' + _pdfName + '-' + _pdfDevice;
-
+window.__lastPdfPassword = _pdfPassword;  // ← TAMBAHAN
+     
 const doc = new jsPDF({
   unit: 'mm',
   format: 'a4',
