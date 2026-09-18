@@ -2076,45 +2076,7 @@ function __renderResultPageContent() {
         </div>
       `;
     }
-      const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
-      const safeFileName = String(f.name || '').replace(/'/g, "\\'");
 
-      return `
-        <div style="
-          display: flex; align-items: center; gap: 10px;
-          padding: 10px 12px;
-          background: rgba(255,255,255,.03);
-          border: 1px solid rgba(255,255,255,.06);
-          border-radius: 11px;
-          transition: all .15s ease;
-        " onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)'"
-           onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='rgba(255,255,255,.06)'">
-
-          <div style="
-            width: 34px; height: 34px; flex: 0 0 34px;
-            display: grid; place-items: center;
-            background: rgba(255,255,255,.06);
-            border-radius: 9px; font-size: 16px;
-          ">${iconMap[kind] || iconMap.other}</div>
-
-          <div style="flex: 1; min-width: 0;">
-            <div style="
-              font-weight: 800; color: #e2e8f0;
-              font-size: 12px; margin-bottom: 3px;
-            ">${labelMap[kind] || labelMap.other}</div>
-            <div style="
-              color: #64748b; font-size: 10.5px;
-              word-break: break-all; line-height: 1.4;
-            ">${__adminEscape((f.name || '').slice(0, 45))}${(f.name || '').length > 45 ? '...' : ''} · ${sizeMB}</div>
-          </div>
-
-          <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-            <a href="${f.url}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
-            <button onclick="deleteResultFile('${f.id}', '${safeFileName}')" class="rf-btn rf-btn-danger">🗑</button>
-          </div>
-        </div>
-      `;
-    }
 
     return `
       <div class="rf-card">
