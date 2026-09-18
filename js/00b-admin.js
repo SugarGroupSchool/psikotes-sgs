@@ -1102,7 +1102,14 @@ function renderAdminLoginPrompt() {
    ============================================================ */
 function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
+  
+  // ✅ SESI 8.1: Matikan idle tracker
+  if (typeof __stopAdminIdleTracking === 'function') {
+    __stopAdminIdleTracking();
+  }
+  
   try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+  // ... sisa kode ...
   try { firebase.auth().signOut(); } catch (e) {}
 
   if (typeof window.stopListeningActiveSessions === 'function') {
@@ -2605,7 +2612,12 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
     </div>
   `;
 
-  document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
+
+  // ✅ SESI 8.1: Aktifkan idle tracker untuk admin
+  if (typeof __startAdminIdleTracking === 'function') {
+    __startAdminIdleTracking();
+  }
 
   /* ---- Listen kandidat aktif (real-time) ---- */
   setTimeout(() => {
@@ -2840,4 +2852,153 @@ window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
 window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
+/* ============================================================
+   ✅ SESI 8.1 — ADMIN SESSION TIMEOUT
+   Auto-logout setelah idle 15 menit (dapat diubah)
+   ============================================================ */
+const ADMIN_SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 menit
+const ADMIN_WARNING_BEFORE_MS  = 60 * 1000;      // warning 1 menit sebelum logout
+
+let __adminIdleTimer        = null;
+let __adminWarningTimer     = null;
+let __adminWarningShown     = false;
+
+function __resetAdminIdleTimer() {
+  // Skip kalau bukan mode admin
+  if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
+
+  // Skip kalau panel admin tidak terbuka
+  const panel = document.getElementById('adminPanelOverlay');
+  if (!panel) return;
+
+  // Clear timer lama
+  clearTimeout(__adminIdleTimer);
+  clearTimeout(__adminWarningTimer);
+
+  // Sembunyikan warning kalau ada
+  const warn = document.getElementById('adminIdleWarning');
+  if (warn) warn.remove();
+  __adminWarningShown = false;
+
+  // Set timer warning (1 menit sebelum logout)
+  __adminWarningTimer = setTimeout(() => {
+    if (__adminWarningShown) return;
+    __adminWarningShown = true;
+    __showAdminIdleWarning();
+  }, ADMIN_SESSION_TIMEOUT_MS - ADMIN_WARNING_BEFORE_MS);
+
+  // Set timer logout
+  __adminIdleTimer = setTimeout(() => {
+    if (typeof adminLogout === 'function') {
+      const panel = document.getElementById('adminPanelOverlay');
+      if (panel) {
+        const warn = document.getElementById('adminIdleWarning');
+        if (warn) warn.remove();
+
+        alert('🔒 Sesi admin berakhir karena tidak ada aktivitas 15 menit.\n\nSilakan login ulang untuk melanjutkan.');
+        try { adminLogout(); } catch (e) {}
+      }
+    }
+  }, ADMIN_SESSION_TIMEOUT_MS);
+}
+
+function __showAdminIdleWarning() {
+  const old = document.getElementById('adminIdleWarning');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'adminIdleWarning';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 2147483646;
+    background: rgba(10,20,35,.85);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <div style="
+      width: min(440px, 100%);
+      background: #fff; border-radius: 22px;
+      padding: 32px 28px 28px;
+      box-shadow: 0 30px 90px rgba(0,0,0,.5);
+      text-align: center;
+    ">
+      <div style="font-size: 52px; margin-bottom: 14px;">⏰</div>
+      <h2 style="
+        margin: 0 0 12px;
+        color: #b45309; font-size: 22px; font-weight: 900;
+      ">Sesi Hampir Berakhir</h2>
+      <p style="
+        color: #475569; font-size: 14.5px;
+        line-height: 1.65; margin: 0 0 22px;
+      ">
+        Anda tidak ada aktivitas selama 14 menit.<br>
+        Sesi akan otomatis berakhir dalam <b>1 menit</b>.
+      </p>
+      <button id="btnAdminStay" style="
+        width: 100%; padding: 14px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        color: #fff; border: 0; border-radius: 12px;
+        font-size: 15px; font-weight: 800;
+        cursor: pointer; font-family: inherit;
+        box-shadow: 0 10px 24px rgba(5,150,105,.28);
+      ">✅ Saya Masih di Sini</button>
+      <button id="btnAdminLogoutNow" style="
+        width: 100%; padding: 12px; margin-top: 10px;
+        background: #f1f5f9; color: #475569;
+        border: 0; border-radius: 12px;
+        font-size: 13px; font-weight: 700;
+        cursor: pointer; font-family: inherit;
+      ">🚪 Logout Sekarang</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnAdminStay').onclick = () => {
+    overlay.remove();
+    __adminWarningShown = false;
+    __resetAdminIdleTimer();
+  };
+
+  document.getElementById('btnAdminLogoutNow').onclick = () => {
+    overlay.remove();
+    if (typeof adminLogout === 'function') {
+      try { adminLogout(); } catch (e) {}
+    }
+  };
+}
+
+function __startAdminIdleTracking() {
+  // Skip kalau bukan mode admin
+  if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
+
+  // Prevent duplicate listeners
+  if (window.__adminIdleListenersAttached) return;
+  window.__adminIdleListenersAttached = true;
+
+  const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click', 'scroll'];
+  events.forEach(evt => {
+    document.addEventListener(evt, __resetAdminIdleTimer, { passive: true });
+  });
+
+  __resetAdminIdleTimer();
+  console.log('[ADMIN] ⏰ Session timeout aktif (15 menit idle)');
+}
+
+function __stopAdminIdleTracking() {
+  clearTimeout(__adminIdleTimer);
+  clearTimeout(__adminWarningTimer);
+  __adminIdleTimer = null;
+  __adminWarningTimer = null;
+  window.__adminIdleListenersAttached = false;
+  const warn = document.getElementById('adminIdleWarning');
+  if (warn) warn.remove();
+}
+
+window.__resetAdminIdleTimer = __resetAdminIdleTimer;
+window.__startAdminIdleTracking = __startAdminIdleTracking;
+window.__stopAdminIdleTracking = __stopAdminIdleTracking;
 console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized');
