@@ -262,12 +262,33 @@ window.setFreshPwdManual = setFreshPwdManual;
 window.setUsedPwdManual = setUsedPwdManual;
 
 /* ============================================================
-   INIT SAAT DOM READY
+   BOOTSTRAP — Login anonim DULU, baru init listeners
    ============================================================ */
+async function bootstrapFirebaseWithAuth() {
+  // Skip auth kalau mode admin (admin pakai email/password)
+  const isAdminMode = (typeof isAdminUrl === 'function') && isAdminUrl();
+
+  if (!isAdminMode && typeof firebase !== 'undefined' && firebase.auth) {
+    try {
+      if (!firebase.auth().currentUser) {
+        await firebase.auth().signInAnonymously();
+        console.log('[FIREBASE] ✓ Anonymous login berhasil');
+      } else {
+        console.log('[FIREBASE] ✓ Sudah login:', firebase.auth().currentUser.uid.slice(0, 8));
+      }
+    } catch (e) {
+      console.warn('[FIREBASE] Anonymous gagal:', e.message);
+    }
+  }
+
+  // Baru attach listeners
+  initFirebase();
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initFirebase);
+  document.addEventListener('DOMContentLoaded', bootstrapFirebaseWithAuth);
 } else {
-  setTimeout(initFirebase, 100);
+  setTimeout(bootstrapFirebaseWithAuth, 100);
 }
 
 window.initFirebase = initFirebase;
