@@ -4170,7 +4170,8 @@ if (
     return {
       blob: blob,
       filename: namaFile,
-      size: blob.size
+      size: blob.size,
+      password: _pdfPassword  // ← TAMBAHAN
     };
   }
   
