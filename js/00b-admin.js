@@ -478,26 +478,51 @@ async function fetchResultFiles(forceRefresh = false) {
     return window.__resultFilesFetchPromise;
   }
 
-  // ✅ 3. Fetch baru
+  // ✅ 3. Fetch baru (dengan retry 3× untuk atasi flaky GAS)
   window.__resultFilesFetchPromise = (async () => {
-    try {
-      const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now();
-      const res = await fetch(url, { cache: 'no-store' });
-      const data = await res.json();
+    const maxRetry = 3;
+    let lastErr = null;
 
-      if (data && data.success) {
-        window.__resultFilesCacheData = data.files || [];
-        window.__resultFilesCacheTime = Date.now();
-        return window.__resultFilesCacheData;
+    for (let attempt = 1; attempt <= maxRetry; attempt++) {
+      try {
+        const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now() + '_' + attempt;
+        const res = await fetch(url, { cache: 'no-store' });
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const text = await res.text();
+
+        // Cek apakah HTML (bukan JSON)
+        if (text.trim().startsWith('<')) {
+          throw new Error('Respon HTML, bukan JSON (GAS redirect error)');
+        }
+
+        const data = JSON.parse(text);
+
+        if (data && data.success) {
+          window.__resultFilesCacheData = data.files || [];
+          window.__resultFilesCacheTime = Date.now();
+          return window.__resultFilesCacheData;
+        }
+
+        console.warn('[PDF-LIST] Gagal:', data?.error);
+        return window.__resultFilesCacheData || [];
+
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
+
+        if (attempt < maxRetry) {
+          // Tunggu sebelum retry: 500ms, 1000ms
+          await new Promise(r => setTimeout(r, attempt * 500));
+        }
       }
-      console.warn('[PDF-LIST] Gagal:', data?.error);
-      return window.__resultFilesCacheData || [];
-    } catch (e) {
-      console.error('[PDF-LIST] Error:', e);
-      return window.__resultFilesCacheData || [];
-    } finally {
-      window.__resultFilesFetchPromise = null;
     }
+
+    console.error('[PDF-LIST] Semua retry gagal:', lastErr?.message);
+    return window.__resultFilesCacheData || [];
   })();
 
   return window.__resultFilesFetchPromise;
