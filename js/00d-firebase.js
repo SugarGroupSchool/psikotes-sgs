@@ -268,6 +268,11 @@ async function bootstrapFirebaseWithAuth() {
   // Skip auth kalau mode admin (admin pakai email/password)
   const isAdminMode = (typeof isAdminUrl === 'function') && isAdminUrl();
 
+  // ✅ Initialize Firebase DULU sebelum pakai auth
+  if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+
   if (!isAdminMode && typeof firebase !== 'undefined' && firebase.auth) {
     try {
       if (!firebase.auth().currentUser) {
