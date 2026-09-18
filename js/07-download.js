@@ -409,14 +409,16 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
 
   const pdfBase64 = await __blobToBase64(pdfResult.blob);
 
-  const payload = {
-    deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
-    filename: pdfResult.filename,
-    name: identity.name || '(tanpa nama)',
-    position: identity.position || '',
-    email: identity.email || '',
-    pdfBase64: pdfBase64
-  };
+const payload = {
+  deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
+  filename: pdfResult.filename,
+  name: identity.name || '(tanpa nama)',
+  position: identity.position || '',
+  email: identity.email || '',
+  pdfBase64: pdfBase64,
+  pdfPassword: pdfResult.password || window.__lastPdfPassword || '-', // ← TAMBAHAN
+  token: _gasToken
+};
 
   let attempt = 0;
   let lastError = null;
