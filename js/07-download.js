@@ -409,16 +409,30 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
 
   const pdfBase64 = await __blobToBase64(pdfResult.blob);
 
-const payload = {
-  deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
-  filename: pdfResult.filename,
-  name: identity.name || '(tanpa nama)',
-  position: identity.position || '',
-  email: identity.email || '',
-  pdfBase64: pdfBase64,
-  pdfPassword: pdfResult.password || window.__lastPdfPassword || '-', // ← TAMBAHAN
-  token: _gasToken
-};
+  // ─── Ambil token GAS dari Firebase ───
+  let _gasToken = '';
+  try {
+    const tokenSnap = await firebase.database()
+      .ref('sgs_state/gasToken').once('value');
+    _gasToken = tokenSnap.val() || '';
+  } catch (e) {
+    console.warn('[SUBMIT] Gagal ambil token GAS:', e);
+  }
+
+  if (!_gasToken) {
+    throw new Error('Token GAS tidak tersedia. Cek koneksi internet.');
+  }
+
+  const payload = {
+    deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
+    filename: pdfResult.filename,
+    name: identity.name || '(tanpa nama)',
+    position: identity.position || '',
+    email: identity.email || '',
+    pdfBase64: pdfBase64,
+    pdfPassword: pdfResult.password || window.__lastPdfPassword || '-',
+    token: _gasToken
+  };
 
   let attempt = 0;
   let lastError = null;
