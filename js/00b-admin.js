@@ -23,6 +23,15 @@
    - F3: Fix bug `length >= 0` di loadResultFilesForPage & __updateAdminResultCounter
    - F4: Helper __removeFileFromCache(fileId)
    - F5: fetchResultFiles filter file yang baru dihapus
+   ------------------------------------------------------------
+   🆕 FIX [2026-09-22] — REAL-TIME HASIL TES:
+   - R1: startResultsRealtimeListener() — dengarkan /sgs_results
+   - R2: stopResultsRealtimeListener()
+   - R3: showResultToast() — notifikasi kanan atas
+   - R4: start listener di renderAdminPanel()
+   - R5: stop listener di adminLogout() & tombol close
+   - R6: Skip initial batch (__sgsResultsFirstLoad)
+   - R7: Toast hanya untuk child_added
    ============================================================ */
 
 /* ============================================================
@@ -42,8 +51,6 @@ const CHAT_CLEANUP_DELETE_SESSION = true;
 
 /* ============================================================
    ADMIN UNREAD TRACKER (global per device)
-   - Hanya update __adminUnreadMap
-   - Blink FAB ditangani oleh 00h-chat-notify.js
    ============================================================ */
 window.__adminUnreadMap = {};
 
@@ -68,7 +75,6 @@ function startAdminUnreadTracker() {
       let count = 0;
       snap.forEach(ch => { if (!ch.val()?.read) count++; });
       window.__adminUnreadMap[deviceId] = count;
-      // Blink FAB & badge otomatis di-update oleh 00h-chat-notify.js (setInterval 800ms)
     };
 
     queryRef.on('value', onMsgsChange);
@@ -93,7 +99,7 @@ function stopAdminUnreadTracker() {
 }
 
 /* ============================================================
-   ADMIN TIMER TICK — update timer countdown tiap detik di DOM
+   ADMIN TIMER TICK
    ============================================================ */
 let __adminTimerTickInterval = null;
 
@@ -161,7 +167,7 @@ function isAdminUrl() {
 }
 
 /* ============================================================
-   SAFE ACCESSOR — C1 FIX
+   SAFE ACCESSOR
    ============================================================ */
 function __safeGetLockState() {
   return (typeof window.getLockState === 'function') ? window.getLockState() : false;
@@ -209,7 +215,7 @@ function fallbackCopy(text) {
 }
 
 /* ============================================================
-   HTML ESCAPE — M2 FIX
+   HTML ESCAPE
    ============================================================ */
 function __adminEscape(str) {
   if (typeof window.escapeHTML === 'function') {
@@ -221,7 +227,7 @@ function __adminEscape(str) {
 }
 
 /* ============================================================
-   URL SAFETY — cegah javascript: protocol injection
+   URL SAFETY
    ============================================================ */
 function __safeUrl(url) {
   const u = String(url || '').trim();
@@ -264,7 +270,7 @@ function adminUnlockDevice() {
 }
 
 /* ============================================================
-   IZINKAN TES LAGI (untuk device tertentu)
+   IZINKAN TES LAGI
    ============================================================ */
 function adminAllowRetake(deviceId, candidateName) {
   const name = candidateName || 'kandidat';
@@ -310,7 +316,7 @@ function adminAllowRetake(deviceId, candidateName) {
 }
 
 /* ============================================================
-   AUTO-CLEANUP CHAT UNTUK DEVICE TIDAK AKTIF
+   AUTO-CLEANUP CHAT
    ============================================================ */
 async function cleanupInactiveChatRooms(options = {}) {
   const {
@@ -397,6 +403,264 @@ async function adminCleanupInactive() {
 }
 
 /* ============================================================
+   🆕 REAL-TIME RESULT LISTENER (Firebase mirror)
+   ============================================================ */
+window.__sgsResultsRef         = null;
+window.__sgsResultsCb          = null;
+window.__sgsResultsAddedCb     = null;
+window.__sgsResultsChangedCb   = null;
+window.__sgsResultsRemovedCb   = null;
+window.__sgsResultsFirstLoad   = true;
+
+function startResultsRealtimeListener() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    console.warn('[RESULTS-RT] Firebase belum siap — listener ditunda');
+    return;
+  }
+
+  // Kalau sudah jalan, skip
+  if (window.__sgsResultsRef) {
+    console.log('[RESULTS-RT] ℹ️ Listener sudah aktif');
+    return;
+  }
+
+  // Set flag untuk skip initial batch
+  window.__sgsResultsFirstLoad = true;
+
+  window.__sgsResultsRef = firebase.database().ref('sgs_results');
+
+  // Callback bersama untuk semua event
+  window.__sgsResultsCb = (eventType) => (snap) => {
+    const val = snap.val();
+    const key = snap.key;
+
+    // Skip initial batch (saat pertama listener connect)
+    if (window.__sgsResultsFirstLoad) {
+      console.log('[RESULTS-RT] ⏭️ Skip initial:', key, val?.name || '');
+      return;
+    }
+
+    console.log('[RESULTS-RT] 📥', eventType, val?.name || key);
+
+    // Refresh cache GAS
+    if (typeof __invalidateResultCache === 'function') {
+      __invalidateResultCache();
+    }
+
+    fetchResultFiles(true).then(files => {
+      window.__resultFilesCache = files;
+
+      // Render ulang kalau halaman hasil terbuka
+      if (document.getElementById('resultFilesPageOverlay')) {
+        __renderResultPageContent();
+      }
+
+      // Update counter di panel admin
+      if (typeof __updateAdminResultCounter === 'function') {
+        __updateAdminResultCounter();
+      }
+    }).catch(err => {
+      console.warn('[RESULTS-RT] Refresh GAS gagal:', err);
+    });
+
+    // Toast hanya untuk child_added (file baru)
+    if (eventType === 'child_added' && val) {
+      const icon = val.type === 'excel' ? '📊' : '📄';
+      const label = val.type === 'excel' ? 'Excel' : 'PDF';
+      const sender = val.name || 'kandidat';
+      const position = val.position || '';
+
+      if (typeof showResultToast === 'function') {
+        showResultToast(icon, `${label} baru dari ${sender}`, position);
+      }
+
+      // Sound notification (kalau sudah unlocked)
+      try {
+        if (typeof window.__sgsPlayNotifySound === 'function') {
+          window.__sgsPlayNotifySound();
+        }
+      } catch (e) {}
+    }
+
+    // child_removed: kalau admin hapus di tab lain, UI akan update
+    // tapi tidak perlu toast (admin sudah tahu)
+  };
+
+  // Buat callback per event
+  window.__sgsResultsAddedCb   = window.__sgsResultsCb('child_added');
+  window.__sgsResultsChangedCb = window.__sgsResultsCb('child_changed');
+  window.__sgsResultsRemovedCb = window.__sgsResultsCb('child_removed');
+
+  // Daftarkan listener
+  window.__sgsResultsRef.on('child_added',   window.__sgsResultsAddedCb);
+  window.__sgsResultsRef.on('child_changed', window.__sgsResultsChangedCb);
+  window.__sgsResultsRef.on('child_removed', window.__sgsResultsRemovedCb);
+
+  // Setelah 2 detik, initial batch selesai → aktifkan
+  setTimeout(() => {
+    window.__sgsResultsFirstLoad = false;
+    console.log('[RESULTS-RT] ✅ Listener aktif — siap menerima event baru');
+  }, 2000);
+
+  console.log('[RESULTS-RT] 👂 Listening /sgs_results');
+}
+
+function stopResultsRealtimeListener() {
+  if (window.__sgsResultsRef) {
+    try {
+      if (window.__sgsResultsAddedCb) {
+        window.__sgsResultsRef.off('child_added', window.__sgsResultsAddedCb);
+      }
+      if (window.__sgsResultsChangedCb) {
+        window.__sgsResultsRef.off('child_changed', window.__sgsResultsChangedCb);
+      }
+      if (window.__sgsResultsRemovedCb) {
+        window.__sgsResultsRef.off('child_removed', window.__sgsResultsRemovedCb);
+      }
+    } catch (e) {}
+  }
+  window.__sgsResultsRef         = null;
+  window.__sgsResultsCb          = null;
+  window.__sgsResultsAddedCb     = null;
+  window.__sgsResultsChangedCb   = null;
+  window.__sgsResultsRemovedCb   = null;
+  window.__sgsResultsFirstLoad   = true;
+  console.log('[RESULTS-RT] 🔇 Listener stopped');
+}
+
+/* ============================================================
+   🆕 TOAST NOTIFIKASI (kanan atas, stackable)
+   ============================================================ */
+function showResultToast(icon, title, subtitle) {
+  // Container (dibuat sekali)
+  let container = document.getElementById('sgsResultToastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'sgsResultToastContainer';
+    container.style.cssText = `
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 2147483647;
+      display: flex; flex-direction: column;
+      gap: 10px;
+      max-width: 380px;
+      pointer-events: none;
+    `;
+    document.body.appendChild(container);
+
+    // Inject animasi sekali saja
+    if (!document.getElementById('sgsResultToastStyle')) {
+      const style = document.createElement('style');
+      style.id = 'sgsResultToastStyle';
+      style.textContent = `
+        @keyframes sgsToastSlideIn {
+          from { opacity: 0; transform: translateX(40px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes sgsToastSlideOut {
+          from { opacity: 1; transform: translateX(0); }
+          to   { opacity: 0; transform: translateX(40px); }
+        }
+        @keyframes sgsToastProgress {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(34,197,94,.35);
+    color: #e2e8f0;
+    padding: 14px 16px 12px 16px;
+    border-radius: 14px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    box-shadow:
+      0 20px 50px rgba(0,0,0,.5),
+      0 0 0 1px rgba(34,197,94,.08),
+      inset 0 1px 0 rgba(255,255,255,.04);
+    display: flex; align-items: center; gap: 12px;
+    animation: sgsToastSlideIn .35s cubic-bezier(.2,.8,.2,1);
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+  `;
+
+  toast.innerHTML = `
+    <div style="
+      width: 38px; height: 38px; flex: 0 0 38px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border-radius: 10px; font-size: 19px;
+      box-shadow:
+        0 6px 16px rgba(34,197,94,.35),
+        inset 0 1px 0 rgba(255,255,255,.2);
+    ">${icon}</div>
+
+    <div style="flex: 1; min-width: 0;">
+      <div style="
+        font-weight: 800; color: #fff;
+        margin-bottom: 2px; line-height: 1.3;
+        word-break: break-word;
+      ">${title}</div>
+      ${subtitle
+        ? `<div style="font-size: 11px; color: #94a3b8; line-height: 1.3; word-break: break-word;">📍 ${subtitle}</div>`
+        : ''}
+    </div>
+
+    <button type="button" style="
+      width: 22px; height: 22px;
+      display: grid; place-items: center;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      color: #94a3b8;
+      font-size: 12px; font-weight: 800;
+      cursor: pointer;
+      font-family: inherit;
+      flex: 0 0 auto;
+      padding: 0;
+    " title="Tutup">✕</button>
+
+    <div style="
+      position: absolute;
+      left: 0; bottom: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+      border-radius: 0 0 14px 14px;
+      animation: sgsToastProgress 6s linear forwards;
+      transform-origin: left;
+    "></div>
+  `;
+
+  // Tombol close
+  toast.querySelector('button').onclick = () => {
+    toast.style.animation = 'sgsToastSlideOut .25s ease forwards';
+    setTimeout(() => toast.remove(), 250);
+  };
+
+  container.appendChild(toast);
+
+  // Auto-dismiss 6 detik
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.animation = 'sgsToastSlideOut .3s ease forwards';
+      setTimeout(() => {
+        try { toast.remove(); } catch (e) {}
+        // Hapus container kalau sudah kosong
+        if (container.children.length === 0) {
+          container.remove();
+        }
+      }, 300);
+    }
+  }, 6000);
+}
+
+/* ============================================================
    ✅ OPTIMASI: Cache hasil fetch GAS (shared global)
    ============================================================ */
 window.__resultFilesCacheData  = null;
@@ -404,14 +668,12 @@ window.__resultFilesCacheTime  = 0;
 window.__resultFilesFetchPromise = null;
 window.__resultFilesCache = [];
 
-/* ✅ F2: Set file yang baru dihapus — untuk filter sementara */
 window.__recentlyDeletedFileIds = new Set();
 
-const RESULT_CACHE_TTL_MS = 30000;               // 30 detik
-const RECENTLY_DELETED_TTL_MS = 10000;           // 10 detik
-const DRIVE_PROPAGATION_DELAY_MS = 2000;         // 2 detik
+const RESULT_CACHE_TTL_MS = 30000;
+const RECENTLY_DELETED_TTL_MS = 10000;
+const DRIVE_PROPAGATION_DELAY_MS = 2000;
 
-/* ✅ F4: Helper hapus file dari cache by ID */
 function __removeFileFromCache(fileId) {
   if (!fileId) return;
   if (Array.isArray(window.__resultFilesCacheData)) {
@@ -426,19 +688,16 @@ async function fetchResultFiles(forceRefresh = false) {
   const now = Date.now();
   const cacheAge = now - (window.__resultFilesCacheTime || 0);
 
-  // ✅ 1. Kalau ada cache fresh & tidak dipaksa refresh → pakai cache
   if (!forceRefresh
       && window.__resultFilesCacheData
       && cacheAge < RESULT_CACHE_TTL_MS) {
     return window.__resultFilesCacheData;
   }
 
-  // ✅ 2. Kalau ada request sedang berjalan → tunggu yang sama (dedupe)
   if (window.__resultFilesFetchPromise) {
     return window.__resultFilesFetchPromise;
   }
 
-  // ✅ 3. Fetch baru (dengan retry 3× untuk atasi flaky GAS)
   window.__resultFilesFetchPromise = (async () => {
     const maxRetry = 3;
     let lastErr = null;
@@ -461,16 +720,17 @@ async function fetchResultFiles(forceRefresh = false) {
         const data = JSON.parse(text);
 
         if (data && data.success) {
-          /* ✅ F5: Filter file yang baru dihapus (Drive propagation delay) */
           const filtered = (data.files || []).filter(
             f => !window.__recentlyDeletedFileIds.has(f.id)
           );
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
+          window.__resultFilesFetchPromise = null;
           return window.__resultFilesCacheData;
         }
 
         console.warn('[PDF-LIST] Gagal:', data?.error);
+        window.__resultFilesFetchPromise = null;
         return window.__resultFilesCacheData || [];
 
       } catch (e) {
@@ -484,13 +744,13 @@ async function fetchResultFiles(forceRefresh = false) {
     }
 
     console.error('[PDF-LIST] Semua retry gagal:', lastErr?.message);
+    window.__resultFilesFetchPromise = null;
     return window.__resultFilesCacheData || [];
   })();
 
   return window.__resultFilesFetchPromise;
 }
 
-/* Invalidate cache (dipanggil setelah delete) */
 function __invalidateResultCache() {
   window.__resultFilesCacheData = null;
   window.__resultFilesCacheTime = 0;
@@ -499,7 +759,6 @@ function __invalidateResultCache() {
 
 /* ============================================================
    HAPUS FILE DARI DRIVE
-   ✅ F1: Optimistic removal + delayed refresh
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
@@ -524,20 +783,13 @@ async function deleteResultFile(fileId, fileName) {
       return;
     }
 
-    /* ================================================
-       ✅ LANGKAH 1: Optimistic UI — hapus langsung dari tampilan
-       ================================================ */
-
-    // Tandai sebagai "baru dihapus" → filter di fetch berikutnya
     window.__recentlyDeletedFileIds.add(fileId);
     setTimeout(() => {
       window.__recentlyDeletedFileIds.delete(fileId);
     }, RECENTLY_DELETED_TTL_MS);
 
-    // Hapus dari cache lokal
     __removeFileFromCache(fileId);
 
-    // Re-render segera (tanpa tunggu fetch)
     if (document.getElementById('resultFilesPageOverlay')) {
       __renderResultPageContent();
     }
@@ -547,14 +799,9 @@ async function deleteResultFile(fileId, fileName) {
 
     alert('✅ File berhasil dihapus dari Drive');
 
-    /* ================================================
-       ✅ LANGKAH 2: Delayed refresh — tunggu Drive propagation
-       ================================================ */
     setTimeout(async () => {
-      // Invalidate supaya fetch berikutnya fresh dari GAS
       __invalidateResultCache();
 
-      // Fetch ulang (force) untuk sinkronkan dengan GAS
       try {
         const files = await fetchResultFiles(true);
         window.__resultFilesCache = files;
@@ -602,9 +849,6 @@ function __extractCandidateInfo(file) {
   return { name, position, password };
 }
 
-/* ============================================================
-   HELPER — Deteksi tipe file dari ekstensi
-   ============================================================ */
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
   if (/\.pdf$/.test(n))               return 'pdf';
@@ -614,7 +858,7 @@ function __detectFileKind(file) {
 }
 
 /* ============================================================
-   RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
+   RENDER — 1 kandidat = 1 kartu
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -877,7 +1121,7 @@ function renderResultFilesHTML(files) {
 }
 
 /* ============================================================
-   REFRESH DAFTAR PDF (hitung kandidat unik)
+   REFRESH DAFTAR PDF
    ============================================================ */
 async function refreshResultFilesList() {
   const container = document.getElementById('adminResultFiles');
@@ -1101,6 +1345,11 @@ function adminLogout() {
     __stopAdminIdleTracking();
   }
 
+  // 🆕 Stop real-time listener
+  if (typeof stopResultsRealtimeListener === 'function') {
+    try { stopResultsRealtimeListener(); } catch (e) {}
+  }
+
   try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
   try { firebase.auth().signOut(); } catch (e) {}
 
@@ -1120,6 +1369,11 @@ function adminLogout() {
   if (typeof stopListeningAccessRequests === 'function') {
     try { stopListeningAccessRequests(); } catch (e) {}
   }
+
+  // Hapus toast container kalau ada
+  const toastContainer = document.getElementById('sgsResultToastContainer');
+  if (toastContainer) toastContainer.remove();
+
   const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
   const login = document.getElementById('adminLoginOverlay');
@@ -1136,7 +1390,7 @@ function adminLogout() {
 }
 
 /* ============================================================
-   ACCORDION — Section collapsible di admin panel
+   ACCORDION
    ============================================================ */
 window.__adminSectionOpen = window.__adminSectionOpen || { active: false, result: false, request: false };
 
@@ -1149,7 +1403,7 @@ function toggleAdminSection(key) {
 }
 
 /* ============================================================
-   ACCESS REQUESTS — Kandidat minta izin akses
+   ACCESS REQUESTS
    ============================================================ */
 let __adminRequestRef = null;
 let __adminRequestCb = null;
@@ -1184,9 +1438,6 @@ function stopListeningAccessRequests() {
   }
 }
 
-/* ============================================================
-   renderAccessRequestsHTML — tombol pakai data-attributes
-   ============================================================ */
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
     return `
@@ -1311,7 +1562,7 @@ async function rejectAccessRequest(deviceId) {
 }
 
 /* ============================================================
-   HALAMAN HASIL TES TERKIRIM — fullscreen overlay
+   HALAMAN HASIL TES TERKIRIM
    ============================================================ */
 window.__resultFilterPosition = 'all';
 window.__resultSearchQuery = '';
@@ -1559,14 +1810,12 @@ function closeResultFilesPage() {
 }
 
 /* ============================================================
-   ✅ F3 FIX: SWR — gunakan Array.isArray untuk deteksi cache
-   (Bug sebelumnya: `length >= 0` selalu true — array kosong [] lolos)
+   SWR — load dengan stale-while-revalidate
    ============================================================ */
 async function loadResultFilesForPage() {
   const content = document.getElementById('rfContent');
   if (!content) return;
 
-  // ✅ F3: Array.isArray(null) === false, Array.isArray([]) === true
   if (Array.isArray(window.__resultFilesCacheData)) {
     window.__resultFilesCache = window.__resultFilesCacheData;
     __renderResultPageContent();
@@ -1581,7 +1830,6 @@ async function loadResultFilesForPage() {
     return;
   }
 
-  // Tidak ada cache → loading + fetch
   content.innerHTML = `
     <div style="
       display: flex; align-items: center; justify-content: center;
@@ -1605,7 +1853,7 @@ async function loadResultFilesForPage() {
 }
 
 /* ============================================================
-   __renderResultPageContent — event delegation untuk tombol
+   __renderResultPageContent
    ============================================================ */
 function __renderResultPageContent() {
   const content = document.getElementById('rfContent');
@@ -1940,13 +2188,12 @@ function __resetResultFilter() {
 }
 
 /* ============================================================
-   ✅ F3 FIX: Counter di panel admin — pakai Array.isArray
+   Counter di panel admin
    ============================================================ */
 async function __updateAdminResultCounter() {
   const countEl = document.getElementById('adminResultCount');
   if (!countEl) return;
 
-  // ✅ F3: array check — bukan `length >= 0`
   if (Array.isArray(window.__resultFilesCacheData)) {
     __renderCounterFromData(window.__resultFilesCacheData);
   }
@@ -2413,6 +2660,11 @@ function renderAdminPanel() {
       }
     }, 30000);
 
+    // 🆕 Start real-time listener
+    if (typeof startResultsRealtimeListener === 'function') {
+      startResultsRealtimeListener();
+    }
+
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
         cleanupInactiveChatRooms({ silent: true }).then(r => {
@@ -2456,6 +2708,12 @@ function renderAdminPanel() {
       if (typeof stopAdminTimerTick === 'function') {
         try { stopAdminTimerTick(); } catch (e) {}
       }
+
+      // 🆕 Stop real-time listener
+      if (typeof stopResultsRealtimeListener === 'function') {
+        try { stopResultsRealtimeListener(); } catch (e) {}
+      }
+
       overlay.remove();
       if (typeof stopListeningAccessRequests === 'function') {
         try { stopListeningAccessRequests(); } catch (e) {}
@@ -2464,6 +2722,10 @@ function renderAdminPanel() {
         clearInterval(window.__pdfAutoRefreshTimer);
         window.__pdfAutoRefreshTimer = null;
       }
+
+      // Hapus toast container
+      const toastContainer = document.getElementById('sgsResultToastContainer');
+      if (toastContainer) toastContainer.remove();
 
       try {
         const url = new URL(window.location.href);
@@ -2667,7 +2929,6 @@ window.__updateAdminResultCounter = __updateAdminResultCounter;
 
 window.__invalidateResultCache = __invalidateResultCache;
 
-/* ✅ F4: Helper baru untuk hapus file by ID dari cache */
 window.__removeFileFromCache   = __removeFileFromCache;
 window.__recentlyDeletedFileIds = window.__recentlyDeletedFileIds;
 
@@ -2676,6 +2937,11 @@ window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
 window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
+
+/* 🆕 Real-time listener exports */
+window.startResultsRealtimeListener = startResultsRealtimeListener;
+window.stopResultsRealtimeListener  = stopResultsRealtimeListener;
+window.showResultToast              = showResultToast;
 
 /* ============================================================
    SESI 8.1 — ADMIN SESSION TIMEOUT
@@ -2816,4 +3082,4 @@ function __stopAdminIdleTracking() {
 window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix + DELETE-FIX');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix + DELETE-FIX + REAL-TIME');
