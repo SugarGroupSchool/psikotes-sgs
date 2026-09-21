@@ -960,73 +960,14 @@ const doc = new jsPDF({
   const least  = analisa2DominanDISC(hasilDISC.least.D, hasilDISC.least.I, hasilDISC.least.S, hasilDISC.least.C, 'least', getPixelY);
  const change = analisa2DominanDISC(hasilDISC.change.D,hasilDISC.change.I,hasilDISC.change.S,hasilDISC.change.C,'change',getPixelY);
 
-  // ======================= ROLES MAP (ISI SESUAI KEBUTUHAN) =======================
-  // CATATAN:
-  // - KUNCI HARUS EXACT (urutan huruf sama persis). TIDAK ada pembalikan (ID ≠ DI).
-  // - Jika kunci tidak ada / array kosong, kolom akan tampil kosong (tanpa fallback).
-  const rolesMap = {
-    // ----- 1 HURUF (exact) -----
-    D: ["Attorney, Researcher, Sales Representative, Planning Consultant, Transport Personnel, Production (Director, Manager, Supervisor), Technologist, Strategic Planning, Trouble Shooting, Marketing Services, Consultant, Engineering (Director, Manager, Supervisor) and Self-Employment."],
-    I: ["Promoting, Demonstrating, Canvassing, Marketing Services, Public Relations, Lecturing, Advertising, Publican, Publishing, Hospitality, Retail-General, Human Resources, Journalist, Singers, Technical Writing, Tour Guide, Promotional Work, Hotelier, Dancers, Host, Actors, Travel Agent, Politician, and very soft selling."],
-    S: ["Administrative Work, Engineering and Production areas (Sales, Services, Project, Painter, Plumber, Draughtsman, Designer, Operative), Chef, Accounting, Telemarketing/Tele-Sales, Research and Development, Administrator, Florist/Floral Designer, Retail-General, Sales-General, Accounting-General, Service-General, Landscape Gardener"],
-    C: ["Planner (any function), Engineer (Installation, Technical), Technical/Research (Chemist Technician), Academic, Statistician, Government Worker, IT Management, Prison Officer, Quality Controller."],
 
-    // ----- 2 HURUF (EXACT, 12 kombinasi) -----
-    DI: ["General Management (Directing/Managing/Supervising, Public Relations, Business Management, Conflict Resolution, Industrial Relations, Business Consultant, Trouble Shooting, Sales and Sales Management, Marketing, Promoting, Production (Director, Manager, Supervisor), Consultancy, Publishing, Sales Executive, Promotional Work, Brokers, Self-Employment, Advertising, Lecturing, Dealing/Broking)"],
-    ID: ["Sales and Marketing (Directing, Manager, Person), Public Relations, Recruitment Consultant, Politician, Director, Self-Employed, Hotelier, Travel Agent, Trainer, Hospitality, Lawyer, Solicitor, Motivators, Team Leader, Politician, Trainer, Lecturer, Theatrical Agent, General Management and Leading People, Attorney"],
-    DS: ["Engineering and Production (Directing, Managing, Supervising), Project Management, Researcher, Chemist (R&D), Planner, Engineering (R&D), Systems Analyst, Commercial Planner, Computer Engineer, Programmer, IT, Other computer-related disciplines, Technical Trouble Shooting and Directing, Lawyer, Solicitor, Development Engineer, Work Study, Barrister, Attorney."],
-    SD: ["Investigator, Researcher, Accountant, Engineering, Production/Engineering Supervisor, Computer Specialist, Architect, Transport/Warehouse Supervisor, Credit Controller, DP Supervisor, Computer Specialist, Research and Development, Private Investigator, Quality Controller, Engineering (Designer, Draughtsman, Project Engineer), Sales and Service Engineer, Property Manager, Attorney, Administration Manager."],
-    DC: ["Engineering (Management, Research, Design), Actuaries, Research (R&D), Planning, Chemist, Hospital Supervisor, Industrial Marketing, Investment Banking, Medical Administrator, Mortgage Brokers, Accountancy, Fund Management, Specialist Finance, Quality Control and Specialist work in any area where knowledge and experience is available, Production, Financial Services, Technical Management, Project Leader, Matron, Strategic Planning, Industrial Marketing."],
-    CD: ["Engineering (Management, Research, Design), Research (R&D), Planning, Chemist, Accountancy, Specialist, Finance, Technician, Quality Control, Production Planning/Management, Design Engineer, Bookkeeper, Chemist Technician, Safety Officer, Librarian."],
-    IS: ["Personnel, Welfare, Training, Hotelier, Promoting, Travel Agent, Lecturing, Upmarket/Speciality Sales, Soft/Service Selling, Beauty Therapist, Psychologist, Nursing, Human Resources, Retail-Specialist, Veterinarian, Social Work, Personal Assistant, Personnel-HR, Coach, Mentor."], 
-    SI: ["Personnel Welfare, Training, Hotelier, Promoting, Travel Agent, Lecturing, Child Care, Charitable Organizations, Soft or Service Selling, Psychologist, Therapist, Nurse, Personal Assistant, Hospitality Manager, Social Work, Student Services, Upmarket/Speciality Sales."],
-    IC: ["Teaching, Training, Inventing, Specialist Selling (Engineering, Finance or any area involving capital equipment), Project Engineer, Finance, Service Engineer or Supervising within a Technical/Specialist Area, Public Relations, Environmentalist, Marketing, Conference Organiser, Estate Agent."], 
-    CI: ["Sales (Technical/Specialist), Public Relations, Lecturer, Academic, Personnel Administration, Purchasing, Travel Agent, Training, Teaching, Real Estate Agent, Hospitality Administration, Sales-Technical, Hotelier, Project Engineer, Service Engineer."],
-    SC: ["Office (Manager, Supervisor, Person), Chief Clerk, General Administrator, Production Supervisor, Planner, Accountant, Research and Development, Flight Attendant, Engineering (Project Manager, Supervisor, Technician), Computer Programmer, Draughtsman, Soft/Service Selling, Doctor, Cashier, Receptionist, Data Entry, Planner, Word Processing, Property Manager, Database Administrator, Health Care, Statistician, Nursing-Administration, Company Secretary, System Analyst, Programmer, Statistician, Accounting-General, Security Specialist."], 
-    CS: ["Researcher (Technician, Chemist, Quality Control), Engineer (Project, Draughtsman, Armed Forces, Designer), Statistician, Surveyor, Optician, Medical Specialist, Health Care, IT Management, Planner, Technical Writing, Production, Dentist, Quality Control, Planning, Dental Technician, Accounting, Computer Programmer, Psychologist, Surgeon, Architect, Medical Specialist."],
-
-    // ----- 3 HURUF (EXACT, 24 kombinasi) -----
-    // DIS set
-    DIS: ["Engineering and Production (Directing, Managing, Supervising), Sales, Sales Management, Service Manager, Distribution, Public Relations, Office Management, Account Manager, Customer Service, Retail Manager, IT, Lecturer, Logistics, Manager-General, National Accounts Manager, Teacher, Projects Manager."], 
-    DSI: ["Engineering and Production (Directing, Managing, Supervising), Sales, Sales Management, Service Manager, Distribution, Public Relations, Creative Designer, Office Management, Chief Engineer, Business Consultant, Chief Financial Officer, Customer Service, National Accounts Manager, Chief Accountant, Lecturer, Projects Manager, Research Planning, Human Resources, Scientific Work, Security Specialist, Solicitor, Planner, Production Administrator."], 
-    IDS: ["Hotelier, Customer Service, Complaints Manager, Recruiting Agent, Sales (Manager/Person), Marketing Services, Public Relations, Politician, Computer Software Sales, Lecturer, Engineering and Production (Manager/Supervisor)."], 
-    ISD: ["Hotelier, Community Counseling, Customer Service, Complaints Manager, Community Work, Recruitment Consultant, Hospitality, Teacher, Telemarketing, Production Manager, Complaints Manager, Recruiting Agent, Sales (Manager/Person), Marketing Services, Public Relations, Politician, Call Centre Manager, Lecturer, Engineering and Production (Manager/Supervisor)."], 
-    SDI: ["Engineering and Production (Supervision), Service Selling, Distribution and Warehouse Supervision/Manager, Office Management, Customer Service, System Analyst, Radio Announcer, Technical Writing, Telemarketing, TV Presenter, Project Engineer, Film Producer, Programmer, Sales/Service Engineer, Accounting, Draughtsman, Project Engineer."], 
-    SID: ["Engineering and Production (Supervision), Service Selling, Distribution and Warehouse Supervision, Office Management, Customer Service, System Analyst, Programmer, Sales/Service Engineer, Accounting, Draughtsman, Project Engineer."],
-    // DIC set
-    DIC: ["Technical/Scientific (Directing, Management, Supervision), Engineering, Finance, Production Planning, Personnel Disciplines, Self-Employment, Credit Manager, Planner, Fund Management, Computer Hardware/Software Sales, IT, Business Consultant, Banking, Logistics, Lecturing, Work Study, Film Director, Transport, Consultancy, Industrial Relations and Computers (Selling, Software, Systems Analyst) and General Manager."], 
-    DCI: ["Technical/Scientific (Directing, Management, Supervision), Engineering, Finance, Production Planning, Personnel Disciplines, Self-Employment, Credit Manager, Planner, Lecturing, Work Study, Transport, Consultancy, Industrial Relations and Computers (Selling, Software, Systems Analyst) and General Manager."], 
-    IDC: ["Specialist/Technical Selling (Computer, Finance, Engineer and others, Chef, Technical/Capital Equipment Selling), Financial (Manager, Specialist), Computer Hardware Sales, Engineering (Manager, Designer, Buyer, Draughtsman), Project Engineer, Sales Engineer, Consultant, Trainer, Lecturer, Hotelier, Insurance, Mortgage and Finance Sales, Teacher, Travel Agent, Personnel and Marketing Services."], 
-    ICD: ["Specialist/Technical Selling (Computer, Finance, Engineer and others, Technical/Capital Equipment Selling), Financial (Manager, Specialist), Engineering (Manager, Designer, Buyer, Draughtsman), Project Engineer, Sales Engineer, Consultant, Trainer, Lecturer, Hotelier, Travel Agent, Personnel and Marketing Services"], 
-    CDI: ["Directing, Managing or Supervising (Engineering, Research, Finance, Planning), Designer, Work Study, Sales (Technical/ Specialist), Logistic Support, Systems Analyst, Lecturer, Company Secretary, Negotiator and Purchasing."], 
-    CID: ["Directing, Managing or Supervising (Engineering, Research, Finance, Planning), Designer, Work Study, Sales (Technical/Specialist), Lecturer, Company Secretary, Negotiator and Purchasing."],
-    // DSC set
-    DSC: ["Engineering and Production (Directing, Managing, Supervising), Sales, Sales Management, Service Manager, Distribution, Public Relations, Creative Designer, Office Management, Chief Engineer, Business Consultant, Chief Financial Officer, Customer Service, National Accounts Manager, Chief Accountant, Lecturer, Projects Manager, Research Planning, Human Resources, Scientific Work, Security Specialist, Solicitor, Planner, Production Administrator."], 
-    DCS: ["Engineering, Production and Finance (Directing, Administrating, Managing and Managing Specialist Work), Scientific, Research Planning, Personnel, Trouble Shooting, Credit Control, Chief Accountant, Accountant, Chief Engineer, Work Study, Consultancy, Designer, Draughtsman, Project Work, Security Specialist, Doctor, Attorney."], 
-    SDC: ["Directing, Managing or Supervising (in Engineering, Accountancy, Research and Development and Computing disciplines), Research Manager, Scientific Work, Accountant, Administration, Project Engineer, Draughtsman, Designer, Analyst, Finance, Chemist, Technical Service Support, Flight Attendant, Technician, Service Engineer, Service Manager, Security Specialist."], 
-    SCD: ["Directing, Managing or Supervising (in Engineering, Accountancy, Research and Development and Computing disciplines), Accountant, Project Engineer, Draughtsman, Designer, Analyst, Chemist, Technician, Service Engineer, Manager, Security Specialist."], 
-    CSD: ["Engineering, Research Director, Production and Finance (Director, Manager, Supervisor), Work Study, Accountant, Administrator, Quality Controller, Financial Services Manager, Safety Officer, Market Analyst, Planner and Personnel (Director, Manager, Administrator), MIS Manager, Electrician, Security Manager, Financial Researcher, Planner, Printer, Production Controller, Production Manager, Personnel Management, Loss Control."], 
-    CDS: ["Engineering, Research, Production and Finance (Director, Manager, Supervisor), Work Study, Accountant, Administrator, Quality Controller, Safety Officer, Market Analyst, Planner and Personnel (Director, Manager, Administrator), MIS Manager, Security Manager, Loss Control."],
-    // ISC set
-    ISC: ["Actors, Chef, Personnel, Welfare, Broadcasting, Training, Attorney, Teaching, Accounting, Technical Instructor, Accounting-General, Accounts Supervisor, Customer Services, Public Relations, Artist, Hotelier, Demonstrator, Florist/Floral Designer, Engineering (Sales, Service, Project, Draughtsman, Designer), Graphic Designer, Specialist (Soft/Services), Selling, Purchasing, Singers, Technical Instructor, Personnel Management, Politician, Supervising (Engineering, Production, Accounts), Administration Work, Sales Engineer, Secretarial, Industrial Relations Specialist."], 
-    ICS: ["Personnel, Welfare, Training, Attorney, Teaching, Accounting, Technical Instructor, Customer Services, Public Relations, Artist, Hotelier, Demonstrator, Engineering (Sales, Service, Project, Draughtsman, Designer), Specialist (Soft/Services), Selling, Purchasing, Supervising (Engineering, Production, Accounts), Administration Work, Secretarial, Industrial Relations Specialist."], 
-    SIC: [
-      // contoh isi untuk SIC (EXACT); silakan ubah/isi sesuai versi kamu
-      "Personnel Welfare, Training, Teaching, Attorney, Accounting, Technical Instructor, Customer Service, Public Relations, Artist, Hotelier, Demonstrator, Engineer (Sales, Service, Project, Draughtsman, Designer), Specialist (Soft/Service), Selling, Purchasing, Supervising (Engineering, Production, Accounts) Administrative Work, Secretarial."
-    ], 
-    SCI: ["Personnel Welfare, Administrator, Advisers, Training, Teaching, Attorney, Accounting, Counseling, Technical Instructor, Customer Service, Accounting-General, Public Relations, Accounts Supervisor, Artist, Hotelier, Demonstrator, Engineer (Sales, Service, Project, Draughtsman, Designer), Specialist (Soft/Service), Selling, Purchasing, Sales Engineer, Legal, Negotiator, Student Service, Photographer, Physiotherapist, Project Engineer, Vocational Education, Supervising (Engineering, Production, Accounts) Administrative Work, Demonstrator, Secretarial, Hospitality Manager."], 
-    CIS: ["Engineering and Production (Supervisor, Installer, Technician, Service and Design), Research (Supervisor, Chemist, Lab. Technician), Trainer, Finance (Supervisor, Accountant, Advisor), Public Relations, Administration, Office Administrator, Market Analyst, System Analyst, Programmer, Selling (Technical/Service)."], 
-    CSI: ["Engineering and Production (Supervisor, Installer, Technician, Service and Design), Research (Supervisor, Chemist), Trainer, Finance (Manager, Supervisor, Accountant, Advisor), Public Relations-Administration, Purchasing, Chemist Research, Office Administrator, Computer Programmer, Market Analyst, System Analyst, Programmer, Research and Development Supervisor, Laboratory Technician, Legal, Selling (Technical/Service)."],
-
-    // (opsional) 4 huruf
-    DISC: []
-  };
 
   // ============== Helper: AMBIL REKOMENDASI HANYA DARI KUNCI EXACT ==============
   function pickRolesFromDominan(dom) {
     const d = (dom || []).filter(Boolean).slice(0, 3);
     const key = d.join('').toUpperCase();   // contoh: ['S','I','C'] -> "SIC"
-    const arr = rolesMap.hasOwnProperty(key) ? rolesMap[key] : [];
+    const arr = (typeof DISC_ROLES_MAP !== 'undefined' && DISC_ROLES_MAP.hasOwnProperty(key))
+      ? DISC_ROLES_MAP[key] : [];
     return Array.isArray(arr) ? arr : [];
   }
 
@@ -1034,6 +975,7 @@ const doc = new jsPDF({
   const rolesMost   = pickRolesFromDominan(most.dominan);
   const rolesLeast  = pickRolesFromDominan(least.dominan);
   const rolesChange = pickRolesFromDominan(change.dominan);
+    
 (function renderThreeColumns() {
   const left = blokX;                                       // margin kiri area tulis
   const topMargin = 20, bottomMargin = 20;
@@ -1544,10 +1486,9 @@ ${nickname} memiliki potensi untuk:
     if (ySection > 265) { doc.addPage(); ySection = 20; }
   }
 
-} // endif identity.position
-
-
-
+    } // endif identity.position
+  }   // tutup else (totalStar >= 13)
+}     // tutup if (appState.completed.DISC)
 
 function getImplication(dominantType, graphType, position, nickname = appState.identity?.nickname || "Peserta") {
   const pos = position;
@@ -3485,129 +3426,6 @@ Saat okupansi tinggi/audit/keluhan mendesak, patokan D mendorong ${nickname} cep
   if (txt) return txt.replace(/\$\{nickname\}/g, nickname);
   return "Deskripsi implikasi khusus untuk posisi ini belum tersedia.";
 }
-
-
-// ====== 2. CONTOH PEMANGGILAN (PASTIKAN HANYA 1 HURUF, BUKAN GABUNGAN) ======
-const dominantType = most.dominan[0]; // <-- ambil HANYA huruf pertama
-const implication = getImplication(dominantType, 'most', 'Housekeeping');
-// dst.
-
-function getCompatibilityReason(symbol, dominantType, position) {
-  const pos = position;
-  const reasons = {
-    Administrator: {
-      SS: `Profil ${dominantType} sangat kuat untuk Administrator — teliti, rapi, konsisten, dan nyaman dengan SOP.`,
-      C:  `Profil ${dominantType} cukup cocok untuk Administrator, hanya perlu peningkatan efisiensi dan koordinasi.`,
-      CC: `Ada kecocokan dasar, namun beberapa aspek penting administrasi belum sepenuhnya kuat pada profil ${dominantType}.`,
-      K:  `Beberapa tuntutan administrasi kurang selaras dengan karakter ${dominantType}. Perlu pendampingan.`,
-      default: `Profil memiliki gap besar dengan kebutuhan pekerjaan Administrasi.`
-    },
-
-    "Dosen/Guru": {
-      SS: `Profil ${dominantType} sangat selaras dengan kebutuhan Guru — stabil, komunikatif, dan konsisten.`,
-      C:  `Cocok untuk mengajar, meski butuh penguatan adaptasi kelas atau manajemen dinamika siswa.`,
-      CC: `Masih cukup cocok, namun beberapa aspek pedagogis tidak muncul kuat dari karakter ${dominantType}.`,
-      K:  `Sebagian besar tuntutan mengajar tidak selaras dengan profil ${dominantType}.`,
-      default: `Gap signifikan antara profil kepribadian dan tuntutan profesi Guru.`
-    },
-
-    "Technical Staff": {
-      SS: `Profil ${dominantType} sangat sesuai untuk Technical Staff — stabil, teliti, dan tekun menyelesaikan masalah teknis.`,
-      C:  `Cocok untuk peran teknis, meski perlu peningkatan kecepatan respon atau adaptasi alat baru.`,
-      CC: `Cukup cocok, namun beberapa aspek troubleshooting tidak dominan.`,
-      K:  `Beberapa tuntutan teknis kurang selaras dengan karakter ${dominantType}.`,
-      default: `Profil memiliki gap besar dengan kebutuhan Technical Staff.`
-    },
-
-    "IT Staff": {
-      SS: `Profil ${dominantType} sangat sesuai untuk IT Staff — analitis, stabil, dan sistematis.`,
-      C:  `Cocok untuk IT, hanya perlu peningkatan pada respons cepat atau kolaborasi lintas unit.`,
-      CC: `Masih cukup cocok, namun ketelitian atau troubleshooting belum optimal.`,
-      K:  `Sejumlah kemampuan inti IT kurang tercermin pada profil ${dominantType}.`,
-      default: `Profil memiliki gap besar dengan kebutuhan teknis IT.`
-    },
-
-    Housekeeping: {
-      SS: `Profil ${dominantType} sangat cocok — stabil, rapi, teliti, dan konsisten menjaga standar kebersihan.`,
-      C:  `Cocok, namun perlu sedikit peningkatan efisiensi atau tempo kerja.`,
-      CC: `Cukup cocok, namun aspek ketelitian atau konsistensi belum kuat.`,
-      K:  `Beberapa tuntutan pekerjaan Housekeeping kurang selaras dengan karakter ${dominantType}.`,
-      default: `Profil memiliki gap besar untuk pekerjaan Housekeeping.`
-    }
-  };
-
-  return reasons[pos]?.[symbol] || reasons[pos]?.default || `Deskripsi belum tersedia untuk posisi ${position}.`;
-}
-
-
-
-function getStrengthArea(dominantType, position) {
-  const pos = position;
-  const strengths = {
-    D: {
-      Administrator: "mengambil keputusan cepat dan mendorong perbaikan sistem administrasi",
-      Guru: "mengelola kelas dengan tegas dan memberi arahan jelas",
-      "Technical Staff": "menangani masalah teknis dengan cepat dan langsung pada inti masalah",
-      "IT Staff": "berani mengambil keputusan saat troubleshooting kritikal dan memimpin perbaikan sistem",
-      Housekeeping: "mengatur tim dan memastikan standar kebersihan terpenuhi dengan tegas"
-    },
-    I: {
-      Administrator: "membangun hubungan kerja positif dan mempermudah komunikasi antar divisi",
-      Guru: "meningkatkan motivasi belajar siswa dan membangun interaksi positif",
-      "Technical Staff": "memudahkan koordinasi lapangan dan kerja sama teknis",
-      "IT Staff": "mempermudah komunikasi user–IT, menjelaskan masalah teknis dengan bahasa sederhana",
-      Housekeeping: "menjaga kekompakan dan semangat tim"
-    },
-    S: {
-      Administrator: "menjaga kestabilan, konsistensi, dan alur administrasi yang rapi",
-      Guru: "menyediakan pendampingan stabil yang dibutuhkan siswa",
-      "Technical Staff": "bekerja konsisten, sabar, dan teliti mengikuti SOP teknis",
-      "IT Staff": "mengelola support harian dengan sabar, stabil, dan disiplin dalam dokumentasi",
-      Housekeeping: "menjaga standar kebersihan harian secara konsisten"
-    },
-    C: {
-      Administrator: "mengelola dokumen dan data dengan presisi tinggi",
-      Guru: "menyusun materi dan evaluasi secara sistematis",
-      "Technical Staff": "melakukan pengecekan teknis detail dan meminimalkan kesalahan",
-      "IT Staff": "analisis error detail, debugging presisi, dokumentasi sistem rapi, minim kesalahan",
-      Housekeeping: "menjalankan pekerjaan dengan teliti dan memperhatikan detail kecil"
-    }
-  };
-
-  return strengths[dominantType]?.[pos] || "kekuatan spesifik sesuai posisi";
-}
-
-
-
-function getDevelopmentArea(dominantType) {
-  const areas = {
-    D: "pelatihan manajemen konflik",
-    I: "pengembangan fokus dan disiplin",
-    S: "pelatihan adaptasi perubahan",
-    C: "pengelolaan ekspektasi realistis"
-  };
-  return areas[dominantType] || "pengembangan kompetensi";
-}
-
-function formatBulletPoints(lines) {
-  const formatted = [];
-  let isNewSection = true;
-
-  lines.forEach(line => {
-    if (line.match(/^(ANALISIS|TINGKAT|POTENSI)/)) {
-      formatted.push("");
-      formatted.push("• " + line);
-      isNewSection = true;
-    } else if (line.startsWith("-") || isNewSection) {
-      formatted.push("• " + line);
-      isNewSection = false;
-    } else {
-      formatted[formatted.length - 1] += " " + line.trim();
-    }
-  });
-
-  return formatted;
-}}}
 
 
 // ========== PAPI ==========
