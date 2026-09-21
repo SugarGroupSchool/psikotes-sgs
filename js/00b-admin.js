@@ -336,14 +336,16 @@ function adminAllowRetake(deviceId, candidateName) {
     return;
   }
 
-  const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
+   const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
   ref.update({
     allow_retake: true,
     allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
     allow_retake_by: 'admin',
     finished: false,
-    disqualified: false
+    disqualified: false,
+    lastSeen: firebase.database.ServerValue.TIMESTAMP  // 🆕 fix validate
   })
+     
   .then(() => {
     console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
 
@@ -1502,7 +1504,8 @@ async function approveAccessRequest(deviceId, name) {
       allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
       allow_retake_by: 'admin',
       finished: false,
-      disqualified: false
+      disqualified: false,
+      lastSeen: firebase.database.ServerValue.TIMESTAMP  // 🆕 fix validate
     });
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'approved',
