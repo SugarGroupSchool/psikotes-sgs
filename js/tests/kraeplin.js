@@ -57,13 +57,11 @@ function renderKraeplinInstructions() {
 
               <div class="kp-example-rows">
 
-                <!-- Baris paling atas — tanpa pasangan -->
                 <div class="kp-example-row">
                   <div class="kp-example-num">8</div>
                   <div class="kp-example-hint">— baris paling atas belum dihitung —</div>
                 </div>
 
-                <!-- 8 + 7 -->
                 <div class="kp-example-row">
                   <div class="kp-example-num">7</div>
                   <div class="kp-example-worked">
@@ -74,7 +72,6 @@ function renderKraeplinInstructions() {
                   </div>
                 </div>
 
-                <!-- 7 + 1 -->
                 <div class="kp-example-row">
                   <div class="kp-example-num">1</div>
                   <div class="kp-example-worked">
@@ -85,7 +82,6 @@ function renderKraeplinInstructions() {
                   </div>
                 </div>
 
-                <!-- 1 + 3 -->
                 <div class="kp-example-row">
                   <div class="kp-example-num">3</div>
                   <div class="kp-example-worked">
@@ -96,7 +92,6 @@ function renderKraeplinInstructions() {
                   </div>
                 </div>
 
-                <!-- 3 + 2 -->
                 <div class="kp-example-row">
                   <div class="kp-example-num">2</div>
                   <div class="kp-example-worked">
@@ -123,6 +118,16 @@ function renderKraeplinInstructions() {
             <div>2 + 8 = 10 → tulis <b>0</b></div>
           </div>
         </div>
+      </div>
+
+      <div class="instruction-footer">
+        <button class="btn-instruction-green" onclick="startKraeplinTrial()">
+          <span style="font-size:1em;font-weight:600;">PAHAMI & MULAI PERCOBAAN</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
 
 /* ============================================================
    START TRIAL & REAL
