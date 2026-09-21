@@ -5,6 +5,8 @@
 let subjectCheatFlag = false;
 let allowTabOutSubject = false;
 let __subjectTimerInterval = null;
+let __subjectWarnCount = 0;           // ✅ BARU — counter peringatan
+const __SUBJECT_MAX_WARN = 1;         // ✅ BARU — 1× peringatan, ke-2 diskualifikasi
 
 function injectSubjectStyles() {}
 
@@ -24,6 +26,10 @@ function formatTimeSubject(sec) {
 function renderSubjectTestHome() {
   window.__inTestView = true;
   appState.currentTest = 'SUBJECT';
+
+  // ✅ RESET warning counter setiap balik ke home
+  __subjectWarnCount = 0;
+  subjectCheatFlag = false;
 
   const subs = (tests.SUBJECT.subjects || []).filter(
     s => Array.isArray(s.questions) && s.questions.length > 0
@@ -118,6 +124,11 @@ function startSubjectTest(subjId) {
     return;
   }
 
+  // ✅ RESET warning counter setiap mulai tes baru
+  __subjectWarnCount = 0;
+  subjectCheatFlag = false;
+  allowTabOutSubject = false;
+
   appState.subjectSelected = subjId;
   appState.subjectStartTime = Date.now();
   appState.timeLeft = subj.time || 2700;
@@ -152,15 +163,17 @@ function startSubjectTest(subjId) {
               <div class="subject-instruction-text">${subj.instruction}</div>
             </div>
 
-            <div class="subject-ready-notice">
-              <div class="subject-ready-notice-check">
+            <div class="subject-ready-notice" style="background:linear-gradient(135deg,#fef2f2,#fff1f2);border-color:#fecaca;">
+              <div class="subject-ready-notice-check" style="background:#fee2e2;color:#dc2626;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
               </div>
               <div>
-                <strong>Pastikan Anda sudah siap</strong>
-                <span>Setelah menekan tombol mulai, tes akan segera dimulai.</span>
+                <strong style="color:#991b1b;">Anti-Cheat Aktif</strong>
+                <span style="color:#b91c1c;">Jangan keluar dari tab ini. Keluar 2× akan otomatis <b>diskualifikasi</b>.</span>
               </div>
             </div>
 
@@ -184,7 +197,7 @@ function startSubjectTest(subjId) {
 }
 
 /* =========================================================
-   RENDER SOAL — PROFESIONAL
+   RENDER SOAL
    ========================================================= */
 function renderSubjectQuestionSlide(qIdx) {
   allowTabOutSubject = false;
@@ -333,7 +346,7 @@ function startSubjectCountdown() {
 }
 
 /* =========================================================
-   UPLOAD JAWABAN — PROFESIONAL
+   UPLOAD JAWABAN
    ========================================================= */
 function renderSubjectUpload() {
   allowTabOutSubject = true;
@@ -496,7 +509,6 @@ function renderSubjectUpload() {
     }
   }
 
-  // Initial state
   btnFinish.disabled = true;
   btnFinish.style.opacity = '.5';
   btnFinish.style.cursor = 'not-allowed';
@@ -511,7 +523,7 @@ function renderSubjectUpload() {
 }
 
 /* =========================================================
-   SELESAI UPLOAD — PROFESIONAL
+   SELESAI UPLOAD
    ========================================================= */
 function selesaiSubjectUpload() {
   window.__inTestView = false;
@@ -580,42 +592,212 @@ function selesaiSubjectUpload() {
 }
 
 /* =========================================================
-   ANTI-CHEAT
+   ⚠️ ANTI-CHEAT — 1× PERINGATAN DULU, BARU DISKUALIFIKASI
    ========================================================= */
 function onSubjectBlur() {
-  if (appState.subjectSelected && !allowTabOutSubject) {
-    subjectCheatFlag = true;
-    if (__subjectTimerInterval) clearInterval(__subjectTimerInterval);
-    appState.subjectSelected = null;
-    appState.subjectDisqualified = true;
+  // Kalau tidak sedang di tes, atau allowTabOut → skip
+  if (!appState.subjectSelected || allowTabOutSubject) return;
 
-    document.getElementById('app').innerHTML = `
-      <div class="subject-test-page" style="min-height:auto;padding:20px;">
-        <div class="subject-test-container" style="max-width:520px;">
-          <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
-            <div class="subject-hero-accent"></div>
-            ${renderTestPageHeader({
-              eyebrow: 'SUBJECT TEST',
-              title: 'Tes Subjek',
-              subtitle: 'Diskualifikasi',
-              showBack: false
-            })}
-            <div style="padding: 30px 26px 34px;">
-              <div style="font-size:2.3em;margin-bottom:13px;">❌</div>
-              <h2 style="color:#c91b1b;margin-bottom:13px;">Diskualifikasi!</h2>
-              <div style="font-size:1.09em;margin-bottom:24px;color:#475569;line-height:1.6;">
-                Anda terdeteksi membuka tab/jendela lain saat mengerjakan tes subjek.<br>
-                Mohon hubungi panitia jika ada kendala.
-              </div>
-              <button class="btn btn-danger" style="padding:12px 46px;font-size:1.15em;" onclick="logoutDiskualifikasi()">
-                🔒 Logout
-              </button>
+  // Kalau sudah diskualifikasi → skip
+  if (appState.subjectDisqualified) return;
+
+  __subjectWarnCount++;
+
+  // ==========================================
+  // PERINGATAN 1 — Tampilkan modal, tes LANJUT
+  // ==========================================
+  if (__subjectWarnCount <= __SUBJECT_MAX_WARN) {
+    showSubjectWarning(__subjectWarnCount);
+    return;
+  }
+
+  // ==========================================
+  // PERINGATAN 2+ — DISKUALIFIKASI
+  // ==========================================
+  subjectCheatFlag = true;
+  if (__subjectTimerInterval) clearInterval(__subjectTimerInterval);
+  appState.subjectSelected = null;
+  appState.subjectDisqualified = true;
+  allowTabOutSubject = true;
+
+  // Tampilkan layar diskualifikasi
+  document.getElementById('app').innerHTML = `
+    <div class="subject-test-page" style="min-height:auto;padding:20px;">
+      <div class="subject-test-container" style="max-width:520px;">
+        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
+          <div class="subject-hero-accent"></div>
+          ${renderTestPageHeader({
+            eyebrow: 'SUBJECT TEST',
+            title: 'Tes Subjek',
+            subtitle: 'Diskualifikasi',
+            showBack: false
+          })}
+          <div style="padding: 30px 26px 34px;">
+            <div style="font-size:2.3em;margin-bottom:13px;">❌</div>
+            <h2 style="color:#c91b1b;margin-bottom:13px;">Diskualifikasi!</h2>
+            <div style="font-size:1.09em;margin-bottom:24px;color:#475569;line-height:1.6;">
+              Anda terdeteksi <b>${__subjectWarnCount}×</b> keluar dari tab tes subjek.<br>
+              Mohon hubungi panitia jika ada kendala.
             </div>
+            <button class="btn btn-danger" style="padding:12px 46px;font-size:1.15em;" onclick="logoutDiskualifikasi()">
+              🔒 Logout
+            </button>
           </div>
         </div>
       </div>
-    `;
-  }
+    </div>
+  `;
+}
+
+/* =========================================================
+   ⚠️ MODAL PERINGATAN
+   ========================================================= */
+function showSubjectWarning(warnCount) {
+  // Set flag sementara supaya blur berikutnya tidak dobel trigger
+  allowTabOutSubject = true;
+
+  // Hapus modal lama kalau ada
+  const old = document.getElementById('subjectWarningOverlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'subjectWarningOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    background: rgba(10,20,35,.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    animation: subjectWarnFadeIn .25s ease;
+  `;
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes subjectWarnFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes subjectWarnSlideIn {
+        from { opacity: 0; transform: translateY(20px) scale(.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes subjectWarnIconPulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.08); }
+      }
+    </style>
+
+    <div style="
+      max-width: 500px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.55);
+      animation: subjectWarnSlideIn .3s cubic-bezier(.2,.8,.2,1);
+    ">
+      <!-- HEADER -->
+      <div style="
+        padding: 30px 28px 24px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        text-align: center;
+        color: #fff;
+      ">
+        <div style="
+          width: 76px; height: 76px;
+          margin: 0 auto 14px;
+          display: grid; place-items: center;
+          background: rgba(255,255,255,.2);
+          border: 2px solid rgba(255,255,255,.35);
+          border-radius: 22px;
+          font-size: 38px;
+          animation: subjectWarnIconPulse 1.8s ease-in-out infinite;
+        ">⚠️</div>
+        <div style="
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          opacity: .9;
+          margin-bottom: 6px;
+        ">PERINGATAN ${warnCount}/${__SUBJECT_MAX_WARN}</div>
+        <div style="
+          font-size: 22px;
+          font-weight: 900;
+          letter-spacing: -.3px;
+        ">Anda Keluar dari Tab Tes</div>
+      </div>
+
+      <!-- BODY -->
+      <div style="padding: 26px 28px 24px;">
+        <p style="
+          margin: 0 0 20px;
+          color: #475569;
+          font-size: 14.5px;
+          line-height: 1.7;
+          text-align: center;
+        ">
+          Sistem mendeteksi Anda <b style="color:#d97706;">keluar dari tab tes subjek</b>.<br><br>
+          ${warnCount < __SUBJECT_MAX_WARN
+            ? `Ini adalah peringatan <b>terakhir</b>. Jika terulang sekali lagi, Anda akan <b style="color:#dc2626;">otomatis diskualifikasi</b>.`
+            : `Jika terulang lagi, Anda akan <b style="color:#dc2626;">otomatis diskualifikasi</b>.`
+          }
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: #fef3c7;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          font-size: 13px;
+          color: #78350f;
+          line-height: 1.65;
+        ">
+          <b>💡 Tips agar tidak terulang:</b><br>
+          • Aktifkan <b>Do Not Disturb</b> di HP<br>
+          • Tutup notifikasi WhatsApp / Telegram / SMS<br>
+          • Jangan klik di luar tab ini<br>
+          • Kerjakan tes di tempat yang tenang
+        </div>
+
+        <button id="btnSubjectWarnOk" style="
+          width: 100%;
+          margin-top: 20px;
+          padding: 15px;
+          background: linear-gradient(135deg, #f59e0b, #d97706);
+          color: #fff;
+          border: 0;
+          border-radius: 12px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 10px 24px rgba(217,119,6,.28);
+          transition: transform .18s, box-shadow .18s, filter .18s;
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.filter='brightness(1.05)';this.style.boxShadow='0 14px 30px rgba(217,119,6,.35)';"
+        onmouseout="this.style.transform='translateY(0)';this.style.filter='brightness(1)';this.style.boxShadow='0 10px 24px rgba(217,119,6,.28)';">
+          ✅ Saya Mengerti, Lanjutkan Tes
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Tombol OK → tutup modal, lanjut tes
+  document.getElementById('btnSubjectWarnOk').onclick = () => {
+    overlay.remove();
+    // Delay reset flag supaya blur dari klik tombol tidak trigger lagi
+    setTimeout(() => {
+      allowTabOutSubject = false;
+    }, 800);
+  };
 }
 
 /* =========================================================
@@ -633,6 +815,7 @@ function logoutDiskualifikasi() {
   appState.subjectDisqualified = false;
   subjectCheatFlag = false;
   allowTabOutSubject = false;
+  __subjectWarnCount = 0;
 
   const pwdScreen = document.getElementById('passwordScreen');
   if (pwdScreen) pwdScreen.classList.add('hidden');
@@ -737,4 +920,4 @@ function logoutDiskualifikasi() {
   console.log('[SUBJECT] ⚠️ Diskualifikasi — device terkunci, menunggu admin');
 }
 
-console.log('[TEST-SUBJECT] ✓ Loaded — 10 fungsi');
+console.log('[TEST-SUBJECT] ✓ Loaded — 11 fungsi + 1× warning anti-cheat');
