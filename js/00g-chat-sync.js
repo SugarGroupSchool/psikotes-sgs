@@ -39,9 +39,11 @@ function __chatGenId() {
    GET DEVICE ID
    ============================================================ */
 function __chatSyncGetDeviceId() {
-  if (typeof getOrCreateDeviceId === 'function') {
-    return getOrCreateDeviceId();
+  // 🔒 I2 FIX: Delegasi ke sumber tunggal (00e-presence.js)
+  if (typeof window.getOrCreateDeviceId === 'function') {
+    return window.getOrCreateDeviceId();
   }
+  // Fallback darurat
   try {
     let id = localStorage.getItem('_sgs_device_id');
     if (!id) {
@@ -89,10 +91,23 @@ function getChatConnectionStatus() {
 function __chatEnableOffline() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   try {
-    const ref = firebase.database().ref('sgs_state/chats');
+    // 🔒 O5 FIX: Cek apakah mode admin
+    const isAdmin = (typeof window.isAdminUrl === 'function' && window.isAdminUrl());
+
+    let ref;
+    if (isAdmin) {
+      // Admin perlu lihat semua room
+      ref = firebase.database().ref('sgs_state/chats');
+      console.log('[CHAT-SYNC] ✓ Offline persistence: admin mode (all rooms)');
+    } else {
+      // Kandidat: hanya room sendiri — hemat bandwidth & storage
+      const myId = __chatSyncGetDeviceId();
+      ref = firebase.database().ref('sgs_state/chats/' + myId);
+      console.log('[CHAT-SYNC] ✓ Offline persistence: candidate mode (own room only)');
+    }
+
     if (typeof ref.keepSynced === 'function') {
       ref.keepSynced(true);
-      console.log('[CHAT-SYNC] ✓ Offline persistence enabled');
     } else {
       console.log('[CHAT-SYNC] ℹ️ keepSynced tidak tersedia di SDK ini (offline queue bawaan tetap aktif)');
     }
