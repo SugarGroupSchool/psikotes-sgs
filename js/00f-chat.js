@@ -60,9 +60,14 @@ function __chatPlayDing() {
   try {
     if (!__chatAudioCtx) {
       __chatAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      window.__chatAudioCtx = __chatAudioCtx;   // ✅ expose
     }
     const ctx = __chatAudioCtx;
-    if (ctx.state === 'suspended') ctx.resume();
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+      if (ctx.state === 'suspended') return;   // ✅ skip kalau masih suspended
+    }
     const now = ctx.currentTime;
     [880, 1320].forEach((freq, i) => {
       const osc = ctx.createOscillator();
