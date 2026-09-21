@@ -952,7 +952,7 @@ function logoutDiskualifikasi() {
           </div>
           1. Klik <b>"Minta Izin Akses"</b> di halaman berikutnya<br>
           2. Tunggu admin menyetujui permintaan Anda<br>
-          3. Login ulang dengan <b>password USED</b><br>
+          3. Login ulang dengan <b>password baru dari admin</b><br>
           4. Lanjutkan tes Anda
         </div>
 
