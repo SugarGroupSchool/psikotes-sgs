@@ -801,39 +801,47 @@ function showSubjectWarning(warnCount) {
 }
 
 /* =========================================================
-   DISKUALIFIKASI SUBJECT — Lanjut dengan Password USED
-   - Tes lain tetap tersimpan
-   - SUBJECT di-reset (bisa dikerjakan ulang)
-   - Password jadi USED → kandidat login ulang sendiri
+   DISKUALIFIKASI SUBJECT
+   - Reset HANYA completed.SUBJECT (selectedTests tetap)
+   - Password jadi USED
+   - Device di-lock → wajib minta izin admin dulu
+   - Setelah admin approve → login USED → lanjut
    ========================================================= */
 function logoutDiskualifikasi() {
   // ==========================================
-  // 1. Password jadi USED (kandidat login ulang pakai USED)
+  // 1. Password jadi USED (kandidat login pakai USED nanti)
   // ==========================================
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
   } catch (e) {}
 
   // ==========================================
-  // 2. Reset HANYA SUBJECT — tes lain tetap tersimpan
+  // 2. Reset HANYA completed.SUBJECT
+  //    selectedTests TETAP (SUBJECT tetap di daftar tes)
   // ==========================================
   try {
-    // a. Hapus flag completed.SUBJECT saja
     const saved = JSON.parse(localStorage.getItem('completed') || '{}');
     if (saved.SUBJECT) delete saved.SUBJECT;
     localStorage.setItem('completed', JSON.stringify(saved));
 
-    // b. Hapus SUBJECT dari selectedTests (biar bisa pilih ulang)
-    const sel = JSON.parse(localStorage.getItem('selectedTests') || '[]');
-    const filtered = Array.isArray(sel) ? sel.filter(t => t !== 'SUBJECT') : [];
-    localStorage.setItem('selectedTests', JSON.stringify(filtered));
-
-    // c. Reset subjectUpload (foto jawaban yang tadi diupload)
+    // Hapus foto jawaban SUBJECT yang lama
     localStorage.removeItem('subjectUpload');
+    localStorage.removeItem('subjectSelected');
+
+    // ⚠️ JANGAN hapus SUBJECT dari selectedTests!
+    // Biarkan SUBJECT tetap muncul di home.
   } catch (e) {}
 
   // ==========================================
-  // 3. Reset state di memori
+  // 3. Set flag untuk wajib minta izin admin
+  // ==========================================
+  try {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
+    localStorage.setItem('_sgs_disqualified', '1');
+  } catch (e) {}
+
+  // ==========================================
+  // 4. Reset state di memori
   // ==========================================
   window.__inTestView = false;
   appState.subjectSelected = null;
@@ -849,7 +857,7 @@ function logoutDiskualifikasi() {
   }
 
   // ==========================================
-  // 4. Sembunyikan layar password & clear app
+  // 5. Sembunyikan layar password & clear app
   // ==========================================
   const pwdScreen = document.getElementById('passwordScreen');
   if (pwdScreen) pwdScreen.classList.add('hidden');
@@ -857,7 +865,7 @@ function logoutDiskualifikasi() {
   if (appEl) appEl.innerHTML = '';
 
   // ==========================================
-  // 5. Tampilkan layar diskualifikasi + countdown reload
+  // 6. Tampilkan layar diskualifikasi + countdown reload
   // ==========================================
   document.body.innerHTML = `
     <div style="
@@ -904,7 +912,7 @@ function logoutDiskualifikasi() {
           line-height: 1.65;
         ">
           Anda terdeteksi <b style="color:#dc2626;">keluar dari tab tes</b>.<br>
-          Anda masih bisa melanjutkan dengan login ulang.
+          Anda perlu <b>izin admin</b> untuk melanjutkan.
         </p>
 
         <!-- INFO: PROGRESS AMAN -->
@@ -915,7 +923,7 @@ function logoutDiskualifikasi() {
           border-radius: 14px;
           font-size: 13px;
           color: #166534;
-          line-height: 1.7;
+          line-height: 1.75;
           text-align: left;
           margin-bottom: 12px;
         ">
@@ -924,31 +932,32 @@ function logoutDiskualifikasi() {
           </div>
           • Tes lain yang sudah selesai <b>tetap aman</b><br>
           • Tes <b>Subjek</b> di-reset — bisa dikerjakan ulang<br>
-          • Anda hanya perlu login ulang &amp; lanjutkan
+          • Anda hanya perlu <b>izin admin</b> untuk lanjut
         </div>
 
         <!-- INFO: CARA LANJUT -->
         <div style="
           padding: 14px 16px;
-          background: #eff6ff;
-          border: 1px solid #bfdbfe;
+          background: #fef3c7;
+          border: 1px solid #fde68a;
           border-radius: 14px;
           font-size: 13px;
-          color: #1e40af;
-          line-height: 1.7;
+          color: #78350f;
+          line-height: 1.75;
           text-align: left;
           margin-bottom: 22px;
         ">
           <div style="font-weight:800;margin-bottom:6px;font-size:13.5px;">
-            🔑 Cara Login Ulang
+            📨 Langkah Selanjutnya
           </div>
-          1. Klik tombol <b>"Login Ulang"</b> di bawah<br>
-          2. Masukkan <b>password USED</b> dari admin<br>
-          3. Lanjutkan tes Anda
+          1. Klik <b>"Minta Izin Akses"</b> di halaman berikutnya<br>
+          2. Tunggu admin menyetujui permintaan Anda<br>
+          3. Login ulang dengan <b>password USED</b><br>
+          4. Lanjutkan tes Anda
         </div>
 
         <!-- BUTTON -->
-        <button id="btnReloginDisq" style="
+        <button id="btnRequestIzinkan" style="
           width: 100%;
           padding: 15px 20px;
           background: linear-gradient(135deg, #dc2626, #991b1b);
@@ -964,7 +973,7 @@ function logoutDiskualifikasi() {
         "
         onmouseover="this.style.transform='translateY(-2px)';this.style.filter='brightness(1.05)';"
         onmouseout="this.style.transform='translateY(0)';this.style.filter='brightness(1)';">
-          🔄 Login Ulang Sekarang
+          📨 Minta Izin Akses
         </button>
 
         <!-- COUNTDOWN -->
@@ -983,7 +992,7 @@ function logoutDiskualifikasi() {
             box-shadow: 0 0 0 4px rgba(245,158,11,.2);
             animation: waitingPulse 1.4s ease-in-out infinite;
           "></span>
-          Auto-reload dalam <b style="color:#475569;min-width:14px;display:inline-block;text-align:center;"><span id="disqCountdown">5</span></b> detik
+          Auto-lanjut dalam <b style="color:#475569;min-width:14px;display:inline-block;text-align:center;"><span id="disqCountdown">3</span></b> detik
         </div>
 
         <!-- PROGRESS BAR -->
@@ -996,7 +1005,7 @@ function logoutDiskualifikasi() {
             width: 0%; height: 100%;
             background: linear-gradient(90deg, #dc2626, #f59e0b);
             border-radius: inherit;
-            transition: width 5s linear;
+            transition: width 3s linear;
           "></div>
         </div>
       </div>
@@ -1015,7 +1024,7 @@ function logoutDiskualifikasi() {
   `;
 
   // ==========================================
-  // 6. Animasi progress bar
+  // 7. Animasi progress bar
   // ==========================================
   setTimeout(() => {
     const bar = document.getElementById('disqProgressBar');
@@ -1023,35 +1032,33 @@ function logoutDiskualifikasi() {
   }, 100);
 
   // ==========================================
-  // 7. Fungsi reload (untuk tombol & countdown)
+  // 8. Fungsi reload → trigger showRequestAccessScreen()
   // ==========================================
   const doReload = () => {
-    try {
-      window.location.reload();
-    } catch (e) {
+    // Pastikan __requestScreenRendered di-reset agar bisa tampil lagi
+    try { window.__sgs_requestScreenRendered = false; } catch (e) {}
+    try { window.location.reload(); } catch (e) {
       window.location.href = window.location.href;
     }
   };
 
-  document.getElementById('btnReloginDisq').onclick = doReload;
+  document.getElementById('btnRequestIzinkan').onclick = doReload;
 
   // ==========================================
-  // 8. Countdown 5 detik → auto reload
+  // 9. Countdown 3 detik → auto reload
   // ==========================================
-  let countdown = 5;
+  let countdown = 3;
   const countdownEl = document.getElementById('disqCountdown');
 
   const interval = setInterval(() => {
     countdown--;
     if (countdownEl) countdownEl.textContent = Math.max(0, countdown);
-
     if (countdown <= 0) {
       clearInterval(interval);
       doReload();
     }
   }, 1000);
 
-  console.log('[SUBJECT] ⚠️ Diskualifikasi — reload ke login dalam 5 detik. Password jadi USED.');
+  console.log('[SUBJECT] ⚠️ Diskualifikasi → reload → layar minta izin akses');
 }
-
 console.log('[TEST-SUBJECT] ✓ Loaded — 11 fungsi + 1× warning anti-cheat');
