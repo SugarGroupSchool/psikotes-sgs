@@ -119,12 +119,21 @@ function renderHome() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, 20);
 
-  window.appState = window.appState || {};
-  appState.completed = appState.completed || {};
-  appState.selectedTests = appState.selectedTests ||
-    JSON.parse(localStorage.getItem('selectedTests') || '[]');
+window.appState = window.appState || {};
+appState.completed = appState.completed || {};
+appState.selectedTests = appState.selectedTests ||
+  JSON.parse(localStorage.getItem('selectedTests') || '[]');
 
-  const nickname = appState.identity && appState.identity.nickname
+// ✅ BARU: kalau login pakai password USED → skip instruksi, langsung ke test cards
+try {
+  const isUsedMode = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
+  if (isUsedMode) {
+    appState.showTestCards = true;
+    console.log('[ROUTER] ✅ Login USED → skip instruksi, langsung test cards');
+  }
+} catch (e) {}
+
+const nickname = appState.identity && appState.identity.nickname
     ? appState.identity.nickname
     : "Peserta";
   const selectedTests = appState.selectedTests;
