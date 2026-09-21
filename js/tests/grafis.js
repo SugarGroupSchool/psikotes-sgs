@@ -1,5 +1,9 @@
 /* =========================================================
    GRAFIS TEST (DAP, HTP, BAUM) — Full Logic
+   ---------------------------------------------------------
+   🔒 AUDIT FIX [2026-09-21]:
+   - I1: Hapus fungsi formatTime lokal (duplikat)
+         → pakai window.formatTime dari 02-utils.js
    ========================================================= */
 
 const GRAFIS_SUBTESTS = (typeof GRAFIS_DATA !== 'undefined' && GRAFIS_DATA.subtests)
@@ -12,11 +16,9 @@ let __grafisCurrentIdx = 0;
 
 function ensureGrafisStyles() {}
 
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const d = ("0" + (sec % 60)).slice(-2);
-  return `${m}:${d}`;
-}
+// ── 🔒 I1 FIX: Hapus fungsi formatTime lokal ──
+// Alasan: sudah ada window.formatTime di 02-utils.js dengan format konsisten "05:30"
+// Pemanggilan formatTime(sec) di bawah tetap bekerja — JavaScript cari ke scope global.
 
 function playTimeoutSound() {
   try {
