@@ -14,9 +14,16 @@
 
   function __getDeviceId() {
     try {
-      return localStorage.getItem('_sgs_device_id') || 'unknown';
+      let id = localStorage.getItem('_sgs_device_id');
+      if (!id) {
+        // Generate baru kalau belum ada
+        id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        try { localStorage.setItem('_sgs_device_id', id); } catch (e) {}
+      }
+      return id;
     } catch (e) {
-      return 'unknown';
+      // Fallback kalau localStorage bermasalah
+      return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
     }
   }
 
