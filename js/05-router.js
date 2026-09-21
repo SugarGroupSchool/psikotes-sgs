@@ -118,9 +118,14 @@ function renderHome() {
 
   /* ============================================================
      🆕 RESUME CHECK — tampilkan modal kalau ada progress tersimpan
+     🔒 I7 FIX: Cek hanya 1× per sesi (hemat request Firebase)
      ============================================================ */
+  const __resumeCheckedThisSession = sessionStorage.getItem('__resumeChecked') === '1';
+
   if (typeof window.__resumeCheck === 'function'
-      && !window.__resumeModalShown) {
+      && !window.__resumeModalShown
+      && !__resumeCheckedThisSession) {
+    try { sessionStorage.setItem('__resumeChecked', '1'); } catch (e) {}
     window.__resumeCheck().then(function(data) {
       if (data && !window.__resumeModalShown) {
         window.__resumeModalShown = true;
@@ -140,7 +145,7 @@ function renderHome() {
       }
     }).catch(function() {});
   }
-
+   
   setTimeout(function () {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, 20);
