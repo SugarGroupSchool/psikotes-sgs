@@ -1,5 +1,9 @@
 /* =========================================================
    AUTHENTICATION — Lock Control + Fresh/Used password
+   ---------------------------------------------------------
+   🔒 AUDIT FIX [2026-09-21]:
+   - I6: Hapus listener Enter duplikat (dragstart event)
+         → sudah ditangani dengan benar di 08-app-init.js
    ========================================================= */
 
 /* ============================================================
@@ -19,20 +23,20 @@ function checkPassword() {
     return;
   }
 
-/* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
-if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
-  if (typeof showRequestAccessScreen === 'function') {
-    const pwdScreen = document.getElementById('passwordScreen');
-    if (pwdScreen) pwdScreen.classList.add('hidden');
-    showRequestAccessScreen();
+  /* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
+  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+    if (typeof showRequestAccessScreen === 'function') {
+      const pwdScreen = document.getElementById('passwordScreen');
+      if (pwdScreen) pwdScreen.classList.add('hidden');
+      showRequestAccessScreen();
+      return;
+    }
+    error.textContent = 'Perangkat ini sudah menyelesaikan tes. Hubungi admin.';
+    error.style.color = '#ff6b6b';
+    input.value = '';
+    input.focus();
     return;
   }
-  error.textContent = 'Perangkat ini sudah menyelesaikan tes. Hubungi admin.';
-  error.style.color = '#ff6b6b';
-  input.value = '';
-  input.focus();
-  return;
-}
 
   /* ---------- CEK 3: TENTUKAN PASSWORD YANG BERLAKU ---------- */
   const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
@@ -130,23 +134,29 @@ function resetToLogin() {
 
 /* ============================================================
    EVENT BINDINGS
+   ------------------------------------------------------------
+   🔒 I6 FIX: Hapus blok dragstart yang memasang listener Enter
+   - Enter sudah ditangani dengan benar di 08-app-init.js
+     oleh attachPasswordEnter() dengan guard __enterBound
+   - Blok dragstart lama menyebabkan listener menumpuk
    ============================================================ */
-document.addEventListener('dragstart', e => {
-  const input = document.getElementById('passwordInput');
-  if (input) {
-    input.addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        checkPassword();
-      }
-    });
-    setTimeout(() => input.focus(), 100);
-  }
-});
 
+// ── Blok lama yang DIHAPUS ──
+// document.addEventListener('dragstart', e => {
+//   const input = document.getElementById('passwordInput');
+//   if (input) {
+//     input.addEventListener('keypress', e => {
+//       if (e.key === 'Enter') { e.preventDefault(); checkPassword(); }
+//     });
+//     setTimeout(() => input.focus(), 100);
+//   }
+// });
+
+// ── Yang DIPERTAHANKAN: cegah drag gambar & context menu ──
 document.addEventListener('dragstart', e => {
   if (e.target instanceof HTMLImageElement) e.preventDefault();
 });
+
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-console.log('[AUTH] ✓ Loaded');
+console.log('[AUTH] ✓ Loaded — listener Enter ditangani oleh 08-app-init.js');
