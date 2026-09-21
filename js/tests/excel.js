@@ -2,7 +2,7 @@
    js/tests/excel.js
    - Tes Excel IN-APP dengan Luckysheet (persis Excel asli)
    - Anti-dobel guard: submit sekali saja
-   - Anti-cheat: 2× warning → diskualifikasi
+   - ✅ Diskualifikasi 1× warning → minta izin admin (sama seperti SUBJECT)
    - Output: .xlsx auto-upload ke Google Drive
    - ✅ FIX: Export Excel (support Luckysheet 2D array format)
    - ✅ FIX: Retry fill data + delay 800ms
@@ -66,7 +66,7 @@ const EXCEL_TIME = 40 * 60;
 let __excelTimer = null;
 let __excelTimeLeft = 0;
 let __excelWarnCount = 0;
-const __EXCEL_MAX_WARN = 2;
+const __EXCEL_MAX_WARN = 1;
 let __excelCheat = false;
 let __excelAllowTabOut = false;
 let __excelBlurFn = null;
@@ -115,7 +115,6 @@ function renderExcelIntro() {
   const id = appState.identity || {};
   const nama = id.name || 'Kandidat';
 
-  // ✅ FIX: deteksi mobile / tablet
   const isMobile = window.innerWidth < 900
     || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
@@ -154,7 +153,6 @@ function renderExcelIntro() {
               <div class="ist-instruction-text" style="color:#78350f;">
                 Tes Excel sebaiknya dikerjakan di <b>laptop atau komputer</b> untuk pengalaman terbaik.
                 Di HP/tablet, tombol dan grid mungkin lebih sulit digunakan.
-                Kalau tetap ingin lanjut, pastikan Anda nyaman.
               </div>
             </div>
           ` : ''}
@@ -169,7 +167,6 @@ function renderExcelIntro() {
                 <li>Ketik <code>=</code> di cell, lalu <b>klik cell / drag range</b> → referensi otomatis masuk.</li>
                 <li>Drag <b>fill handle</b> (pojok kanan-bawah cell) untuk copy rumus.</li>
                 <li>Soal ada di sheet <b>"Soal"</b> (tab bawah).</li>
-                <li><b>DILARANG keluar tab</b> — 2× = diskualifikasi.</li>
               </ul>
             </div>
           </div>
@@ -180,7 +177,7 @@ function renderExcelIntro() {
               Anti-Cheat Aktif
             </div>
             <div class="ist-instruction-text" style="color:#7c2d12;">
-              Keluar tab = peringatan. 2× = diskualifikasi otomatis.
+              Keluar tab = peringatan. <b>2×</b> = diskualifikasi otomatis — Anda harus minta izin admin untuk lanjut.
             </div>
           </div>
 
@@ -353,7 +350,6 @@ function initLuckysheet() {
     ],
     hook: {
       workbookCreateAfter: function() {
-        // ✅ FIX: retry mechanism, max 10x, delay 300ms
         let attempts = 0;
         const maxAttempts = 10;
 
@@ -366,7 +362,6 @@ function initLuckysheet() {
               return;
             }
 
-            // Sheet 1: Data Siswa
             luckysheet.setSheetActive(0);
             for (let r = 0; r < sheet1Data.length; r++) {
               for (let c = 0; c < sheet1Data[r].length; c++) {
@@ -377,7 +372,6 @@ function initLuckysheet() {
               }
             }
 
-            // Sheet 2: Soal
             luckysheet.setSheetActive(1);
             for (let r = 0; r < sheet2Data.length; r++) {
               for (let c = 0; c < sheet2Data[r].length; c++) {
@@ -388,7 +382,6 @@ function initLuckysheet() {
               }
             }
 
-            // Kembali ke sheet 1
             luckysheet.setSheetActive(0);
             luckysheet.refresh();
             console.log('[EXCEL] ✓ Luckysheet siap — kandidat:', nama);
@@ -407,7 +400,7 @@ function initLuckysheet() {
 }
 
 /* ============================================================
-   ANTI-CHEAT
+   ANTI-CHEAT — 1× warning → 2× diskualifikasi
    ============================================================ */
 function attachExcelAntiCheat() {
   if (__excelBlurFn) window.removeEventListener('blur', __excelBlurFn);
@@ -419,10 +412,14 @@ function attachExcelAntiCheat() {
     if (appState.currentTest !== 'EXCEL') return;
 
     __excelWarnCount++;
-    if (__excelWarnCount < __EXCEL_MAX_WARN) {
+
+    // Warning 1× → modal amber, tes LANJUT
+    if (__excelWarnCount <= __EXCEL_MAX_WARN) {
       showExcelWarning(__excelWarnCount);
       return;
     }
+
+    // Warning 2× → DISKUALIFIKASI
     __excelCheat = true;
     clearInterval(__excelTimer);
     disqualifyExcel();
@@ -434,71 +431,549 @@ function attachExcelAntiCheat() {
   document.addEventListener('visibilitychange', __excelVisFn);
 }
 
-function showExcelWarning(count) {
+/* ============================================================
+   ⚠️ MODAL PERINGATAN (1× warning)
+   ============================================================ */
+function showExcelWarning(warnCount) {
   __excelAllowTabOut = true;
+
+  const old = document.getElementById('subjectWarningOverlay');
+  if (old) old.remove();
+  const oldExcel = document.getElementById('excelWarningOverlay');
+  if (oldExcel) oldExcel.remove();
+
   const overlay = document.createElement('div');
-  overlay.style.cssText = `position:fixed;inset:0;z-index:99999;background:rgba(10,20,35,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;`;
+  overlay.id = 'excelWarningOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
+    background: rgba(10,20,35,.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    animation: excelWarnFadeIn .25s ease;
+  `;
+
   overlay.innerHTML = `
-    <div style="background:#fff;border-radius:22px;padding:32px 28px;max-width:460px;width:100%;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.5);">
-      <div style="font-size:52px;line-height:1;margin-bottom:14px;">⚠️</div>
-      <h2 style="margin:0 0 12px;color:#991b1b;font-size:22px;font-weight:900;">Peringatan ${count}/2</h2>
-      <p style="color:#475569;font-size:14.5px;line-height:1.65;margin:0 0 20px;">
-        Anda terdeteksi <b>keluar dari tab tes Excel</b>.<br>
-        Jika terulang sekali lagi → <b>diskualifikasi otomatis</b>.
-      </p>
-      <div style="padding:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:12px;font-size:13px;color:#78350f;text-align:left;line-height:1.6;">
-        <b>💡 Tips:</b><br>
-        • Aktifkan Do Not Disturb<br>
-        • Tutup notifikasi WhatsApp/Telegram<br>
-        • Jangan klik di luar tab ini
+    <style>
+      @keyframes excelWarnFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes excelWarnSlideIn {
+        from { opacity: 0; transform: translateY(20px) scale(.96); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes excelWarnIconPulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.08); }
+      }
+    </style>
+
+    <div style="
+      max-width: 500px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.55);
+      animation: excelWarnSlideIn .3s cubic-bezier(.2,.8,.2,1);
+    ">
+      <div style="
+        padding: 30px 28px 24px;
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        text-align: center;
+        color: #fff;
+      ">
+        <div style="
+          width: 76px; height: 76px;
+          margin: 0 auto 14px;
+          display: grid; place-items: center;
+          background: rgba(255,255,255,.2);
+          border: 2px solid rgba(255,255,255,.35);
+          border-radius: 22px;
+          font-size: 38px;
+          animation: excelWarnIconPulse 1.8s ease-in-out infinite;
+        ">⚠️</div>
+        <div style="
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          opacity: .9;
+          margin-bottom: 6px;
+        ">PERINGATAN ${warnCount}/${__EXCEL_MAX_WARN}</div>
+        <div style="
+          font-size: 22px;
+          font-weight: 900;
+          letter-spacing: -.3px;
+        ">Anda Keluar dari Tab Excel</div>
       </div>
-      <button id="btnExcelWarnOk" style="margin-top:20px;width:100%;padding:14px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:0;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;">
-        Saya Mengerti, Lanjutkan
-      </button>
+
+      <div style="padding: 26px 28px 24px;">
+        <p style="
+          margin: 0 0 20px;
+          color: #475569;
+          font-size: 14.5px;
+          line-height: 1.7;
+          text-align: center;
+        ">
+          Sistem mendeteksi Anda <b style="color:#d97706;">keluar dari tab tes Excel</b>.<br><br>
+          ${warnCount < __EXCEL_MAX_WARN
+            ? `Ini adalah peringatan <b>terakhir</b>. Jika terulang sekali lagi, Anda akan <b style="color:#dc2626;">otomatis diskualifikasi</b> dan harus minta izin admin.`
+            : `Jika terulang lagi, Anda akan <b style="color:#dc2626;">otomatis diskualifikasi</b>.`
+          }
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: #fef3c7;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          font-size: 13px;
+          color: #78350f;
+          line-height: 1.65;
+        ">
+          <b>💡 Tips agar tidak terulang:</b><br>
+          • Aktifkan <b>Do Not Disturb</b> di HP<br>
+          • Tutup notifikasi WhatsApp / Telegram / SMS<br>
+          • Jangan klik di luar tab ini<br>
+          • Kerjakan tes di tempat yang tenang
+        </div>
+
+        <button id="btnExcelWarnOk" style="
+          width: 100%;
+          margin-top: 20px;
+          padding: 15px;
+          background: linear-gradient(135deg, #f59e0b, #d97706);
+          color: #fff;
+          border: 0;
+          border-radius: 12px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 10px 24px rgba(217,119,6,.28);
+          transition: transform .18s, box-shadow .18s, filter .18s;
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.filter='brightness(1.05)';this.style.boxShadow='0 14px 30px rgba(217,119,6,.35)';"
+        onmouseout="this.style.transform='translateY(0)';this.style.filter='brightness(1)';this.style.boxShadow='0 10px 24px rgba(217,119,6,.28)';">
+          ✅ Saya Mengerti, Lanjutkan Tes
+        </button>
+      </div>
     </div>
   `;
+
   document.body.appendChild(overlay);
+
   document.getElementById('btnExcelWarnOk').onclick = () => {
     overlay.remove();
-    setTimeout(() => { __excelAllowTabOut = false; }, 1500);
+    setTimeout(() => {
+      __excelAllowTabOut = false;
+    }, 800);
   };
 }
 
+/* ============================================================
+   ❌ DISKUALIFIKASI EXCEL — Minta Izin Admin (seperti SUBJECT)
+   - Reset HANYA completed.EXCEL (selectedTests tetap)
+   - Data IST/DISC/PAPI/dll TETAP TERSIMPAN
+   - Password jadi USED setelah admin approve
+   ============================================================ */
 function disqualifyExcel() {
-  window.__inTestView = false;
+  // 1. Set flags
   try {
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
     localStorage.setItem('_sgs_disqualified', '1');
-    localStorage.setItem('_sgs_finished', '1');
-    localStorage.setItem('usedPragas', '1');
   } catch (e) {}
 
-  appState.completed = appState.completed || {};
-  appState.completed.EXCEL = false;
+  // 2. Reset HANYA completed.EXCEL
+  try {
+    const saved = JSON.parse(localStorage.getItem('completed') || '{}');
+    if (saved.EXCEL) delete saved.EXCEL;
+    localStorage.setItem('completed', JSON.stringify(saved));
 
-  document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
-      <div class="ist-panel">
-        ${renderTestPageHeader({
-          eyebrow: 'ADMINISTRATIVE TEST',
-          title: 'Tes Excel',
-          subtitle: 'Diskualifikasi',
-          showBack: false
-        })}
-        <div class="ist-body">
-          <div class="ist-instruction-card" style="text-align:center;padding:40px 24px;background:#fef2f2;border-color:#fecaca;">
-            <div style="font-size:60px;line-height:1;margin-bottom:16px;">❌</div>
-            <h2 style="margin:0 0 12px;color:#991b1b;font-size:24px;font-weight:900;">Diskualifikasi</h2>
-            <p style="color:#7c2d12;font-size:15px;line-height:1.7;margin:0 0 22px;">
-              Anda terdeteksi keluar dari tab tes <b>${__EXCEL_MAX_WARN}×</b>. Hubungi admin.
-            </p>
-            <button onclick="location.reload()" style="padding:14px 32px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:0;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;">
-              🔒 Logout
-            </button>
+    // ⚠️ selectedTests TIDAK diubah → EXCEL tetap muncul di home
+  } catch (e) {}
+
+  // 3. Reset state di memori
+  window.__inTestView = false;
+  appState.currentTest = null;
+  __excelCheat = false;
+  __excelAllowTabOut = false;
+  __excelWarnCount = 0;
+
+  if (appState.completed) {
+    appState.completed.EXCEL = false;
+  }
+
+  // 4. Hide layar password & clear app
+  const pwdScreen = document.getElementById('passwordScreen');
+  if (pwdScreen) pwdScreen.classList.add('hidden');
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.innerHTML = '';
+
+  // 5. Tampilkan layar diskualifikasi + tombol Minta Izin
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; overflow-y: auto;
+      background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        max-width: 540px; width: 100%;
+        padding: 38px 32px 32px;
+        background: #ffffff; border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
+      ">
+        <div style="
+          width: 84px; height: 84px;
+          margin: 0 auto 20px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #fee2e2, #fef2f2);
+          border: 3px solid #fca5a5; border-radius: 24px;
+          font-size: 44px;
+          animation: excelDisqPulse 2s ease-in-out infinite;
+        ">❌</div>
+
+        <h1 style="
+          margin: 0 0 10px;
+          font-size: 25px; font-weight: 900;
+          color: #991b1b; letter-spacing: -0.4px;
+        ">Diskualifikasi</h1>
+
+        <p style="
+          margin: 0 0 20px;
+          color: #64748b; font-size: 14.5px;
+          line-height: 1.65;
+        ">
+          Anda terdeteksi <b style="color:#dc2626;">keluar dari tab tes Excel</b>.<br>
+          Anda perlu <b>izin admin</b> untuk melanjutkan.
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 14px;
+          font-size: 13px; color: #166534;
+          line-height: 1.75; text-align: left;
+          margin-bottom: 12px;
+        ">
+          <div style="font-weight:800;margin-bottom:6px;font-size:13.5px;">
+            ✅ Data Anda Tetap Tersimpan
           </div>
+          • Tes yang sudah selesai <b>tetap aman</b><br>
+          • Tes <b>Excel</b> bisa dikerjakan ulang<br>
+          • Anda hanya perlu <b>izin admin</b> untuk lanjut
+        </div>
+
+        <div style="
+          padding: 14px 16px;
+          background: #fef3c7;
+          border: 1px solid #fde68a;
+          border-radius: 14px;
+          font-size: 13px; color: #78350f;
+          line-height: 1.75; text-align: left;
+          margin-bottom: 22px;
+        ">
+          <div style="font-weight:800;margin-bottom:6px;font-size:13.5px;">
+            📨 Langkah Selanjutnya
+          </div>
+          1. Klik <b>"Minta Izin Akses"</b> di bawah<br>
+          2. Tunggu admin menyetujui permintaan Anda<br>
+          3. Login ulang dengan <b>password baru dari admin</b><br>
+          4. Lanjutkan tes Anda
+        </div>
+
+        <button id="btnExcelMintaIzin" style="
+          width: 100%; padding: 15px 20px;
+          background: linear-gradient(135deg, #dc2626, #991b1b);
+          color: #fff; border: 0; border-radius: 13px;
+          font-family: inherit; font-size: 15px; font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 10px 26px rgba(220,38,38,.3);
+          transition: transform .18s, box-shadow .18s, filter .18s;
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.filter='brightness(1.05)';"
+        onmouseout="this.style.transform='translateY(0)';this.style.filter='brightness(1)';">
+          📨 Minta Izin Akses
+        </button>
+
+        <div style="
+          margin-top: 18px;
+          display: flex; align-items: center; justify-content: center;
+          gap: 10px; color: #94a3b8; font-size: 12.5px;
+        ">
+          <span style="
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 0 4px rgba(245,158,11,.2);
+            animation: excelWaitPulse 1.4s ease-in-out infinite;
+          "></span>
+          Butuh izin admin untuk melanjutkan
         </div>
       </div>
     </div>
+
+    <style>
+      @keyframes excelDisqPulse {
+        0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(220,38,38,.3); }
+        50%      { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(220,38,38,0); }
+      }
+      @keyframes excelWaitPulse {
+        0%, 100% { transform: scale(1);    opacity: 1; }
+        50%      { transform: scale(1.35); opacity: .7; }
+      }
+    </style>
   `;
+
+  // 6. Handle tombol "Minta Izin Akses"
+  document.getElementById('btnExcelMintaIzin').onclick = () => {
+    const btn = document.getElementById('btnExcelMintaIzin');
+    btn.disabled = true;
+    btn.textContent = '⏳ Mengirim permintaan...';
+    btn.style.opacity = '.7';
+    btn.style.cursor = 'wait';
+
+    __excelSendRequestToAdmin()
+      .then(() => {
+        __excelShowWaitingApprovalScreen();
+      })
+      .catch(err => {
+        console.error('[EXCEL] Gagal kirim request:', err);
+        btn.disabled = false;
+        btn.textContent = '📨 Minta Izin Akses';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        alert('❌ Gagal mengirim permintaan: ' + (err.message || 'Coba lagi'));
+      });
+  };
+
+  console.log('[EXCEL] ⚠️ Diskualifikasi — menunggu kandidat klik Minta Izin Akses');
+}
+
+/* ============================================================
+   KIRIM REQUEST KE FIREBASE (khusus Excel)
+   ============================================================ */
+async function __excelSendRequestToAdmin() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    throw new Error('Firebase belum siap, coba refresh halaman.');
+  }
+
+  const deviceId = localStorage.getItem('_sgs_device_id') || 'unknown';
+
+  let name = 'Kandidat';
+  let position = '';
+  try {
+    const identity = JSON.parse(localStorage.getItem('identity') || '{}');
+    name = identity.name || name;
+    position = identity.position || position;
+  } catch (e) {}
+
+  await firebase.database().ref('sgs_requests/' + deviceId).set({
+    deviceId: deviceId,
+    name: name,
+    position: position,
+    status: 'pending',
+    reason: 'diskualifikasi_excel',
+    requestedAt: firebase.database.ServerValue.TIMESTAMP,
+    userAgent: navigator.userAgent.slice(0, 200)
+  });
+
+  console.log('[EXCEL] ✅ Request izin akses terkirim ke admin:', deviceId);
+}
+
+/* ============================================================
+   LAYAR "MENUNGGU PERSETUJUAN ADMIN" (khusus Excel)
+   ============================================================ */
+function __excelShowWaitingApprovalScreen() {
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; overflow-y: auto;
+      background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        max-width: 500px; width: 100%;
+        padding: 40px 32px 34px;
+        background: #ffffff; border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
+      ">
+        <div style="
+          width: 84px; height: 84px;
+          margin: 0 auto 20px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #fef3c7, #fef9c3);
+          border: 3px solid #fde68a; border-radius: 24px;
+          font-size: 44px;
+        ">⏳</div>
+
+        <h1 style="
+          margin: 0 0 12px;
+          font-size: 22px; font-weight: 900;
+          color: #92400e; letter-spacing: -0.3px;
+        ">Menunggu Persetujuan Admin</h1>
+
+        <p style="
+          margin: 0 0 22px;
+          color: #475569; font-size: 14.5px;
+          line-height: 1.65;
+        ">
+          Permintaan izin Anda sudah terkirim.<br>
+          Mohon tunggu admin meninjau permintaan ini.<br><br>
+          <b>Halaman akan otomatis dimuat ulang setelah disetujui.</b>
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          font-size: 12.5px; color: #475569;
+          line-height: 1.7; text-align: left;
+        ">
+          <div style="margin-bottom:4px;"><b>Status:</b> Menunggu</div>
+          <div><b>Tes:</b> Excel</div>
+          <div><b>Waktu:</b> ${new Date().toLocaleString('id-ID', {
+            day: '2-digit', month: 'short',
+            hour: '2-digit', minute: '2-digit'
+          })}</div>
+        </div>
+
+        <div style="
+          margin-top: 22px;
+          display: flex; align-items: center; justify-content: center;
+          gap: 10px; color: #94a3b8; font-size: 12.5px;
+        ">
+          <span style="
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 0 5px rgba(245,158,11,.2);
+            animation: excelWaitPulse2 1.4s ease-in-out infinite;
+          "></span>
+          Menunggu...
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @keyframes excelWaitPulse2 {
+        0%, 100% { transform: scale(1);    opacity: 1; }
+        50%      { transform: scale(1.35); opacity: .7; }
+      }
+    </style>
+  `;
+
+  const deviceId = localStorage.getItem('_sgs_device_id') || 'unknown';
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+  firebase.database()
+    .ref('sgs_requests/' + deviceId)
+    .on('value', (snap) => {
+      const req = snap.val();
+      if (!req) return;
+
+      // ✅ APPROVED → Hapus flags & reload ke login
+      if (req.status === 'approved') {
+        console.log('[EXCEL] ✅ Admin approved → reload ke login');
+
+        try {
+          localStorage.removeItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED);
+          localStorage.removeItem('_sgs_disqualified');
+          localStorage.removeItem('_sgs_lock');
+          sessionStorage.removeItem('_sgs_retake_processed');
+        } catch (e) {}
+
+        document.body.innerHTML = `
+          <div style="
+            position: fixed; inset: 0; z-index: 2147483647;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #065f46 0%, #16a34a 100%);
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+          ">
+            <div style="
+              max-width: 440px; width: 100%;
+              padding: 40px 32px 34px;
+              background: #ffffff; border-radius: 24px;
+              box-shadow: 0 30px 90px rgba(0,0,0,.5);
+              text-align: center;
+            ">
+              <div style="
+                width: 80px; height: 80px;
+                margin: 0 auto 22px;
+                display: grid; place-items: center;
+                background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+                border: 3px solid #86efac; border-radius: 24px;
+                font-size: 40px;
+              ">✅</div>
+
+              <h1 style="
+                margin: 0 0 12px;
+                font-size: 22px; font-weight: 900;
+                color: #065f46;
+              ">Disetujui!</h1>
+
+              <p style="
+                margin: 0 0 16px;
+                color: #475569; font-size: 14.5px;
+                line-height: 1.65;
+              ">
+                Admin sudah menyetujui permintaan Anda.<br>
+                Silakan login dengan <b>password baru dari admin</b>.
+              </p>
+
+              <div style="font-size: 13px; color: #94a3b8;">
+                Memuat ulang halaman...
+              </div>
+
+              <div style="
+                width: 100%; height: 4px;
+                background: #e2e8f0; border-radius: 999px;
+                margin-top: 12px; overflow: hidden;
+              ">
+                <div id="excelApprovedBar" style="
+                  width: 0%; height: 100%;
+                  background: linear-gradient(90deg, #22c55e, #16a34a);
+                  border-radius: inherit;
+                  transition: width 2s linear;
+                "></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        setTimeout(() => {
+          const bar = document.getElementById('excelApprovedBar');
+          if (bar) bar.style.width = '100%';
+        }, 100);
+
+        setTimeout(() => {
+          try { window.location.reload(); } catch (e) {
+            window.location.href = window.location.href;
+          }
+        }, 2000);
+      }
+
+      // ❌ REJECTED → Tampilkan pesan ditolak
+      if (req.status === 'rejected') {
+        console.log('[EXCEL] ❌ Admin rejected');
+        alert('❌ Permintaan izin Anda ditolak oleh admin.\n\nSilakan hubungi panitia untuk informasi lebih lanjut.');
+      }
+    });
 }
 
 /* ============================================================
@@ -581,7 +1056,6 @@ async function finishExcelTest(timeUp) {
     setUI('📤', 'Mengirim ke admin...', 'Mengunggah file .xlsx...', 60);
     await uploadExcelToGAS(xlsxBlob, filename);
 
-    // ✅ Tandai selesai
     __excelFinished = true;
 
     try {
@@ -601,7 +1075,6 @@ async function finishExcelTest(timeUp) {
       try { window.updateDownloadButtonState(); } catch (e) {}
     }
 
-    // ✅ Cek apakah semua tes selesai
     setUI('✅', 'Excel Terkirim!', 'Memeriksa status tes...', 100);
 
     setTimeout(() => {
@@ -612,7 +1085,6 @@ async function finishExcelTest(timeUp) {
         : false;
 
       if (allDone) {
-        // ✅ FIX: konfirmasi dulu sebelum auto-submit PDF
         setUI('✅', 'Semua Tes Selesai!', 'Excel sudah terkirim ke admin.', 100);
 
         setTimeout(() => {
@@ -630,7 +1102,6 @@ async function finishExcelTest(timeUp) {
               window.renderHome();
             }
           } else {
-            // Kandidat pilih cancel → balik ke home
             if (typeof window.renderHome === 'function') {
               window.renderHome();
             } else {
@@ -639,7 +1110,6 @@ async function finishExcelTest(timeUp) {
           }
         }, 1200);
       } else {
-        // Belum semua selesai → balik ke home
         setUI('🏠', 'Kembali ke beranda…', 'Excel sudah terkirim ke admin.', 100);
 
         setTimeout(() => {
@@ -654,14 +1124,13 @@ async function finishExcelTest(timeUp) {
 
   } catch (err) {
     console.error('[EXCEL] Finish error:', err);
-    // Reset guard supaya bisa retry
     __excelFinishing = false;
     setUI('❌', 'Gagal Kirim', 'Error: ' + err.message + ' — Screenshot & hubungi admin.', 100);
   }
 }
 
 /* ============================================================
-   ✅ FIX: GENERATE .xlsx — Support kedua format Luckysheet
+   ✅ GENERATE .xlsx — Support kedua format Luckysheet
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
@@ -676,7 +1145,6 @@ function generateExcelBlob() {
   }
 
   if (!Array.isArray(sheets) || sheets.length === 0) {
-    // Fallback: data default
     const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
     EXCEL_STUDENTS.forEach(s => {
       dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
@@ -694,16 +1162,11 @@ function generateExcelBlob() {
     sheets.forEach((sheetData, idx) => {
       const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
 
-      // ✅ FIX: support KEDUA format
-      //   - Format A: sheetData.data = 2D array [[{v}, {v}], ...]  (Luckysheet 2.1.13)
-      //   - Format B: sheetData.celldata = [{r, c, v}, ...]
       let aoa = [];
-
       const data2D = sheetData.data;
       const celldata = sheetData.celldata;
 
       if (Array.isArray(data2D) && data2D.length > 0 && Array.isArray(data2D[0])) {
-        // ✅ Format A: 2D array
         const maxR = data2D.length;
         let maxC = 0;
         data2D.forEach(row => {
@@ -717,7 +1180,6 @@ function generateExcelBlob() {
             if (cell == null) {
               rowArr.push('');
             } else if (typeof cell === 'object') {
-              // Prioritaskan .v (value asli), fallback ke .m (display)
               const val = cell.v != null ? cell.v : (cell.m != null ? cell.m : '');
               rowArr.push(val);
             } else {
@@ -727,7 +1189,6 @@ function generateExcelBlob() {
           aoa.push(rowArr);
         }
       } else if (Array.isArray(celldata) && celldata.length > 0) {
-        // ✅ Format B: celldata flat array
         let maxR = 0, maxC = 0;
         celldata.forEach(c => {
           if (c.r > maxR) maxR = c.r;
@@ -751,7 +1212,6 @@ function generateExcelBlob() {
         }
       }
 
-      // Kalau tetap kosong → buat worksheet kosong dengan info
       if (aoa.length === 0) {
         aoa = [['(Sheet kosong)']];
       }
@@ -815,6 +1275,6 @@ async function uploadExcelToGAS(blob, filename) {
 
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
-console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-dobel + FIX export');
+console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-cheat 1× warning + minta izin admin');
 
 })();
