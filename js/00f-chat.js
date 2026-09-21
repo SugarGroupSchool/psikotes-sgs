@@ -21,9 +21,11 @@ let __chatAudioCtx = null;
    HELPERS
    ------------------------------------------------------------ */
 function __chatMyDeviceId() {
-  if (typeof getOrCreateDeviceId === 'function') {
-    return getOrCreateDeviceId();
+  // 🔒 I2 FIX: Delegasi ke sumber tunggal (00e-presence.js)
+  if (typeof window.getOrCreateDeviceId === 'function') {
+    return window.getOrCreateDeviceId();
   }
+  // Fallback darurat (kalau 00e-presence.js gagal load)
   try {
     let id = localStorage.getItem('_sgs_device_id');
     if (!id) {
@@ -184,15 +186,39 @@ function markChatRead(role, roomId) {
 /* ------------------------------------------------------------
    COUNT UNREAD
    ------------------------------------------------------------ */
+// 🔒 M5 FIX: State global untuk simpan referensi listener
+let __chatUnreadListenerRef = null;
+let __chatUnreadListenerCb  = null;
+
 function countUnreadFor(role, roomId, cb) {
   const target = roomId || __chatMyDeviceId();
   const opposite = role === 'admin' ? 'candidate' : 'admin';
   const ref = firebase.database().ref('sgs_state/chats/' + target + '/messages');
-  ref.orderByChild('from').equalTo(opposite).on('value', snap => {
+
+  // 🔒 M5 FIX: Bersihkan listener lama sebelum pasang baru (cegah menumpuk)
+  if (__chatUnreadListenerRef && __chatUnreadListenerCb) {
+    try { __chatUnreadListenerRef.off('value', __chatUnreadListenerCb); } catch (e) {}
+  }
+
+  const cbFn = snap => {
     let n = 0;
     snap.forEach(ch => { if (!ch.val()?.read) n++; });
     cb(n);
-  });
+  };
+
+  ref.orderByChild('from').equalTo(opposite).on('value', cbFn);
+
+  __chatUnreadListenerRef = ref;
+  __chatUnreadListenerCb = cbFn;
+}
+
+// 🔒 M5 FIX: Fungsi cleanup — panggil saat logout / device finished
+function __chatStopUnreadListener() {
+  if (__chatUnreadListenerRef && __chatUnreadListenerCb) {
+    try { __chatUnreadListenerRef.off('value', __chatUnreadListenerCb); } catch (e) {}
+    __chatUnreadListenerRef = null;
+    __chatUnreadListenerCb = null;
+  }
 }
 
 /* ------------------------------------------------------------
@@ -745,5 +771,6 @@ window.markChatRead         = markChatRead;
 window.countUnreadFor       = countUnreadFor;
 window.openChatForCandidate = openChatForCandidate;
 window.openChatForAdmin     = openChatForAdmin;
+window.__chatStopUnreadListener = __chatStopUnreadListener;  // 🔒 M5 FIX
 
 console.log('[CHAT] ✓ Loaded');
