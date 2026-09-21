@@ -61,14 +61,63 @@
   
             <div class="ist-example">
               <h4 class="ist-example-title">✦ Contoh Pengisian</h4>
-              <div class="ist-instruction-text">
-                <strong>Pilih P dan K sesuai dengan kondisi diri Anda.</strong><br>
-                P digunakan untuk pernyataan yang <strong>PALING</strong> menggambarkan diri Anda.<br>
-                K digunakan untuk pernyataan yang <strong>KURANG</strong> menggambarkan diri Anda.
+  
+              <div class="disc-example-visual">
+                <div class="disc-example-top">
+                  <span class="disc-example-badge">✦ CONTOH VISUAL</span>
+                  <span class="disc-example-note">Beginilah tampilan soal Anda — pilih 1 P dan 1 K pada baris yang berbeda</span>
+                </div>
+
+                <div class="disc-example-board">
+                  <div class="disc-example-question">
+                    Pilih yang PALING (P) dan KURANG (K) menggambarkan diri Anda:
+                  </div>
+
+                  <div class="disc-example-options">
+
+                    <div class="disc-example-row">
+                      <div class="disc-pk-mock">P</div>
+                      <div class="disc-example-text">Gampangan, Mudah setuju</div>
+                      <div class="disc-pk-mock">K</div>
+                    </div>
+
+                    <div class="disc-example-row disc-row-p-selected">
+                      <div class="disc-pk-mock disc-pk-p-active">P</div>
+                      <div class="disc-example-text">Percaya, Mudah percaya pada orang</div>
+                      <div class="disc-pk-mock">K</div>
+                    </div>
+
+                    <div class="disc-example-row">
+                      <div class="disc-pk-mock">P</div>
+                      <div class="disc-example-text">Petualang, Mengambil resiko</div>
+                      <div class="disc-pk-mock">K</div>
+                    </div>
+
+                    <div class="disc-example-row disc-row-k-selected">
+                      <div class="disc-pk-mock">P</div>
+                      <div class="disc-example-text">Toleran, Menghormati</div>
+                      <div class="disc-pk-mock disc-pk-k-active">K</div>
+                    </div>
+
+                  </div>
+
+                  <div class="disc-example-legend">
+                    <span class="disc-example-legend-item">
+                      <span class="disc-example-legend-p">P</span>
+                      <span><b>PALING</b> menggambarkan diri</span>
+                    </span>
+                    <span class="disc-example-legend-item">
+                      <span class="disc-example-legend-k">K</span>
+                      <span><b>KURANG</b> menggambarkan diri</span>
+                    </span>
+                  </div>
+
+                  <div class="disc-example-foot">
+                    <span class="disc-example-foot-icon">💡</span>
+                    <span>P dan K <b>tidak boleh</b> di baris yang sama. Pilih satu baris untuk P, satu baris lain untuk K.</span>
+                  </div>
+                </div>
               </div>
-              <img class="disc-example-image"
-                src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/disc.png"
-                alt="Contoh pengisian DISC" loading="eager" decoding="async">
             </div>
   
             <div class="ist-actions">
