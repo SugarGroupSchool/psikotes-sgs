@@ -344,6 +344,48 @@ function restoreISTPreviousAnswer(subtest) {
   }
 }
 
+/* ============================================================
+   ✅ ZR (Zahlenreihen) — Render tiap angka sebagai kotak
+   + kotak jawaban di ujung deret
+   ============================================================ */
+function renderZRSeriesInput(question) {
+  const raw = String(question?.text || '');
+
+  // Split berdasarkan koma, bersihkan spasi
+  const parts = raw
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  // Ambil hanya angka (buang tanda '?')
+  const numbers = parts.filter(p => p !== '?' && p !== '');
+
+  let html = '<div class="zr-series-container">';
+
+  // Kotak angka
+  numbers.forEach(num => {
+    html += `<div class="zr-box zr-box-number">${num}</div>`;
+  });
+
+  // Kotak jawaban (input)
+  html += `
+    <div class="zr-box zr-box-answer">
+      <input
+        type="number"
+        id="ist-answer"
+        class="zr-input"
+        placeholder="?"
+        autocomplete="off"
+        inputmode="numeric"
+        aria-label="Jawaban deret angka">
+    </div>
+  `;
+
+  html += '</div>';
+
+  return html;
+}
+
 function renderISTQuestion() {
   const subtest = tests.IST.subtests[appState.currentSubtest];
   const question = subtest.questions[appState.currentQuestion];
@@ -373,13 +415,21 @@ function renderISTQuestion() {
       </div>
     `;
   }
-  else if (subtest.type === 'number-input') {
-    optionsHTML = `
-      <div class="ist-input-wrap">
-        <label class="ist-input-label">Masukkan jawaban angka</label>
-        <input type="number" id="ist-answer" class="ist-number-input" placeholder="Ketik angka jawaban..." autocomplete="off">
-      </div>
-    `;
+   else if (subtest.type === 'number-input') {
+    const code = getSubtestCode(subtest.name);
+
+    if (code === 'ZR') {
+      // ✅ ZR: render tiap angka sebagai kotak + kotak jawaban di samping
+      optionsHTML = renderZRSeriesInput(question);
+    } else {
+      // RA dan tipe number-input lain: tetap pakai input biasa
+      optionsHTML = `
+        <div class="ist-input-wrap">
+          <label class="ist-input-label">Masukkan jawaban angka</label>
+          <input type="number" id="ist-answer" class="ist-number-input" placeholder="Ketik angka jawaban..." autocomplete="off">
+        </div>
+      `;
+    }
   }
   else if (subtest.type === 'image-choice') {
     optionsHTML = `
@@ -440,7 +490,11 @@ function renderISTQuestion() {
         </div>
 
         <div class="ist-question-body">
-          <div class="ist-question-heading">${question.text || ''}</div>
+                 <div class="ist-question-heading">${(() => {
+          const code = getSubtestCode(subtest.name);
+          if (code === 'ZR') return 'Lanjutkan deret angka berikut:';
+          return question.text || '';
+        })()}</div>
           ${optionsHTML}
 
           <div class="ist-question-actions">
@@ -1360,4 +1414,4 @@ function generateISTPositionNarrative(fit) {
 }
 
 console.log('[IST-POSITION-ANALYSIS] ✓ Loaded — 5 posisi');
-console.log('[TEST-IST] ✓ Loaded — 21 fungsi + PDF reporting');
+console.log('[TEST-IST] ✓ Loaded — 22 fungsi + PDF reporting');
