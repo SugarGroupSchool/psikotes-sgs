@@ -9,6 +9,13 @@
    - ✅ Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
    - ✅ FIX: Halaman hasil tes z-index 100000
    - ✅ OPTIMASI: Cache + dedupe + SWR + debounce search
+   ------------------------------------------------------------
+   🔒 AUDIT FIX [2026-09-21]:
+   - C1: Hapus fungsi duplikat (getLockState dkk) → pakai versi cloud di 00d-firebase.js
+   - C2: Hapus kode mati (renderActiveSessionsHTML, scheduleAdminRefresh)
+   - C3: Fix XSS — event delegation untuk semua tombol dengan data user
+   - M2: Konsolidasi escapeHtml via window.escapeHTML
+   - 🔒 Validasi URL (cegah javascript: injection)
    ============================================================ */
 
 /* ============================================================
@@ -28,12 +35,12 @@ const CHAT_CLEANUP_DELETE_SESSION = true;
 
 /* ============================================================
    ADMIN UNREAD TRACKER (global per device)
+   - Hanya update __adminUnreadMap
+   - Blink FAB ditangani oleh 00h-chat-notify.js
    ============================================================ */
 window.__adminUnreadMap = {};
-window.__adminLastSessions = [];
 
 let __adminUnreadRefs = [];
-let __adminRefreshTimer = null;
 
 function startAdminUnreadTracker() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
@@ -54,7 +61,7 @@ function startAdminUnreadTracker() {
       let count = 0;
       snap.forEach(ch => { if (!ch.val()?.read) count++; });
       window.__adminUnreadMap[deviceId] = count;
-      scheduleAdminRefresh();
+      // Blink FAB & badge otomatis di-update oleh 00h-chat-notify.js (setInterval 800ms)
     };
 
     queryRef.on('value', onMsgsChange);
@@ -76,17 +83,6 @@ function stopAdminUnreadTracker() {
   });
   __adminUnreadRefs = [];
   console.log('[ADMIN] 🔇 Unread tracker stopped');
-}
-
-function scheduleAdminRefresh() {
-  clearTimeout(__adminRefreshTimer);
-  __adminRefreshTimer = setTimeout(() => {
-    const container = document.getElementById('adminActiveSessions');
-    if (!container) return;
-    if (window.__adminLastSessions) {
-      container.innerHTML = renderActiveSessionsHTML(window.__adminLastSessions);
-    }
-  }, 200);
 }
 
 /* ============================================================
@@ -141,7 +137,6 @@ function __formatTimeAdmin(sec) {
   return `${m}:${sec2}`;
 }
 
-
 /* ============================================================
    DETEKSI URL ADMIN
    ============================================================ */
@@ -159,15 +154,23 @@ function isAdminUrl() {
 }
 
 /* ============================================================
-   TOGGLE LOCK
+   SAFE ACCESSOR — C1 FIX
+   - Fungsi-fungsi cloud (getLockState dll) ada di 00d-firebase.js
+   - File ini load SEBELUM 00d, jadi panggil via window.*
+   - Fallback kalau 00d belum load (edge case)
    ============================================================ */
-function toggleLockState() {
-  const cb = document.getElementById('adminLockCheckbox');
-  if (!cb) return;
-  const locked = cb.checked;
-  setLockState(locked);
-  console.log('[ADMIN] Lock state:', locked ? 'LOCKED' : 'UNLOCKED');
-  renderAdminPanel();
+function __safeGetLockState() {
+  return (typeof window.getLockState === 'function') ? window.getLockState() : false;
+}
+function __safeGetFreshPwd() {
+  return (typeof window.getFreshPwd === 'function')
+    ? window.getFreshPwd()
+    : (APP_CONFIG.DEFAULT_FRESH_PWD || '');
+}
+function __safeGetUsedPwd() {
+  return (typeof window.getUsedPwd === 'function')
+    ? window.getUsedPwd()
+    : (APP_CONFIG.DEFAULT_USED_PWD || '');
 }
 
 /* ============================================================
@@ -202,62 +205,34 @@ function fallbackCopy(text) {
 }
 
 /* ============================================================
-   HTML ESCAPE
+   HTML ESCAPE — M2 FIX
+   - Delegasi ke window.escapeHTML (dari 02-utils.js) kalau ada
+   - Fallback ke implementasi lokal
    ============================================================ */
 function __adminEscape(str) {
+  if (typeof window.escapeHTML === 'function') {
+    return window.escapeHTML(str);
+  }
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 /* ============================================================
-   REGENERATE PASSWORDS
+   URL SAFETY — cegah javascript: protocol injection
    ============================================================ */
-function regenFreshPwd() {
-  if (!confirm('Generate password FRESH baru? Password lama hangus.')) return;
-  const newPwd = APP_CONFIG.generateRandomPassword('SGS-F-');
-  setFreshPwd(newPwd);
-  console.log('[ADMIN] Fresh pwd baru:', newPwd);
-  renderAdminPanel();
-}
-
-function regenUsedPwd() {
-  if (!confirm('Generate password USED baru? Password lama hangus.')) return;
-  const newPwd = APP_CONFIG.generateRandomPassword('SGS-U-');
-  setUsedPwd(newPwd);
-  console.log('[ADMIN] Used pwd baru:', newPwd);
-  renderAdminPanel();
-}
-
-/* ============================================================
-   SET PASSWORD MANUAL
-   ============================================================ */
-function setFreshPwdManual() {
-  const input = document.getElementById('adminFreshInput');
-  if (!input) return;
-  const val = (input.value || '').trim();
-  if (val.length < 6) {
-    alert('Password minimal 6 karakter');
-    return;
+function __safeUrl(url) {
+  const u = String(url || '').trim();
+  if (!u) return '#';
+  // Hanya izinkan http://, https://, atau relative path
+  if (/^https?:\/\//i.test(u)) {
+    return u.replace(/"/g, '%22').replace(/'/g, '%27');
   }
-  if (!confirm('Set password FRESH ke: "' + val + '"? Password lama hangus.')) return;
-  setFreshPwd(val);
-  alert('✅ Password FRESH diganti');
-  renderAdminPanel();
-}
-
-function setUsedPwdManual() {
-  const input = document.getElementById('adminUsedInput');
-  if (!input) return;
-  const val = (input.value || '').trim();
-  if (val.length < 6) {
-    alert('Password minimal 6 karakter');
-    return;
+  // Relative path (diawali / atau ./)
+  if (/^[.\/]/.test(u)) {
+    return u.replace(/"/g, '%22').replace(/'/g, '%27');
   }
-  if (!confirm('Set password USED ke: "' + val + '"? Password lama hangus.')) return;
-  setUsedPwd(val);
-  alert('✅ Password USED diganti');
-  renderAdminPanel();
+  return '#';
 }
 
 /* ============================================================
@@ -308,16 +283,15 @@ function adminAllowRetake(deviceId, candidateName) {
     return;
   }
 
-   const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
+  const ref = firebase.database().ref('sgs_state/sessions/' + deviceId);
   ref.update({
     allow_retake: true,
     allow_retake_at: firebase.database.ServerValue.TIMESTAMP,
     allow_retake_by: 'admin',
     finished: false,
     disqualified: false,
-    lastSeen: firebase.database.ServerValue.TIMESTAMP  // 🆕 fix validate
+    lastSeen: firebase.database.ServerValue.TIMESTAMP
   })
-     
   .then(() => {
     console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
 
@@ -489,7 +463,6 @@ async function fetchResultFiles(forceRefresh = false) {
         console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
 
         if (attempt < maxRetry) {
-          // Tunggu sebelum retry: 500ms, 1000ms
           await new Promise(r => setTimeout(r, attempt * 500));
         }
       }
@@ -526,16 +499,13 @@ async function deleteResultFile(fileId, fileName) {
     if (data && data.success) {
       alert('✅ File berhasil dihapus dari Drive');
 
-      // ✅ Invalidate cache dulu supaya fetch ulang
       if (typeof __invalidateResultCache === 'function') {
         __invalidateResultCache();
       }
 
-      // Refresh halaman baru jika sedang terbuka
       if (window.__resultFilesPageOpen && typeof loadResultFilesForPage === 'function') {
         loadResultFilesForPage();
       }
-      // Update counter di panel admin
       if (typeof __updateAdminResultCounter === 'function') {
         __updateAdminResultCounter();
       }
@@ -548,11 +518,9 @@ async function deleteResultFile(fileId, fileName) {
   }
 }
 
-
 /* ============================================================
    HELPER — Ekstrak info kandidat dari file
    Prioritas: description → fallback filename
-   Sekarang juga ekstrak Password PDF
    ============================================================ */
 function __extractCandidateInfo(file) {
   let name = '-';
@@ -590,6 +558,7 @@ function __detectFileKind(file) {
 
 /* ============================================================
    RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
+   🔒 C3 FIX: tombol pakai data-attributes + class
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -605,7 +574,7 @@ function renderResultFilesHTML(files) {
 
   const groups = new Map();
 
-files.forEach(f => {
+  files.forEach(f => {
     const info = __extractCandidateInfo(f);
     const key  = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
 
@@ -629,7 +598,7 @@ files.forEach(f => {
     return latestB - latestA;
   });
 
-function renderFileRow(f, kind) {
+  function renderFileRow(f, kind) {
     const sizeMB = f.size
       ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
       : '-';
@@ -640,7 +609,6 @@ function renderFileRow(f, kind) {
       other: { icon: '📁', label: 'File Lain',           bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' }
     };
     const s = styleMap[kind] || styleMap.other;
-    const safeFileName = String(f.name || '').replace(/'/g, "\\'");
     const shortName = (f.name || '').length > 42
       ? (f.name || '').slice(0, 42) + '...'
       : (f.name || '');
@@ -659,7 +627,7 @@ function renderFileRow(f, kind) {
       } catch (e) {}
     }
 
-    // ─── Baris password (hanya tampil kalau PDF & ada password) ───
+    // ─── 🔒 Baris password (event delegation untuk copy) ───
     const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
       ? `
         <div style="
@@ -678,7 +646,9 @@ function renderFileRow(f, kind) {
             letter-spacing: 0.3px;
             word-break: break-all;
           ">${__adminEscape(pdfPassword)}</code>
-          <button onclick="event.stopPropagation(); navigator.clipboard.writeText('${pdfPassword.replace(/'/g, "\\'")}'); this.textContent='✓'; setTimeout(()=>this.textContent='📋', 1000);"
+          <button
+            class="js-copy-pdf-password"
+            data-password="${__adminEscape(pdfPassword)}"
             style="
               padding: 3px 8px; border: 1px solid #fde047;
               background: #fff; border-radius: 4px;
@@ -690,6 +660,9 @@ function renderFileRow(f, kind) {
         </div>
       `
       : '';
+
+    // 🔒 Fix URL safety
+    const safeFileUrl = __safeUrl(f.url);
 
     return `
       <div style="
@@ -721,7 +694,7 @@ function renderFileRow(f, kind) {
         </div>
 
         <div style="display: flex; gap: 5px; flex: 0 0 auto;">
-          <a href="${f.url}" target="_blank" rel="noopener"
+          <a href="${safeFileUrl}" target="_blank" rel="noopener"
              style="
               padding: 5px 10px;
               background: linear-gradient(135deg, #3b82f6, #1e40af);
@@ -731,7 +704,10 @@ function renderFileRow(f, kind) {
               box-shadow: 0 3px 8px rgba(59,130,246,.22);
             ">⬇️ Buka</a>
 
-          <button onclick="deleteResultFile('${f.id}', '${safeFileName}')"
+          <button
+            class="js-delete-file"
+            data-file-id="${__adminEscape(f.id)}"
+            data-file-name="${__adminEscape(f.name)}"
             style="
               padding: 5px 9px;
               background: #fff; color: #dc2626;
@@ -757,51 +733,51 @@ function renderFileRow(f, kind) {
 
     let badge;
     if (pdfs.length > 0 && excels.length > 0) {
-     badge = `
-  <span style="
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10px; color: #15803d; font-weight: 800;
-    background: #dcfce7; padding: 3px 9px;
-    border-radius: 999px; border: 1px solid #86efac;
-    white-space: nowrap;
-  ">
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-      <circle cx="12" cy="12" r="10" fill="#16a34a"/>
-      <path d="M7 12.5l3.2 3L17 9" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Lengkap (${g.files.length})
-  </span>`;
+      badge = `
+        <span style="
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 10px; color: #15803d; font-weight: 800;
+          background: #dcfce7; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #86efac;
+          white-space: nowrap;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+            <circle cx="12" cy="12" r="10" fill="#16a34a"/>
+            <path d="M7 12.5l3.2 3L17 9" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Lengkap (${g.files.length})
+        </span>`;
     } else if (pdfs.length > 0 && excels.length === 0) {
-     badge = `
-  <span style="
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10px; color: #1e40af; font-weight: 800;
-    background: #eff6ff; padding: 3px 9px;
-    border-radius: 999px; border: 1px solid #bfdbfe;
-    white-space: nowrap;
-  ">
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-      <rect x="3" y="3" width="18" height="18" rx="2" fill="#2563eb"/>
-      <path d="M7 7h6M7 11h6M7 15h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
-    </svg>
-    PDF
-  </span>`;
- } else if (excels.length > 0 && pdfs.length === 0) {
-  badge = `
-    <span style="
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 10px; color: #15803d; font-weight: 800;
-      background: #dcfce7; padding: 3px 9px;
-      border-radius: 999px; border: 1px solid #86efac;
-      white-space: nowrap;
-    ">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-        <rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/>
-        <path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>
-      Excel
-    </span>`;
-}else if (g.files.length > 0) {
+      badge = `
+        <span style="
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 10px; color: #1e40af; font-weight: 800;
+          background: #eff6ff; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #bfdbfe;
+          white-space: nowrap;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+            <rect x="3" y="3" width="18" height="18" rx="2" fill="#2563eb"/>
+            <path d="M7 7h6M7 11h6M7 15h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          PDF
+        </span>`;
+    } else if (excels.length > 0 && pdfs.length === 0) {
+      badge = `
+        <span style="
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 10px; color: #15803d; font-weight: 800;
+          background: #dcfce7; padding: 3px 9px;
+          border-radius: 999px; border: 1px solid #86efac;
+          white-space: nowrap;
+        ">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
+            <rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/>
+            <path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          Excel
+        </span>`;
+    } else if (g.files.length > 0) {
       badge = `
         <span style="
           font-size: 10px; color: #475569; font-weight: 800;
@@ -1028,15 +1004,6 @@ function renderAdminLoginPrompt() {
       setTimeout(() => {
         overlay.remove();
         renderAdminPanel();
-
-        setTimeout(() => {
-          if (typeof renderAdminPanel === 'function') {
-            const container = document.getElementById('adminActiveSessions');
-            if (container && container.textContent.includes('Memuat')) {
-              renderAdminPanel();
-            }
-          }
-        }, 1500);
       }, 200);
 
     } catch (err) {
@@ -1076,14 +1043,13 @@ function renderAdminLoginPrompt() {
    ============================================================ */
 function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
-  
-  // ✅ SESI 8.1: Matikan idle tracker
+
+  // ✅ Matikan idle tracker
   if (typeof __stopAdminIdleTracking === 'function') {
     __stopAdminIdleTracking();
   }
-  
+
   try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
-  // ... sisa kode ...
   try { firebase.auth().signOut(); } catch (e) {}
 
   if (typeof window.stopListeningActiveSessions === 'function') {
@@ -1099,10 +1065,10 @@ function adminLogout() {
     clearInterval(window.__pdfAutoRefreshTimer);
     window.__pdfAutoRefreshTimer = null;
   }
-  const panel = document.getElementById('adminPanelOverlay');
   if (typeof stopListeningAccessRequests === 'function') {
     try { stopListeningAccessRequests(); } catch (e) {}
   }
+  const panel = document.getElementById('adminPanelOverlay');
   if (panel) panel.remove();
   const login = document.getElementById('adminLoginOverlay');
   if (login) login.remove();
@@ -1116,227 +1082,6 @@ function adminLogout() {
 
   console.log('[ADMIN] Logged out');
 }
-
-/* ============================================================
-   RENDER DAFTAR KANDIDAT AKTIF + FINISHED
-   ============================================================ */
-function renderActiveSessionsHTML(sessions) {
-  if (!Array.isArray(sessions) || sessions.length === 0) {
-    return `
-      <div style="
-        padding: 14px; text-align: center;
-        color: #94a3b8; font-size: 12px;
-        background: #fff; border-radius: 10px;
-      ">🌙 Belum ada kandidat yang aktif</div>`;
-  }
-
-  return sessions.map(s => {
-    const ago = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : null;
-    const agoStr = ago === null ? '-' :
-                   ago < 60 ? `${ago}s lalu` :
-                   ago < 3600 ? `${Math.floor(ago / 60)}m lalu` :
-                   ago < 86400 ? `${Math.floor(ago / 3600)}j lalu` :
-                   `${Math.floor(ago / 86400)}h lalu`;
-
-    const testLabel = s.currentTest ? s.currentTest : '—';
-    const progress = s.totalTests > 0
-      ? `${s.completedCount}/${s.totalTests} tes`
-      : '—';
-
-    const subLabel = s.currentTest === 'IST' && s.currentSubtest !== null && s.testTotalSubtests
-      ? `Subtes ${(s.currentSubtest || 0) + 1}/${s.testTotalSubtests}`
-      : '';
-
-    const isFinished = s.finished === true;
-    const isDisqualified = s.disqualified === true;
-
-    let statusColor, statusLabel;
-    if (isDisqualified) {
-      statusColor = '#dc2626';
-      statusLabel = '⚠️ Diskualifikasi';
-    } else if (isFinished) {
-      statusColor = '#94a3b8';
-      statusLabel = '✅ Selesai (Terkunci)';
-    } else if (s.inTestView) {
-      statusColor = '#16a34a';
-      statusLabel = '🟢 Mengerjakan';
-    } else {
-      statusColor = '#f59e0b';
-      statusLabel = '🟡 Idle';
-    }
-
-    const safeName = String(s.name || '(tanpa nama)')
-      .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
-    const deviceIdShort = s.deviceId.slice(-8);
-
-    const unreadCount = (window.__adminUnreadMap && window.__adminUnreadMap[s.deviceId]) || 0;
-    const hasUnread = unreadCount > 0;
-
-    const chatBtn = (isFinished || isDisqualified) ? `
-      <button disabled title="${isDisqualified ? 'Kandidat diskualifikasi' : 'Kandidat sudah selesai'}" style="
-        padding: 5px 12px;
-        background: #e2e8f0; color: #94a3b8;
-        border: 0; border-radius: 7px;
-        font-size: 11px; font-weight: 800;
-        cursor: not-allowed; font-family: inherit;
-        white-space: nowrap;
-      ">💬 Chat</button>
-    ` : `
-      <button onclick="event.stopPropagation(); openChatForAdmin('${s.deviceId}', '${safeName}')"
-              class="${hasUnread ? 'chat-btn-blink' : ''}"
-              style="
-        padding: 5px 12px;
-        background: linear-gradient(135deg, #3b82f6, #1e40af);
-        color: #fff; border: 0; border-radius: 7px;
-        font-size: 11px; font-weight: 800;
-        cursor: pointer; font-family: inherit;
-        box-shadow: 0 3px 8px rgba(59,130,246,.25);
-        white-space: nowrap;
-      ">💬 ${hasUnread ? 'Chat (' + unreadCount + ')' : 'Chat'}</button>
-    `;
-
-    const cardBg = isDisqualified
-      ? 'linear-gradient(135deg, #fef2f2, #fee2e2)'
-      : isFinished
-      ? 'linear-gradient(135deg, #f8fafc, #f1f5f9)'
-      : '#fff';
-    const cardBorder = isDisqualified ? '#fca5a5'
-                     : isFinished ? '#cbd5e1'
-                     : '#dbeafe';
-
-    let timerProgressHTML = '';
-
-    if (!isFinished && !isDisqualified && s.inTestView && s.currentTest) {
-      const hasTimer = s.timeLeft !== null && s.timeLeft !== undefined;
-      const timeLeftInit = hasTimer ? s.timeLeft : 0;
-      const lastSeenOffset = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : 0;
-      const estimatedTimeLeft = Math.max(0, timeLeftInit - lastSeenOffset);
-
-      const timerHTML = hasTimer ? `
-        <div style="
-          display: inline-flex; align-items: center; gap: 5px;
-          padding: 3px 9px; border-radius: 999px;
-          background: ${estimatedTimeLeft <= 30 ? '#fee2e2' : '#dbeafe'};
-          color: ${estimatedTimeLeft <= 30 ? '#991b1b' : '#1e40af'};
-          font-size: 11px; font-weight: 800;
-          font-family: 'Courier New', monospace;
-        " data-timer-id="${s.deviceId}"
-           data-time-left="${estimatedTimeLeft}"
-           data-last-update="${Date.now()}">
-          <span style="font-size: 12px;">⏱</span>
-          <span class="timer-text">${__formatTimeAdmin(estimatedTimeLeft)}</span>
-        </div>
-      ` : '';
-
-      const pct = Math.max(0, Math.min(100, s.progressPercent || 0));
-      const progressHTML = `
-        <div style="margin-top: 6px;">
-          <div style="
-            display: flex; justify-content: space-between;
-            font-size: 10px; color: #64748b; margin-bottom: 3px;
-          ">
-            <span>${s.questionLabel || 'Progress'}${subLabel ? ' · ' + subLabel : ''}</span>
-            <span>${pct}%</span>
-          </div>
-          <div style="
-            height: 5px; border-radius: 999px; overflow: hidden;
-            background: #e2e8f0;
-          ">
-            <div style="
-              width: ${pct}%; height: 100%;
-              background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-              border-radius: inherit;
-              transition: width .35s ease;
-            "></div>
-          </div>
-        </div>
-      `;
-
-      timerProgressHTML = `
-        <div style="
-          margin-top: 8px; padding-top: 8px;
-          border-top: 1px solid #e2e8f0;
-        ">
-          <div style="
-            display: flex; justify-content: space-between;
-            align-items: center; gap: 8px; margin-bottom: 2px;
-          ">
-            <span style="
-              font-size: 10px; font-weight: 800;
-              color: #1e40af; text-transform: uppercase;
-              letter-spacing: 0.5px;
-            ">⏱ Sedang: ${testLabel}</span>
-            ${timerHTML}
-          </div>
-          ${progressHTML}
-        </div>
-      `;
-    }
-
-    return `
-      <div
-        onclick="openCandidateDetailPage('${s.deviceId}')"
-        style="
-          padding: 12px 14px; background: ${cardBg};
-          border: 1px solid ${cardBorder}; border-radius: 10px;
-          font-size: 12px; line-height: 1.5;
-          cursor: pointer;
-          transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-        "
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 22px rgba(15,23,42,.1)';this.style.borderColor='#93c5fd';"
-        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';this.style.borderColor='${cardBorder}';"
-      >
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: flex-start; gap: 8px; margin-bottom: 6px;
-        ">
-          <div style="font-weight: 800; color: #1e293b; min-width:0;">
-            ${__adminEscape(s.name || '(tanpa nama)')}
-          </div>
-          <div style="
-            font-size: 10px; color: ${statusColor};
-            font-weight: 800; white-space: nowrap;
-          ">${statusLabel}</div>
-        </div>
-
-        <div style="color: #64748b; font-size: 11px; margin-bottom: 6px;">
-          ${s.position ? `📍 ${__adminEscape(s.position)} &nbsp;·&nbsp; ` : ''}
-          📝 <b>${testLabel}</b> &nbsp;·&nbsp;
-          ✅ ${progress}
-        </div>
-        ${(s.ip && !s.position) ? `
-        <div style="color: #3b82f6; font-size: 11px; margin-bottom: 6px; font-family: 'Courier New', monospace;">
-          🌐 IP: ${__adminEscape(s.ip)}
-        </div>
-        ` : ''}
-        ${timerProgressHTML}
-
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: center; gap: 8px; padding-top: 6px;
-          border-top: 1px dashed #e2e8f0; flex-wrap: wrap;
-          margin-top: 6px;
-        ">
-          <div style="color: #94a3b8; font-size: 10px;">
-            ID: ${deviceIdShort} &nbsp;·&nbsp; 👁 ${agoStr}
-          </div>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <span style="
-              font-size: 10px; font-weight: 800; color: #3b82f6;
-              padding: 3px 8px; border-radius: 999px;
-              background: rgba(59,130,246,.1);
-              border: 1px solid rgba(59,130,246,.2);
-              white-space: nowrap;
-            ">🔍 Detail →</span>
-            ${chatBtn}
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
 
 /* ============================================================
    ACCORDION — Section collapsible di admin panel
@@ -1387,6 +1132,9 @@ function stopListeningAccessRequests() {
   }
 }
 
+/* ============================================================
+   🔒 C3 FIX: renderAccessRequestsHTML — tombol pakai data-attributes
+   ============================================================ */
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
     return `
@@ -1404,9 +1152,6 @@ function renderAccessRequestsHTML(requests) {
                    ago < 3600 ? Math.floor(ago / 60) + 'm lalu' :
                    ago < 86400 ? Math.floor(ago / 3600) + 'j lalu' :
                    Math.floor(ago / 86400) + 'h lalu';
-
-    const safeName = String(r.name || '(tanpa nama)')
-      .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     return `
       <div style="
@@ -1441,24 +1186,31 @@ function renderAccessRequestsHTML(requests) {
           border-top: 1px dashed #fde68a;
         ">
           <div style="color: #94a3b8; font-size: 10px;">
-            ID: ${r.deviceId.slice(-8)}
+            ID: ${__adminEscape(String(r.deviceId || '').slice(-8))}
           </div>
           <div style="display: flex; gap: 6px;">
-            <button onclick="rejectAccessRequest('${r.deviceId}')" style="
-              padding: 5px 12px;
-              background: #fff; color: #dc2626;
-              border: 1.5px solid #fca5a5; border-radius: 7px;
-              font-size: 11px; font-weight: 800;
-              cursor: pointer; font-family: inherit;
-            ">✕ Tolak</button>
-            <button onclick="approveAccessRequest('${r.deviceId}', '${safeName}')" style="
-              padding: 5px 12px;
-              background: linear-gradient(135deg, #16a34a, #059669);
-              color: #fff; border: 0; border-radius: 7px;
-              font-size: 11px; font-weight: 800;
-              cursor: pointer; font-family: inherit;
-              box-shadow: 0 3px 8px rgba(22,163,74,.25);
-            ">✓ Setujui</button>
+            <button
+              class="js-reject-request"
+              data-device-id="${__adminEscape(r.deviceId)}"
+              style="
+                padding: 5px 12px;
+                background: #fff; color: #dc2626;
+                border: 1.5px solid #fca5a5; border-radius: 7px;
+                font-size: 11px; font-weight: 800;
+                cursor: pointer; font-family: inherit;
+              ">✕ Tolak</button>
+            <button
+              class="js-approve-request"
+              data-device-id="${__adminEscape(r.deviceId)}"
+              data-name="${__adminEscape(r.name || '')}"
+              style="
+                padding: 5px 12px;
+                background: linear-gradient(135deg, #16a34a, #059669);
+                color: #fff; border: 0; border-radius: 7px;
+                font-size: 11px; font-weight: 800;
+                cursor: pointer; font-family: inherit;
+                box-shadow: 0 3px 8px rgba(22,163,74,.25);
+              ">✓ Setujui</button>
           </div>
         </div>
       </div>
@@ -1477,7 +1229,7 @@ async function approveAccessRequest(deviceId, name) {
       allow_retake_by: 'admin',
       finished: false,
       disqualified: false,
-      lastSeen: firebase.database.ServerValue.TIMESTAMP  // 🆕 fix validate
+      lastSeen: firebase.database.ServerValue.TIMESTAMP
     });
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'approved',
@@ -1496,7 +1248,7 @@ async function rejectAccessRequest(deviceId) {
   try {
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'rejected',
-      respondedAt: firebase.database.ServerValue.TIMESTAMP,   // ✅ FIX: uppercase
+      respondedAt: firebase.database.ServerValue.TIMESTAMP,
       respondedBy: 'admin'
     });
     alert('✅ Request ditolak.');
@@ -1808,6 +1560,9 @@ async function loadResultFilesForPage() {
   __renderResultPageContent();
 }
 
+/* ============================================================
+   🔒 C3 FIX: __renderResultPageContent — event delegation untuk tombol
+   ============================================================ */
 function __renderResultPageContent() {
   const content = document.getElementById('rfContent');
   const chipsContainer = document.getElementById('rfPositionChips');
@@ -1960,18 +1715,17 @@ function __renderResultPageContent() {
       badge = '✓ Lengkap'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
     } else if (pdfs.length > 0) {
       badge = '📄 PDF'; badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd' };
-   } else if (excels.length > 0) {
-  badge = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" style="flex:0 0 11px;"><rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/><path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Excel</span>';
-  badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
-} else {
+    } else if (excels.length > 0) {
+      badge = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" style="flex:0 0 11px;"><rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/><path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Excel</span>';
+      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
+    } else {
       badge = `📁 ${g.files.length} file`; badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1' };
     }
 
-        function fileRow(f, kind) {
+    function fileRow(f, kind) {
       const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
       const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
       const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
-      const safeFileName = String(f.name || '').replace(/'/g, "\\'");
 
       // ─── Ekstrak password dari description (khusus PDF) ───
       let pdfPassword = '-';
@@ -1987,7 +1741,7 @@ function __renderResultPageContent() {
         } catch (e) {}
       }
 
-      // ─── Baris password (dark theme) ───
+      // ─── 🔒 Baris password (dark theme) ───
       const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
         ? `
           <div style="
@@ -2008,7 +1762,9 @@ function __renderResultPageContent() {
               letter-spacing: 0.3px;
               word-break: break-all;
             ">${__adminEscape(pdfPassword)}</code>
-            <button onclick="event.stopPropagation(); navigator.clipboard.writeText('${pdfPassword.replace(/'/g, "\\'")}'); this.textContent='✓'; setTimeout(()=>this.textContent='📋', 1000);"
+            <button
+              class="js-copy-pdf-password"
+              data-password="${__adminEscape(pdfPassword)}"
               style="
                 padding: 3px 9px; border: 1px solid rgba(250,204,21,.5);
                 background: rgba(255,255,255,.08); border-radius: 5px;
@@ -2020,6 +1776,9 @@ function __renderResultPageContent() {
           </div>
         `
         : '';
+
+      // 🔒 Fix URL safety
+      const safeFileUrl = __safeUrl(f.url);
 
       return `
         <div style="
@@ -2052,13 +1811,15 @@ function __renderResultPageContent() {
           </div>
 
           <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-            <a href="${f.url}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
-            <button onclick="deleteResultFile('${f.id}', '${safeFileName}')" class="rf-btn rf-btn-danger">🗑</button>
+            <a href="${safeFileUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
+            <button
+              class="js-delete-file rf-btn rf-btn-danger"
+              data-file-id="${__adminEscape(f.id)}"
+              data-file-name="${__adminEscape(f.name)}">🗑</button>
           </div>
         </div>
       `;
     }
-
 
     return `
       <div class="rf-card">
@@ -2144,12 +1905,10 @@ async function __updateAdminResultCounter() {
   const countEl = document.getElementById('adminResultCount');
   if (!countEl) return;
 
-  // ✅ Tampilkan cache dulu (instan) kalau ada
   if (window.__resultFilesCacheData && window.__resultFilesCacheData.length >= 0) {
     __renderCounterFromData(window.__resultFilesCacheData);
   }
 
-  // ✅ Refresh dari network (pakai cache TTL, tidak selalu fetch)
   const files = await fetchResultFiles();
   __renderCounterFromData(files);
 }
@@ -2177,14 +1936,16 @@ function __renderCounterFromData(files) {
 
 /* ============================================================
    RENDER ADMIN PANEL
+   🔒 C1 FIX: pakai __safeGetLockState dkk (bukan fungsi lokal)
    ============================================================ */
 function renderAdminPanel() {
   const old = document.getElementById('adminPanelOverlay');
   if (old) old.remove();
 
-  const locked = getLockState();
-  const freshPwd = getFreshPwd();
-  const usedPwd = getUsedPwd();
+  // 🔒 Pakai safe accessor — fungsi asli dari 00d-firebase.js
+  const locked = __safeGetLockState();
+  const freshPwd = __safeGetFreshPwd();
+  const usedPwd = __safeGetUsedPwd();
 
   const deviceFinished = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1';
   const usedPragas = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
@@ -2357,8 +2118,8 @@ function renderAdminPanel() {
             </div>
           </div>
         </div>
-        
-           <!-- =========================================
+
+        <!-- =========================================
              KANDIDAT AKTIF — tombol buka halaman
              ========================================= -->
         <button onclick="openActiveCandidatesPage()" style="
@@ -2408,57 +2169,58 @@ function renderAdminPanel() {
           ">Buka Halaman →</div>
         </button>
 
-<!-- =========================================
-     HASIL TES TERKIRIM — tombol buka halaman
-     ========================================= -->
-<button onclick="openResultFilesPage()" style="
-  width: 100%;
-  padding: 20px 22px;
-  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-  border: 2px solid #86efac;
-  border-radius: 14px;
-  margin-bottom: 16px;
-  cursor: pointer;
-  font-family: inherit;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 14px; text-align: left;
-  transition: all .18s ease;
-  box-shadow: 0 2px 8px rgba(34,197,94,.08);
-"
-onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(34,197,94,.18)';this.style.borderColor='#4ade80'"
-onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(34,197,94,.08)';this.style.borderColor='#86efac'">
+        <!-- =========================================
+             HASIL TES TERKIRIM — tombol buka halaman
+             ========================================= -->
+        <button onclick="openResultFilesPage()" style="
+          width: 100%;
+          padding: 20px 22px;
+          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+          border: 2px solid #86efac;
+          border-radius: 14px;
+          margin-bottom: 16px;
+          cursor: pointer;
+          font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 14px; text-align: left;
+          transition: all .18s ease;
+          box-shadow: 0 2px 8px rgba(34,197,94,.08);
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(34,197,94,.18)';this.style.borderColor='#4ade80'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(34,197,94,.08)';this.style.borderColor='#86efac'">
 
-  <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-    <div style="
-      width: 48px; height: 48px; flex: 0 0 48px;
-      display: grid; place-items: center;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      border-radius: 14px; font-size: 22px;
-      box-shadow: 0 6px 16px rgba(34,197,94,.3);
-    ">📄</div>
-    <div style="min-width: 0;">
-      <div style="
-        font-size: 15px; font-weight: 900; color: #14532d;
-        margin-bottom: 4px;
-      ">Hasil Tes Terkirim</div>
-      <div id="adminResultCount" style="
-        font-size: 12px; font-weight: 700; color: #15803d;
-      ">Memuat...</div>
-    </div>
-  </div>
+          <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+            <div style="
+              width: 48px; height: 48px; flex: 0 0 48px;
+              display: grid; place-items: center;
+              background: linear-gradient(135deg, #22c55e, #16a34a);
+              border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(34,197,94,.3);
+            ">📄</div>
+            <div style="min-width: 0;">
+              <div style="
+                font-size: 15px; font-weight: 900; color: #14532d;
+                margin-bottom: 4px;
+              ">Hasil Tes Terkirim</div>
+              <div id="adminResultCount" style="
+                font-size: 12px; font-weight: 700; color: #15803d;
+              ">Memuat...</div>
+            </div>
+          </div>
 
-  <div style="
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 18px;
-    background: linear-gradient(135deg, #22c55e, #16a34a);
-    color: #fff; border-radius: 11px;
-    font-size: 13px; font-weight: 800;
-    box-shadow: 0 6px 16px rgba(34,197,94,.3);
-    white-space: nowrap; flex: 0 0 auto;
-  ">Buka Halaman →</div>
-</button>
+          <div style="
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800;
+            box-shadow: 0 6px 16px rgba(34,197,94,.3);
+            white-space: nowrap; flex: 0 0 auto;
+          ">Buka Halaman →</div>
+        </button>
 
-        <style>          @keyframes adminPulseDot {
+        <style>
+          @keyframes adminPulseDot {
             0%, 100% { transform: scale(1); opacity: 1; }
             50%      { transform: scale(1.35); opacity: .7; }
           }
@@ -2513,6 +2275,7 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
             white-space: nowrap; flex: 0 0 auto;
           ">Buka Halaman →</div>
         </button>
+
         <!-- INFO DEVICE -->
         <div style="
           padding: 16px 18px;
@@ -2531,18 +2294,22 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
           <div><strong>Device finished:</strong> ${deviceFinished ? '🔒 ya (tidak bisa login)' : '🔓 belum'}</div>
         </div>
 
-        <!-- TEST CHAT (Device Sendiri) -->
+        <!-- TEST CHAT (Device Sendiri) — 🔒 pakai data-attributes -->
         ${myDeviceId ? `
         <div style="margin-bottom: 12px;">
-          <button onclick="openChatForAdmin('${myDeviceId}', '${String(identityName).replace(/'/g, "\\'")}')" style="
-            width: 100%;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, #64748b, #334155);
-            color: #fff; border: 0; border-radius: 10px;
-            font-family: inherit; font-size: 13px; font-weight: 800;
-            cursor: pointer;
-            box-shadow: 0 8px 20px rgba(51,65,85,.28);
-          ">🧪 Test Chat (Device Sendiri)</button>
+          <button
+            class="js-test-chat"
+            data-device-id="${__adminEscape(myDeviceId)}"
+            data-name="${__adminEscape(identityName)}"
+            style="
+              width: 100%;
+              padding: 12px 16px;
+              background: linear-gradient(135deg, #64748b, #334155);
+              color: #fff; border: 0; border-radius: 10px;
+              font-family: inherit; font-size: 13px; font-weight: 800;
+              cursor: pointer;
+              box-shadow: 0 8px 20px rgba(51,65,85,.28);
+            ">🧪 Test Chat (Device Sendiri)</button>
         </div>
         ` : ''}
 
@@ -2581,15 +2348,15 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
           font-size: 11px; color: #94a3b8;
           text-align: center;
         ">
-          URL admin: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">?admin=${APP_CONFIG.ADMIN_KEY}</code>
+          URL admin: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">?admin=${__adminEscape(APP_CONFIG.ADMIN_KEY)}</code>
         </div>
       </div>
     </div>
   `;
 
-    document.body.appendChild(overlay);
+  document.body.appendChild(overlay);
 
-  // ✅ SESI 8.1: Aktifkan idle tracker untuk admin
+  // ✅ Aktifkan idle tracker untuk admin
   if (typeof __startAdminIdleTracking === 'function') {
     __startAdminIdleTracking();
   }
@@ -2599,9 +2366,7 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
     const countEl = document.getElementById('adminActiveCount');
     if (!countEl || typeof window.listenActiveSessions !== 'function') return;
 
-       window.listenActiveSessions((sessions) => {
-      window.__adminLastSessions = sessions;
-
+    window.listenActiveSessions((sessions) => {
       if (countEl) {
         countEl.textContent = sessions.length + ' kandidat';
         countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
@@ -2616,10 +2381,12 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
     if (typeof startAdminTimerTick === 'function') {
       startAdminTimerTick();
     }
+
     // 📄 Auto-load counter hasil tes dari Google Drive
     if (typeof __updateAdminResultCounter === 'function') {
       __updateAdminResultCounter();
     }
+
     // Auto-refresh counter tiap 30 detik
     if (window.__pdfAutoRefreshTimer) {
       clearInterval(window.__pdfAutoRefreshTimer);
@@ -2681,8 +2448,6 @@ onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px
         clearInterval(window.__pdfAutoRefreshTimer);
         window.__pdfAutoRefreshTimer = null;
       }
-
-      overlay.remove();
 
       try {
         const url = new URL(window.location.href);
@@ -2768,21 +2533,107 @@ function checkAdminUrlAndRender() {
 }
 
 /* ============================================================
-   EXPORT
+   🔒 C3 FIX: EVENT DELEGATION GLOBAL
+   - Satu listener untuk semua tombol dengan data user
+   - Aman dari XSS karena data diambil via dataset (bukan onclick inline)
    ============================================================ */
-window.getFreshPwd = getFreshPwd;
-window.getUsedPwd = getUsedPwd;
+(function attachAdminEventDelegation() {
+  if (window.__adminEventDelegationAttached) return;
+  window.__adminEventDelegationAttached = true;
+
+  document.addEventListener('click', function(e) {
+    // 1. Hapus file
+    const deleteBtn = e.target.closest('.js-delete-file');
+    if (deleteBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const fileId = deleteBtn.getAttribute('data-file-id');
+      const fileName = deleteBtn.getAttribute('data-file-name');
+      if (fileId && typeof deleteResultFile === 'function') {
+        deleteResultFile(fileId, fileName);
+      }
+      return;
+    }
+
+    // 2. Copy password PDF
+    const copyBtn = e.target.closest('.js-copy-pdf-password');
+    if (copyBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const password = copyBtn.getAttribute('data-password');
+      if (password) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(password).then(() => {
+            const prev = copyBtn.textContent;
+            copyBtn.textContent = '✓';
+            setTimeout(() => { copyBtn.textContent = prev; }, 1000);
+          }).catch(() => {
+            fallbackCopy(password);
+          });
+        } else {
+          fallbackCopy(password);
+        }
+      }
+      return;
+    }
+
+    // 3. Approve access request
+    const approveBtn = e.target.closest('.js-approve-request');
+    if (approveBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const deviceId = approveBtn.getAttribute('data-device-id');
+      const name = approveBtn.getAttribute('data-name');
+      if (deviceId && typeof approveAccessRequest === 'function') {
+        approveAccessRequest(deviceId, name);
+      }
+      return;
+    }
+
+    // 4. Reject access request
+    const rejectBtn = e.target.closest('.js-reject-request');
+    if (rejectBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const deviceId = rejectBtn.getAttribute('data-device-id');
+      if (deviceId && typeof rejectAccessRequest === 'function') {
+        rejectAccessRequest(deviceId);
+      }
+      return;
+    }
+
+    // 5. Test chat (device sendiri)
+    const testChatBtn = e.target.closest('.js-test-chat');
+    if (testChatBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const deviceId = testChatBtn.getAttribute('data-device-id');
+      const name = testChatBtn.getAttribute('data-name');
+      if (deviceId && typeof window.openChatForAdmin === 'function') {
+        window.openChatForAdmin(deviceId, name);
+      }
+      return;
+    }
+  }, true); // useCapture = true agar dieksekusi sebelum handler lain
+
+  console.log('[ADMIN] ✓ Event delegation attached');
+})();
+
+/* ============================================================
+   EXPORT
+   🔒 C1 FIX: hapus export fungsi yang sudah dihapus
+             (getLockState, setLockState, getFreshPwd, getUsedPwd,
+              setFreshPwd, setUsedPwd, toggleLockState,
+              regenFreshPwd, regenUsedPwd, setFreshPwdManual, setUsedPwdManual,
+              renderActiveSessionsHTML)
+   ============================================================ */
+
 window.isAdminUrl = isAdminUrl;
 window.renderAdminPanel = renderAdminPanel;
 window.renderAdminLoginPrompt = renderAdminLoginPrompt;
-window.renderActiveSessionsHTML = renderActiveSessionsHTML;
 window.checkAdminUrlAndRender = checkAdminUrlAndRender;
-window.toggleLockState = toggleLockState;
+
 window.copyToClipboard = copyToClipboard;
-window.regenFreshPwd = regenFreshPwd;
-window.regenUsedPwd = regenUsedPwd;
-window.setFreshPwdManual = setFreshPwdManual;
-window.setUsedPwdManual = setUsedPwdManual;
 window.adminResetThisDevice = adminResetThisDevice;
 window.adminUnlockDevice = adminUnlockDevice;
 window.adminAllowRetake = adminAllowRetake;
@@ -2802,7 +2653,7 @@ window.stopAdminTimerTick = stopAdminTimerTick;
 window.fetchResultFiles        = fetchResultFiles;
 window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
-window.deleteResultFile         = deleteResultFile;
+window.deleteResultFile        = deleteResultFile;
 
 /* ─── Helper grouping ─── */
 window.__extractCandidateInfo  = __extractCandidateInfo;
@@ -2825,6 +2676,7 @@ window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
 window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
+
 /* ============================================================
    ✅ SESI 8.1 — ADMIN SESSION TIMEOUT
    Auto-logout setelah idle 15 menit (dapat diubah)
@@ -2837,30 +2689,24 @@ let __adminWarningTimer     = null;
 let __adminWarningShown     = false;
 
 function __resetAdminIdleTimer() {
-  // Skip kalau bukan mode admin
   if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
 
-  // Skip kalau panel admin tidak terbuka
   const panel = document.getElementById('adminPanelOverlay');
   if (!panel) return;
 
-  // Clear timer lama
   clearTimeout(__adminIdleTimer);
   clearTimeout(__adminWarningTimer);
 
-  // Sembunyikan warning kalau ada
   const warn = document.getElementById('adminIdleWarning');
   if (warn) warn.remove();
   __adminWarningShown = false;
 
-  // Set timer warning (1 menit sebelum logout)
   __adminWarningTimer = setTimeout(() => {
     if (__adminWarningShown) return;
     __adminWarningShown = true;
     __showAdminIdleWarning();
   }, ADMIN_SESSION_TIMEOUT_MS - ADMIN_WARNING_BEFORE_MS);
 
-  // Set timer logout
   __adminIdleTimer = setTimeout(() => {
     if (typeof adminLogout === 'function') {
       const panel = document.getElementById('adminPanelOverlay');
@@ -2945,10 +2791,7 @@ function __showAdminIdleWarning() {
 }
 
 function __startAdminIdleTracking() {
-  // Skip kalau bukan mode admin
   if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
-
-  // Prevent duplicate listeners
   if (window.__adminIdleListenersAttached) return;
   window.__adminIdleListenersAttached = true;
 
@@ -2974,4 +2817,4 @@ function __stopAdminIdleTracking() {
 window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix');
