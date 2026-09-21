@@ -235,13 +235,14 @@
   /* ============================================================
      HELPERS
      ============================================================ */
-  function getDeviceId() {
-    if (typeof window.getOrCreateDeviceId === 'function') {
-      return window.getOrCreateDeviceId();
-    }
-    try { return localStorage.getItem('_sgs_device_id') || ''; } catch(e) { return ''; }
+function getDeviceId() {
+  // 🔒 I2 FIX: Delegasi ke sumber tunggal (00e-presence.js)
+  if (typeof window.getOrCreateDeviceId === 'function') {
+    return window.getOrCreateDeviceId();
   }
-
+  // Fallback darurat
+  try { return localStorage.getItem('_sgs_device_id') || ''; } catch(e) { return ''; }
+}
   function isAdminMode() {
     return typeof window.isAdminUrl === 'function' && window.isAdminUrl();
   }
