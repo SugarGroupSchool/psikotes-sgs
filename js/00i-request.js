@@ -26,6 +26,12 @@
 let __requestScreenRendered = false;
 
 function showRequestAccessScreen() {
+  // ✅ FIX: izinkan re-render kalau dipanggil ulang setelah disqualification
+  if (window.__sgs_requestScreenRendered === false) {
+    __requestScreenRendered = false;
+    window.__sgs_requestScreenRendered = undefined;
+  }
+
   if (__requestScreenRendered) return;  // ← Cegah render berulang
   __requestScreenRendered = true;
 
