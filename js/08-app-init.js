@@ -6,6 +6,7 @@
    - Init appState + auto-cleanup state tidak konsisten
    - Handle URL ?fresh=1 → paksa reset semua state
    - Listener global (blur, visibilitychange, beforeunload)
+   - 🆕 Resume state: clear saat device finished / fresh
    ============================================================ */
 
 (function bootstrapApp() {
@@ -30,6 +31,9 @@
         const freshPwd     = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH);
         const usedPwd      = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_USED);
 
+        // 🆕 Clear resume state juga (localStorage)
+        try { localStorage.removeItem('_sgs_resume'); } catch (e) {}
+
         localStorage.clear();
         sessionStorage.clear();
 
@@ -38,6 +42,11 @@
         if (lockState)    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL, lockState);
         if (freshPwd)     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH, freshPwd);
         if (usedPwd)      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_USED, usedPwd);
+
+        // 🆕 Clear resume di Firebase juga
+        if (typeof window.__resumeClear === 'function') {
+          try { window.__resumeClear(); } catch (e) {}
+        }
 
         console.log('[INIT] ?fresh=1 → state direset (admin & device tetap)');
 
@@ -162,6 +171,8 @@
         localStorage.removeItem('identity');
         localStorage.removeItem('completed');
         localStorage.removeItem('selectedTests');
+        // 🆕 Clear resume state juga
+        localStorage.removeItem('_sgs_resume');
       } catch (e) {}
 
       window.appState.identity = {};
@@ -259,9 +270,13 @@
     const comp = localStorage.getItem('completed');
     const sel  = localStorage.getItem('selectedTests');
     const used = localStorage.getItem('usedPragas');
+    const res  = localStorage.getItem('_sgs_resume');
 
     let parsedId = null;
     try { parsedId = id ? JSON.parse(id) : null; } catch (e) {}
+
+    let parsedRes = null;
+    try { parsedRes = res ? JSON.parse(res) : null; } catch (e) {}
 
     console.group('[DEBUG STATE]');
     console.log('Password aktif   :', window.PASSWORD);
@@ -272,6 +287,9 @@
     console.log('completed        :', comp || '(kosong)');
     console.log('selectedTests    :', sel || '(kosong)');
     console.log('__inTestView     :', window.__inTestView);
+    console.log('resume state     :', parsedRes
+      ? `✅ ${parsedRes.currentTest} @ soal ${(parsedRes.currentQuestion || 0) + 1}`
+      : '(kosong)');
     console.log('appState.identity:', window.appState?.identity);
     console.log('appState.completed:', window.appState?.completed);
     console.log('appState.selectedTests:', window.appState?.selectedTests);
@@ -283,14 +301,22 @@
      Panggil via console: __forceReset()
      ============================================================ */
   function forceReset() {
-    if (!confirm('Reset SEMUA state? (identity, completed, selectedTests, usedPragas)')) return;
+    if (!confirm('Reset SEMUA state? (identity, completed, selectedTests, usedPragas, resume)')) return;
     try {
       localStorage.removeItem('identity');
       localStorage.removeItem('completed');
       localStorage.removeItem('selectedTests');
       localStorage.removeItem('usedPragas');
+      // 🆕 Clear resume juga
+      localStorage.removeItem('_sgs_resume');
       sessionStorage.removeItem('dlClick');
     } catch (e) {}
+
+    // 🆕 Clear resume di Firebase
+    if (typeof window.__resumeClear === 'function') {
+      try { window.__resumeClear(); } catch (e) {}
+    }
+
     location.reload();
   }
 
@@ -307,44 +333,50 @@
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-async function runInit() {
-  /* Cek device finished — tampilkan layar request */
-  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
-    const pwdScreen = document.getElementById('passwordScreen');
-    if (pwdScreen) pwdScreen.classList.add('hidden');
-    if (typeof showRequestAccessScreen === 'function') {
-      showRequestAccessScreen();
-      console.log('[INIT] Device finished → layar request izin');
-      return;
+  async function runInit() {
+    /* Cek device finished — tampilkan layar request */
+    if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+      // 🆕 Clear resume — device sudah selesai
+      if (typeof window.__resumeClear === 'function') {
+        try { window.__resumeClear(); } catch (e) {}
+      }
+
+      const pwdScreen = document.getElementById('passwordScreen');
+      if (pwdScreen) pwdScreen.classList.add('hidden');
+      if (typeof showRequestAccessScreen === 'function') {
+        showRequestAccessScreen();
+        console.log('[INIT] Device finished → layar request izin');
+        return;
+      }
     }
+
+    /* Cek URL admin */
+    if (typeof window.checkAdminUrlAndRender === 'function') {
+      if (window.checkAdminUrlAndRender()) {
+        console.log('[INIT] Mode admin — init normal di-skip');
+        return;
+      }
+    }
+
+    /* ✅ Login anonim Firebase untuk kandidat */
+    if (typeof window.initAnonymousAuth === 'function') {
+      try {
+        await window.initAnonymousAuth();
+      } catch (e) {
+        console.warn('[INIT] Anonymous auth error:', e);
+      }
+    }
+
+    /* Init normal */
+    refreshActivePassword();
+    initAppState();
+    attachPasswordEnter();
+    autoFocusPassword();
+    attachAntiCheat();
+    attachCopyGuards();
+    attachBeforeUnload();
   }
 
-  /* Cek URL admin */
-  if (typeof window.checkAdminUrlAndRender === 'function') {
-    if (window.checkAdminUrlAndRender()) {
-      console.log('[INIT] Mode admin — init normal di-skip');
-      return;
-    }
-  }
-
-  /* ✅ Login anonim Firebase untuk kandidat */
-  if (typeof window.initAnonymousAuth === 'function') {
-    try {
-      await window.initAnonymousAuth();
-    } catch (e) {
-      console.warn('[INIT] Anonymous auth error:', e);
-    }
-  }
-
-  /* Init normal */
-  refreshActivePassword();
-  initAppState();
-  attachPasswordEnter();
-  autoFocusPassword();
-  attachAntiCheat();
-  attachCopyGuards();
-  attachBeforeUnload();
-}
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runInit);
   } else {
