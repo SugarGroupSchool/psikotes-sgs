@@ -801,15 +801,18 @@ function showSubjectWarning(warnCount) {
 }
 
 /* =========================================================
-   LOGOUT DISKUALIFIKASI — TANPA RELOAD
+   LOGOUT DISKUALIFIKASI — Tampil sebentar lalu reload
+   Setelah reload, app-init akan tampilkan layar "Minta Izin Akses"
    ========================================================= */
 function logoutDiskualifikasi() {
+  // 1. Set semua flag yang diperlukan
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
     localStorage.setItem('_sgs_disqualified', '1');
   } catch (e) {}
 
+  // 2. Reset state di memori
   window.__inTestView = false;
   appState.subjectSelected = null;
   appState.subjectDisqualified = false;
@@ -817,12 +820,14 @@ function logoutDiskualifikasi() {
   allowTabOutSubject = false;
   __subjectWarnCount = 0;
 
+  // 3. Sembunyikan layar password
   const pwdScreen = document.getElementById('passwordScreen');
   if (pwdScreen) pwdScreen.classList.add('hidden');
 
   const appEl = document.getElementById('app');
   if (appEl) appEl.innerHTML = '';
 
+  // 4. Tampilkan layar diskualifikasi dengan countdown
   document.body.innerHTML = `
     <div style="
       position: fixed; inset: 0; z-index: 2147483647;
@@ -866,7 +871,6 @@ function logoutDiskualifikasi() {
         ">
           Anda terdeteksi <b>membuka tab atau jendela lain</b> saat mengerjakan tes.<br><br>
           Device ini <b style="color:#dc2626;">terkunci</b>.
-          Hubungi admin untuk diizinkan melanjutkan tes.
         </p>
 
         <div style="
@@ -876,23 +880,24 @@ function logoutDiskualifikasi() {
           border-radius: 14px;
           font-size: 13.5px;
           color: #92400e;
-          line-height: 1.6;
+          line-height: 1.7;
           text-align: left;
+          margin-bottom: 22px;
         ">
-          <b>ℹ️ Informasi</b><br>
-          • Progress tes Anda <b>tetap tersimpan</b><br>
-          • Kalau admin mengizinkan, halaman ini akan otomatis reload<br>
-          • Setelah reload, Anda bisa login dan <b>lanjut dari tes terakhir</b>
+          <b>📨 Langkah selanjutnya</b><br>
+          Anda akan diarahkan ke halaman <b>Minta Izin Akses</b>.
+          Klik tombol <b>"Minta Izin Akses"</b> di halaman berikutnya
+          untuk mengirim permintaan ke admin.
         </div>
 
         <div style="
-          margin-top: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 10px;
-          color: #94a3b8;
-          font-size: 13px;
+          color: #64748b;
+          font-size: 14px;
+          font-weight: 600;
         ">
           <span style="
             width: 10px; height: 10px; border-radius: 50%;
@@ -900,7 +905,20 @@ function logoutDiskualifikasi() {
             box-shadow: 0 0 0 5px rgba(245,158,11,.2);
             animation: waitingPulse 1.4s ease-in-out infinite;
           "></span>
-          Menunggu izin dari admin...
+          Mengalihkan dalam <b style="color:#1e293b;min-width:14px;display:inline-block;text-align:center;"><span id="disqCountdown">2</span></b> detik...
+        </div>
+
+        <div style="
+          width: 100%; height: 4px;
+          background: #e2e8f0; border-radius: 999px;
+          margin-top: 14px; overflow: hidden;
+        ">
+          <div id="disqProgressBar" style="
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #f59e0b, #dc2626);
+            border-radius: inherit;
+            transition: width 2s linear;
+          "></div>
         </div>
       </div>
     </div>
@@ -917,7 +935,37 @@ function logoutDiskualifikasi() {
     </style>
   `;
 
-  console.log('[SUBJECT] ⚠️ Diskualifikasi — device terkunci, menunggu admin');
+  // 5. Animasi progress bar
+  setTimeout(() => {
+    const bar = document.getElementById('disqProgressBar');
+    if (bar) bar.style.width = '100%';
+  }, 100);
+
+  // 6. Countdown → reload
+  let countdown = 2;
+  const countdownEl = document.getElementById('disqCountdown');
+
+  const interval = setInterval(() => {
+    countdown--;
+    if (countdownEl) countdownEl.textContent = Math.max(0, countdown);
+
+    if (countdown <= 0) {
+      clearInterval(interval);
+
+      // Reset flag "sudah render request screen" agar bisa muncul lagi
+      // (mengatasi kasus diskualifikasi kedua)
+      try {
+        window.__sgs_requestScreenRendered = false;
+      } catch (e) {}
+
+      // Paksa reload → app-init akan tampilkan layar request izin
+      try { window.location.reload(); } catch (e) {
+        window.location.href = window.location.href;
+      }
+    }
+  }, 1000);
+
+  console.log('[SUBJECT] ⚠️ Diskualifikasi — reload ke halaman request izin dalam 2 detik');
 }
 
 console.log('[TEST-SUBJECT] ✓ Loaded — 11 fungsi + 1× warning anti-cheat');
