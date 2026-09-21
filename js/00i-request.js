@@ -12,20 +12,23 @@
   let __requestListenerRef = null;
   let __requestListenerCb = null;
 
-  function __getDeviceId() {
-    try {
-      let id = localStorage.getItem('_sgs_device_id');
-      if (!id) {
-        // Generate baru kalau belum ada
-        id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-        try { localStorage.setItem('_sgs_device_id', id); } catch (e) {}
-      }
-      return id;
-    } catch (e) {
-      // Fallback kalau localStorage bermasalah
-      return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
-    }
+function __getDeviceId() {
+  // 🔒 I2 FIX: Delegasi ke sumber tunggal (00e-presence.js)
+  if (typeof window.getOrCreateDeviceId === 'function') {
+    return window.getOrCreateDeviceId();
   }
+  // Fallback darurat
+  try {
+    let id = localStorage.getItem('_sgs_device_id');
+    if (!id) {
+      id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      try { localStorage.setItem('_sgs_device_id', id); } catch (e) {}
+    }
+    return id;
+  } catch (e) {
+    return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
+  }
+}
 
   /* ============================================================
      TAMPILKAN LAYAR REQUEST
