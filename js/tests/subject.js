@@ -9,6 +9,16 @@ let __subjectTimerInterval = null;
 function injectSubjectStyles() {}
 
 /* =========================================================
+   HELPER — Format waktu MM:SS
+   ========================================================= */
+function formatTimeSubject(sec) {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const ss = (s % 60).toString().padStart(2, '0');
+  return `${m}:${ss}`;
+}
+
+/* =========================================================
    HOME — Pilih Mata Pelajaran
    ========================================================= */
 function renderSubjectTestHome() {
@@ -174,17 +184,13 @@ function startSubjectTest(subjId) {
 }
 
 /* =========================================================
-   RENDER SOAL
+   RENDER SOAL — PROFESIONAL
    ========================================================= */
 function renderSubjectQuestionSlide(qIdx) {
   allowTabOutSubject = false;
 
   const subj = (tests.SUBJECT.subjects || []).find(s => s.id === appState.subjectSelected);
   if (!subj) return;
-
-  const m = Math.floor(appState.timeLeft / 60);
-  const s = appState.timeLeft % 60;
-  const timerHTML = `<span id="subject-timer">${(m < 10 ? "0" : "") + m}:${(s < 10 ? "0" : "") + s}</span>`;
 
   const q = subj.questions[qIdx];
   if (!q) {
@@ -201,42 +207,105 @@ function renderSubjectQuestionSlide(qIdx) {
     return;
   }
 
+  const totalQuestions = subj.questions.length;
+  const progress = totalQuestions > 1
+    ? Math.round((qIdx / (totalQuestions - 1)) * 100)
+    : 100;
+  const isLast = qIdx === totalQuestions - 1;
+  const isFirst = qIdx === 0;
+
   document.getElementById('app').innerHTML = `
-    <div class="subject-test-page" style="min-height:auto;padding:20px;">
-      <div class="subject-test-container" style="max-width:650px;">
-        <div class="subject-hero" style="padding:0;overflow:hidden;">
-          <div class="subject-hero-accent"></div>
-          ${renderTestPageHeader({
-            eyebrow: 'PELAKSANAAN TES',
-            title: subj.name,
-            subtitle: 'Kerjakan soal berikut di kertas Anda',
-            onBack: 'renderSubjectTestHome()'
-          })}
-          <div style="padding: 22px 32px 28px;">
-            <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-              <div class="subject-count" style="background:#f2fbe5;border-color:#c8e6a3;color:#4d6b1f;">
-                ⏱ ${timerHTML}
-              </div>
+    <div class="ist-shell">
+      <div class="ist-question-panel">
+
+        ${renderTestPageHeader({
+          eyebrow: 'PELAKSANAAN TES',
+          title: subj.name,
+          subtitle: 'Baca soal di layar, lalu tulis jawaban Anda di kertas.',
+          onBack: 'renderSubjectTestHome()',
+          backLabel: 'Keluar',
+          showLogo: false
+        })}
+
+        <div class="ist-question-top">
+          <div class="ist-question-meta">
+            <div>
+              <div class="ist-question-label">TES SUBJEK</div>
+              <div class="ist-question-badge">📚 ${subj.name}</div>
             </div>
-            <div style="font-size:1.05em;font-weight:500;margin-bottom:17px;color:#475569;">
-              Kerjakan soal berikut di kertas Anda. Jika selesai, klik <b>Selesai & Upload</b>!
+            <div class="ist-timer">
+              <span class="ist-timer-icon">⏱</span>
+              <span id="subject-timer">${formatTimeSubject(appState.timeLeft || subj.time || 2700)}</span>
             </div>
-            <div style="font-size:1.14em;margin-bottom:34px;min-height:100px;line-height:1.6;">${q.question}</div>
-            <div style="display:flex;justify-content:${qIdx === 0 ? 'flex-end' : 'space-between'};gap:10px;">
-              ${qIdx > 0 ? `<button class="btn btn-outline" onclick="renderSubjectQuestionSlide(${qIdx - 1})">Sebelumnya</button>` : ""}
-              <button class="btn" onclick="nextSubjectQuestionSlide(${qIdx})">
-                ${qIdx === subj.questions.length - 1 ? 'Selesai & Upload' : 'Lanjut'}
+          </div>
+
+          <div class="ist-progress-wrap">
+            <div class="ist-progress-info">
+              <span>Halaman ${qIdx + 1} dari ${totalQuestions}</span>
+              <span>${progress}%</span>
+            </div>
+            <div class="ist-progress-track">
+              <div class="ist-progress-fill" style="width:${progress}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ist-question-body">
+
+          <div class="subject-helper">
+            <div class="subject-helper-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </div>
+            <div>
+              <strong>Cara mengerjakan</strong>
+              <span>Kerjakan soal berikut di <b>kertas</b> Anda. Jika sudah selesai semua, klik <b>Selesai &amp; Upload</b> di halaman terakhir.</span>
+            </div>
+          </div>
+
+          <div class="subject-question-card">
+            ${q.question}
+          </div>
+
+          <div class="ist-question-actions">
+            <div class="ist-action-left">
+              ${!isFirst ? `
+                <button class="ist-prev-btn" id="btnPrevSubject" type="button">
+                  ← <span>Sebelumnya</span>
+                </button>
+              ` : ''}
+            </div>
+            <div class="ist-action-right">
+              <button class="ist-main-btn" id="btnNextSubject" type="button">
+                ${isLast ? '📤 Selesai &amp; Upload' : 'Lanjut →'}
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
   `;
 
+  const nextBtn = document.getElementById('btnNextSubject');
+  if (nextBtn) nextBtn.onclick = () => nextSubjectQuestionSlide(qIdx);
+
+  const prevBtn = document.getElementById('btnPrevSubject');
+  if (prevBtn) prevBtn.onclick = () => {
+    if (qIdx > 0) renderSubjectQuestionSlide(qIdx - 1);
+  };
+
   startSubjectCountdown();
 }
 
+/* =========================================================
+   NEXT SLIDE
+   ========================================================= */
 function nextSubjectQuestionSlide(qIdx) {
   const subj = (tests.SUBJECT.subjects || []).find(s => s.id === appState.subjectSelected);
   if (!subj) return;
@@ -247,14 +316,15 @@ function nextSubjectQuestionSlide(qIdx) {
   }
 }
 
+/* =========================================================
+   COUNTDOWN TIMER
+   ========================================================= */
 function startSubjectCountdown() {
   if (__subjectTimerInterval) clearInterval(__subjectTimerInterval);
   __subjectTimerInterval = setInterval(() => {
     appState.timeLeft--;
-    const m = Math.floor(appState.timeLeft / 60);
-    const s = appState.timeLeft % 60;
     const timer = document.getElementById('subject-timer');
-    if (timer) timer.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    if (timer) timer.textContent = formatTimeSubject(appState.timeLeft);
     if (appState.timeLeft <= 0) {
       clearInterval(__subjectTimerInterval);
       renderSubjectUpload();
@@ -263,59 +333,104 @@ function startSubjectCountdown() {
 }
 
 /* =========================================================
-   UPLOAD JAWABAN
+   UPLOAD JAWABAN — PROFESIONAL
    ========================================================= */
 function renderSubjectUpload() {
   allowTabOutSubject = true;
   if (__subjectTimerInterval) clearInterval(__subjectTimerInterval);
 
+  const subj = (tests.SUBJECT.subjects || []).find(s => s.id === appState.subjectSelected);
+  const subjName = subj ? subj.name : 'Subjek';
+
   document.getElementById('app').innerHTML = `
-    <div class="subject-test-page" style="min-height:auto;padding:20px;">
-      <div class="subject-test-container" style="max-width:600px;">
-        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
-          <div class="subject-hero-accent"></div>
-          ${renderTestPageHeader({
-            eyebrow: 'UPLOAD JAWABAN',
-            title: 'Upload Foto Jawaban',
-            subtitle: 'Foto lembar jawaban kertas Anda',
-            onBack: 'renderSubjectTestHome()'
-          })}
-          <div style="padding: 24px 28px 30px;">
-            <div style="margin:6px 0 24px 0;color:#475569;line-height:1.6;">
-              Upload foto lembar jawaban kertas Anda di sini.<br>
-              Bisa lebih dari 3 gambar (<b>klik</b> atau <b>drag dari WA</b> ke area bawah).
+    <div class="ist-shell">
+      <div class="ist-panel">
+
+        ${renderTestPageHeader({
+          eyebrow: 'UPLOAD JAWABAN',
+          title: 'Upload Foto Jawaban',
+          subtitle: 'Foto lembar jawaban kertas Anda dengan jelas.',
+          onBack: 'renderSubjectTestHome()',
+          backLabel: 'Keluar',
+          showLogo: false
+        })}
+
+        <div class="ist-body">
+
+          <div class="subject-helper" style="background:linear-gradient(135deg,#f0fdf4,#f7fefb);border-color:#bbf7d0;color:#166534;">
+            <div class="subject-helper-icon" style="background:#dcfce7;color:#16a34a;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
             </div>
-            <div id="drop-area" style="border:2px dashed #83c980;border-radius:12px;padding:28px 12px;cursor:pointer;background:#f6fff3;">
-              <input type="file" id="subject-upload-multi" accept="image/*" multiple style="display:none;">
-              <div style="color:#789;font-size:1.08em;">Klik di sini atau drag gambar ke area ini</div>
-              <div id="subject-upload-preview" style="margin-top:16px;display:flex;flex-wrap:wrap;justify-content:center;gap:11px;"></div>
+            <div>
+              <strong>Tes ${subjName} selesai</strong>
+              <span>Upload foto lembar jawaban Anda. Bisa <b>lebih dari 1 gambar</b> — klik atau drag ke area upload di bawah.</span>
             </div>
-            <button class="btn" style="margin-top:28px;padding:12px 38px;" onclick="selesaiSubjectUpload()">Selesai</button>
           </div>
+
+          <div class="subject-upload-zone" id="drop-area">
+            <input type="file" id="subject-upload-multi" accept="image/*" multiple style="display:none;">
+
+            <div class="subject-upload-inner">
+              <div class="subject-upload-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/>
+                  <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+              </div>
+              <div class="subject-upload-title">Klik atau drag gambar ke sini</div>
+              <div class="subject-upload-note">Format: JPG · PNG · WEBP · Maks 5MB per gambar</div>
+            </div>
+
+            <div id="subject-upload-preview" class="subject-upload-preview"></div>
+          </div>
+
+          <div class="subject-upload-counter">
+            <span id="subject-upload-count">0</span> gambar diupload
+          </div>
+
+          <div class="ist-actions">
+            <button class="ist-main-btn" id="btnFinishSubject" type="button"
+                    style="min-width:200px;background:linear-gradient(135deg,#16a34a,#059669);">
+              ✅ Selesai &amp; Kirim
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
   `;
 
-  let gambarList = [];
   let base64List = [];
 
   const dropArea = document.getElementById('drop-area');
   const fileInput = document.getElementById('subject-upload-multi');
   const previewDiv = document.getElementById('subject-upload-preview');
+  const countEl = document.getElementById('subject-upload-count');
+  const btnFinish = document.getElementById('btnFinishSubject');
 
-  dropArea.addEventListener('click', () => fileInput.click());
+  dropArea.addEventListener('click', (e) => {
+    if (e.target.closest('.subject-preview-item-remove')) return;
+    fileInput.click();
+  });
+
   dropArea.addEventListener('dragover', e => {
     e.preventDefault();
-    dropArea.style.background = "#eaffd5";
+    dropArea.classList.add('is-dragover');
   });
   dropArea.addEventListener('dragleave', e => {
     e.preventDefault();
-    dropArea.style.background = "#f6fff3";
+    dropArea.classList.remove('is-dragover');
   });
   dropArea.addEventListener('drop', e => {
     e.preventDefault();
-    dropArea.style.background = "#f6fff3";
+    dropArea.classList.remove('is-dragover');
     let files = [];
     if (e.dataTransfer.items) {
       for (let item of e.dataTransfer.items) {
@@ -335,7 +450,6 @@ function renderSubjectUpload() {
       .forEach(file => {
         const reader = new FileReader();
         reader.onload = evt => {
-          gambarList.push(file);
           base64List.push(evt.target.result);
           showPreview();
 
@@ -348,18 +462,56 @@ function renderSubjectUpload() {
   }
 
   function showPreview() {
-    previewDiv.innerHTML = "";
-    base64List.forEach(src => {
-      const img = document.createElement('img');
-      img.src = src;
-      img.style = "max-width:130px;max-height:95px;border-radius:10px;box-shadow:0 3px 15px #c5e5b990;margin:2px;";
-      previewDiv.appendChild(img);
+    previewDiv.innerHTML = '';
+    countEl.textContent = base64List.length;
+
+    base64List.forEach((src, idx) => {
+      const item = document.createElement('div');
+      item.className = 'subject-preview-item';
+      item.innerHTML = `
+        <img src="${src}" alt="Preview ${idx + 1}">
+        <button type="button" class="subject-preview-item-remove" data-idx="${idx}" title="Hapus">×</button>
+      `;
+      previewDiv.appendChild(item);
     });
+
+    previewDiv.querySelectorAll('.subject-preview-item-remove').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const i = Number(btn.getAttribute('data-idx'));
+        base64List.splice(i, 1);
+        appState.subjectUpload = base64List.slice();
+        showPreview();
+      };
+    });
+
+    if (base64List.length > 0) {
+      btnFinish.disabled = false;
+      btnFinish.style.opacity = '1';
+      btnFinish.style.cursor = 'pointer';
+    } else {
+      btnFinish.disabled = true;
+      btnFinish.style.opacity = '.5';
+      btnFinish.style.cursor = 'not-allowed';
+    }
   }
+
+  // Initial state
+  btnFinish.disabled = true;
+  btnFinish.style.opacity = '.5';
+  btnFinish.style.cursor = 'not-allowed';
+
+  btnFinish.onclick = () => {
+    if (base64List.length === 0) {
+      alert('Upload minimal 1 gambar jawaban terlebih dahulu.');
+      return;
+    }
+    selesaiSubjectUpload();
+  };
 }
 
 /* =========================================================
-   SELESAI UPLOAD
+   SELESAI UPLOAD — PROFESIONAL
    ========================================================= */
 function selesaiSubjectUpload() {
   window.__inTestView = false;
@@ -381,34 +533,34 @@ function selesaiSubjectUpload() {
 
   const app = document.getElementById('app');
   app.innerHTML = `
-    <div class="subject-test-page" style="min-height:auto;padding:20px;">
-      <div class="subject-test-container" style="max-width:820px;">
-        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
-          <div class="subject-hero-accent"></div>
-          ${renderTestPageHeader({
-            eyebrow: 'SUBJECT TEST',
-            title: 'Tes Subjek Selesai',
-            subtitle: 'Jawaban Anda telah berhasil diupload',
-            showBack: false
-          })}
-          <div style="padding: 26px 28px 30px;">
-            <div style="font-size:4rem;line-height:1;margin-bottom:12px;">🎉</div>
-            <h2 style="margin:6px 0 8px 0;font-weight:900;color:#13693a;">
-              Terima kasih! Tes Subjek sudah selesai
-            </h2>
-            <p style="font-size:1.08rem;color:#244;max-width:680px;margin:0 auto 16px auto;line-height:1.6;">
-              Jawaban Anda untuk Tes <b>Subjek</b> telah berhasil diupload.
+    <div class="ist-shell">
+      <div class="ist-panel">
+        ${renderTestPageHeader({
+          eyebrow: 'TES SUBJEK',
+          title: 'Selesai',
+          subtitle: 'Jawaban Anda telah berhasil dikirim.',
+          showBack: false,
+          showLogo: true
+        })}
+
+        <div class="ist-body">
+          <div class="subject-finish-card">
+            <div class="subject-finish-icon">🎉</div>
+            <h2 class="subject-finish-title">Terima kasih!</h2>
+            <p class="subject-finish-text">
+              Jawaban Tes <b>Subjek</b> sudah berhasil diupload ke sistem.<br>
               Silakan lanjut mengerjakan tes berikutnya yang Anda pilih.
-              Tombol <b>Download PDF</b> akan aktif kembali setelah <b>semua</b> tes selesai dikerjakan.
             </p>
 
-            <div style="display:flex;gap:12px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
-              <button id="btnContinueSubjek" class="btn" style="
-                padding:12px 24px;font-weight:800;border-radius:11px;
-                background:#18a35d;color:#fff;border:0;box-shadow:0 4px 18px #bff1d7;">
-                ✅ Lanjut Tes Berikutnya
-              </button>
+            <div class="subject-finish-note">
+              <span class="subject-finish-note-icon">ℹ️</span>
+              <span>Tombol <b>Download PDF</b> akan aktif otomatis setelah <b>semua tes</b> selesai dikerjakan.</span>
             </div>
+
+            <button class="ist-main-btn" id="btnContinueSubjek"
+                    style="min-width:220px;margin-top:8px;background:linear-gradient(135deg,#16a34a,#059669);">
+              ✅ Lanjut Tes Berikutnya
+            </button>
           </div>
         </div>
       </div>
@@ -585,4 +737,4 @@ function logoutDiskualifikasi() {
   console.log('[SUBJECT] ⚠️ Diskualifikasi — device terkunci, menunggu admin');
 }
 
-console.log('[TEST-SUBJECT] ✓ Loaded — 9 fungsi');
+console.log('[TEST-SUBJECT] ✓ Loaded — 10 fungsi');
