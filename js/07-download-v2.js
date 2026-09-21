@@ -416,29 +416,28 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
 
   const pdfBase64 = await __blobToBase64(pdfResult.blob);
 
-  // ─── Ambil token GAS dari Firebase ───
-  let _gasToken = '';
+  // ── 🆕 Ambil Firebase ID token ──
+  let idToken = '';
   try {
-    const tokenSnap = await firebase.database()
-      .ref('sgs_state/gasToken').once('value');
-    _gasToken = tokenSnap.val() || '';
+    const user = firebase.auth().currentUser;
+    if (user) idToken = await user.getIdToken();
   } catch (e) {
-    console.warn('[SUBMIT] Gagal ambil token GAS:', e);
+    console.warn('[SUBMIT] Gagal ambil ID token:', e);
   }
 
-  if (!_gasToken) {
-    throw new Error('Token GAS tidak tersedia. Cek koneksi internet.');
-  }
+  // ── Hapus ambil _gasToken (tidak perlu lagi) ──
+  // const _gasToken = ...  ← HAPUS BARIS INI
 
   const payload = {
+    idToken: idToken,   // 🆕
     deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
     filename: pdfResult.filename,
     name: identity.name || '(tanpa nama)',
     position: identity.position || '',
     email: identity.email || '',
     pdfBase64: pdfBase64,
-    pdfPassword: pdfResult.password || window.__lastPdfPassword || '-',
-    token: _gasToken
+    pdfPassword: pdfResult.password || window.__lastPdfPassword || '-'
+    // token: _gasToken  ← HAPUS
   };
 
   let attempt = 0;
@@ -458,9 +457,7 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
       await fetch(GAS_UPLOAD_URL, {
         method: 'POST',
         mode: 'no-cors',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
 
