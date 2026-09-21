@@ -1521,7 +1521,7 @@ async function rejectAccessRequest(deviceId) {
   try {
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'rejected',
-      respondedAt: firebase.database.ServerValue.timestamp,
+      respondedAt: firebase.database.ServerValue.TIMESTAMP,   // ✅ FIX: uppercase
       respondedBy: 'admin'
     });
     alert('✅ Request ditolak.');
