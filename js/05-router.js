@@ -2,6 +2,7 @@
    js/05-router.js
    - Routing antar halaman: pilih tes, home, instruksi, startTest
    - Guard pintar untuk __inTestView (anti stuck)
+   - Resume state: cek progress tersimpan → tampilkan modal
    ============================================================ */
 
 /* ============================================================
@@ -115,25 +116,50 @@ function renderHome() {
     window.__inTestView = false;
   }
 
+  /* ============================================================
+     🆕 RESUME CHECK — tampilkan modal kalau ada progress tersimpan
+     ============================================================ */
+  if (typeof window.__resumeCheck === 'function'
+      && !window.__resumeModalShown) {
+    window.__resumeCheck().then(function(data) {
+      if (data && !window.__resumeModalShown) {
+        window.__resumeModalShown = true;
+        showResumeModal(data, function onResume() {
+          window.__resumeModalShown = false;
+          const ok = window.__resumeToTest(data);
+          if (!ok) {
+            alert('Tidak bisa melanjutkan tes ini. Memulai ulang dari awal.');
+            window.__resumeClear();
+            renderHome();
+          }
+        }, function onRestart() {
+          window.__resumeModalShown = false;
+          window.__resumeClear();
+          renderHome();
+        });
+      }
+    }).catch(function() {});
+  }
+
   setTimeout(function () {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, 20);
 
-window.appState = window.appState || {};
-appState.completed = appState.completed || {};
-appState.selectedTests = appState.selectedTests ||
-  JSON.parse(localStorage.getItem('selectedTests') || '[]');
+  window.appState = window.appState || {};
+  appState.completed = appState.completed || {};
+  appState.selectedTests = appState.selectedTests ||
+    JSON.parse(localStorage.getItem('selectedTests') || '[]');
 
-// ✅ BARU: kalau login pakai password USED → skip instruksi, langsung ke test cards
-try {
-  const isUsedMode = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
-  if (isUsedMode) {
-    appState.showTestCards = true;
-    console.log('[ROUTER] ✅ Login USED → skip instruksi, langsung test cards');
-  }
-} catch (e) {}
+  // ✅ Login pakai password USED → skip instruksi, langsung ke test cards
+  try {
+    const isUsedMode = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
+    if (isUsedMode) {
+      appState.showTestCards = true;
+      console.log('[ROUTER] ✅ Login USED → skip instruksi, langsung test cards');
+    }
+  } catch (e) {}
 
-const nickname = appState.identity && appState.identity.nickname
+  const nickname = appState.identity && appState.identity.nickname
     ? appState.identity.nickname
     : "Peserta";
   const selectedTests = appState.selectedTests;
@@ -241,20 +267,20 @@ const nickname = appState.identity && appState.identity.nickname
       html += '</div>';
     }
 
- html += `
-  <div id="downloadPDFBox" style="text-align:center;margin:48px 0 0 0;">
-    <button class="btn btn-download" id="btnDownloadPDF" type="button"
-      style="padding:19px 48px;font-size:1.25rem;font-weight:900;border:2.4px solid #31b729;background:linear-gradient(92deg,#f7fff1 65%,#d3ffb8 100%);color:#15772a;box-shadow:0 0 18px #45ff6190;border-radius:15px;cursor:pointer;">
-      <span style="font-size:1.23em;vertical-align:-3px;">📤</span>
-      Kirim Hasil Tes
-    </button>
-    <div style="margin-top:13px;font-size:1.01em;color:#486908;">
-      <span style="background:#fffde8;border-radius:8px;padding:3px 13px;display:inline-block;border:1px solid #ffe066;">
-        <b>PENTING:</b> Kirim hasil hanya setelah semua tes selesai.
-      </span>
-    </div>
-  </div>
-`;
+    html += `
+      <div id="downloadPDFBox" style="text-align:center;margin:48px 0 0 0;">
+        <button class="btn btn-download" id="btnDownloadPDF" type="button"
+          style="padding:19px 48px;font-size:1.25rem;font-weight:900;border:2.4px solid #31b729;background:linear-gradient(92deg,#f7fff1 65%,#d3ffb8 100%);color:#15772a;box-shadow:0 0 18px #45ff6190;border-radius:15px;cursor:pointer;">
+          <span style="font-size:1.23em;vertical-align:-3px;">📤</span>
+          Kirim Hasil Tes
+        </button>
+        <div style="margin-top:13px;font-size:1.01em;color:#486908;">
+          <span style="background:#fffde8;border-radius:8px;padding:3px 13px;display:inline-block;border:1px solid #ffe066;">
+            <b>PENTING:</b> Kirim hasil hanya setelah semua tes selesai.
+          </span>
+        </div>
+      </div>
+    `;
   }
 
   html += '</div>';
@@ -275,6 +301,151 @@ const nickname = appState.identity && appState.identity.nickname
 
   if (typeof installPdfButtonHandler === 'function') installPdfButtonHandler();
   if (typeof updateDownloadButtonState === 'function') updateDownloadButtonState();
+}
+
+/* ============================================================
+   🆕 RESUME MODAL
+   ============================================================ */
+function showResumeModal(data, onResume, onRestart) {
+  const old = document.getElementById('resumeModalOverlay');
+  if (old) old.remove();
+
+  const labelMap = {
+    IST:      'Tes IST (Kecerdasan)',
+    KRAEPLIN: 'Tes Kraeplin (Koran)',
+    DISC:     'Tes DISC (Kepemimpinan)',
+    PAPI:     'Tes PAPI (Sikap Kerja)',
+    BIGFIVE:  'Tes Big Five (Kepribadian)',
+    GRAFIS:   'Tes Grafis (Gambar)',
+    SUBJECT:  'Tes Subjek',
+    TYPING:   'Tes Mengetik',
+    EXCEL:    'Tes Excel'
+  };
+
+  const testLabel = labelMap[data.currentTest] || data.currentTest;
+  const agoSec = Math.round((Date.now() - (data.savedAt || 0)) / 1000);
+  const agoStr = agoSec < 60   ? agoSec + ' detik lalu'
+               : agoSec < 3600 ? Math.floor(agoSec / 60) + ' menit lalu'
+               : Math.floor(agoSec / 3600) + ' jam lalu';
+
+  let progressLine = '';
+  if (data.currentTest === 'IST') {
+    progressLine = 'Subtes ' + ((data.currentSubtest || 0) + 1) + ' — Soal ' + ((data.currentQuestion || 0) + 1);
+  } else if (data.currentTest === 'KRAEPLIN') {
+    progressLine = 'Kolom ' + ((data.currentColumn || 0) + 1);
+  } else if (['DISC','PAPI','BIGFIVE'].indexOf(data.currentTest) !== -1) {
+    progressLine = 'Soal ' + ((data.currentQuestion || 0) + 1);
+  } else if (data.currentTest === 'SUBJECT') {
+    progressLine = 'Halaman ' + ((data.currentQuestion || 0) + 1);
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'resumeModalOverlay';
+  overlay.style.cssText = [
+    'position: fixed', 'inset: 0', 'z-index: 2147483645',
+    'background: rgba(10,20,35,.88)',
+    'backdrop-filter: blur(10px)',
+    '-webkit-backdrop-filter: blur(10px)',
+    'display: flex', 'align-items: center', 'justify-content: center',
+    'padding: 20px', 'overflow-y: auto',
+    'font-family: Inter, system-ui, -apple-system, sans-serif',
+    'animation: resumeFadeIn .25s ease'
+  ].join(';');
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes resumeFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes resumeSlideIn {
+        from { opacity: 0; transform: translateY(24px) scale(.95); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+    </style>
+
+    <div style="
+      max-width: 500px; width: 100%;
+      background: #fff; border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.55);
+      animation: resumeSlideIn .3s cubic-bezier(.2,.8,.2,1);
+    ">
+      <div style="
+        padding: 28px 28px 22px;
+        background: linear-gradient(135deg, #6366f1, #4338ca);
+        color: #fff; text-align: center;
+      ">
+        <div style="font-size: 48px; line-height: 1; margin-bottom: 12px;">🔄</div>
+        <div style="
+          font-size: 12px; font-weight: 800;
+          letter-spacing: 2px; opacity: .85; margin-bottom: 6px;
+        ">LANJUTKAN TES?</div>
+        <div style="font-size: 22px; font-weight: 900; letter-spacing: -.3px;">
+          Anda terputus di tengah tes
+        </div>
+      </div>
+
+      <div style="padding: 24px 28px 26px;">
+        <div style="
+          padding: 16px 18px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          margin-bottom: 18px;
+          line-height: 1.75; font-size: 13.5px;
+        ">
+          <div style="font-weight: 800; color: #1e293b; font-size: 14px; margin-bottom: 6px;">
+            📝 ${testLabel}
+          </div>
+          ${progressLine ? `<div style="color: #64748b;">Posisi terakhir: <b style="color:#4f46e5;">${progressLine}</b></div>` : ''}
+          <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">
+            ⏱ Tersimpan ${agoStr}
+          </div>
+        </div>
+
+        <div style="
+          padding: 12px 14px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          border-radius: 12px;
+          font-size: 12.5px; color: #78350f;
+          line-height: 1.6; margin-bottom: 20px;
+        ">
+          <b>💡 Pilih:</b><br>
+          • <b>Lanjutkan</b> — kembali ke posisi terakhir<br>
+          • <b>Mulai Ulang</b> — hapus progress & mulai dari awal
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="btnResumeRestart" style="
+            flex: 1; padding: 14px;
+            background: #f1f5f9; color: #475569;
+            border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 800;
+            cursor: pointer;
+          ">🔄 Mulai Ulang</button>
+
+          <button id="btnResumeContinue" style="
+            flex: 2; padding: 14px;
+            background: linear-gradient(135deg, #6366f1, #4338ca);
+            color: #fff; border: 0; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(99,102,241,.32);
+          ">▶️ Lanjutkan</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnResumeContinue').onclick = function() {
+    overlay.remove();
+    if (typeof onResume === 'function') onResume();
+  };
+  document.getElementById('btnResumeRestart').onclick = function() {
+    overlay.remove();
+    if (typeof onRestart === 'function') onRestart();
+  };
 }
 
 /* ============================================================
@@ -386,7 +557,7 @@ function enableDownloadButtonAfterInstruksi() {
    START TEST — dengan guard
    ============================================================ */
 function startTest(testName) {
-     if (typeof window.pushPresence === 'function') {
+  if (typeof window.pushPresence === 'function') {
     window.pushPresence('active');
   }
   if (appState.completed && appState.completed[testName] === true) {
@@ -450,8 +621,9 @@ function confirmCancelTest() {
 window.renderTestSelection = renderTestSelection;
 window.renderHome = renderHome;
 window.showInstruksiOverlay = showInstruksiOverlay;
+window.showResumeModal = showResumeModal;
 window.enableDownloadButtonAfterInstruksi = enableDownloadButtonAfterInstruksi;
 window.startTest = startTest;
 window.confirmCancelTest = confirmCancelTest;
 
-console.log('[ROUTER] ✓ Loaded');
+console.log('[ROUTER] ✓ Loaded — resume modal aktif');
