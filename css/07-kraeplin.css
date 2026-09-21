@@ -1284,264 +1284,154 @@ body.kraeplin-blurred #app #kraeplinLiveStats {
 }
 
 /* ============================================================
-   ✅ KRAEPLIN — Contoh Visual Pengerjaan (Mockup)
+   INSTRUKSI
    ============================================================ */
-.kp-example-visual {
-  margin: 18px 0 0;
-  padding: 22px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(251,191,36,.05), transparent 55%),
-    radial-gradient(circle at 80% 80%, rgba(10,17,36,.04), transparent 55%),
-    linear-gradient(160deg, #f8fafc 0%, #eef2f7 100%);
-  border: 1.5px solid #e5eaf2;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.9),
-    0 4px 14px rgba(10,17,36,.04);
-}
+function renderKraeplinInstructions() {
+  const app = document.getElementById("app");
 
-/* ---------- Top header ---------- */
-.kp-example-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding-bottom: 16px;
-  border-bottom: 1px dashed #cbd5e1;
-}
+  app.innerHTML = `
+    <div class="kraeplin-instruction">
+      ${renderTestPageHeader({
+        eyebrow: 'PERFORMANCE ASSESSMENT',
+        title: 'Instruksi Tes Kraeplin',
+        subtitle: 'Baca instruksi singkat berikut sebelum memulai tes.'
+      })}
 
-.kp-example-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0a1124, #1a2547);
-  color: #fbbf24;
-  font-size: 0.7rem;
-  font-weight: 850;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow:
-    0 6px 16px rgba(10,17,36,.22),
-    inset 0 1px 0 rgba(255,255,255,.08),
-    0 0 0 1px rgba(251,191,36,.18);
-}
+      <div class="instruction-content">
+        <div class="instruction-row">
+          <div class="instruction-col">
+            <div class="instruction-label">Cara Mengerjakan</div>
+            <ul class="compact-list">
+              <li>Lihat contoh visual.</li>
+              <li>Ketik <b>jawaban</b> hasil penjumlahan di box.</li>
+              <li>Kerjakan tiap kolom dalam <b>15 detik</b>.</li>
+            </ul>
+          </div>
 
-.kp-example-note {
-  flex: 1;
-  min-width: 200px;
-  color: #475569;
-  font-size: 0.86rem;
-  line-height: 1.5;
-  font-weight: 500;
-}
+          <div class="instruction-col">
+            <div class="instruction-label">Perhatian</div>
+            <ul class="compact-list">
+              <li>Kecepatan <b>dan</b> ketelitian sama penting.</li>
+              <li>Hanya tulis digit terakhir (contoh: 17 → 7).</li>
+              <li>Waktu habis, otomatis ke baris berikutnya.</li>
+            </ul>
+          </div>
+        </div>
 
-/* ---------- Board ---------- */
-.kp-example-board {
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
-  border: 1.5px solid #e0e7ef;
-  border-radius: 16px;
-  padding: 18px 20px 16px;
-  box-shadow:
-    0 4px 12px rgba(10,17,36,.04),
-    inset 0 1px 0 rgba(255,255,255,.95);
-}
+        <div class="visual-section">
+          <div class="section-title">Contoh Pengerjaan Setelah Beberapa Soal</div>
 
-.kp-example-head {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 16px;
-  padding: 0 0 10px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #eef2f7;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
+          <div class="kp-example-visual">
+            <div class="kp-example-top">
+              <span class="kp-example-badge">✦ CONTOH VISUAL</span>
+              <span class="kp-example-note">Beginilah tampilan kolom Anda setelah beberapa soal selesai dikerjakan</span>
+            </div>
 
-.kp-example-head span:first-child { text-align: center; }
-.kp-example-head span:last-child  { padding-left: 4px; }
+            <div class="kp-example-board">
+              <div class="kp-example-head">
+                <span>Kolom Angka</span>
+                <span>Hasil Penjumlahan</span>
+              </div>
 
-/* ---------- Rows ---------- */
-.kp-example-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+              <div class="kp-example-chain">
 
-.kp-example-row {
-  display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 16px;
-  align-items: center;
-  padding: 6px 4px;
-  border-radius: 10px;
-  transition: background .18s ease;
-}
+                <!-- Angka 2 (paling atas) -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">2</div>
+                  <div></div>
+                </div>
 
-.kp-example-row:hover {
-  background: rgba(251,191,36,.04);
-}
+                <!-- Jawaban 2+3=5 — di antara 2 dan 3 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">5</span>
+                    <span class="kp-chain-ans-hint">2+3</span>
+                  </div>
+                </div>
 
-/* Number box (left column) */
-.kp-example-num {
-  width: 54px;
-  height: 54px;
-  justify-self: center;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1.5px solid #d6e1ec;
-  color: #0a1124;
-  font-family: 'Courier New', ui-monospace, monospace;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  box-shadow:
-    0 2px 6px rgba(10,17,36,.05),
-    inset 0 1px 0 rgba(255,255,255,.95);
-}
+                <!-- Angka 3 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">3</div>
+                  <div></div>
+                </div>
 
-/* First row hint (no pair above) */
-.kp-example-hint {
-  color: #94a3b8;
-  font-size: 0.78rem;
-  font-style: italic;
-  padding-left: 4px;
-}
+                <!-- Jawaban 3+1=4 — di antara 3 dan 1 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">4</span>
+                    <span class="kp-chain-ans-hint">3+1</span>
+                  </div>
+                </div>
 
-/* ---------- Worked row (formula + arrow + answer) ---------- */
-.kp-example-worked {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
+                <!-- Angka 1 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">1</div>
+                  <div></div>
+                </div>
 
-.kp-formula {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(10,17,36,.05), rgba(51,72,119,.03));
-  border: 1px solid rgba(51,72,119,.14);
-  color: #475569;
-  font-family: 'Courier New', ui-monospace, monospace;
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
+                <!-- Jawaban 1+7=8 — di antara 1 dan 7 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">8</span>
+                    <span class="kp-chain-ans-hint">1+7</span>
+                  </div>
+                </div>
 
-.kp-formula b {
-  color: #0a1124;
-  font-weight: 900;
-  padding: 0 1px;
-}
+                <!-- Angka 7 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">7</div>
+                  <div></div>
+                </div>
 
-.kp-arrow {
-  color: #f59e0b;
-  font-weight: 900;
-  font-size: 1rem;
-}
+                <!-- Jawaban 7+8=15→5 — di antara 7 dan 8 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans kp-chain-ans-last">
+                    <span class="kp-chain-ans-val">5</span>
+                    <span class="kp-chain-ans-hint">7+8</span>
+                  </div>
+                </div>
 
-.kp-answer {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #fffdf5 0%, #fff8e6 100%);
-  border: 1.5px solid #fbbf24;
-  color: #0a1124;
-  font-family: 'Courier New', ui-monospace, monospace;
-  font-size: 1.32rem;
-  font-weight: 900;
-  box-shadow:
-    0 0 0 3px rgba(251,191,36,.12),
-    0 4px 12px rgba(245,158,11,.18),
-    inset 0 1px 0 rgba(255,255,255,.95);
-}
+                <!-- Angka 8 (paling bawah) -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">8</div>
+                  <div></div>
+                </div>
 
-.kp-check {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 900;
-  box-shadow:
-    0 4px 10px rgba(16,185,129,.28),
-    inset 0 1px 0 rgba(255,255,255,.3);
-}
+              </div>
 
-/* ---------- Footer note ---------- */
-.kp-example-foot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
-  border: 1px solid #fde68a;
-  color: #78350f;
-  font-size: 0.82rem;
-  line-height: 1.55;
-  font-weight: 500;
-}
+              <div class="kp-example-foot">
+                <span class="kp-example-foot-icon">💡</span>
+                <span>Jawaban ditulis <b>di antara 2 angka</b> yang dijumlahkan. Tulis <b>digit terakhir</b> saja — contoh: <b>7+8=15</b> → tulis <b>5</b>.</span>
+              </div>
+            </div>
+          </div>
 
-.kp-example-foot-icon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
-  line-height: 1;
-}
+          <div class="calc-examples">
+            <div>8 + 7 = 15 → tulis <b>5</b></div>
+            <div>8 + 1 = 9 → tulis <b>9</b></div>
+            <div>3 + 3 = 6 → tulis <b>6</b></div>
+            <div>2 + 8 = 10 → tulis <b>0</b></div>
+          </div>
+        </div>
+      </div>
 
-.kp-example-foot b {
-  color: #92400e;
-  font-weight: 850;
-}
-
-/* ---------- Responsive ---------- */
-@media (max-width: 640px) {
-  .kp-example-visual { padding: 16px; }
-  .kp-example-board { padding: 14px 14px 12px; }
-
-  .kp-example-head,
-  .kp-example-row {
-    grid-template-columns: 70px 1fr;
-    gap: 12px;
-  }
-
-  .kp-example-num { width: 46px; height: 46px; font-size: 1.18rem; }
-  .kp-example-hint { font-size: 0.72rem; }
-
-  .kp-formula { font-size: 0.78rem; padding: 5px 9px; }
-  .kp-answer { width: 38px; height: 38px; font-size: 1.18rem; }
-  .kp-check { width: 20px; height: 20px; font-size: 0.66rem; }
-
-  .kp-example-top { flex-direction: column; align-items: flex-start; }
-  .kp-example-note { font-size: 0.8rem; }
-  .kp-example-foot { font-size: 0.76rem; padding: 10px 12px; }
-}
-
-@media (max-width: 420px) {
-  .kp-example-head span { font-size: 0.66rem; }
-  .kp-example-row { padding: 4px 2px; }
-  .kp-example-worked { gap: 8px; }
-  .kp-formula { padding: 4px 8px; font-size: 0.72rem; }
-}
-
-/* ---------- Aksesibilitas ---------- */
-@media (prefers-reduced-motion: reduce) {
-  .kp-example-row { transition: none !important; }
+      <div class="instruction-footer">
+        <button class="btn-instruction-green" onclick="startKraeplinTrial()">
+          <span style="font-size:1em;font-weight:600;">PAHAMI & MULAI PERCOBAAN</span>
+        </button>
+      </div>
+    </div>
+  `;
 }
