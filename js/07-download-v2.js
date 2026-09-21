@@ -117,6 +117,10 @@ function installPdfButtonHandler() {
    HELPER: ESCAPE HTML
    ============================================================ */
 function __escHtml(str) {
+  // 🔒 M2 FIX: Delegasi ke window.escapeHTML (02-utils.js)
+  if (typeof window.escapeHTML === 'function') {
+    return window.escapeHTML(str);
+  }
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
