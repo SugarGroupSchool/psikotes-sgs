@@ -72,7 +72,7 @@
        if (!AudioContext) return;
        if (!wrongPasswordAudioContext) wrongPasswordAudioContext = new AudioContext();
        const ctx = wrongPasswordAudioContext;
-       if (ctx.state === 'suspended') ctx.resume();
+       if (ctx.state === 'suspended') ctx.resume().catch(() => {});
    
        const now = ctx.currentTime;
        const osc  = ctx.createOscillator();
