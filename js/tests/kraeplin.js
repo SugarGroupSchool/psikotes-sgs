@@ -41,11 +41,79 @@ function renderKraeplinInstructions() {
         </div>
 
         <div class="visual-section">
-          <div class="section-title">Contoh Visual</div>
-          <div class="image-container">
-            <img src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/KRAEPLIN.jpg"
-                 alt="Contoh Pengerjaan Kraeplin"
-                 class="gambar-kraeplin">
+          <div class="section-title">Contoh Pengerjaan Setelah Beberapa Soal</div>
+
+          <div class="kp-example-visual">
+            <div class="kp-example-top">
+              <span class="kp-example-badge">✦ CONTOH VISUAL</span>
+              <span class="kp-example-note">Beginilah tampilan kolom Anda setelah beberapa soal selesai dikerjakan</span>
+            </div>
+
+            <div class="kp-example-board">
+              <div class="kp-example-head">
+                <span>Kolom Angka</span>
+                <span>Hasil Penjumlahan</span>
+              </div>
+
+              <div class="kp-example-rows">
+
+                <!-- Baris paling atas — tanpa pasangan -->
+                <div class="kp-example-row">
+                  <div class="kp-example-num">8</div>
+                  <div class="kp-example-hint">— baris paling atas belum dihitung —</div>
+                </div>
+
+                <!-- 8 + 7 -->
+                <div class="kp-example-row">
+                  <div class="kp-example-num">7</div>
+                  <div class="kp-example-worked">
+                    <span class="kp-formula"><b>8</b>+<b>7</b> = 15</span>
+                    <span class="kp-arrow">→</span>
+                    <span class="kp-answer">5</span>
+                    <span class="kp-check">✓</span>
+                  </div>
+                </div>
+
+                <!-- 7 + 1 -->
+                <div class="kp-example-row">
+                  <div class="kp-example-num">1</div>
+                  <div class="kp-example-worked">
+                    <span class="kp-formula"><b>7</b>+<b>1</b> = 8</span>
+                    <span class="kp-arrow">→</span>
+                    <span class="kp-answer">8</span>
+                    <span class="kp-check">✓</span>
+                  </div>
+                </div>
+
+                <!-- 1 + 3 -->
+                <div class="kp-example-row">
+                  <div class="kp-example-num">3</div>
+                  <div class="kp-example-worked">
+                    <span class="kp-formula"><b>1</b>+<b>3</b> = 4</span>
+                    <span class="kp-arrow">→</span>
+                    <span class="kp-answer">4</span>
+                    <span class="kp-check">✓</span>
+                  </div>
+                </div>
+
+                <!-- 3 + 2 -->
+                <div class="kp-example-row">
+                  <div class="kp-example-num">2</div>
+                  <div class="kp-example-worked">
+                    <span class="kp-formula"><b>3</b>+<b>2</b> = 5</span>
+                    <span class="kp-arrow">→</span>
+                    <span class="kp-answer">5</span>
+                    <span class="kp-check">✓</span>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="kp-example-foot">
+                <span class="kp-example-foot-icon">💡</span>
+                <span>Tulis <b>digit terakhir</b> dari hasil penjumlahan. Contoh: <b>15</b> → tulis <b>5</b>, <b>10</b> → tulis <b>0</b>.</span>
+              </div>
+            </div>
           </div>
 
           <div class="calc-examples">
@@ -55,16 +123,6 @@ function renderKraeplinInstructions() {
             <div>2 + 8 = 10 → tulis <b>0</b></div>
           </div>
         </div>
-      </div>
-
-      <div class="instruction-footer">
-        <button class="btn-instruction-green" onclick="startKraeplinTrial()">
-          <span style="font-size:1em;font-weight:600;">PAHAMI & MULAI PERCOBAAN</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
 
 /* ============================================================
    START TRIAL & REAL
