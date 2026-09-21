@@ -106,11 +106,13 @@
     doc.setFont('courier', weight);
   }
   
-  function blokHeading(doc, title, rgb = [44, 62, 80], x, y, w, h) {
-    doc.setFontSize(9);
-    doc.setTextColor(rgb[0] || 44, rgb[1] || 62, rgb[2] || 80);
-    doc.text(String(title || ''), 16, y + 6);
-  }
+ function blokHeading(doc, title, rgb, x, y) {
+  // 🔒 I5 FIX: Hapus parameter w & h yang tidak dipakai
+  rgb = rgb || [44, 62, 80];
+  doc.setFontSize(9);
+  doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+  doc.text(String(title || ''), x || 16, y + 6);
+}
   
   /* ============================================================
      HELPER — Label/Value dengan wrapping
@@ -928,7 +930,7 @@ const doc = new jsPDF({
 
  if (totalStar >= 13) {
   if (identity.position) {
-    blokHeading(doc, `Analisis Posisi: ${identity.position}`, [33,33,33], blokX, ySection, 80, 8);
+    blokHeading(doc, `Analisis Posisi: ${identity.position}`, [33,33,33], blokX, ySection);
     ySection += 10;
     doc.setFontSize(16);
     doc.setTextColor(200,24,44);
@@ -1155,7 +1157,7 @@ if (posReq) {
 
     let tinggiPos = 13 + (detail ? doc.splitTextToSize(detail, pageWidth-36).length*3.2 : 0);
     ySection = ensureSpace(doc, ySection, tinggiPos);
-    blokHeading(doc, `Analisis Posisi: ${identity.position}`, [33,33,33], blokX, ySection, 80, 8);
+   blokHeading(doc, `Analisis Posisi: ${identity.position}`, [33,33,33], blokX, ySection);
     ySection += 10;
     doc.setFontSize(16);
     doc.text(simbol, blokX+2, ySection);
