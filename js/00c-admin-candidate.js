@@ -16,7 +16,11 @@
   /* ============================================================
      HELPERS
      ============================================================ */
-  function esc(str) {
+   function esc(str) {
+    // 🔒 M2 FIX: Delegasi ke window.escapeHTML (02-utils.js)
+    if (typeof window.escapeHTML === 'function') {
+      return window.escapeHTML(str);
+    }
     return String(str || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
