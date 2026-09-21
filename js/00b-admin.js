@@ -16,6 +16,13 @@
    - C3: Fix XSS — event delegation untuk semua tombol dengan data user
    - M2: Konsolidasi escapeHtml via window.escapeHTML
    - 🔒 Validasi URL (cegah javascript: injection)
+   ------------------------------------------------------------
+   🔒 FIX [2026-09-22] — DELETE FILE TIDAK HILANG DARI UI:
+   - F1: deleteResultFile() → optimistic cache removal + delayed refresh (2s)
+   - F2: Set __recentlyDeletedFileIds → filter sementara selama 10s
+   - F3: Fix bug `length >= 0` di loadResultFilesForPage & __updateAdminResultCounter
+   - F4: Helper __removeFileFromCache(fileId)
+   - F5: fetchResultFiles filter file yang baru dihapus
    ============================================================ */
 
 /* ============================================================
@@ -155,9 +162,6 @@ function isAdminUrl() {
 
 /* ============================================================
    SAFE ACCESSOR — C1 FIX
-   - Fungsi-fungsi cloud (getLockState dll) ada di 00d-firebase.js
-   - File ini load SEBELUM 00d, jadi panggil via window.*
-   - Fallback kalau 00d belum load (edge case)
    ============================================================ */
 function __safeGetLockState() {
   return (typeof window.getLockState === 'function') ? window.getLockState() : false;
@@ -206,8 +210,6 @@ function fallbackCopy(text) {
 
 /* ============================================================
    HTML ESCAPE — M2 FIX
-   - Delegasi ke window.escapeHTML (dari 02-utils.js) kalau ada
-   - Fallback ke implementasi lokal
    ============================================================ */
 function __adminEscape(str) {
   if (typeof window.escapeHTML === 'function') {
@@ -224,11 +226,9 @@ function __adminEscape(str) {
 function __safeUrl(url) {
   const u = String(url || '').trim();
   if (!u) return '#';
-  // Hanya izinkan http://, https://, atau relative path
   if (/^https?:\/\//i.test(u)) {
     return u.replace(/"/g, '%22').replace(/'/g, '%27');
   }
-  // Relative path (diawali / atau ./)
   if (/^[.\/]/.test(u)) {
     return u.replace(/"/g, '%22').replace(/'/g, '%27');
   }
@@ -398,17 +398,29 @@ async function adminCleanupInactive() {
 
 /* ============================================================
    ✅ OPTIMASI: Cache hasil fetch GAS (shared global)
-   - TTL 30 detik: hemat request, tetap relatif fresh
-   - Dedupe: 2 request bersamaan → 1 network call
-   - SWR (stale-while-revalidate): tampilkan cache dulu,
-     lalu refresh di background
    ============================================================ */
 window.__resultFilesCacheData  = null;
 window.__resultFilesCacheTime  = 0;
 window.__resultFilesFetchPromise = null;
 window.__resultFilesCache = [];
 
-const RESULT_CACHE_TTL_MS = 30000;  // 30 detik
+/* ✅ F2: Set file yang baru dihapus — untuk filter sementara */
+window.__recentlyDeletedFileIds = new Set();
+
+const RESULT_CACHE_TTL_MS = 30000;               // 30 detik
+const RECENTLY_DELETED_TTL_MS = 10000;           // 10 detik
+const DRIVE_PROPAGATION_DELAY_MS = 2000;         // 2 detik
+
+/* ✅ F4: Helper hapus file dari cache by ID */
+function __removeFileFromCache(fileId) {
+  if (!fileId) return;
+  if (Array.isArray(window.__resultFilesCacheData)) {
+    window.__resultFilesCacheData = window.__resultFilesCacheData.filter(f => f.id !== fileId);
+  }
+  if (Array.isArray(window.__resultFilesCache)) {
+    window.__resultFilesCache = window.__resultFilesCache.filter(f => f.id !== fileId);
+  }
+}
 
 async function fetchResultFiles(forceRefresh = false) {
   const now = Date.now();
@@ -442,7 +454,6 @@ async function fetchResultFiles(forceRefresh = false) {
 
         const text = await res.text();
 
-        // Cek apakah HTML (bukan JSON)
         if (text.trim().startsWith('<')) {
           throw new Error('Respon HTML, bukan JSON (GAS redirect error)');
         }
@@ -450,7 +461,11 @@ async function fetchResultFiles(forceRefresh = false) {
         const data = JSON.parse(text);
 
         if (data && data.success) {
-          window.__resultFilesCacheData = data.files || [];
+          /* ✅ F5: Filter file yang baru dihapus (Drive propagation delay) */
+          const filtered = (data.files || []).filter(
+            f => !window.__recentlyDeletedFileIds.has(f.id)
+          );
+          window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
           return window.__resultFilesCacheData;
         }
@@ -479,14 +494,21 @@ async function fetchResultFiles(forceRefresh = false) {
 function __invalidateResultCache() {
   window.__resultFilesCacheData = null;
   window.__resultFilesCacheTime = 0;
+  window.__resultFilesFetchPromise = null;
 }
 
 /* ============================================================
    HAPUS FILE DARI DRIVE
+   ✅ F1: Optimistic removal + delayed refresh
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
   if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash (bisa dipulihkan dalam 30 hari).')) return;
+
+  if (!fileId) {
+    alert('❌ File ID tidak valid');
+    return;
+  }
 
   try {
     const res = await fetch(GAS_ADMIN_URL, {
@@ -496,22 +518,58 @@ async function deleteResultFile(fileId, fileName) {
     });
 
     const data = await res.json();
-    if (data && data.success) {
-      alert('✅ File berhasil dihapus dari Drive');
 
-      if (typeof __invalidateResultCache === 'function') {
-        __invalidateResultCache();
-      }
-
-      if (window.__resultFilesPageOpen && typeof loadResultFilesForPage === 'function') {
-        loadResultFilesForPage();
-      }
-      if (typeof __updateAdminResultCounter === 'function') {
-        __updateAdminResultCounter();
-      }
-    } else {
-      alert('❌ Gagal hapus: ' + (data.error || 'Unknown error'));
+    if (!data || !data.success) {
+      alert('❌ Gagal hapus: ' + (data?.error || 'Unknown error'));
+      return;
     }
+
+    /* ================================================
+       ✅ LANGKAH 1: Optimistic UI — hapus langsung dari tampilan
+       ================================================ */
+
+    // Tandai sebagai "baru dihapus" → filter di fetch berikutnya
+    window.__recentlyDeletedFileIds.add(fileId);
+    setTimeout(() => {
+      window.__recentlyDeletedFileIds.delete(fileId);
+    }, RECENTLY_DELETED_TTL_MS);
+
+    // Hapus dari cache lokal
+    __removeFileFromCache(fileId);
+
+    // Re-render segera (tanpa tunggu fetch)
+    if (document.getElementById('resultFilesPageOverlay')) {
+      __renderResultPageContent();
+    }
+    if (typeof __updateAdminResultCounter === 'function') {
+      __updateAdminResultCounter();
+    }
+
+    alert('✅ File berhasil dihapus dari Drive');
+
+    /* ================================================
+       ✅ LANGKAH 2: Delayed refresh — tunggu Drive propagation
+       ================================================ */
+    setTimeout(async () => {
+      // Invalidate supaya fetch berikutnya fresh dari GAS
+      __invalidateResultCache();
+
+      // Fetch ulang (force) untuk sinkronkan dengan GAS
+      try {
+        const files = await fetchResultFiles(true);
+        window.__resultFilesCache = files;
+
+        if (document.getElementById('resultFilesPageOverlay')) {
+          __renderResultPageContent();
+        }
+        if (typeof __updateAdminResultCounter === 'function') {
+          __updateAdminResultCounter();
+        }
+      } catch (err) {
+        console.warn('[DELETE-PDF] Delayed refresh gagal:', err);
+      }
+    }, DRIVE_PROPAGATION_DELAY_MS);
+
   } catch (e) {
     console.error('[DELETE-PDF] Error:', e);
     alert('❌ Gagal hapus: ' + e.message);
@@ -520,7 +578,6 @@ async function deleteResultFile(fileId, fileName) {
 
 /* ============================================================
    HELPER — Ekstrak info kandidat dari file
-   Prioritas: description → fallback filename
    ============================================================ */
 function __extractCandidateInfo(file) {
   let name = '-';
@@ -558,7 +615,6 @@ function __detectFileKind(file) {
 
 /* ============================================================
    RENDER — 1 kandidat = 1 kartu (PDF + Excel digabung)
-   🔒 C3 FIX: tombol pakai data-attributes + class
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -613,7 +669,6 @@ function renderResultFilesHTML(files) {
       ? (f.name || '').slice(0, 42) + '...'
       : (f.name || '');
 
-    // ─── Ekstrak password dari description (khusus PDF) ───
     let pdfPassword = '-';
     if (kind === 'pdf') {
       try {
@@ -627,7 +682,6 @@ function renderResultFilesHTML(files) {
       } catch (e) {}
     }
 
-    // ─── 🔒 Baris password (event delegation untuk copy) ───
     const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
       ? `
         <div style="
@@ -661,7 +715,6 @@ function renderResultFilesHTML(files) {
       `
       : '';
 
-    // 🔒 Fix URL safety
     const safeFileUrl = __safeUrl(f.url);
 
     return `
@@ -1044,7 +1097,6 @@ function renderAdminLoginPrompt() {
 function adminLogout() {
   if (!confirm('Keluar dari panel admin?')) return;
 
-  // ✅ Matikan idle tracker
   if (typeof __stopAdminIdleTracking === 'function') {
     __stopAdminIdleTracking();
   }
@@ -1133,7 +1185,7 @@ function stopListeningAccessRequests() {
 }
 
 /* ============================================================
-   🔒 C3 FIX: renderAccessRequestsHTML — tombol pakai data-attributes
+   renderAccessRequestsHTML — tombol pakai data-attributes
    ============================================================ */
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
@@ -1259,11 +1311,7 @@ async function rejectAccessRequest(deviceId) {
 }
 
 /* ============================================================
-   ✅ HALAMAN HASIL TES TERKIRIM — fullscreen overlay
-   - Filter by posisi + search nama (debounced)
-   - Grouping per kandidat
-   - z-index 100000
-   - SWR loading (instant dari cache)
+   HALAMAN HASIL TES TERKIRIM — fullscreen overlay
    ============================================================ */
 window.__resultFilterPosition = 'all';
 window.__resultSearchQuery = '';
@@ -1356,7 +1404,6 @@ function openResultFilesPage() {
         .rf-btn-danger:hover { background: rgba(239,68,68,.2); color: #fecaca; }
       </style>
 
-      <!-- HEADER -->
       <div style="
         padding: 20px 28px;
         background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
@@ -1400,7 +1447,6 @@ function openResultFilesPage() {
            onmouseout="this.style.transform='translateY(0)'">🔄 Refresh</button>
       </div>
 
-      <!-- FILTER BAR -->
       <div style="
         padding: 18px 28px;
         background: rgba(0,0,0,.15);
@@ -1441,7 +1487,6 @@ function openResultFilesPage() {
         </div>
       </div>
 
-      <!-- CONTENT -->
       <div id="rfContent" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
         <div style="
           display: flex; align-items: center; justify-content: center;
@@ -1464,7 +1509,6 @@ function openResultFilesPage() {
 
     document.getElementById('rfBackBtn').onclick = closeResultFilesPage;
 
-    // ✅ Refresh button — force fetch (bypass cache)
     document.getElementById('rfRefreshBtn').onclick = async (e) => {
       const btn = e.currentTarget;
       const originalText = btn.textContent;
@@ -1486,7 +1530,6 @@ function openResultFilesPage() {
       }
     };
 
-    // ✅ Search input — debounce 250ms
     const searchInput = document.getElementById('rfSearchInput');
     let __searchDebounceTimer = null;
     searchInput.addEventListener('input', (e) => {
@@ -1516,14 +1559,15 @@ function closeResultFilesPage() {
 }
 
 /* ============================================================
-   ✅ SWR — load dengan stale-while-revalidate
+   ✅ F3 FIX: SWR — gunakan Array.isArray untuk deteksi cache
+   (Bug sebelumnya: `length >= 0` selalu true — array kosong [] lolos)
    ============================================================ */
 async function loadResultFilesForPage() {
   const content = document.getElementById('rfContent');
   if (!content) return;
 
-  // ✅ Kalau ada cache → tampil INSTAN
-  if (window.__resultFilesCacheData && window.__resultFilesCacheData.length >= 0) {
+  // ✅ F3: Array.isArray(null) === false, Array.isArray([]) === true
+  if (Array.isArray(window.__resultFilesCacheData)) {
     window.__resultFilesCache = window.__resultFilesCacheData;
     __renderResultPageContent();
 
@@ -1561,7 +1605,7 @@ async function loadResultFilesForPage() {
 }
 
 /* ============================================================
-   🔒 C3 FIX: __renderResultPageContent — event delegation untuk tombol
+   __renderResultPageContent — event delegation untuk tombol
    ============================================================ */
 function __renderResultPageContent() {
   const content = document.getElementById('rfContent');
@@ -1727,7 +1771,6 @@ function __renderResultPageContent() {
       const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
       const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
 
-      // ─── Ekstrak password dari description (khusus PDF) ───
       let pdfPassword = '-';
       if (kind === 'pdf') {
         try {
@@ -1741,7 +1784,6 @@ function __renderResultPageContent() {
         } catch (e) {}
       }
 
-      // ─── 🔒 Baris password (dark theme) ───
       const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
         ? `
           <div style="
@@ -1777,7 +1819,6 @@ function __renderResultPageContent() {
         `
         : '';
 
-      // 🔒 Fix URL safety
       const safeFileUrl = __safeUrl(f.url);
 
       return `
@@ -1899,13 +1940,14 @@ function __resetResultFilter() {
 }
 
 /* ============================================================
-   ✅ Counter di panel admin (pakai cache — instan)
+   ✅ F3 FIX: Counter di panel admin — pakai Array.isArray
    ============================================================ */
 async function __updateAdminResultCounter() {
   const countEl = document.getElementById('adminResultCount');
   if (!countEl) return;
 
-  if (window.__resultFilesCacheData && window.__resultFilesCacheData.length >= 0) {
+  // ✅ F3: array check — bukan `length >= 0`
+  if (Array.isArray(window.__resultFilesCacheData)) {
     __renderCounterFromData(window.__resultFilesCacheData);
   }
 
@@ -1936,13 +1978,11 @@ function __renderCounterFromData(files) {
 
 /* ============================================================
    RENDER ADMIN PANEL
-   🔒 C1 FIX: pakai __safeGetLockState dkk (bukan fungsi lokal)
    ============================================================ */
 function renderAdminPanel() {
   const old = document.getElementById('adminPanelOverlay');
   if (old) old.remove();
 
-  // 🔒 Pakai safe accessor — fungsi asli dari 00d-firebase.js
   const locked = __safeGetLockState();
   const freshPwd = __safeGetFreshPwd();
   const usedPwd = __safeGetUsedPwd();
@@ -1991,7 +2031,6 @@ function renderAdminPanel() {
       font-family: Inter, system-ui, -apple-system, sans-serif;
       color: #1a2332;
     ">
-      <!-- HEADER -->
       <div style="
         padding: 24px 28px 20px;
         background: linear-gradient(135deg, ${locked ? '#7f1d1d' : '#1e3a8a'}, ${locked ? '#dc2626' : '#3b82f6'});
@@ -2030,10 +2069,8 @@ function renderAdminPanel() {
         </div>
       </div>
 
-      <!-- BODY -->
       <div style="padding: 24px 28px 28px;">
 
-        <!-- LOCK TOGGLE -->
         <div style="
           padding: 18px 20px;
           background: ${locked ? '#fef2f2' : '#f0fdf4'};
@@ -2071,9 +2108,6 @@ function renderAdminPanel() {
           </label>
         </div>
 
-        <!-- =========================================
-             REQUEST IZIN AKSES (ACCORDION)
-             ========================================= -->
         <div style="
           padding: 18px 20px;
           background: linear-gradient(135deg, #fef3c7, #fffbeb);
@@ -2119,9 +2153,6 @@ function renderAdminPanel() {
           </div>
         </div>
 
-        <!-- =========================================
-             KANDIDAT AKTIF — tombol buka halaman
-             ========================================= -->
         <button onclick="openActiveCandidatesPage()" style="
           width: 100%;
           padding: 20px 22px;
@@ -2169,9 +2200,6 @@ function renderAdminPanel() {
           ">Buka Halaman →</div>
         </button>
 
-        <!-- =========================================
-             HASIL TES TERKIRIM — tombol buka halaman
-             ========================================= -->
         <button onclick="openResultFilesPage()" style="
           width: 100%;
           padding: 20px 22px;
@@ -2226,9 +2254,6 @@ function renderAdminPanel() {
           }
         </style>
 
-        <!-- =========================================
-             PENGATURAN PASSWORD — tombol buka halaman
-             ========================================= -->
         <button onclick="openPasswordSettingsPage()" style="
           width: 100%;
           padding: 20px 22px;
@@ -2276,7 +2301,6 @@ function renderAdminPanel() {
           ">Buka Halaman →</div>
         </button>
 
-        <!-- INFO DEVICE -->
         <div style="
           padding: 16px 18px;
           background: #f1f5f9;
@@ -2294,7 +2318,6 @@ function renderAdminPanel() {
           <div><strong>Device finished:</strong> ${deviceFinished ? '🔒 ya (tidak bisa login)' : '🔓 belum'}</div>
         </div>
 
-        <!-- TEST CHAT (Device Sendiri) — 🔒 pakai data-attributes -->
         ${myDeviceId ? `
         <div style="margin-bottom: 12px;">
           <button
@@ -2313,7 +2336,6 @@ function renderAdminPanel() {
         </div>
         ` : ''}
 
-        <!-- ACTIONS -->
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button onclick="adminResetThisDevice()" style="
             flex: 1; min-width: 140px;
@@ -2341,7 +2363,6 @@ function renderAdminPanel() {
           ">🧹 Bersihkan Chat Tidak Aktif</button>
         </div>
 
-        <!-- FOOTER -->
         <div style="
           margin-top: 20px; padding-top: 16px;
           border-top: 1px solid #e2e8f0;
@@ -2356,12 +2377,10 @@ function renderAdminPanel() {
 
   document.body.appendChild(overlay);
 
-  // ✅ Aktifkan idle tracker untuk admin
   if (typeof __startAdminIdleTracking === 'function') {
     __startAdminIdleTracking();
   }
 
-  /* ---- Listen kandidat aktif (real-time) ---- */
   setTimeout(() => {
     const countEl = document.getElementById('adminActiveCount');
     if (!countEl || typeof window.listenActiveSessions !== 'function') return;
@@ -2371,7 +2390,6 @@ function renderAdminPanel() {
         countEl.textContent = sessions.length + ' kandidat';
         countEl.style.color = sessions.length > 0 ? '#1e40af' : '#94a3b8';
       }
-      // List tidak dirender di panel — dibuka di halaman terpisah
     });
 
     if (typeof startAdminUnreadTracker === 'function') {
@@ -2382,12 +2400,10 @@ function renderAdminPanel() {
       startAdminTimerTick();
     }
 
-    // 📄 Auto-load counter hasil tes dari Google Drive
     if (typeof __updateAdminResultCounter === 'function') {
       __updateAdminResultCounter();
     }
 
-    // Auto-refresh counter tiap 30 detik
     if (window.__pdfAutoRefreshTimer) {
       clearInterval(window.__pdfAutoRefreshTimer);
     }
@@ -2533,16 +2549,13 @@ function checkAdminUrlAndRender() {
 }
 
 /* ============================================================
-   🔒 C3 FIX: EVENT DELEGATION GLOBAL
-   - Satu listener untuk semua tombol dengan data user
-   - Aman dari XSS karena data diambil via dataset (bukan onclick inline)
+   EVENT DELEGATION GLOBAL
    ============================================================ */
 (function attachAdminEventDelegation() {
   if (window.__adminEventDelegationAttached) return;
   window.__adminEventDelegationAttached = true;
 
   document.addEventListener('click', function(e) {
-    // 1. Hapus file
     const deleteBtn = e.target.closest('.js-delete-file');
     if (deleteBtn) {
       e.preventDefault();
@@ -2555,7 +2568,6 @@ function checkAdminUrlAndRender() {
       return;
     }
 
-    // 2. Copy password PDF
     const copyBtn = e.target.closest('.js-copy-pdf-password');
     if (copyBtn) {
       e.preventDefault();
@@ -2577,7 +2589,6 @@ function checkAdminUrlAndRender() {
       return;
     }
 
-    // 3. Approve access request
     const approveBtn = e.target.closest('.js-approve-request');
     if (approveBtn) {
       e.preventDefault();
@@ -2590,7 +2601,6 @@ function checkAdminUrlAndRender() {
       return;
     }
 
-    // 4. Reject access request
     const rejectBtn = e.target.closest('.js-reject-request');
     if (rejectBtn) {
       e.preventDefault();
@@ -2602,7 +2612,6 @@ function checkAdminUrlAndRender() {
       return;
     }
 
-    // 5. Test chat (device sendiri)
     const testChatBtn = e.target.closest('.js-test-chat');
     if (testChatBtn) {
       e.preventDefault();
@@ -2614,20 +2623,14 @@ function checkAdminUrlAndRender() {
       }
       return;
     }
-  }, true); // useCapture = true agar dieksekusi sebelum handler lain
+  }, true);
 
   console.log('[ADMIN] ✓ Event delegation attached');
 })();
 
 /* ============================================================
    EXPORT
-   🔒 C1 FIX: hapus export fungsi yang sudah dihapus
-             (getLockState, setLockState, getFreshPwd, getUsedPwd,
-              setFreshPwd, setUsedPwd, toggleLockState,
-              regenFreshPwd, regenUsedPwd, setFreshPwdManual, setUsedPwdManual,
-              renderActiveSessionsHTML)
    ============================================================ */
-
 window.isAdminUrl = isAdminUrl;
 window.renderAdminPanel = renderAdminPanel;
 window.renderAdminLoginPrompt = renderAdminLoginPrompt;
@@ -2640,14 +2643,11 @@ window.adminAllowRetake = adminAllowRetake;
 window.adminCleanupInactive = adminCleanupInactive;
 window.adminLogout = adminLogout;
 
-/* ─── Unread Tracker ─── */
 window.startAdminUnreadTracker = startAdminUnreadTracker;
 window.stopAdminUnreadTracker = stopAdminUnreadTracker;
 
-/* ─── Chat Cleanup ─── */
 window.cleanupInactiveChatRooms = cleanupInactiveChatRooms;
 
-/* ─── Timer Tick ─── */
 window.startAdminTimerTick = startAdminTimerTick;
 window.stopAdminTimerTick = stopAdminTimerTick;
 window.fetchResultFiles        = fetchResultFiles;
@@ -2655,11 +2655,9 @@ window.renderResultFilesHTML   = renderResultFilesHTML;
 window.refreshResultFilesList  = refreshResultFilesList;
 window.deleteResultFile        = deleteResultFile;
 
-/* ─── Helper grouping ─── */
 window.__extractCandidateInfo  = __extractCandidateInfo;
 window.__detectFileKind        = __detectFileKind;
 
-/* ─── Halaman hasil tes ─── */
 window.openResultFilesPage     = openResultFilesPage;
 window.closeResultFilesPage    = closeResultFilesPage;
 window.loadResultFilesForPage  = loadResultFilesForPage;
@@ -2667,10 +2665,12 @@ window.__setResultFilter       = __setResultFilter;
 window.__resetResultFilter     = __resetResultFilter;
 window.__updateAdminResultCounter = __updateAdminResultCounter;
 
-/* ─── ✅ Cache control ─── */
 window.__invalidateResultCache = __invalidateResultCache;
 
-/* ─── Access Requests ─── */
+/* ✅ F4: Helper baru untuk hapus file by ID dari cache */
+window.__removeFileFromCache   = __removeFileFromCache;
+window.__recentlyDeletedFileIds = window.__recentlyDeletedFileIds;
+
 window.listenAccessRequests         = listenAccessRequests;
 window.stopListeningAccessRequests  = stopListeningAccessRequests;
 window.approveAccessRequest         = approveAccessRequest;
@@ -2678,8 +2678,7 @@ window.rejectAccessRequest          = rejectAccessRequest;
 window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
 
 /* ============================================================
-   ✅ SESI 8.1 — ADMIN SESSION TIMEOUT
-   Auto-logout setelah idle 15 menit (dapat diubah)
+   SESI 8.1 — ADMIN SESSION TIMEOUT
    ============================================================ */
 const ADMIN_SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const ADMIN_WARNING_BEFORE_MS  = 60 * 1000;
@@ -2817,4 +2816,4 @@ function __stopAdminIdleTracking() {
 window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix');
+console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix + DELETE-FIX');
