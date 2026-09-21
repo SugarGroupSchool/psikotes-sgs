@@ -1247,9 +1247,19 @@ async function uploadExcelToGAS(blob, filename) {
     r.readAsDataURL(blob);
   });
 
+  // ── 🆕 Ambil ID token ──
+  let idToken = '';
+  try {
+    const user = firebase.auth().currentUser;
+    if (user) idToken = await user.getIdToken();
+  } catch (e) {
+    console.warn('[EXCEL] Gagal ambil ID token:', e);
+  }
+
   const id = appState.identity || {};
   const payload = {
     action: 'upload_excel',
+    idToken: idToken,   // 🆕
     deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
     filename: filename,
     name: id.name || '(tanpa nama)',
@@ -1272,7 +1282,6 @@ async function uploadExcelToGAS(blob, filename) {
   await new Promise(r => setTimeout(r, 1500));
   return { success: true };
 }
-
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
 console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-cheat 1× warning + minta izin admin');
