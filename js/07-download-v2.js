@@ -370,7 +370,10 @@ async function startSubmitProcess() {
       Hasil Anda sudah diterima oleh admin.<br>
       Anda bisa menutup halaman ini.
     `, 100, '100%');
-
+    // 🆕 Clear resume state — tes sudah selesai semua
+    if (typeof window.__resumeClear === 'function') {
+      try { window.__resumeClear(); } catch (e) {}
+    }
     // Lepas beforeunload setelah sukses
     if (window.__submitBeforeUnload) {
       window.removeEventListener('beforeunload', window.__submitBeforeUnload);
