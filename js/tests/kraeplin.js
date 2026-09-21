@@ -55,58 +55,87 @@ function renderKraeplinInstructions() {
                 <span>Hasil Penjumlahan</span>
               </div>
 
-              <div class="kp-example-rows">
+              <div class="kp-example-chain">
 
-                <div class="kp-example-row">
-                  <div class="kp-example-num">8</div>
-                  <div class="kp-example-hint">— baris paling atas belum dihitung —</div>
+                <!-- Angka 2 (paling atas) -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">2</div>
+                  <div></div>
                 </div>
 
-                <div class="kp-example-row">
-                  <div class="kp-example-num">7</div>
-                  <div class="kp-example-worked">
-                    <span class="kp-formula"><b>8</b>+<b>7</b> = 15</span>
-                    <span class="kp-arrow">→</span>
-                    <span class="kp-answer">5</span>
-                    <span class="kp-check">✓</span>
+                <!-- Jawaban 2+3=5 — di antara 2 dan 3 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">5</span>
+                    <span class="kp-chain-ans-hint">2+3</span>
                   </div>
                 </div>
 
-                <div class="kp-example-row">
-                  <div class="kp-example-num">1</div>
-                  <div class="kp-example-worked">
-                    <span class="kp-formula"><b>7</b>+<b>1</b> = 8</span>
-                    <span class="kp-arrow">→</span>
-                    <span class="kp-answer">8</span>
-                    <span class="kp-check">✓</span>
+                <!-- Angka 3 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">3</div>
+                  <div></div>
+                </div>
+
+                <!-- Jawaban 3+1=4 — di antara 3 dan 1 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">4</span>
+                    <span class="kp-chain-ans-hint">3+1</span>
                   </div>
                 </div>
 
-                <div class="kp-example-row">
-                  <div class="kp-example-num">3</div>
-                  <div class="kp-example-worked">
-                    <span class="kp-formula"><b>1</b>+<b>3</b> = 4</span>
-                    <span class="kp-arrow">→</span>
-                    <span class="kp-answer">4</span>
-                    <span class="kp-check">✓</span>
+                <!-- Angka 1 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">1</div>
+                  <div></div>
+                </div>
+
+                <!-- Jawaban 1+7=8 — di antara 1 dan 7 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
+                  </div>
+                  <div class="kp-chain-ans">
+                    <span class="kp-chain-ans-val">8</span>
+                    <span class="kp-chain-ans-hint">1+7</span>
                   </div>
                 </div>
 
-                <div class="kp-example-row">
-                  <div class="kp-example-num">2</div>
-                  <div class="kp-example-worked">
-                    <span class="kp-formula"><b>3</b>+<b>2</b> = 5</span>
-                    <span class="kp-arrow">→</span>
-                    <span class="kp-answer">5</span>
-                    <span class="kp-check">✓</span>
+                <!-- Angka 7 -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">7</div>
+                  <div></div>
+                </div>
+
+                <!-- Jawaban 7+8=15→5 — di antara 7 dan 8 -->
+                <div class="kp-chain-row kp-chain-answer-row">
+                  <div class="kp-chain-connector">
+                    <span class="kp-connector-line"></span>
                   </div>
+                  <div class="kp-chain-ans kp-chain-ans-last">
+                    <span class="kp-chain-ans-val">5</span>
+                    <span class="kp-chain-ans-hint">7+8</span>
+                  </div>
+                </div>
+
+                <!-- Angka 8 (paling bawah) -->
+                <div class="kp-chain-row">
+                  <div class="kp-chain-num">8</div>
+                  <div></div>
                 </div>
 
               </div>
 
               <div class="kp-example-foot">
                 <span class="kp-example-foot-icon">💡</span>
-                <span>Tulis <b>digit terakhir</b> dari hasil penjumlahan. Contoh: <b>15</b> → tulis <b>5</b>, <b>10</b> → tulis <b>0</b>.</span>
+                <span>Jawaban ditulis <b>di antara 2 angka</b> yang dijumlahkan. Tulis <b>digit terakhir</b> saja — contoh: <b>7+8=15</b> → tulis <b>5</b>.</span>
               </div>
             </div>
           </div>
