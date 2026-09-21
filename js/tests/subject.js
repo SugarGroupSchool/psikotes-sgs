@@ -5,8 +5,8 @@
 let subjectCheatFlag = false;
 let allowTabOutSubject = false;
 let __subjectTimerInterval = null;
-let __subjectWarnCount = 0;           // ✅ BARU — counter peringatan
-const __SUBJECT_MAX_WARN = 1;         // ✅ BARU — 1× peringatan, ke-2 diskualifikasi
+let __subjectWarnCount = 0;
+const __SUBJECT_MAX_WARN = 1;
 
 function injectSubjectStyles() {}
 
@@ -27,7 +27,6 @@ function renderSubjectTestHome() {
   window.__inTestView = true;
   appState.currentTest = 'SUBJECT';
 
-  // ✅ RESET warning counter setiap balik ke home
   __subjectWarnCount = 0;
   subjectCheatFlag = false;
 
@@ -124,7 +123,6 @@ function startSubjectTest(subjId) {
     return;
   }
 
-  // ✅ RESET warning counter setiap mulai tes baru
   __subjectWarnCount = 0;
   subjectCheatFlag = false;
   allowTabOutSubject = false;
@@ -595,17 +593,11 @@ function selesaiSubjectUpload() {
    ⚠️ ANTI-CHEAT — 1× PERINGATAN DULU, BARU DISKUALIFIKASI
    ========================================================= */
 function onSubjectBlur() {
-  // Kalau tidak sedang di tes, atau allowTabOut → skip
   if (!appState.subjectSelected || allowTabOutSubject) return;
-
-  // Kalau sudah diskualifikasi → skip
   if (appState.subjectDisqualified) return;
 
   __subjectWarnCount++;
 
-  // ==========================================
-  // PERINGATAN 1 — Tampilkan modal, tes LANJUT
-  // ==========================================
   if (__subjectWarnCount <= __SUBJECT_MAX_WARN) {
     showSubjectWarning(__subjectWarnCount);
     return;
@@ -620,43 +612,16 @@ function onSubjectBlur() {
   appState.subjectDisqualified = true;
   allowTabOutSubject = true;
 
-  // Tampilkan layar diskualifikasi
-  document.getElementById('app').innerHTML = `
-    <div class="subject-test-page" style="min-height:auto;padding:20px;">
-      <div class="subject-test-container" style="max-width:520px;">
-        <div class="subject-hero" style="padding:0;overflow:hidden;text-align:center;">
-          <div class="subject-hero-accent"></div>
-          ${renderTestPageHeader({
-            eyebrow: 'SUBJECT TEST',
-            title: 'Tes Subjek',
-            subtitle: 'Diskualifikasi',
-            showBack: false
-          })}
-          <div style="padding: 30px 26px 34px;">
-            <div style="font-size:2.3em;margin-bottom:13px;">❌</div>
-            <h2 style="color:#c91b1b;margin-bottom:13px;">Diskualifikasi!</h2>
-            <div style="font-size:1.09em;margin-bottom:24px;color:#475569;line-height:1.6;">
-              Anda terdeteksi <b>${__subjectWarnCount}×</b> keluar dari tab tes subjek.<br>
-              Mohon hubungi panitia jika ada kendala.
-            </div>
-            <button class="btn btn-danger" style="padding:12px 46px;font-size:1.15em;" onclick="logoutDiskualifikasi()">
-              🔒 Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  // Panggil fungsi diskualifikasi utama
+  logoutDiskualifikasi();
 }
 
 /* =========================================================
    ⚠️ MODAL PERINGATAN
    ========================================================= */
 function showSubjectWarning(warnCount) {
-  // Set flag sementara supaya blur berikutnya tidak dobel trigger
   allowTabOutSubject = true;
 
-  // Hapus modal lama kalau ada
   const old = document.getElementById('subjectWarningOverlay');
   if (old) old.remove();
 
@@ -702,7 +667,6 @@ function showSubjectWarning(warnCount) {
       box-shadow: 0 30px 90px rgba(0,0,0,.55);
       animation: subjectWarnSlideIn .3s cubic-bezier(.2,.8,.2,1);
     ">
-      <!-- HEADER -->
       <div style="
         padding: 30px 28px 24px;
         background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -733,7 +697,6 @@ function showSubjectWarning(warnCount) {
         ">Anda Keluar dari Tab Tes</div>
       </div>
 
-      <!-- BODY -->
       <div style="padding: 26px 28px 24px;">
         <p style="
           margin: 0 0 20px;
@@ -790,10 +753,8 @@ function showSubjectWarning(warnCount) {
 
   document.body.appendChild(overlay);
 
-  // Tombol OK → tutup modal, lanjut tes
   document.getElementById('btnSubjectWarnOk').onclick = () => {
     overlay.remove();
-    // Delay reset flag supaya blur dari klik tombol tidak trigger lagi
     setTimeout(() => {
       allowTabOutSubject = false;
     }, 800);
@@ -801,47 +762,38 @@ function showSubjectWarning(warnCount) {
 }
 
 /* =========================================================
-   DISKUALIFIKASI SUBJECT
-   - Reset HANYA completed.SUBJECT (selectedTests tetap)
-   - Password jadi USED
-   - Device di-lock → wajib minta izin admin dulu
-   - Setelah admin approve → login USED → lanjut
+   DISKUALIFIKASI SUBJECT → WAJIB MINTA IZIN ADMIN
+   - Tidak ada logout otomatis
+   - SUBJECT tetap di selectedTests (bisa dikerjakan ulang)
+   - Data IST/DISC/PAPI/dll TETAP TERSIMPAN
+   - Password jadi USED setelah admin approve
    ========================================================= */
 function logoutDiskualifikasi() {
   // ==========================================
-  // 1. Password jadi USED (kandidat login pakai USED nanti)
+  // 1. Set flags
   // ==========================================
   try {
     localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS, '1');
+    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
+    localStorage.setItem('_sgs_disqualified', '1');
   } catch (e) {}
 
   // ==========================================
   // 2. Reset HANYA completed.SUBJECT
-  //    selectedTests TETAP (SUBJECT tetap di daftar tes)
+  //    selectedTests → SUBJECT TETAP ✅
   // ==========================================
   try {
     const saved = JSON.parse(localStorage.getItem('completed') || '{}');
     if (saved.SUBJECT) delete saved.SUBJECT;
     localStorage.setItem('completed', JSON.stringify(saved));
 
-    // Hapus foto jawaban SUBJECT yang lama
     localStorage.removeItem('subjectUpload');
     localStorage.removeItem('subjectSelected');
-
-    // ⚠️ JANGAN hapus SUBJECT dari selectedTests!
-    // Biarkan SUBJECT tetap muncul di home.
+    // ⚠️ selectedTests TIDAK diubah → SUBJECT tetap muncul di home
   } catch (e) {}
 
   // ==========================================
-  // 3. Set flag untuk wajib minta izin admin
-  // ==========================================
-  try {
-    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED, '1');
-    localStorage.setItem('_sgs_disqualified', '1');
-  } catch (e) {}
-
-  // ==========================================
-  // 4. Reset state di memori
+  // 3. Reset state di memori
   // ==========================================
   window.__inTestView = false;
   appState.subjectSelected = null;
@@ -857,7 +809,7 @@ function logoutDiskualifikasi() {
   }
 
   // ==========================================
-  // 5. Sembunyikan layar password & clear app
+  // 4. Hide layar password & clear app
   // ==========================================
   const pwdScreen = document.getElementById('passwordScreen');
   if (pwdScreen) pwdScreen.classList.add('hidden');
@@ -865,108 +817,88 @@ function logoutDiskualifikasi() {
   if (appEl) appEl.innerHTML = '';
 
   // ==========================================
-  // 6. Tampilkan layar diskualifikasi + countdown reload
+  // 5. Tampilkan layar diskualifikasi + tombol Minta Izin
   // ==========================================
   document.body.innerHTML = `
     <div style="
       position: fixed; inset: 0; z-index: 2147483647;
       display: flex; align-items: center; justify-content: center;
-      padding: 20px;
-      overflow-y: auto;
+      padding: 20px; overflow-y: auto;
       background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%);
       font-family: Inter, system-ui, -apple-system, sans-serif;
     ">
       <div style="
         max-width: 540px; width: 100%;
         padding: 38px 32px 32px;
-        background: #ffffff;
-        border-radius: 24px;
+        background: #ffffff; border-radius: 24px;
         box-shadow: 0 30px 90px rgba(0,0,0,.5);
         text-align: center;
       ">
-        <!-- ICON -->
         <div style="
           width: 84px; height: 84px;
           margin: 0 auto 20px;
           display: grid; place-items: center;
           background: linear-gradient(135deg, #fee2e2, #fef2f2);
-          border: 3px solid #fca5a5;
-          border-radius: 24px;
+          border: 3px solid #fca5a5; border-radius: 24px;
           font-size: 44px;
-          animation: diskualifikasiPulse 2s ease-in-out infinite;
+          animation: disqPulse 2s ease-in-out infinite;
         ">❌</div>
 
-        <!-- TITLE -->
         <h1 style="
           margin: 0 0 10px;
-          font-size: 25px;
-          font-weight: 900;
-          color: #991b1b;
-          letter-spacing: -0.4px;
+          font-size: 25px; font-weight: 900;
+          color: #991b1b; letter-spacing: -0.4px;
         ">Diskualifikasi</h1>
 
         <p style="
-          margin: 0 0 22px;
-          color: #64748b;
-          font-size: 14.5px;
+          margin: 0 0 20px;
+          color: #64748b; font-size: 14.5px;
           line-height: 1.65;
         ">
           Anda terdeteksi <b style="color:#dc2626;">keluar dari tab tes</b>.<br>
           Anda perlu <b>izin admin</b> untuk melanjutkan.
         </p>
 
-        <!-- INFO: PROGRESS AMAN -->
         <div style="
           padding: 14px 16px;
           background: #f0fdf4;
           border: 1px solid #bbf7d0;
           border-radius: 14px;
-          font-size: 13px;
-          color: #166534;
-          line-height: 1.75;
-          text-align: left;
+          font-size: 13px; color: #166534;
+          line-height: 1.75; text-align: left;
           margin-bottom: 12px;
         ">
           <div style="font-weight:800;margin-bottom:6px;font-size:13.5px;">
-            ✅ Tes Anda Tetap Tersimpan
+            ✅ Data Anda Tetap Tersimpan
           </div>
-          • Tes lain yang sudah selesai <b>tetap aman</b><br>
-          • Tes <b>Subjek</b> di-reset — bisa dikerjakan ulang<br>
+          • Tes yang sudah selesai <b>tetap aman</b><br>
+          • Tes <b>Subjek</b> bisa dikerjakan ulang<br>
           • Anda hanya perlu <b>izin admin</b> untuk lanjut
         </div>
 
-        <!-- INFO: CARA LANJUT -->
         <div style="
           padding: 14px 16px;
           background: #fef3c7;
           border: 1px solid #fde68a;
           border-radius: 14px;
-          font-size: 13px;
-          color: #78350f;
-          line-height: 1.75;
-          text-align: left;
+          font-size: 13px; color: #78350f;
+          line-height: 1.75; text-align: left;
           margin-bottom: 22px;
         ">
           <div style="font-weight:800;margin-bottom:6px;font-size:13.5px;">
             📨 Langkah Selanjutnya
           </div>
-          1. Klik <b>"Minta Izin Akses"</b> di halaman berikutnya<br>
+          1. Klik <b>"Minta Izin Akses"</b> di bawah<br>
           2. Tunggu admin menyetujui permintaan Anda<br>
           3. Login ulang dengan <b>password baru dari admin</b><br>
           4. Lanjutkan tes Anda
         </div>
 
-        <!-- BUTTON -->
-        <button id="btnRequestIzinkan" style="
-          width: 100%;
-          padding: 15px 20px;
+        <button id="btnMintaIzin" style="
+          width: 100%; padding: 15px 20px;
           background: linear-gradient(135deg, #dc2626, #991b1b);
-          color: #fff;
-          border: 0;
-          border-radius: 13px;
-          font-family: inherit;
-          font-size: 15px;
-          font-weight: 800;
+          color: #fff; border: 0; border-radius: 13px;
+          font-family: inherit; font-size: 15px; font-weight: 800;
           cursor: pointer;
           box-shadow: 0 10px 26px rgba(220,38,38,.3);
           transition: transform .18s, box-shadow .18s, filter .18s;
@@ -976,15 +908,10 @@ function logoutDiskualifikasi() {
           📨 Minta Izin Akses
         </button>
 
-        <!-- COUNTDOWN -->
         <div style="
           margin-top: 18px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          color: #94a3b8;
-          font-size: 12.5px;
+          display: flex; align-items: center; justify-content: center;
+          gap: 10px; color: #94a3b8; font-size: 12.5px;
         ">
           <span style="
             width: 8px; height: 8px; border-radius: 50%;
@@ -992,27 +919,13 @@ function logoutDiskualifikasi() {
             box-shadow: 0 0 0 4px rgba(245,158,11,.2);
             animation: waitingPulse 1.4s ease-in-out infinite;
           "></span>
-          Auto-lanjut dalam <b style="color:#475569;min-width:14px;display:inline-block;text-align:center;"><span id="disqCountdown">3</span></b> detik
-        </div>
-
-        <!-- PROGRESS BAR -->
-        <div style="
-          width: 100%; height: 4px;
-          background: #e2e8f0; border-radius: 999px;
-          margin-top: 12px; overflow: hidden;
-        ">
-          <div id="disqProgressBar" style="
-            width: 0%; height: 100%;
-            background: linear-gradient(90deg, #dc2626, #f59e0b);
-            border-radius: inherit;
-            transition: width 3s linear;
-          "></div>
+          Butuh izin admin untuk melanjutkan
         </div>
       </div>
     </div>
 
     <style>
-      @keyframes diskualifikasiPulse {
+      @keyframes disqPulse {
         0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(220,38,38,.3); }
         50%      { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(220,38,38,0); }
       }
@@ -1024,41 +937,248 @@ function logoutDiskualifikasi() {
   `;
 
   // ==========================================
-  // 7. Animasi progress bar
+  // 6. Handle tombol "Minta Izin Akses"
   // ==========================================
-  setTimeout(() => {
-    const bar = document.getElementById('disqProgressBar');
-    if (bar) bar.style.width = '100%';
-  }, 100);
+  document.getElementById('btnMintaIzin').onclick = () => {
+    const btn = document.getElementById('btnMintaIzin');
+    btn.disabled = true;
+    btn.textContent = '⏳ Mengirim permintaan...';
+    btn.style.opacity = '.7';
+    btn.style.cursor = 'wait';
 
-  // ==========================================
-  // 8. Fungsi reload → trigger showRequestAccessScreen()
-  // ==========================================
-  const doReload = () => {
-    // Pastikan __requestScreenRendered di-reset agar bisa tampil lagi
-    try { window.__sgs_requestScreenRendered = false; } catch (e) {}
-    try { window.location.reload(); } catch (e) {
-      window.location.href = window.location.href;
-    }
+    __sendDisqRequestToAdmin()
+      .then(() => {
+        showDisqWaitingApprovalScreen();
+      })
+      .catch(err => {
+        console.error('[SUBJECT] Gagal kirim request:', err);
+        btn.disabled = false;
+        btn.textContent = '📨 Minta Izin Akses';
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        alert('❌ Gagal mengirim permintaan: ' + (err.message || 'Coba lagi'));
+      });
   };
 
-  document.getElementById('btnRequestIzinkan').onclick = doReload;
-
-  // ==========================================
-  // 9. Countdown 3 detik → auto reload
-  // ==========================================
-  let countdown = 3;
-  const countdownEl = document.getElementById('disqCountdown');
-
-  const interval = setInterval(() => {
-    countdown--;
-    if (countdownEl) countdownEl.textContent = Math.max(0, countdown);
-    if (countdown <= 0) {
-      clearInterval(interval);
-      doReload();
-    }
-  }, 1000);
-
-  console.log('[SUBJECT] ⚠️ Diskualifikasi → reload → layar minta izin akses');
+  console.log('[SUBJECT] ⚠️ Diskualifikasi — menunggu kandidat klik Minta Izin Akses');
 }
-console.log('[TEST-SUBJECT] ✓ Loaded — 11 fungsi + 1× warning anti-cheat');
+
+/* =========================================================
+   KIRIM REQUEST KE FIREBASE
+   ========================================================= */
+async function __sendDisqRequestToAdmin() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    throw new Error('Firebase belum siap, coba refresh halaman.');
+  }
+
+  const deviceId = localStorage.getItem('_sgs_device_id') || 'unknown';
+
+  let name = 'Kandidat';
+  let position = '';
+  try {
+    const identity = JSON.parse(localStorage.getItem('identity') || '{}');
+    name = identity.name || name;
+    position = identity.position || position;
+  } catch (e) {}
+
+  await firebase.database().ref('sgs_requests/' + deviceId).set({
+    deviceId: deviceId,
+    name: name,
+    position: position,
+    status: 'pending',
+    reason: 'diskualifikasi_subject',
+    requestedAt: firebase.database.ServerValue.TIMESTAMP,
+    userAgent: navigator.userAgent.slice(0, 200)
+  });
+
+  console.log('[SUBJECT] ✅ Request izin akses terkirim ke admin:', deviceId);
+}
+
+/* =========================================================
+   LAYAR "MENUNGGU PERSETUJUAN ADMIN"
+   ========================================================= */
+function showDisqWaitingApprovalScreen() {
+  document.body.innerHTML = `
+    <div style="
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; overflow-y: auto;
+      background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%);
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        max-width: 500px; width: 100%;
+        padding: 40px 32px 34px;
+        background: #ffffff; border-radius: 24px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.5);
+        text-align: center;
+      ">
+        <div style="
+          width: 84px; height: 84px;
+          margin: 0 auto 20px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #fef3c7, #fef9c3);
+          border: 3px solid #fde68a; border-radius: 24px;
+          font-size: 44px;
+        ">⏳</div>
+
+        <h1 style="
+          margin: 0 0 12px;
+          font-size: 22px; font-weight: 900;
+          color: #92400e; letter-spacing: -0.3px;
+        ">Menunggu Persetujuan Admin</h1>
+
+        <p style="
+          margin: 0 0 22px;
+          color: #475569; font-size: 14.5px;
+          line-height: 1.65;
+        ">
+          Permintaan izin Anda sudah terkirim.<br>
+          Mohon tunggu admin meninjau permintaan ini.<br><br>
+          <b>Halaman akan otomatis dimuat ulang setelah disetujui.</b>
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          font-size: 12.5px; color: #475569;
+          line-height: 1.7; text-align: left;
+        ">
+          <div style="margin-bottom:4px;"><b>Status:</b> Menunggu</div>
+          <div><b>Waktu:</b> ${new Date().toLocaleString('id-ID', {
+            day: '2-digit', month: 'short',
+            hour: '2-digit', minute: '2-digit'
+          })}</div>
+        </div>
+
+        <div style="
+          margin-top: 22px;
+          display: flex; align-items: center; justify-content: center;
+          gap: 10px; color: #94a3b8; font-size: 12.5px;
+        ">
+          <span style="
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 0 5px rgba(245,158,11,.2);
+            animation: waitPulse 1.4s ease-in-out infinite;
+          "></span>
+          Menunggu...
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @keyframes waitPulse {
+        0%, 100% { transform: scale(1);    opacity: 1; }
+        50%      { transform: scale(1.35); opacity: .7; }
+      }
+    </style>
+  `;
+
+  const deviceId = localStorage.getItem('_sgs_device_id') || 'unknown';
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+  firebase.database()
+    .ref('sgs_requests/' + deviceId)
+    .on('value', (snap) => {
+      const req = snap.val();
+      if (!req) return;
+
+      // ==========================================
+      // ✅ APPROVED → Hapus flags & reload ke login
+      // ==========================================
+      if (req.status === 'approved') {
+        console.log('[SUBJECT] ✅ Admin approved → reload ke login');
+
+        try {
+          localStorage.removeItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED);
+          localStorage.removeItem('_sgs_disqualified');
+          localStorage.removeItem('_sgs_lock');
+          sessionStorage.removeItem('_sgs_retake_processed');
+        } catch (e) {}
+
+        document.body.innerHTML = `
+          <div style="
+            position: fixed; inset: 0; z-index: 2147483647;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #065f46 0%, #16a34a 100%);
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+          ">
+            <div style="
+              max-width: 440px; width: 100%;
+              padding: 40px 32px 34px;
+              background: #ffffff; border-radius: 24px;
+              box-shadow: 0 30px 90px rgba(0,0,0,.5);
+              text-align: center;
+            ">
+              <div style="
+                width: 80px; height: 80px;
+                margin: 0 auto 22px;
+                display: grid; place-items: center;
+                background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+                border: 3px solid #86efac; border-radius: 24px;
+                font-size: 40px;
+              ">✅</div>
+
+              <h1 style="
+                margin: 0 0 12px;
+                font-size: 22px; font-weight: 900;
+                color: #065f46;
+              ">Disetujui!</h1>
+
+              <p style="
+                margin: 0 0 16px;
+                color: #475569; font-size: 14.5px;
+                line-height: 1.65;
+              ">
+                Admin sudah menyetujui permintaan Anda.<br>
+                Silakan login dengan <b>password baru dari admin</b>.
+              </p>
+
+              <div style="font-size: 13px; color: #94a3b8;">
+                Memuat ulang halaman...
+              </div>
+
+              <div style="
+                width: 100%; height: 4px;
+                background: #e2e8f0; border-radius: 999px;
+                margin-top: 12px; overflow: hidden;
+              ">
+                <div id="approvedBar" style="
+                  width: 0%; height: 100%;
+                  background: linear-gradient(90deg, #22c55e, #16a34a);
+                  border-radius: inherit;
+                  transition: width 2s linear;
+                "></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        setTimeout(() => {
+          const bar = document.getElementById('approvedBar');
+          if (bar) bar.style.width = '100%';
+        }, 100);
+
+        setTimeout(() => {
+          try { window.location.reload(); } catch (e) {
+            window.location.href = window.location.href;
+          }
+        }, 2000);
+      }
+
+      // ==========================================
+      // ❌ REJECTED → Tampilkan pesan ditolak
+      // ==========================================
+      if (req.status === 'rejected') {
+        console.log('[SUBJECT] ❌ Admin rejected');
+        alert('❌ Permintaan izin Anda ditolak oleh admin.\n\nSilakan hubungi panitia untuk informasi lebih lanjut.');
+      }
+    });
+}
+
+console.log('[TEST-SUBJECT] ✓ Loaded — 15 fungsi + diskualifikasi + request izin');
