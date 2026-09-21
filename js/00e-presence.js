@@ -3,6 +3,9 @@
    - Heartbeat kandidat aktif ke Firebase (5 detik saat tes)
    - Listen sinyal admin: allow_retake, force_refresh,
      force_logout, disqualified, reset_progress
+   ------------------------------------------------------------
+   🔒 AUDIT FIX [2026-09-21]:
+   - I3: Reset device ID saat allow_retake (cegah data kandidat lama tercampur)
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
@@ -235,6 +238,7 @@ window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ============================================================
    LISTEN allow_retake
+   🔒 I3 FIX: Reset device ID saat allow_retake
    ============================================================ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -266,6 +270,12 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
+
+      // ── 🔒 I3 FIX: Reset device ID ──
+      // Alasan: device lama bisa dipakai kandidat berbeda.
+      // Tanpa reset, data kandidat lama di Firebase bisa tercampur.
+      localStorage.removeItem('_sgs_device_id');
+      // ── AKHIR FIX ──
     } catch (e) {}
 
     if (!wasDisqualified) {
@@ -454,7 +464,7 @@ function showAdminSignalBanner(icon, title, message, countdownSec, color) {
 
   document.body.appendChild(banner);
 
-   var remaining = countdownSec;
+  var remaining = countdownSec;
   var countdownEl = document.getElementById('adminSigCountdown');
   var interval = setInterval(function() {
     remaining--;
@@ -462,14 +472,12 @@ function showAdminSignalBanner(icon, title, message, countdownSec, color) {
     if (remaining <= 0) {
       clearInterval(interval);
 
-      // 🔥 Matikan beforeunload guard supaya tidak muncul konfirmasi
       try {
         window.__inTestView = false;
         window.__skipBeforeUnload = true;
         window.__submitBeforeUnload = null;
       } catch(e) {}
 
-      // Hapus listener beforeunload yang mungkin masih aktif
       try {
         if (typeof window.__submitBeforeUnload === 'function') {
           window.removeEventListener('beforeunload', window.__submitBeforeUnload);
@@ -595,11 +603,9 @@ function stopListeningActiveSessions() {
 
 /* ============================================================
    AUTO-INIT
-   - Skip kalau mode admin (admin cuma monitoring, bukan kandidat)
-   - Supaya device ID admin tidak bentrok dengan kandidat di browser yang sama
+   - Skip kalau mode admin
    ============================================================ */
 function __shouldInitPresence() {
-  // Skip kalau mode admin
   if (typeof window.isAdminUrl === 'function' && window.isAdminUrl()) {
     console.log('[PRESENCE] ⏭️ Mode admin — presence dinonaktifkan');
     return false;
