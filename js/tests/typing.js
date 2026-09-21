@@ -40,7 +40,7 @@ function formatTypingTime(secs) {
 }
 
 /* ============================================================
-   RENDER TYPING TEST
+   RENDER TYPING TEST — dengan overlay persiapan
    ============================================================ */
 function renderTypingTest() {
   window.__inTestView = true;
@@ -57,8 +57,11 @@ function renderTypingTest() {
 
   const expectedWordCount = __normalizeWS(typingText).split(' ').filter(Boolean).length;
 
+  // ============================================================
+  // RENDER UI (dalam kondisi blur + timer BELUM jalan)
+  // ============================================================
   document.getElementById('app').innerHTML = `
-    <div class="ist-shell">
+    <div class="ist-shell" id="typingShell">
       <div class="ist-panel">
         ${renderTestPageHeader({
           eyebrow: 'ADMINISTRATIVE TEST',
@@ -105,63 +108,289 @@ function renderTypingTest() {
           </div>
 
           <div class="ist-actions" style="margin-top:22px;">
-            <button class="ist-btn-primary" id="btnTypingDone" type="button" style="background:linear-gradient(135deg,#16a34a,#059669);">Kirim Jawaban</button>
+            <button class="ist-btn-primary" id="btnTypingDone" type="button" style="background:linear-gradient(135deg,#16a34a,#059669);" disabled>
+              Kirim Jawaban
+            </button>
           </div>
         </div>
       </div>
     </div>
   `;
 
-  if (appState.typingTimer) clearInterval(appState.typingTimer);
-  appState.typingTimer = setInterval(() => {
-    appState.timeLeft--;
-    const el = document.getElementById('typingTimer');
-    if (el) el.textContent = formatTypingTime(appState.timeLeft);
-    if (appState.timeLeft <= 0) endTypingTest(true);
-  }, 1000);
+  // ============================================================
+  // OVERLAY PERSIAPAN
+  // ============================================================
+  const overlayId = 'typingStartOverlay';
+  const existingOverlay = document.getElementById(overlayId);
+  if (existingOverlay) existingOverlay.remove();
 
-  const inputEl = document.getElementById('typingInput');
+  const overlay = document.createElement('div');
+  overlay.id = overlayId;
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(99,102,241,.15), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(16,185,129,.15), transparent 45%),
+      rgba(10,17,36,.85);
+    backdrop-filter: blur(10px) saturate(1.1);
+    -webkit-backdrop-filter: blur(10px) saturate(1.1);
+    animation: typingOverlayFade .3s ease;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  `;
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes typingOverlayFade {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes typingModalIn {
+        from { opacity: 0; transform: translateY(20px) scale(.95); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes typingIconPulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.08); }
+      }
+      @keyframes typingBtnShine {
+        0%   { transform: translateX(-100%); }
+        100% { transform: translateX(200%); }
+      }
+    </style>
+
+    <div style="
+      max-width: 520px;
+      width: 100%;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow:
+        0 40px 100px rgba(10,17,36,.45),
+        0 15px 40px rgba(10,17,36,.28);
+      animation: typingModalIn .36s cubic-bezier(.2,.8,.2,1);
+      position: relative;
+    ">
+      <!-- Gold/Navy accent line -->
+      <div style="
+        height: 5px;
+        background: linear-gradient(90deg, #0a1124, #1a2547 30%, #6366f1 50%, #1a2547 70%, #0a1124);
+      "></div>
+
+      <div style="padding: 40px 34px 34px; text-align: center;">
+
+        <div style="
+          width: 80px; height: 80px;
+          margin: 0 auto 18px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #0a1124, #1a2547);
+          border-radius: 24px;
+          font-size: 38px;
+          box-shadow:
+            0 15px 32px rgba(10,17,36,.28),
+            inset 0 1px 0 rgba(255,255,255,.1),
+            0 0 0 1px rgba(99,102,241,.25);
+          animation: typingIconPulse 2s ease-in-out infinite;
+        ">⌨️</div>
+
+        <h2 style="
+          margin: 0 0 12px;
+          font-size: 1.6rem;
+          font-weight: 850;
+          color: #0a1124;
+          letter-spacing: -.03em;
+          line-height: 1.2;
+        ">Siap Mulai Mengetik?</h2>
+
+        <p style="
+          margin: 0 0 22px;
+          color: #64748b;
+          font-size: 0.98rem;
+          line-height: 1.65;
+        ">
+          Waktu <b style="color:#0a1124;">2 menit</b> akan mulai berjalan <b>setelah</b> Anda menekan tombol.<br>
+          Kursor akan otomatis aktif di kotak ketik.
+        </p>
+
+        <div style="
+          padding: 14px 16px;
+          background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+          border: 1px solid #dbeafe;
+          border-radius: 14px;
+          text-align: left;
+          font-size: 0.86rem;
+          color: #1e40af;
+          line-height: 1.7;
+          margin-bottom: 22px;
+        ">
+          <div style="font-weight: 800; margin-bottom: 6px; font-size: 0.92rem; color: #1e3a8a;">
+            💡 Tips sebelum mulai
+          </div>
+          • Siapkan posisi jari di keyboard<br>
+          • Pastikan tidak ada gangguan di sekitar<br>
+          • Fokus ke kotak ketik — kursor sudah otomatis di sana<br>
+          • Tekan <b>Enter</b> untuk mulai lebih cepat
+        </div>
+
+        <button id="btnTypingStart" style="
+          position: relative;
+          width: 100%;
+          padding: 17px 24px;
+          background: linear-gradient(135deg, #6366f1, #4338ca 60%, #3730a3);
+          color: #fff;
+          border: 0;
+          border-radius: 14px;
+          font-family: inherit;
+          font-size: 1.05rem;
+          font-weight: 800;
+          letter-spacing: 0.01em;
+          cursor: pointer;
+          overflow: hidden;
+          box-shadow:
+            0 14px 34px rgba(99,102,241,.32),
+            inset 0 1px 0 rgba(255,255,255,.15),
+            0 0 0 1px rgba(99,102,241,.15);
+          transition: all .2s ease;
+        "
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 20px 44px rgba(99,102,241,.42), inset 0 1px 0 rgba(255,255,255,.18)';"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 14px 34px rgba(99,102,241,.32), inset 0 1px 0 rgba(255,255,255,.15)';">
+          🚀 Mulai Mengetik Sekarang
+        </button>
+
+        <div style="
+          margin-top: 16px;
+          font-size: 0.78rem;
+          color: #94a3b8;
+          line-height: 1.5;
+        ">
+          Tombol <b style="color:#475569;">Enter</b> di keyboard juga bisa untuk memulai
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // ============================================================
+  // MULAI TEST — timer jalan, fokus input
+  // ============================================================
+  let started = false;
   let __typingStatsTick;
-  inputEl.addEventListener('input', () => {
-    clearTimeout(__typingStatsTick);
-    __typingStatsTick = setTimeout(updateTypingStats, 60);
-  });
 
-  ['copy', 'paste', 'cut'].forEach(ev => inputEl.addEventListener(ev, e => e.preventDefault()));
+  function mulaiTypingTest() {
+    if (started) return;
+    started = true;
 
-  document.getElementById('btnTypingDone').onclick = () => endTypingTest(false);
+    // Hapus overlay
+    overlay.remove();
+    document.removeEventListener('keydown', handleEnterStart);
 
-  function updateTypingStats() {
-    const inputRaw = inputEl.value;
-    const expectedRaw = typingText;
+    // ==========================================
+    // Aktifkan input & tombol kirim
+    // ==========================================
+    const inputEl = document.getElementById('typingInput');
+    const btnDone = document.getElementById('btnTypingDone');
 
-    const { matches, substitutions, insertions, deletions, expectedLen, inputLen } =
-      fairAlignCounts(expectedRaw, inputRaw, { whitespace: 'collapse' });
+    if (btnDone) btnDone.disabled = false;
 
-    const benar = matches;
-    const salah = substitutions + insertions;
-    const belum = deletions;
+    if (inputEl) {
+      inputEl.readOnly = false;
+      inputEl.disabled = false;
+      setTimeout(() => {
+        try { inputEl.focus({ preventScroll: false }); } catch (e) { inputEl.focus(); }
+        // Fokus ulang setelah delay singkat untuk device tertentu
+        setTimeout(() => {
+          try { inputEl.focus(); } catch (e) {}
+        }, 150);
+      }, 100);
+    }
 
-    const akurasi = expectedLen ? (benar / expectedLen * 100) : 0;
-    const menit = Math.max((waktuTyping - appState.timeLeft) / 60, 1e-6);
-    const wpm = Math.round(inputLen / menit);
-    const progress = Math.min(100, (inputLen / Math.max(expectedLen, 1)) * 100);
+    // ==========================================
+    // Mulai timer
+    // ==========================================
+    appState.typingStart = Date.now();
+    if (appState.typingTimer) clearInterval(appState.typingTimer);
 
-    const bar = document.getElementById('progressTypingBarInner');
-    if (bar) bar.style.width = `${progress}%`;
+    appState.typingTimer = setInterval(() => {
+      appState.timeLeft--;
+      const el = document.getElementById('typingTimer');
+      if (el) el.textContent = formatTypingTime(appState.timeLeft);
+      if (appState.timeLeft <= 0) endTypingTest(true);
+    }, 1000);
 
-    const stats = document.getElementById('typingLiveStats');
-    if (stats) {
-      stats.innerHTML =
-        `<b>Kata Benar:</b> ${benar} &nbsp;|&nbsp; ` +
-        `<b>Kata Salah:</b> ${salah} &nbsp;|&nbsp; ` +
-        `<b>Belum diketik:</b> ${belum} &nbsp;|&nbsp; ` +
-        `<b>Akurasi:</b> ${akurasi.toFixed(1)}% &nbsp;|&nbsp; ` +
-        `<b>WPM:</b> ${isFinite(wpm) && wpm >= 0 ? wpm : 0}`;
+    // ==========================================
+    // Attach stats listener
+    // ==========================================
+    if (inputEl) {
+      inputEl.addEventListener('input', () => {
+        clearTimeout(__typingStatsTick);
+        __typingStatsTick = setTimeout(updateTypingStats, 60);
+      });
+
+      ['copy', 'paste', 'cut'].forEach(ev =>
+        inputEl.addEventListener(ev, e => e.preventDefault())
+      );
+    }
+
+    if (btnDone) btnDone.onclick = () => endTypingTest(false);
+
+    // ==========================================
+    // Live stats function
+    // ==========================================
+    function updateTypingStats() {
+      const inputRaw = inputEl.value;
+      const expectedRaw = typingText;
+
+      const { matches, substitutions, insertions, deletions, expectedLen, inputLen } =
+        fairAlignCounts(expectedRaw, inputRaw, { whitespace: 'collapse' });
+
+      const benar = matches;
+      const salah = substitutions + insertions;
+      const belum = deletions;
+
+      const akurasi = expectedLen ? (benar / expectedLen * 100) : 0;
+      const menit = Math.max((waktuTyping - appState.timeLeft) / 60, 1e-6);
+      const wpm = Math.round(inputLen / menit);
+      const progress = Math.min(100, (inputLen / Math.max(expectedLen, 1)) * 100);
+
+      const bar = document.getElementById('progressTypingBarInner');
+      if (bar) bar.style.width = `${progress}%`;
+
+      const stats = document.getElementById('typingLiveStats');
+      if (stats) {
+        stats.innerHTML =
+          `<b>Kata Benar:</b> ${benar} &nbsp;|&nbsp; ` +
+          `<b>Kata Salah:</b> ${salah} &nbsp;|&nbsp; ` +
+          `<b>Belum diketik:</b> ${belum} &nbsp;|&nbsp; ` +
+          `<b>Akurasi:</b> ${akurasi.toFixed(1)}% &nbsp;|&nbsp; ` +
+          `<b>WPM:</b> ${isFinite(wpm) && wpm >= 0 ? wpm : 0}`;
+      }
+    }
+
+    console.log('[TYPING] ▶ Test dimulai — timer jalan, input fokus');
+  }
+
+  // ============================================================
+  // Handler tombol & Enter
+  // ============================================================
+  const startBtn = document.getElementById('btnTypingStart');
+  if (startBtn) startBtn.onclick = mulaiTypingTest;
+
+  function handleEnterStart(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      mulaiTypingTest();
     }
   }
-}
+  document.addEventListener('keydown', handleEnterStart);
 
+  console.log('[TYPING] Overlay persiapan muncul — menunggu klik Mulai');
+}
 /* ============================================================
    END TYPING TEST
    ============================================================ */
