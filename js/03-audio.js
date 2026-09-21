@@ -99,5 +99,45 @@
        console.warn('Alarm audio gagal:', err);
      }
    }
-   
+   /* ============================================================
+   🆕 AUDIO UNLOCK — Buka blokir autoplay browser
+   - Browser modern blokir audio sebelum user gesture
+   - Resume AudioContext setelah klik/tap/keydown pertama
+   ============================================================ */
+(function() {
+  let __audioUnlocked = false;
+
+  function __unlockAudio() {
+    if (__audioUnlocked) return;
+
+    // Resume semua AudioContext yang sudah ada
+    [sharedAudioCtx, wrongPasswordAudioContext].forEach(ctx => {
+      if (ctx && ctx.state === 'suspended') {
+        try { ctx.resume(); } catch (e) {}
+      }
+    });
+
+    // Resume AudioContext dari chat-notify (kalau ada)
+    if (window.__notifyAudioCtx && window.__notifyAudioCtx.state === 'suspended') {
+      try { window.__notifyAudioCtx.resume(); } catch (e) {}
+    }
+    if (window.__chatAudioCtx && window.__chatAudioCtx.state === 'suspended') {
+      try { window.__chatAudioCtx.resume(); } catch (e) {}
+    }
+
+    __audioUnlocked = true;
+    console.log('[AUDIO] 🔓 AudioContext unlocked');
+
+    // Hapus listener setelah sukses
+    document.removeEventListener('click', __unlockAudio, true);
+    document.removeEventListener('touchstart', __unlockAudio, true);
+    document.removeEventListener('keydown', __unlockAudio, true);
+  }
+
+  document.addEventListener('click', __unlockAudio, true);
+  document.addEventListener('touchstart', __unlockAudio, true);
+  document.addEventListener('keydown', __unlockAudio, true);
+
+  window.__unlockAudio = __unlockAudio;
+})();
    console.log('[AUDIO] ✓ Loaded');
