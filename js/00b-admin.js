@@ -141,34 +141,6 @@ function __formatTimeAdmin(sec) {
   return `${m}:${sec2}`;
 }
 
-/* ============================================================
-   STORAGE HELPERS
-   ============================================================ */
-function getLockState() {
-  return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL) === '1';
-}
-
-function setLockState(locked) {
-  try {
-    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.LOCK_ALL, locked ? '1' : '0');
-  } catch (e) {}
-}
-
-function getFreshPwd() {
-  return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH) || APP_CONFIG.DEFAULT_FRESH_PWD;
-}
-
-function getUsedPwd() {
-  return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.PWD_USED) || APP_CONFIG.DEFAULT_USED_PWD;
-}
-
-function setFreshPwd(pwd) {
-  try { localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_FRESH, pwd); } catch (e) {}
-}
-
-function setUsedPwd(pwd) {
-  try { localStorage.setItem(APP_CONFIG.STORAGE_KEYS.PWD_USED, pwd); } catch (e) {}
-}
 
 /* ============================================================
    DETEKSI URL ADMIN
@@ -2798,8 +2770,6 @@ function checkAdminUrlAndRender() {
 /* ============================================================
    EXPORT
    ============================================================ */
-window.getLockState = getLockState;
-window.setLockState = setLockState;
 window.getFreshPwd = getFreshPwd;
 window.getUsedPwd = getUsedPwd;
 window.isAdminUrl = isAdminUrl;
