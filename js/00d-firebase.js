@@ -2,6 +2,9 @@
    js/00d-firebase.js
    - Sync lock state & password antar device via Firebase
    - FASE 3: Baca data per-node (bukan root sgs_state)
+   ------------------------------------------------------------
+   🔒 AUDIT FIX [2026-09-21]:
+   - C4: Guard anti double-init (window.__firebaseInitialized)
    ============================================================ */
 
 /* ============================================================
@@ -62,11 +65,19 @@ function initAnonymousAuth() {
 
 window.initAnonymousAuth = initAnonymousAuth;
 
-
 /* ============================================================
    INIT FIREBASE
+   🔒 C4 FIX: Guard anti double-init
    ============================================================ */
 function initFirebase() {
+  // ── 🔒 C4 FIX: Cegah double-init ──
+  if (window.__firebaseInitialized) {
+    console.log('[FIREBASE] Sudah init, skip');
+    return;
+  }
+  window.__firebaseInitialized = true;
+  // ── AKHIR GUARD ──
+
   if (typeof firebase === 'undefined') {
     console.warn('[FIREBASE] SDK belum ke-load — cek CDN di index.html');
     return;
@@ -164,6 +175,7 @@ function initFirebase() {
 
   } catch (e) {
     console.error('[FIREBASE] Init error:', e);
+    window.__firebaseInitialized = false;  // ← reset kalau gagal
   }
 }
 
@@ -303,7 +315,6 @@ window.setUsedPwdManual = setUsedPwdManual;
    BOOTSTRAP — Login anonim DULU, baru init listeners
    ============================================================ */
 async function bootstrapFirebaseWithAuth() {
-  // Skip auth kalau mode admin (admin pakai email/password)
   const isAdminMode = (typeof isAdminUrl === 'function') && isAdminUrl();
 
   // ✅ Initialize Firebase DULU sebelum pakai auth
