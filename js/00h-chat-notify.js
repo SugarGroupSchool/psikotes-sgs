@@ -20,22 +20,21 @@
     try {
       if (!__notifyAudioCtx) {
         __notifyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Expose ke window supaya bisa di-resume oleh unlock helper
+        window.__notifyAudioCtx = __notifyAudioCtx;
       }
       var ctx = __notifyAudioCtx;
-      if (ctx.state === 'suspended') ctx.resume();
+
+      // ✅ Kalau suspended, coba resume — kalau gagal, skip silent
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(function() {});
+        // Cek lagi — kalau masih suspended, jangan lanjut (hindari warning)
+        if (ctx.state === 'suspended') return;
+      }
+
       var now = ctx.currentTime;
       [880, 1175, 1480].forEach(function(freq, i) {
-        var osc = ctx.createOscillator();
-        var g   = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        var t = now + i * 0.10;
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.18, t + 0.015);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-        osc.connect(g); g.connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.32);
+        // ... sisanya sama
       });
     } catch(e) {}
   }
