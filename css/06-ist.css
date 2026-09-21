@@ -1050,3 +1050,161 @@
     font-size: 11px;
   }
 }
+/* ============================================================
+   ✅ ZR (Zahlenreihen) — Series Boxes
+   ============================================================ */
+.zr-series-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 26px 20px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(91,92,240,.05), transparent 55%),
+    radial-gradient(circle at 80% 80%, rgba(6,182,212,.05), transparent 55%),
+    linear-gradient(145deg, #f8fafc, #f1f5f9);
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+}
+
+/* ---------- Kotak dasar ---------- */
+.zr-box {
+  min-width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-family: 'Courier New', ui-monospace, monospace;
+  letter-spacing: 0.3px;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+/* ---------- Kotak angka (static) ---------- */
+.zr-box-number {
+  background: #ffffff;
+  border: 1.5px solid #d6e1ec;
+  color: #172033;
+  box-shadow:
+    0 3px 10px rgba(15,23,42,.05),
+    inset 0 -2px 0 rgba(15,23,42,.03);
+}
+
+.zr-box-number:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15,23,42,.09);
+}
+
+/* ---------- Kotak jawaban (interactive) ---------- */
+.zr-box-answer {
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eff6ff, #e0f2fe);
+  border: 2px dashed #60a5fa;
+  box-shadow:
+    0 0 0 3px rgba(96,165,250,.08),
+    0 4px 14px rgba(37,99,235,.10);
+  animation: zrAnswerPulse 2.4s ease-in-out infinite;
+}
+
+.zr-box-answer:focus-within {
+  border-color: #2563eb;
+  border-style: solid;
+  animation: none;
+  box-shadow:
+    0 0 0 4px rgba(37,99,235,.15),
+    0 6px 18px rgba(37,99,235,.18);
+  transform: scale(1.04);
+}
+
+@keyframes zrAnswerPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(96,165,250,.08),
+      0 4px 14px rgba(37,99,235,.10);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(96,165,250,.14),
+      0 6px 18px rgba(37,99,235,.18);
+  }
+}
+
+.zr-input {
+  width: 100%;
+  height: 100%;
+  min-width: 56px;
+  padding: 0 6px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  text-align: center;
+  color: #1d4ed8;
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-family: 'Courier New', ui-monospace, monospace;
+  letter-spacing: 0.3px;
+  -moz-appearance: textfield;
+}
+
+/* Sembunyikan arrow input number */
+.zr-input::-webkit-outer-spin-button,
+.zr-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.zr-input::placeholder {
+  color: #93c5fd;
+  font-weight: 800;
+  opacity: 1;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 720px) {
+  .zr-series-container {
+    gap: 7px;
+    padding: 20px 14px;
+  }
+  .zr-box {
+    min-width: 48px;
+    height: 48px;
+    padding: 0 8px;
+    font-size: 1.05rem;
+    border-radius: 10px;
+  }
+  .zr-input {
+    font-size: 1.05rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .zr-series-container {
+    gap: 5px;
+    padding: 16px 10px;
+  }
+  .zr-box {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 6px;
+    font-size: 0.92rem;
+    border-radius: 9px;
+  }
+  .zr-input {
+    font-size: 0.92rem;
+  }
+}
+
+/* Aksesibilitas — reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .zr-box-answer {
+    animation: none !important;
+  }
+  .zr-box {
+    transition: none !important;
+    transform: none !important;
+  }
+}
