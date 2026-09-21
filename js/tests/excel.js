@@ -4,6 +4,10 @@
    - Anti-dobel guard: submit sekali saja
    - Anti-cheat: 2× warning → diskualifikasi
    - Output: .xlsx auto-upload ke Google Drive
+   - ✅ FIX: Export Excel (support Luckysheet 2D array format)
+   - ✅ FIX: Retry fill data + delay 800ms
+   - ✅ FIX: Konfirmasi sebelum auto-submit PDF
+   - ✅ FIX: Warning untuk user mobile
    ============================================================ */
 
 (function() {
@@ -111,6 +115,10 @@ function renderExcelIntro() {
   const id = appState.identity || {};
   const nama = id.name || 'Kandidat';
 
+  // ✅ FIX: deteksi mobile / tablet
+  const isMobile = window.innerWidth < 900
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
   document.getElementById('app').innerHTML = `
     <div class="ist-shell">
       <div class="ist-panel">
@@ -136,6 +144,20 @@ function renderExcelIntro() {
               <div class="ist-info-value">.xlsx otomatis</div>
             </div>
           </div>
+
+          ${isMobile ? `
+            <div class="ist-instruction-card" style="background:#fef3c7;border-color:#fde68a;">
+              <div class="ist-section-heading" style="color:#92400e;">
+                <span class="ist-section-icon" style="background:#fef3c7;color:#d97706;">📱</span>
+                Disarankan Pakai Laptop
+              </div>
+              <div class="ist-instruction-text" style="color:#78350f;">
+                Tes Excel sebaiknya dikerjakan di <b>laptop atau komputer</b> untuk pengalaman terbaik.
+                Di HP/tablet, tombol dan grid mungkin lebih sulit digunakan.
+                Kalau tetap ingin lanjut, pastikan Anda nyaman.
+              </div>
+            </div>
+          ` : ''}
 
           <div class="ist-instruction-card">
             <div class="ist-section-heading">
@@ -331,8 +353,20 @@ function initLuckysheet() {
     ],
     hook: {
       workbookCreateAfter: function() {
-        setTimeout(() => {
+        // ✅ FIX: retry mechanism, max 10x, delay 300ms
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        function tryFill() {
+          attempts++;
           try {
+            if (typeof luckysheet === 'undefined' || !luckysheet.setCellValue) {
+              if (attempts < maxAttempts) return setTimeout(tryFill, 300);
+              console.warn('[EXCEL] Luckysheet tidak ready setelah ' + maxAttempts + ' percobaan');
+              return;
+            }
+
+            // Sheet 1: Data Siswa
             luckysheet.setSheetActive(0);
             for (let r = 0; r < sheet1Data.length; r++) {
               for (let c = 0; c < sheet1Data[r].length; c++) {
@@ -342,6 +376,8 @@ function initLuckysheet() {
                 }
               }
             }
+
+            // Sheet 2: Soal
             luckysheet.setSheetActive(1);
             for (let r = 0; r < sheet2Data.length; r++) {
               for (let c = 0; c < sheet2Data[r].length; c++) {
@@ -351,13 +387,18 @@ function initLuckysheet() {
                 }
               }
             }
+
+            // Kembali ke sheet 1
             luckysheet.setSheetActive(0);
             luckysheet.refresh();
             console.log('[EXCEL] ✓ Luckysheet siap — kandidat:', nama);
           } catch (e) {
-            console.error('[EXCEL] Isi data error:', e);
+            console.warn('[EXCEL] Fill attempt ' + attempts + ' gagal:', e.message);
+            if (attempts < maxAttempts) setTimeout(tryFill, 300);
           }
-        }, 300);
+        }
+
+        tryFill();
       }
     }
   });
@@ -500,7 +541,7 @@ async function finishExcelTest(timeUp) {
         ${renderTestPageHeader({
           eyebrow: 'ADMINISTRATIVE TEST',
           title: 'Tes Excel',
-          subtitle: 'Mengirim hasil…',
+          subtitle: timeUp ? 'Waktu habis — mengirim hasil…' : 'Mengirim hasil…',
           showBack: false
         })}
         <div class="ist-body">
@@ -571,17 +612,30 @@ async function finishExcelTest(timeUp) {
         : false;
 
       if (allDone) {
-        // Semua tes selesai → otomatis kirim PDF ke admin
-        setUI('📤', 'Semua tes selesai!', 'Mengirim hasil tes (PDF) ke admin...', 100);
+        // ✅ FIX: konfirmasi dulu sebelum auto-submit PDF
+        setUI('✅', 'Semua Tes Selesai!', 'Excel sudah terkirim ke admin.', 100);
 
         setTimeout(() => {
-          // Bersihkan app container supaya tidak numpuk dengan overlay PDF
-          try { document.getElementById('app').innerHTML = ''; } catch (e) {}
+          const ok = confirm(
+            'Semua tes sudah selesai! ✅\n\n' +
+            'Klik OK untuk mengirim HASIL TES (PDF) ke admin sekarang.\n\n' +
+            'Pastikan koneksi internet stabil sebelum melanjutkan.'
+          );
 
-          if (typeof window.startSubmitProcess === 'function') {
-            window.startSubmitProcess();
-          } else if (typeof window.renderHome === 'function') {
-            window.renderHome();
+          if (ok) {
+            try { document.getElementById('app').innerHTML = ''; } catch (e) {}
+            if (typeof window.startSubmitProcess === 'function') {
+              window.startSubmitProcess();
+            } else if (typeof window.renderHome === 'function') {
+              window.renderHome();
+            }
+          } else {
+            // Kandidat pilih cancel → balik ke home
+            if (typeof window.renderHome === 'function') {
+              window.renderHome();
+            } else {
+              window.location.reload();
+            }
           }
         }, 1200);
       } else {
@@ -607,7 +661,7 @@ async function finishExcelTest(timeUp) {
 }
 
 /* ============================================================
-   GENERATE .xlsx
+   ✅ FIX: GENERATE .xlsx — Support kedua format Luckysheet
    ============================================================ */
 function generateExcelBlob() {
   const wb = XLSX.utils.book_new();
@@ -622,6 +676,7 @@ function generateExcelBlob() {
   }
 
   if (!Array.isArray(sheets) || sheets.length === 0) {
+    // Fallback: data default
     const dataSheet = [["No","Nama Siswa","Kelas","MTK","IPA","IPS","Rata-rata","Keterangan"]];
     EXCEL_STUDENTS.forEach(s => {
       dataSheet.push([s.no, s.nama, s.kelas, s.mtk, s.ipa, s.ips, "", ""]);
@@ -638,33 +693,72 @@ function generateExcelBlob() {
   } else {
     sheets.forEach((sheetData, idx) => {
       const name = (sheetData.name || ('Sheet' + (idx + 1))).slice(0, 30);
-      const celldata = sheetData.data || sheetData.celldata || [];
 
-      let maxR = 0, maxC = 0;
-      celldata.forEach(c => {
-        if (c.r > maxR) maxR = c.r;
-        if (c.c > maxC) maxC = c.c;
-      });
+      // ✅ FIX: support KEDUA format
+      //   - Format A: sheetData.data = 2D array [[{v}, {v}], ...]  (Luckysheet 2.1.13)
+      //   - Format B: sheetData.celldata = [{r, c, v}, ...]
+      let aoa = [];
 
-      const aoa = [];
-      for (let r = 0; r <= maxR; r++) {
-        const rowArr = [];
-        for (let c = 0; c <= maxC; c++) {
-          const found = celldata.find(x => x.r === r && x.c === c);
-          const cell = found ? found.v : null;
-          if (cell == null) {
-            rowArr.push('');
-          } else if (typeof cell === 'object' && cell.m != null) {
-            rowArr.push(cell.m);
-          } else {
-            rowArr.push(cell);
+      const data2D = sheetData.data;
+      const celldata = sheetData.celldata;
+
+      if (Array.isArray(data2D) && data2D.length > 0 && Array.isArray(data2D[0])) {
+        // ✅ Format A: 2D array
+        const maxR = data2D.length;
+        let maxC = 0;
+        data2D.forEach(row => {
+          if (Array.isArray(row) && row.length > maxC) maxC = row.length;
+        });
+
+        for (let r = 0; r < maxR; r++) {
+          const rowArr = [];
+          for (let c = 0; c < maxC; c++) {
+            const cell = data2D[r]?.[c];
+            if (cell == null) {
+              rowArr.push('');
+            } else if (typeof cell === 'object') {
+              // Prioritaskan .v (value asli), fallback ke .m (display)
+              const val = cell.v != null ? cell.v : (cell.m != null ? cell.m : '');
+              rowArr.push(val);
+            } else {
+              rowArr.push(cell);
+            }
           }
+          aoa.push(rowArr);
         }
-        aoa.push(rowArr);
+      } else if (Array.isArray(celldata) && celldata.length > 0) {
+        // ✅ Format B: celldata flat array
+        let maxR = 0, maxC = 0;
+        celldata.forEach(c => {
+          if (c.r > maxR) maxR = c.r;
+          if (c.c > maxC) maxC = c.c;
+        });
+
+        for (let r = 0; r <= maxR; r++) {
+          const rowArr = [];
+          for (let c = 0; c <= maxC; c++) {
+            const found = celldata.find(x => x.r === r && x.c === c);
+            const cell = found ? found.v : null;
+            if (cell == null) {
+              rowArr.push('');
+            } else if (typeof cell === 'object' && cell.m != null) {
+              rowArr.push(cell.m);
+            } else {
+              rowArr.push(cell);
+            }
+          }
+          aoa.push(rowArr);
+        }
+      }
+
+      // Kalau tetap kosong → buat worksheet kosong dengan info
+      if (aoa.length === 0) {
+        aoa = [['(Sheet kosong)']];
       }
 
       const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = Array.from({ length: maxC + 1 }, () => ({ wch: 18 }));
+      const maxCols = Math.max(...aoa.map(r => r.length), 1);
+      ws['!cols'] = Array.from({ length: maxCols }, () => ({ wch: 20 }));
       XLSX.utils.book_append_sheet(wb, ws, name);
     });
   }
@@ -721,6 +815,6 @@ async function uploadExcelToGAS(blob, filename) {
 
 window.renderAdminExcelSheet = renderAdminExcelSheet;
 
-console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-dobel');
+console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-dobel + FIX export');
 
 })();
