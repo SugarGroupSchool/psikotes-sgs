@@ -682,7 +682,6 @@ async function fetchResultFiles(forceRefresh = false) {
 
   return window.__resultFilesFetchPromise;
 }
-
 function __invalidateResultCache() {
   window.__resultFilesCacheData = null;
   window.__resultFilesCacheTime = 0;
