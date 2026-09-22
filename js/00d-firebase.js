@@ -169,16 +169,19 @@ function initFirebase() {
 
     __attachFbListeners();
 
-    firebase.auth().onAuthStateChanged((user) => {
-      const type = user ? (user.isAnonymous ? 'anonim' : 'email') : 'logout';
-      console.log('[FIREBASE] 🔄 Auth changed:', type);
-      setTimeout(async () => {
-        __attachFbListeners();
-        // 🔒 Register device ownership tiap auth berubah
-        const did = localStorage.getItem('_sgs_device_id');
-        if (did && user) await ensureDeviceOwnership(did);
-      }, 400);
-    });
+  firebase.auth().onAuthStateChanged((user) => {
+  const type = user ? (user.isAnonymous ? 'anonim' : 'email') : 'logout';
+  console.log('[FIREBASE] 🔄 Auth changed:', type);
+
+  // 🆕 Kalau user logout (null) → detach listener, JANGAN re-attach
+  if (!user) {
+    __detachFbListeners();
+    console.log('[FIREBASE] 🔇 Listeners detached (user logout)');
+    return;
+  }
+
+  setTimeout(__attachFbListeners, 400);
+});
 
     console.log('[FIREBASE] ✓ Initialized (auth-aware + fail-closed)');
   } catch (e) {
