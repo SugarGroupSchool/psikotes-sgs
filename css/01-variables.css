@@ -41,3 +41,43 @@
     --radius-lg: 18px;
     --radius-xl: 24px;
   }
+
+:root {
+  /* ... yang sudah ada ... */
+
+  /* ✅ PINDAHKAN DARI 07-kraeplin.css */
+  --kp-navy-900: #0a1124;
+  --kp-navy-800: #101a35;
+  --kp-navy-700: #1a2547;
+  --kp-navy-600: #253660;
+  --kp-navy-500: #334877;
+  --kp-gold-400: #fbbf24;
+  --kp-gold-500: #f59e0b;
+  --kp-gold-600: #d97706;
+  --kp-emerald-400: #34d399;
+  --kp-emerald-500: #10b981;
+  --kp-emerald-600: #059669;
+  --kp-rose-400: #f87171;
+  --kp-rose-500: #ef4444;
+  --kp-rose-600: #dc2626;
+
+  /* Z-INDEX SCALE */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 500;
+  --z-modal: 1000;
+  --z-modal-nested: 1500;
+  --z-toast: 2000;
+  --z-anti-cheat: 9999;
+  --z-critical: 2147483647;
+
+  /* SPACING SCALE */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+}
