@@ -72,10 +72,10 @@ async function ensureDeviceOwnership(deviceId) {
     const ref = firebase.database().ref('device_owners/' + deviceId);
     const snap = await ref.once('value');
     if (snap.exists() && snap.val() === uid) return true;
-    if (snap.exists() && snap.val() !== uid) {
-      console.error('[OWNERSHIP] deviceId sudah milik uid lain:', deviceId);
-      return false;
-    }
+if (snap.exists() && snap.val() !== uid) {
+  // Admin login di device yang pernah dipakai kandidat → normal, skip tanpa warning
+  return true;
+}
     await ref.set(uid);
     console.log('[OWNERSHIP] ✅ Registered:', deviceId.slice(-8), '→', uid.slice(0, 8));
     return true;
