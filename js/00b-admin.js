@@ -36,7 +36,7 @@ const CHAT_CLEANUP_ENABLED        = true;
 const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;
 const CHAT_CLEANUP_DELETE_SESSION = true;
 
-const RESULT_CACHE_TTL_MS         = 30000;
+const RESULT_CACHE_TTL_MS         = 10000;
 const RECENTLY_DELETED_TTL_MS     = 10000;
 const DRIVE_PROPAGATION_DELAY_MS  = 2000;
 
@@ -1908,10 +1908,27 @@ function renderAdminPanel() {
     if (typeof startAdminTimerTick === 'function') startAdminTimerTick();
     if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-    if (window.__pdfAutoRefreshTimer) clearInterval(window.__pdfAutoRefreshTimer);
-    window.__pdfAutoRefreshTimer = setInterval(() => {
-      if (document.getElementById('adminResultCount')) __updateAdminResultCounter();
-    }, 30000);
+if (window.__pdfAutoRefreshTimer) {
+  clearInterval(window.__pdfAutoRefreshTimer);
+}
+window.__pdfAutoRefreshTimer = setInterval(() => {
+  // Kalau panel admin masih terbuka
+  if (!document.getElementById('adminPanelOverlay')) return;
+
+  // Update counter di kartu "Hasil Tes Terkirim"
+  if (document.getElementById('adminResultCount')) {
+    __updateAdminResultCounter();
+  }
+
+  // Kalau halaman hasil tes sedang terbuka, refresh juga
+  if (document.getElementById('resultFilesPageOverlay')) {
+    __invalidateResultCache();
+    fetchResultFiles(true).then(files => {
+      window.__resultFilesCache = files;
+      __renderResultPageContent();
+    }).catch(() => {});
+  }
+}, 10000);   // 10 detik
 
     if (typeof startResultsRealtimeListener === 'function') startResultsRealtimeListener();
 
