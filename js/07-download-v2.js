@@ -463,7 +463,18 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
 
       setUI('📤', 'Mengunggah...', 'Menunggu konfirmasi server...', 90, '90%');
       await new Promise(r => setTimeout(r, 1500));
-
+/* 🆕 Kirim sinyal real-time ke admin */
+try {
+  if (typeof firebase !== 'undefined' && firebase.apps.length) {
+    firebase.database().ref('sgs_state/lastUpload').set({
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      type: 'pdf',
+      name: identity.name || 'Kandidat',
+      position: identity.position || '',
+      deviceId: localStorage.getItem('_sgs_device_id') || ''
+    }).catch(() => {});
+  }
+} catch (e) {}
       return { success: true };
 
     } catch (err) {
