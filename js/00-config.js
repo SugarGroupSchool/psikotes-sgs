@@ -47,7 +47,7 @@ const APP_CONFIG = {
          .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
      Ganti nilai di bawah dengan hasil hash.
      ============================================================ */
-  ADMIN_KEY_HASH: 'f4a5b8e2c9d6f1a3b7e4c2d5f8a1b6e3c7d9f2a4b5e8c1d6f3a7b4e9c2d5f8a1',
+ ADMIN_KEY_HASH: '0f2afae49dbe2d391b056a2c8832a1d99b9680e46aee74739d223730e25158ea',
 
   /* URL fallback Google Form */
   FORM_FINAL_URL: 'https://forms.gle/G69K56TRfxNnBXtr9',
