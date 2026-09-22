@@ -1,21 +1,42 @@
-/* =========================================================
-   AUTHENTICATION — Lock Control + Fresh/Used password
-   ---------------------------------------------------------
-   🔒 AUDIT FIX [2026-09-21]:
-   - I6: Hapus listener Enter duplikat (dragstart event)
-         → sudah ditangani dengan benar di 08-app-init.js
-   ========================================================= */
-
 /* ============================================================
-   CHECK PASSWORD — Login utama
+   CHECK PASSWORD — Login utama (SECURED)
+   ------------------------------------------------------------
+   🔒 SECURITY FIX [2026-09-22]:
+   - P1-1: Hapus fallback password default
+   - P1-4: Cek finished/disqualified server-side
+   - P1-6: Fail-closed kalau cloud belum ready
    ============================================================ */
-function checkPassword() {
+async function checkPassword() {
   const input = document.getElementById('passwordInput');
   const error = document.getElementById('passwordError');
   const value = (input.value || '').trim();
 
-  /* ---------- CEK 1: LOCK AKTIF? ---------- */
-  if (typeof window.getLockState === 'function' && window.getLockState()) {
+  if (!value) {
+    error.textContent = 'Masukkan kode akses terlebih dahulu.';
+    error.style.color = '#ff6b6b';
+    input.focus();
+    return;
+  }
+
+  /* ---------- 🔒 CEK 0: Cloud ready? ---------- */
+  if (typeof window.isCloudReady === 'function' && !window.isCloudReady()) {
+    error.textContent = '⚠️ Sistem sedang memuat konfigurasi. Tunggu beberapa detik lalu coba lagi.';
+    error.style.color = '#fbbf24';
+    return;
+  }
+
+  const deviceId = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_ID);
+
+  /* ---------- 🔒 CEK 1: Lock server-side ---------- */
+  let lockedNow = null;
+  if (typeof window.checkLockServer === 'function') {
+    const lockRes = await window.checkLockServer();
+    if (lockRes.status === 'ok') lockedNow = lockRes.locked;
+  }
+  if (lockedNow === null && typeof window.getLockState === 'function') {
+    lockedNow = window.getLockState();
+  }
+  if (lockedNow === true) {
     error.textContent = '🔒 Login sedang dikunci oleh admin. Hubungi panitia.';
     error.style.color = '#ff6b6b';
     input.value = '';
@@ -23,8 +44,21 @@ function checkPassword() {
     return;
   }
 
-  /* ---------- CEK 2: DEVICE SUDAH FINISHED? ---------- */
-  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+  /* ---------- 🔒 CEK 2: Device finished server-side ---------- */
+  let serverStatus = null;
+  if (deviceId && typeof window.checkDeviceStatusServer === 'function') {
+    serverStatus = await window.checkDeviceStatusServer(deviceId);
+  }
+
+  const finishedServer =
+    (serverStatus && serverStatus.finished === true) ||
+    (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1');
+
+  if (finishedServer) {
+    // 🔒 Sync ke server kalau ternyata lokal lebih dulu
+    if (deviceId && typeof window.syncFinishedStateToServer === 'function') {
+      try { await window.syncFinishedStateToServer(deviceId); } catch (e) {}
+    }
     if (typeof showRequestAccessScreen === 'function') {
       const pwdScreen = document.getElementById('passwordScreen');
       if (pwdScreen) pwdScreen.classList.add('hidden');
@@ -38,13 +72,32 @@ function checkPassword() {
     return;
   }
 
-  /* ---------- CEK 3: TENTUKAN PASSWORD YANG BERLAKU ---------- */
+  const disqualifiedServer =
+    (serverStatus && serverStatus.disqualified === true) ||
+    (localStorage.getItem('_sgs_disqualified') === '1');
+
+  if (disqualifiedServer) {
+    if (typeof showRequestAccessScreen === 'function') {
+      const pwdScreen = document.getElementById('passwordScreen');
+      if (pwdScreen) pwdScreen.classList.add('hidden');
+      showRequestAccessScreen();
+      return;
+    }
+  }
+
+  /* ---------- 🔒 CEK 3: Ambil password aktif dari cloud ---------- */
   const used = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
   const validPwd = used
-    ? (typeof window.getUsedPwd === 'function' ? window.getUsedPwd() : APP_CONFIG.DEFAULT_USED_PWD)
-    : (typeof window.getFreshPwd === 'function' ? window.getFreshPwd() : APP_CONFIG.DEFAULT_FRESH_PWD);
+    ? (typeof window.getUsedPwd === 'function' ? window.getUsedPwd() : null)
+    : (typeof window.getFreshPwd === 'function' ? window.getFreshPwd() : null);
 
-  /* ---------- CEK 4: PASSWORD COCOK? ---------- */
+  if (!validPwd) {
+    error.textContent = '⚠️ Password belum tersedia di server. Refresh halaman atau hubungi admin.';
+    error.style.color = '#fbbf24';
+    return;
+  }
+
+  /* ---------- CEK 4: Cocok? ---------- */
   if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
     runWrongPasswordEffects();
@@ -55,7 +108,7 @@ function checkPassword() {
 
   /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
-  playFuturisticSound();
+  if (typeof playFuturisticSound === 'function') playFuturisticSound();
 
   document.getElementById('welcomeMessage').classList.add('show');
   document.getElementById('passwordLogo').classList.add('small');
@@ -65,7 +118,6 @@ function checkPassword() {
   setTimeout(() => {
     document.getElementById('passwordScreen').classList.add('hidden');
 
-    /* Cek identity: kalau sudah ada → resume, kalau belum → form */
     let identitySaved = null;
     try {
       const raw = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.IDENTITY);
@@ -79,84 +131,14 @@ function checkPassword() {
       identitySaved.name.trim().length > 0;
 
     if (hasValidIdentity) {
-      console.log('[AUTH] 🔄 Resume — langsung ke home');
       window.appState = window.appState || {};
       window.appState.identity = identitySaved;
-      if (typeof window.renderHome === 'function') {
-        window.renderHome();
-      } else {
-        renderIdentityForm();
-      }
+      if (typeof window.renderHome === 'function') window.renderHome();
+      else renderIdentityForm();
     } else {
-      console.log('[AUTH] 🆕 Fresh — tampilkan form identity');
       renderIdentityForm();
     }
   }, APP_CONFIG.TIMING.SPLASH_DELAY);
 }
 
-/* ============================================================
-   EFFECTS
-   ============================================================ */
-function passwordWrongImageEffect() {
-  const screen = document.getElementById('passwordScreen');
-  document.querySelectorAll('img').forEach(img => {
-    img.classList.remove('password-image-error');
-    void img.offsetWidth;
-    img.classList.add('password-image-error');
-  });
-  if (screen) {
-    screen.classList.remove('password-screen-error');
-    void screen.offsetWidth;
-    screen.classList.add('password-screen-error');
-  }
-  setTimeout(() => {
-    document.querySelectorAll('img').forEach(i => i.classList.remove('password-image-error'));
-    if (screen) screen.classList.remove('password-screen-error');
-  }, APP_CONFIG.TIMING.AUTH_SOUND_MS);
-}
-
-function runWrongPasswordEffects() {
-  passwordWrongImageEffect();
-  if (typeof playWrongPasswordAlarm === 'function') playWrongPasswordAlarm();
-}
-
-function resetToLogin() {
-  document.getElementById('passwordScreen').classList.remove('hidden');
-  document.getElementById('passwordForm').style.opacity = '1';
-  document.getElementById('passwordForm').style.pointerEvents = 'auto';
-  document.getElementById('passwordInput').value = '';
-  document.getElementById('passwordError').textContent = '';
-  document.getElementById('welcomeMessage').classList.remove('show');
-  document.getElementById('passwordLogo').classList.remove('small');
-  document.getElementById('app').innerHTML = '';
-  setTimeout(() => document.getElementById('passwordInput')?.focus(), 150);
-}
-
-/* ============================================================
-   EVENT BINDINGS
-   ------------------------------------------------------------
-   🔒 I6 FIX: Hapus blok dragstart yang memasang listener Enter
-   - Enter sudah ditangani dengan benar di 08-app-init.js
-     oleh attachPasswordEnter() dengan guard __enterBound
-   - Blok dragstart lama menyebabkan listener menumpuk
-   ============================================================ */
-
-// ── Blok lama yang DIHAPUS ──
-// document.addEventListener('dragstart', e => {
-//   const input = document.getElementById('passwordInput');
-//   if (input) {
-//     input.addEventListener('keypress', e => {
-//       if (e.key === 'Enter') { e.preventDefault(); checkPassword(); }
-//     });
-//     setTimeout(() => input.focus(), 100);
-//   }
-// });
-
-// ── Yang DIPERTAHANKAN: cegah drag gambar & context menu ──
-document.addEventListener('dragstart', e => {
-  if (e.target instanceof HTMLImageElement) e.preventDefault();
-});
-
-document.addEventListener('contextmenu', e => e.preventDefault());
-
-console.log('[AUTH] ✓ Loaded — listener Enter ditangani oleh 08-app-init.js');
+window.checkPassword = checkPassword;
