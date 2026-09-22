@@ -1,16 +1,17 @@
 /* ============================================================
    js/00e-presence.js
-   - Heartbeat kandidat aktif ke Firebase (5 detik saat tes)
-   - Listen sinyal admin: allow_retake, force_refresh,
-     force_logout, disqualified, reset_progress
-   ------------------------------------------------------------
-   🔒 AUDIT FIX [2026-09-21]:
-   - I3: Reset device ID saat allow_retake (cegah data kandidat lama tercampur)
+   - Heartbeat kandidat aktif ke Firebase (dynamic 5s/20s)
+   - Listen sinyal admin
+   - 🔒 SECURITY FIX [2026-09-22]:
+     * P1-3: Heartbeat dynamic (5s saat tes, 20s idle)
+     * P1-7: Auto-register device ownership sebelum write
+     * P1-8: Handle error rule dengan pesan jelas
    ============================================================ */
 
-const PRESENCE_DEVICE_KEY   = '_sgs_device_id';
-const PRESENCE_HEARTBEAT_MS = 5000;
-const PRESENCE_STALE_MS     = 3 * 60 * 1000;
+const PRESENCE_DEVICE_KEY       = '_sgs_device_id';
+const PRESENCE_HEARTBEAT_ACTIVE = 5000;   // saat tes
+const PRESENCE_HEARTBEAT_IDLE   = 20000;  // idle / di home
+const PRESENCE_STALE_MS         = 3 * 60 * 1000;
 
 let __presenceTimer       = null;
 let __presenceDeviceId    = null;
@@ -19,6 +20,7 @@ let __presenceListenRef   = null;
 let __presenceListenCb    = null;
 let __presenceIP          = null;
 let __presenceIPFetching  = false;
+let __presenceOwnershipOk = false;
 
 /* ============================================================
    IP PUBLIK
@@ -31,26 +33,14 @@ async function __fetchPublicIP() {
   try {
     const res = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
     const data = await res.json();
-    if (data && data.ip) {
-      __presenceIP = data.ip;
-      console.log('[PRESENCE] 🌐 IP didapat:', __presenceIP);
-      return __presenceIP;
-    }
-  } catch (e) {
-    console.warn('[PRESENCE] ipify gagal, coba ipapi:', e.message);
-  }
+    if (data && data.ip) { __presenceIP = data.ip; return __presenceIP; }
+  } catch (e) {}
 
   try {
     const res2 = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
     const data2 = await res2.json();
-    if (data2 && data2.ip) {
-      __presenceIP = data2.ip;
-      console.log('[PRESENCE] 🌐 IP didapat (ipapi):', __presenceIP);
-      return __presenceIP;
-    }
-  } catch (e) {
-    console.warn('[PRESENCE] ipapi gagal:', e.message);
-  }
+    if (data2 && data2.ip) { __presenceIP = data2.ip; return __presenceIP; }
+  } catch (e) {}
 
   __presenceIPFetching = false;
   return null;
@@ -65,26 +55,43 @@ function getOrCreateDeviceId() {
     if (!id) {
       id = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       localStorage.setItem(PRESENCE_DEVICE_KEY, id);
-      console.log('[PRESENCE] 🆕 Device ID baru dibuat:', id);
+      console.log('[PRESENCE] 🆕 Device ID baru:', id);
     }
     return id;
   } catch (e) {
-    const fallback = 'dev_anon_' + Math.random().toString(36).slice(2, 10);
-    console.warn('[PRESENCE] localStorage gagal, pakai fallback:', fallback);
-    return fallback;
+    return 'dev_anon_' + Math.random().toString(36).slice(2, 10);
   }
+}
+
+/* ============================================================
+   🔒 Dynamic heartbeat interval
+   ============================================================ */
+function __getHeartbeatMs() {
+  return (window.__inTestView === true)
+    ? PRESENCE_HEARTBEAT_ACTIVE
+    : PRESENCE_HEARTBEAT_IDLE;
 }
 
 /* ============================================================
    INIT
    ============================================================ */
-function initPresence() {
+async function initPresence() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
     setTimeout(initPresence, 500);
     return;
   }
 
   __presenceDeviceId = getOrCreateDeviceId();
+
+  // 🔒 WAJIB: register ownership sebelum menulis apa pun
+  const ownerOk = await ensureDeviceOwnership(__presenceDeviceId);
+  if (!ownerOk) {
+    console.warn('[PRESENCE] ⚠️ Device ownership tidak ter-register. Presence mungkin gagal write.');
+  } else {
+    __presenceOwnershipOk = true;
+    console.log('[PRESENCE] ✅ Ownership OK');
+  }
+
   __fetchPublicIP();
 
   const db = firebase.database();
@@ -97,14 +104,22 @@ function initPresence() {
 
   pushPresence('active');
 
-  if (__presenceTimer) clearInterval(__presenceTimer);
-  __presenceTimer = setInterval(() => pushPresence('active'), PRESENCE_HEARTBEAT_MS);
+  __scheduleNextHeartbeat();
 
-  console.log('[PRESENCE] ✓ device:', __presenceDeviceId, '— heartbeat:', PRESENCE_HEARTBEAT_MS + 'ms');
+  console.log('[PRESENCE] ✓ device:', __presenceDeviceId,
+    '— heartbeat:', __getHeartbeatMs() + 'ms');
 
-  // Listen sinyal admin
   startListeningAllowRetake();
   startListeningAdminSignals();
+}
+
+function __scheduleNextHeartbeat() {
+  if (__presenceTimer) clearTimeout(__presenceTimer);
+  const interval = __getHeartbeatMs();
+  __presenceTimer = setTimeout(() => {
+    pushPresence('active');
+    __scheduleNextHeartbeat();
+  }, interval);
 }
 
 /* ============================================================
@@ -220,8 +235,15 @@ function pushPresence(status) {
     if (!snap.exists() || !snap.val()?.startedAt) {
       payload.startedAt = firebase.database.ServerValue.TIMESTAMP;
     }
-    __presenceRef.update(payload);
-  }).catch(() => __presenceRef.update(payload));
+    return __presenceRef.update(payload);
+  }).catch(err => {
+    if (err.message && err.message.includes('PERMISSION_DENIED')) {
+      console.warn('[PRESENCE] ⚠️ Permission denied — coba register ownership ulang');
+      ensureDeviceOwnership(__presenceDeviceId).then(ok => {
+        if (ok) __presenceRef.update(payload).catch(() => {});
+      });
+    }
+  });
 }
 
 function markPresenceDone() { pushPresence('done'); }
@@ -238,7 +260,6 @@ window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ============================================================
    LISTEN allow_retake
-   🔒 I3 FIX: Reset device ID saat allow_retake
    ============================================================ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -257,12 +278,10 @@ function startListeningAllowRetake() {
   __allowRetakeListenCb = (snap) => {
     const allow = snap.val() === true;
     if (!allow) return;
-
     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
     const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
-    const wasFinished     = localStorage.getItem('_sgs_finished') === '1';
 
     console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
 
@@ -270,12 +289,7 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
-
-      // ── 🔒 I3 FIX: Reset device ID ──
-      // Alasan: device lama bisa dipakai kandidat berbeda.
-      // Tanpa reset, data kandidat lama di Firebase bisa tercampur.
-      localStorage.removeItem('_sgs_device_id');
-      // ── AKHIR FIX ──
+      localStorage.removeItem('_sgs_device_id');   // reset device ID
     } catch (e) {}
 
     if (!wasDisqualified) {
@@ -286,9 +300,6 @@ function startListeningAllowRetake() {
         localStorage.removeItem('usedPragas');
         sessionStorage.removeItem('dlClick');
       } catch (e) {}
-      console.log('[PRESENCE] 🗑️ Data kandidat dihapus (mulai fresh)');
-    } else {
-      console.log('[PRESENCE] 💾 Data disimpan (lanjut dari progress)');
     }
 
     firebase.database()
@@ -300,7 +311,6 @@ function startListeningAllowRetake() {
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
-  console.log('[PRESENCE] 👂 Listening allow_retake untuk device:', __presenceDeviceId);
 }
 
 function stopListeningAllowRetake() {
@@ -312,7 +322,7 @@ function stopListeningAllowRetake() {
 }
 
 /* ============================================================
-   🔥 LISTEN SEMUA SINYAL ADMIN
+   LISTEN SEMUA SINYAL ADMIN (tetap seperti aslinya)
    ============================================================ */
 let __adminSignalsRef = null;
 let __adminSignalCb = null;
@@ -331,7 +341,6 @@ function startListeningAdminSignals() {
 
   __adminSignalCb = function(snap) {
     var s = snap.val() || {};
-
     var cur = {
       force_refresh:   s.force_refresh   || null,
       force_logout:    s.force_logout    || null,
@@ -339,79 +348,61 @@ function startListeningAdminSignals() {
       reset_progress:  s.reset_progress  || null
     };
 
-    // Snapshot pertama = inisialisasi, jangan trigger
     if (__adminLastValues === null) {
       __adminLastValues = cur;
-      console.log('[PRESENCE] 👂 Sinyal admin siap — initial state:', cur);
       return;
     }
 
-    // ============ FORCE REFRESH ============
     if (cur.force_refresh && cur.force_refresh !== __adminLastValues.force_refresh) {
       __adminLastValues.force_refresh = cur.force_refresh;
       var frKey = '_sgs_fr_' + cur.force_refresh;
       if (sessionStorage.getItem(frKey) === '1') return;
       sessionStorage.setItem(frKey, '1');
-
-      console.log('[PRESENCE] 🔄 Force refresh diterima');
       showAdminSignalBanner('🔄', 'Memuat Ulang', 'Admin meminta halaman dimuat ulang.', 2, '#3b82f6');
       return;
     }
 
-    // ============ FORCE LOGOUT ============
     if (cur.force_logout && cur.force_logout !== __adminLastValues.force_logout) {
       __adminLastValues.force_logout = cur.force_logout;
       var flKey = '_sgs_fl_' + cur.force_logout;
       if (sessionStorage.getItem(flKey) === '1') return;
       sessionStorage.setItem(flKey, '1');
-
-      console.log('[PRESENCE] 🚪 Force logout diterima');
       try {
         localStorage.setItem('_sgs_finished', '1');
         localStorage.setItem('usedPragas', '1');
       } catch(e) {}
-
       showAdminSignalBanner('🚪', 'Sesi Diakhiri', 'Admin telah mengakhiri sesi Anda.', 3, '#dc2626');
       return;
     }
 
-    // ============ DISQUALIFIED ============
     if (cur.disqualified && !__adminLastValues.disqualified) {
       __adminLastValues.disqualified = cur.disqualified;
       if (sessionStorage.getItem('_sgs_dq_processed') === '1') return;
       sessionStorage.setItem('_sgs_dq_processed', '1');
-
-      console.log('[PRESENCE] ⚠️ Diskualifikasi diterima');
       try {
         localStorage.setItem('_sgs_finished', '1');
         localStorage.setItem('usedPragas', '1');
         localStorage.setItem('_sgs_disqualified', '1');
       } catch(e) {}
-
       showAdminSignalBanner('⚠️', 'Diskualifikasi', 'Anda telah didiskualifikasi oleh admin.', 3, '#dc2626');
       return;
     }
 
-    // ============ RESET PROGRESS ============
     if (cur.reset_progress && cur.reset_progress !== __adminLastValues.reset_progress) {
       __adminLastValues.reset_progress = cur.reset_progress;
       var rpKey = '_sgs_rp_' + cur.reset_progress;
       if (sessionStorage.getItem(rpKey) === '1') return;
       sessionStorage.setItem(rpKey, '1');
-
-      console.log('[PRESENCE] 🗑️ Reset progress diterima');
       try {
         localStorage.removeItem('completed');
         localStorage.removeItem('selectedTests');
       } catch(e) {}
-
       showAdminSignalBanner('🗑️', 'Progres Direset', 'Admin telah me-reset progres tes Anda.', 3, '#f59e0b');
       return;
     }
   };
 
   __adminSignalsRef.on('value', __adminSignalCb);
-  console.log('[PRESENCE] 👂 Listening sinyal admin (refresh/logout/disqualify/reset)');
 }
 
 function stopListeningAdminSignals() {
@@ -424,7 +415,7 @@ function stopListeningAdminSignals() {
 }
 
 /* ============================================================
-   BANNER GENERIC untuk sinyal admin
+   BANNER (fungsi asli tidak berubah — bisa reuse)
    ============================================================ */
 function showAdminSignalBanner(icon, title, message, countdownSec, color) {
   var old = document.getElementById('adminSignalBanner');
@@ -471,39 +462,19 @@ function showAdminSignalBanner(icon, title, message, countdownSec, color) {
     if (countdownEl) countdownEl.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(interval);
-
       try {
         window.__inTestView = false;
         window.__skipBeforeUnload = true;
         window.__submitBeforeUnload = null;
       } catch(e) {}
-
-      try {
-        if (typeof window.__submitBeforeUnload === 'function') {
-          window.removeEventListener('beforeunload', window.__submitBeforeUnload);
-        }
-      } catch(e) {}
-
       try { window.location.reload(); } catch(e) {}
     }
   }, 1000);
 }
 
-/* ============================================================
-   BANNER retake (existing)
-   ============================================================ */
 function showRetakeBanner() {
   var old = document.getElementById('retakeNotification');
   if (old) old.remove();
-
-  if (!document.getElementById('retakeBannerStyle')) {
-    var style = document.createElement('style');
-    style.id = 'retakeBannerStyle';
-    style.textContent =
-      '@keyframes retakeSlideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }' +
-      '@keyframes retakeIconBounce { 0%, 100% { transform: scale(1) rotate(0); } 25% { transform: scale(1.15) rotate(-8deg); } 75% { transform: scale(1.15) rotate(8deg); } }';
-    document.head.appendChild(style);
-  }
 
   var banner = document.createElement('div');
   banner.id = 'retakeNotification';
@@ -516,13 +487,12 @@ function showRetakeBanner() {
     'text-align: center',
     'box-shadow: 0 12px 40px rgba(0,0,0,.35)',
     'font-family: Inter, system-ui, -apple-system, sans-serif',
-    'animation: retakeSlideDown 0.45s cubic-bezier(.2,.8,.2,1)',
     'border-bottom: 3px solid rgba(255,255,255,.35)'
   ].join(';');
 
   banner.innerHTML = [
-    '<div style="font-size:42px;line-height:1;margin-bottom:10px;animation:retakeIconBounce 1.4s ease-in-out infinite;">🔓</div>',
-    '<div style="font-size:20px;font-weight:900;letter-spacing:-.3px;margin-bottom:6px;">Akses Diberikan oleh Admin</div>',
+    '<div style="font-size:42px;line-height:1;margin-bottom:10px;">🔓</div>',
+    '<div style="font-size:20px;font-weight:900;margin-bottom:6px;">Akses Diberikan oleh Admin</div>',
     '<div style="font-size:14px;opacity:.95;line-height:1.55;max-width:520px;margin:0 auto;">',
     'Admin telah mengizinkan Anda mengerjakan tes lagi.<br>',
     'Halaman akan dimuat ulang dalam <b><span id="retakeCountdown">3</span></b> detik...',
@@ -544,11 +514,10 @@ function showRetakeBanner() {
 }
 
 /* ============================================================
-   ADMIN PANEL — fetch & listen active sessions
+   ADMIN PANEL — fetch & listen active sessions (sama)
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
-
   let excludeId = null;
   try {
     if (typeof isAdminUrl === 'function' && isAdminUrl()) {
@@ -570,21 +539,14 @@ function __presenceFilterFresh(data) {
 }
 
 function fetchActiveSessions(callback) {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    callback([]); return;
-  }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) { callback([]); return; }
   firebase.database().ref('sgs_state/sessions').once('value')
     .then(snap => callback(__presenceFilterFresh(snap.val())))
-    .catch(err => {
-      console.warn('[PRESENCE] fetch error:', err);
-      callback([]);
-    });
+    .catch(() => callback([]));
 }
 
 function listenActiveSessions(callback) {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    callback([]); return;
-  }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) { callback([]); return; }
   if (__presenceListenRef && __presenceListenCb) {
     __presenceListenRef.off('value', __presenceListenCb);
   }
@@ -603,7 +565,6 @@ function stopListeningActiveSessions() {
 
 /* ============================================================
    AUTO-INIT
-   - Skip kalau mode admin
    ============================================================ */
 function __shouldInitPresence() {
   if (typeof window.isAdminUrl === 'function' && window.isAdminUrl()) {
@@ -615,14 +576,10 @@ function __shouldInitPresence() {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
-    if (__shouldInitPresence()) {
-      setTimeout(initPresence, 2000);
-    }
+    if (__shouldInitPresence()) setTimeout(initPresence, 2500);
   });
 } else {
-  if (__shouldInitPresence()) {
-    setTimeout(initPresence, 2000);
-  }
+  if (__shouldInitPresence()) setTimeout(initPresence, 2500);
 }
 
 /* ============================================================
@@ -643,4 +600,4 @@ window.startListeningAdminSignals   = startListeningAdminSignals;
 window.stopListeningAdminSignals    = stopListeningAdminSignals;
 window.showAdminSignalBanner        = showAdminSignalBanner;
 
-console.log('[PRESENCE] ✓ Loaded');
+console.log('[PRESENCE] ✓ Loaded — secured + dynamic heartbeat');
