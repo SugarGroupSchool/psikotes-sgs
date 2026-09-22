@@ -654,12 +654,13 @@ function __invalidateResultCache() {
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
-  if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.')) return;
-  if (!fileId) { alert('❌ File ID tidak valid'); return; }
+ const ok = await __confirmDanger('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.', { title: '🗑️ Hapus File', okText: 'Ya, Hapus' });
+if (!ok) return;
+  if (!fileId) { await __alert('File ID tidak valid', '❌ Error'); return; }
 
   try {
     const idToken = await __getFirebaseIdToken();
-    if (!idToken) { alert('❌ Sesi admin berakhir. Login ulang.'); return; }
+    if (!idToken) { await __alert('Sesi admin berakhir. Login ulang.', '⚠️ Error'); return; }
 
     const res = await fetch(GAS_ADMIN_URL, {
       method: 'POST',
@@ -669,7 +670,7 @@ async function deleteResultFile(fileId, fileName) {
 
     const data = await res.json();
     if (!data || !data.success) {
-      alert('❌ Gagal hapus: ' + (data?.error || 'Unknown error'));
+      await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
       return;
     }
 
@@ -688,7 +689,7 @@ async function deleteResultFile(fileId, fileName) {
       }).catch(() => {});
     } catch (e) {}
 
-    alert('✅ File berhasil dihapus dari Drive');
+    await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
 
     setTimeout(async () => {
       __invalidateResultCache();
@@ -700,7 +701,7 @@ async function deleteResultFile(fileId, fileName) {
       } catch (err) {}
     }, DRIVE_PROPAGATION_DELAY_MS);
   } catch (e) {
-    alert('❌ Gagal hapus: ' + e.message);
+    await __alert('Gagal hapus: ' + e.message, '❌ Error');
   }
 }
 
