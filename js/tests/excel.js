@@ -1280,6 +1280,19 @@ async function uploadExcelToGAS(blob, filename) {
   });
 
   await new Promise(r => setTimeout(r, 1500));
+   /* 🆕 Kirim sinyal real-time ke admin */
+try {
+  if (typeof firebase !== 'undefined' && firebase.apps.length) {
+    const id = appState.identity || {};
+    firebase.database().ref('sgs_state/lastUpload').set({
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      type: 'excel',
+      name: id.name || 'Kandidat',
+      position: id.position || '',
+      deviceId: localStorage.getItem('_sgs_device_id') || ''
+    }).catch(() => {});
+  }
+} catch (e) {}
   return { success: true };
 }
 window.renderAdminExcelSheet = renderAdminExcelSheet;
