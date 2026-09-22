@@ -1,68 +1,85 @@
 /* ============================================================
-   js/00b-admin.js
-   - Admin panel: LOCK kontrol + 2 password (Fresh & Used)
-   - Login gate: butuh password untuk akses panel
-   - Monitoring kandidat aktif (real-time) + timer + progress
-   - Chat per kandidat + unread tracker (badge + blink)
-   - Tombol "Izinkan Tes Lagi" untuk device finished/diskualifikasi
-   - Auto-cleanup chat device tidak aktif
-   - ✅ Hasil tes digabung per kandidat (PDF + Excel = 1 kartu)
-   - ✅ FIX: Halaman hasil tes z-index 100000
-   - ✅ OPTIMASI: Cache + dedupe + SWR + debounce search
+   js/00b-admin.js — SECURED REWRITE
    ------------------------------------------------------------
-   🔒 AUDIT FIX [2026-09-21]:
-   - C1: Hapus fungsi duplikat (getLockState dkk) → pakai versi cloud di 00d-firebase.js
-   - C2: Hapus kode mati (renderActiveSessionsHTML, scheduleAdminRefresh)
-   - C3: Fix XSS — event delegation untuk semua tombol dengan data user
-   - M2: Konsolidasi escapeHtml via window.escapeHTML
-   - 🔒 Validasi URL (cegah javascript: injection)
-   ------------------------------------------------------------
-   🔒 FIX [2026-09-22] — DELETE FILE TIDAK HILANG DARI UI:
-   - F1: deleteResultFile() → optimistic cache removal + delayed refresh (2s)
-   - F2: Set __recentlyDeletedFileIds → filter sementara selama 10s
-   - F3: Fix bug `length >= 0` di loadResultFilesForPage & __updateAdminResultCounter
-   - F4: Helper __removeFileFromCache(fileId)
-   - F5: fetchResultFiles filter file yang baru dihapus
-   ------------------------------------------------------------
-   🆕 FIX [2026-09-22] — REAL-TIME HASIL TES:
-   - R1: startResultsRealtimeListener() — dengarkan /sgs_results
-   - R2: stopResultsRealtimeListener()
-   - R3: showResultToast() — notifikasi kanan atas
-   - R4: start listener di renderAdminPanel()
-   - R5: stop listener di adminLogout() & tombol close
-   - R6: Skip initial batch (__sgsResultsFirstLoad)
-   - R7: Toast hanya untuk child_added
+   Admin panel: LOCK kontrol + 2 password (Fresh & Used)
+   Login gate · Monitoring kandidat · Chat · Allow retake
+   Grouped results (PDF + Excel = 1 kartu)
+
+   🔒 SECURITY FIX [2026-09-22]:
+   - S1: isAdminUrl() pakai HASH (bukan plain key)
+   - S2: fetchResultFiles() & deleteResultFile() → POST + idToken
+   - S3: Safe accessors fail-closed (cloud ready required)
+   - S4: alert()/confirm() → sgsAlert()/sgsConfirm()
+   - S5: Admin key TIDAK ditampilkan di panel
+   - S6: Semua GAS call kirim Firebase ID token
+   - S7: Admin key check async + cache di sessionStorage
+
+   ✅ KEEP dari versi lama:
+   - Cache + dedupe + SWR + debounce search
+   - Optimistic delete + delayed refresh (2s)
+   - Real-time listener /sgs_results
+   - Toast notifikasi
+   - Session timeout 15 menit idle
+   - Event delegation (CSP-safe)
    ============================================================ */
 
 /* ============================================================
-   KONFIGURASI LOGIN ADMIN
+   KONFIGURASI
    ============================================================ */
-const ADMIN_SESSION_KEY     = '_sgs_admin_logged_in';
-/* ============================================================
-   KONFIGURASI GAS (Google Apps Script) UNTUK PDF
-   ============================================================ */
-const GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
-/* ============================================================
-   KONFIGURASI AUTO-CLEANUP CHAT
-   ============================================================ */
+const ADMIN_SESSION_KEY = '_sgs_admin_logged_in';
+const ADMIN_KEY_OK_KEY  = '_sgs_admin_key_ok';
+
+const GAS_ADMIN_URL =
+  'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+
 const CHAT_CLEANUP_ENABLED        = true;
-const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;  // 1 jam
+const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;
 const CHAT_CLEANUP_DELETE_SESSION = true;
 
+const RESULT_CACHE_TTL_MS         = 30000;
+const RECENTLY_DELETED_TTL_MS     = 10000;
+const DRIVE_PROPAGATION_DELAY_MS  = 2000;
+
 /* ============================================================
-   ADMIN UNREAD TRACKER (global per device)
+   HELPER: Firebase ID Token
+   ============================================================ */
+async function __getFirebaseIdToken() {
+  try {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return '';
+    const user = firebase.auth().currentUser;
+    if (!user) return '';
+    return await user.getIdToken();
+  } catch (e) {
+    console.warn('[ADMIN] Gagal ambil ID token:', e.message);
+    return '';
+  }
+}
+
+/* ============================================================
+   MODAL WRAPPERS — fallback ke native kalau 00k-modal.js belum load
+   ============================================================ */
+function __alert(text, title) {
+  if (typeof window.sgsAlert === 'function') return window.sgsAlert(text, title);
+  return Promise.resolve(alert(text));
+}
+function __confirm(text, opts) {
+  if (typeof window.sgsConfirm === 'function') return window.sgsConfirm(text, opts);
+  return Promise.resolve(confirm(text));
+}
+function __confirmDanger(text, opts) {
+  if (typeof window.sgsConfirmDanger === 'function') return window.sgsConfirmDanger(text, opts);
+  return Promise.resolve(confirm(text));
+}
+
+/* ============================================================
+   ADMIN UNREAD TRACKER
    ============================================================ */
 window.__adminUnreadMap = {};
-
 let __adminUnreadRefs = [];
 
 function startAdminUnreadTracker() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-
-  if (__adminUnreadRefs.length > 0) {
-    console.log('[ADMIN] 👂 Unread tracker sudah jalan, skip restart');
-    return;
-  }
+  if (__adminUnreadRefs.length > 0) return;
 
   const chatsRef = firebase.database().ref('sgs_state/chats');
 
@@ -83,8 +100,6 @@ function startAdminUnreadTracker() {
 
   chatsRef.on('child_added', onRoomAdded);
   __adminUnreadRefs.push({ ref: chatsRef, cb: onRoomAdded, type: 'child_added' });
-
-  console.log('[ADMIN] 👂 Unread tracker started');
 }
 
 function stopAdminUnreadTracker() {
@@ -95,7 +110,6 @@ function stopAdminUnreadTracker() {
     } catch (e) {}
   });
   __adminUnreadRefs = [];
-  console.log('[ADMIN] 🔇 Unread tracker stopped');
 }
 
 /* ============================================================
@@ -117,9 +131,7 @@ function startAdminTimerTick() {
       const remaining = Math.max(0, timeLeftInit - elapsed);
 
       const textEl = el.querySelector('.timer-text');
-      if (textEl) {
-        textEl.textContent = __formatTimeAdmin(remaining);
-      }
+      if (textEl) textEl.textContent = __formatTimeAdmin(remaining);
 
       if (remaining <= 30) {
         el.style.background = '#fee2e2';
@@ -128,10 +140,7 @@ function startAdminTimerTick() {
         el.style.background = '#dbeafe';
         el.style.color = '#1e40af';
       }
-
-      if (remaining <= 0) {
-        if (textEl) textEl.textContent = '00:00';
-      }
+      if (remaining <= 0 && textEl) textEl.textContent = '00:00';
     });
   }, 1000);
 }
@@ -151,36 +160,83 @@ function __formatTimeAdmin(sec) {
 }
 
 /* ============================================================
-   DETEKSI URL ADMIN
+   🔒 S1: DETEKSI URL ADMIN — HASH-BASED, CACHED
+   ------------------------------------------------------------
+   Strategi:
+   1. isAdminUrl() sync — cepat, cek ada `?admin=` atau `#key`?
+   2. Verify hash di checkAdminUrlAndRender() → async
+   3. Cache hasil verified di sessionStorage (agar tidak hash berulang)
    ============================================================ */
 function isAdminUrl() {
   try {
+    // Kalau sudah pernah diverifikasi di sesi ini → pakai cache
+    if (sessionStorage.getItem(ADMIN_KEY_OK_KEY) === '1') return true;
+
+    // Belum diverifikasi → cek apakah ada indikasi URL admin
     const url = new URL(window.location.href);
-    const key = APP_CONFIG.ADMIN_KEY;
-    return (
-      url.searchParams.get('admin') === key ||
-      url.hash === '#' + key
-    );
+    if (url.searchParams.get('admin')) return true;
+    if (url.hash && url.hash.length > 5) return true;
+
+    return false;
   } catch (e) {
     return false;
   }
 }
 
+/**
+ * 🔒 S1: Verifikasi hash admin key
+ * @returns {Promise<boolean>}
+ */
+async function verifyAdminKeyFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const key = url.searchParams.get('admin') || (url.hash || '').replace(/^#/, '');
+    if (!key) return false;
+
+    if (typeof APP_CONFIG === 'undefined' || typeof APP_CONFIG.isAdminKey !== 'function') {
+      console.warn('[ADMIN] APP_CONFIG.isAdminKey tidak tersedia');
+      return false;
+    }
+
+    const ok = await APP_CONFIG.isAdminKey(key);
+    if (ok) {
+      sessionStorage.setItem(ADMIN_KEY_OK_KEY, '1');
+      console.log('[ADMIN] 🔓 Admin key verified');
+    } else {
+      console.warn('[ADMIN] ⚠️ Admin key tidak cocok');
+    }
+    return ok;
+  } catch (e) {
+    console.warn('[ADMIN] verifyAdminKeyFromUrl error:', e.message);
+    return false;
+  }
+}
+
 /* ============================================================
-   SAFE ACCESSOR
+   🔒 S3: SAFE ACCESSORS — fail-closed
    ============================================================ */
 function __safeGetLockState() {
-  return (typeof window.getLockState === 'function') ? window.getLockState() : false;
+  // Kalau cloud belum ready → anggap terkunci
+  if (typeof window.isCloudReady === 'function' && !window.isCloudReady()) {
+    return true;
+  }
+  return (typeof window.getLockState === 'function') ? window.getLockState() : true;
 }
+
 function __safeGetFreshPwd() {
-  return (typeof window.getFreshPwd === 'function')
-    ? window.getFreshPwd()
-    : (APP_CONFIG.DEFAULT_FRESH_PWD || '');
+  if (typeof window.getFreshPwd === 'function') {
+    const p = window.getFreshPwd();
+    if (p) return p;
+  }
+  return '— (belum tersedia)';
 }
+
 function __safeGetUsedPwd() {
-  return (typeof window.getUsedPwd === 'function')
-    ? window.getUsedPwd()
-    : (APP_CONFIG.DEFAULT_USED_PWD || '');
+  if (typeof window.getUsedPwd === 'function') {
+    const p = window.getUsedPwd();
+    if (p) return p;
+  }
+  return '— (belum tersedia)';
 }
 
 /* ============================================================
@@ -215,77 +271,78 @@ function fallbackCopy(text) {
 }
 
 /* ============================================================
-   HTML ESCAPE
+   HTML ESCAPE & URL SAFETY
    ============================================================ */
 function __adminEscape(str) {
-  if (typeof window.escapeHTML === 'function') {
-    return window.escapeHTML(str);
-  }
+  if (typeof window.escapeHTML === 'function') return window.escapeHTML(str);
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/* ============================================================
-   URL SAFETY
-   ============================================================ */
 function __safeUrl(url) {
   const u = String(url || '').trim();
   if (!u) return '#';
-  if (/^https?:\/\//i.test(u)) {
-    return u.replace(/"/g, '%22').replace(/'/g, '%27');
-  }
-  if (/^[.\/]/.test(u)) {
-    return u.replace(/"/g, '%22').replace(/'/g, '%27');
-  }
+  if (/^https?:\/\//i.test(u)) return u.replace(/"/g, '%22').replace(/'/g, '%27');
+  if (/^[.\/]/.test(u)) return u.replace(/"/g, '%22').replace(/'/g, '%27');
   return '#';
 }
 
 /* ============================================================
-   RESET / UNLOCK DEVICE
+   🔒 S4: RESET / UNLOCK DEVICE (pakai custom modal)
    ============================================================ */
-function adminResetThisDevice() {
-  if (!confirm('Reset state device ini? (identity, completed, selectedTests, usedPragas)')) return;
+async function adminResetThisDevice() {
+  const ok = await __confirmDanger(
+    'Reset state device ini?\n\n• identity\n• completed\n• selectedTests\n• usedPragas',
+    { title: '⚠️ Reset Device', okText: 'Ya, Reset' }
+  );
+  if (!ok) return;
   try {
     localStorage.removeItem('identity');
     localStorage.removeItem('completed');
     localStorage.removeItem('selectedTests');
     localStorage.removeItem('usedPragas');
-    alert('✅ Device di-reset');
+    await __alert('Device berhasil di-reset', '✅ Sukses');
     renderAdminPanel();
   } catch (e) {
-    alert('❌ ' + e.message);
+    await __alert('Gagal reset: ' + e.message, '❌ Error');
   }
 }
 
-function adminUnlockDevice() {
-  if (!confirm('Unlock device ini? (bisa login lagi setelah selesai)')) return;
+async function adminUnlockDevice() {
+  const ok = await __confirm(
+    'Unlock device ini?\n\nKandidat bisa login lagi setelah selesai.',
+    { title: '🔓 Unlock Device', okText: 'Ya, Unlock' }
+  );
+  if (!ok) return;
   try {
     localStorage.removeItem('_sgs_finished');
-    alert('✅ Device di-unlock');
+    localStorage.removeItem('_sgs_disqualified');
+    await __alert('Device berhasil di-unlock', '✅ Sukses');
     renderAdminPanel();
   } catch (e) {
-    alert('❌ ' + e.message);
+    await __alert('Gagal unlock: ' + e.message, '❌ Error');
   }
 }
 
 /* ============================================================
    IZINKAN TES LAGI
    ============================================================ */
-function adminAllowRetake(deviceId, candidateName) {
+async function adminAllowRetake(deviceId, candidateName) {
   const name = candidateName || 'kandidat';
 
-  const ok = confirm(
+  const ok = await __confirm(
     'Izinkan "' + name + '" untuk mengerjakan tes lagi?\n\n' +
     '• Device akan di-reset (hapus history tes)\n' +
     '• Kandidat harus login ulang dengan password dari admin\n' +
     '• Semua hasil tes sebelumnya tetap ada di Firebase\n\n' +
-    'Lanjutkan?'
+    'Lanjutkan?',
+    { title: '🔄 Izinkan Tes Lagi', okText: 'Ya, Izinkan' }
   );
   if (!ok) return;
 
   if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    alert('❌ Firebase belum siap');
+    await __alert('Firebase belum siap', '❌ Error');
     return;
   }
 
@@ -298,20 +355,19 @@ function adminAllowRetake(deviceId, candidateName) {
     disqualified: false,
     lastSeen: firebase.database.ServerValue.TIMESTAMP
   })
-  .then(() => {
+  .then(async () => {
     console.log('[ADMIN] ✅ allow_retake=true untuk:', deviceId);
-
-    alert(
-      '✅ Sinyal terkirim ke device "' + name + '".\n\n' +
+    await __alert(
+      'Sinyal terkirim ke device "' + name + '".\n\n' +
       'Kandidat akan otomatis logout & bisa tes lagi dalam beberapa detik.\n\n' +
-      '(Jika device kandidat sedang offline, sinyal akan diproses saat online.)'
+      '(Jika device kandidat sedang offline, sinyal akan diproses saat online.)',
+      '✅ Terkirim'
     );
-
     setTimeout(() => renderAdminPanel(), 500);
   })
-  .catch(e => {
+  .catch(async (e) => {
     console.error('[ADMIN] ❌ Gagal allow_retake:', e);
-    alert('❌ Gagal kirim sinyal: ' + e.message);
+    await __alert('Gagal kirim sinyal: ' + e.message, '❌ Error');
   });
 }
 
@@ -338,20 +394,16 @@ async function cleanupInactiveChatRooms(options = {}) {
 
     const sessions = sessionsSnap.val() || {};
     const chats    = chatsSnap.val() || {};
-
     const toDelete = [];
 
     Object.keys(chats).forEach(deviceId => {
       if (deviceId === myDeviceId) return;
-
       const session = sessions[deviceId] || {};
       const lastSeen = session.lastSeen || 0;
       const status   = session.status;
 
       if (session.finished === true) return;
-
       if (status === 'active' && (now - lastSeen) < minAgeMs) return;
-
       if (status === 'offline' || (now - lastSeen) >= minAgeMs) {
         toDelete.push(deviceId);
       }
@@ -370,10 +422,7 @@ async function cleanupInactiveChatRooms(options = {}) {
       }
     }
 
-    if (!silent) {
-      console.log('[CLEANUP] 🧹 Removed', removed, 'chat rooms:', toDelete.map(d => d.slice(-8)).join(', '));
-    }
-
+    if (!silent) console.log('[CLEANUP] 🧹 Removed', removed, 'chat rooms');
     return { removed, deviceIds: toDelete };
   } catch (e) {
     console.error('[CLEANUP] Error:', e);
@@ -382,88 +431,58 @@ async function cleanupInactiveChatRooms(options = {}) {
 }
 
 async function adminCleanupInactive() {
-  if (!confirm(
+  const ok = await __confirmDanger(
     'Bersihkan chat dari kandidat yang tidak aktif?\n\n' +
     '• Chat room device offline / tidak aktif > ' +
     Math.round(CHAT_CLEANUP_AGE_MS / 60000) + ' menit akan dihapus\n' +
     '• Device yang masih aktif tidak terpengaruh\n' +
     '• Device yang sudah selesai tes juga tidak terpengaruh\n\n' +
-    'Lanjutkan?'
-  )) return;
+    'Lanjutkan?',
+    { title: '🧹 Cleanup Chat', okText: 'Ya, Bersihkan' }
+  );
+  if (!ok) return;
 
   const result = await cleanupInactiveChatRooms({ silent: false });
 
   if (result.removed === 0) {
-    alert('✨ Tidak ada chat yang perlu dibersihkan.');
+    await __alert('Tidak ada chat yang perlu dibersihkan.', '✨ Bersih');
   } else {
-    alert('✅ ' + result.removed + ' chat room berhasil dibersihkan.');
+    await __alert(result.removed + ' chat room berhasil dibersihkan.', '✅ Sukses');
   }
 
   setTimeout(() => renderAdminPanel(), 300);
 }
 
 /* ============================================================
-   🆕 REAL-TIME RESULT LISTENER (Firebase mirror)
+   REAL-TIME RESULT LISTENER
    ============================================================ */
-window.__sgsResultsRef         = null;
-window.__sgsResultsCb          = null;
-window.__sgsResultsAddedCb     = null;
-window.__sgsResultsChangedCb   = null;
-window.__sgsResultsRemovedCb   = null;
-window.__sgsResultsFirstLoad   = true;
+window.__sgsResultsRef       = null;
+window.__sgsResultsAddedCb   = null;
+window.__sgsResultsChangedCb = null;
+window.__sgsResultsRemovedCb = null;
+window.__sgsResultsFirstLoad = true;
 
 function startResultsRealtimeListener() {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    console.warn('[RESULTS-RT] Firebase belum siap — listener ditunda');
-    return;
-  }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  if (window.__sgsResultsRef) return;
 
-  // Kalau sudah jalan, skip
-  if (window.__sgsResultsRef) {
-    console.log('[RESULTS-RT] ℹ️ Listener sudah aktif');
-    return;
-  }
-
-  // Set flag untuk skip initial batch
   window.__sgsResultsFirstLoad = true;
-
   window.__sgsResultsRef = firebase.database().ref('sgs_results');
 
-  // Callback bersama untuk semua event
-  window.__sgsResultsCb = (eventType) => (snap) => {
+  const makeCb = (eventType) => (snap) => {
     const val = snap.val();
     const key = snap.key;
 
-    // Skip initial batch (saat pertama listener connect)
-    if (window.__sgsResultsFirstLoad) {
-      console.log('[RESULTS-RT] ⏭️ Skip initial:', key, val?.name || '');
-      return;
-    }
+    if (window.__sgsResultsFirstLoad) return;
 
-    console.log('[RESULTS-RT] 📥', eventType, val?.name || key);
-
-    // Refresh cache GAS
-    if (typeof __invalidateResultCache === 'function') {
-      __invalidateResultCache();
-    }
+    if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
 
     fetchResultFiles(true).then(files => {
       window.__resultFilesCache = files;
+      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+    }).catch(() => {});
 
-      // Render ulang kalau halaman hasil terbuka
-      if (document.getElementById('resultFilesPageOverlay')) {
-        __renderResultPageContent();
-      }
-
-      // Update counter di panel admin
-      if (typeof __updateAdminResultCounter === 'function') {
-        __updateAdminResultCounter();
-      }
-    }).catch(err => {
-      console.warn('[RESULTS-RT] Refresh GAS gagal:', err);
-    });
-
-    // Toast hanya untuk child_added (file baru)
     if (eventType === 'child_added' && val) {
       const icon = val.type === 'excel' ? '📊' : '📄';
       const label = val.type === 'excel' ? 'Excel' : 'PDF';
@@ -473,98 +492,60 @@ function startResultsRealtimeListener() {
       if (typeof showResultToast === 'function') {
         showResultToast(icon, `${label} baru dari ${sender}`, position);
       }
-
-      // Sound notification (kalau sudah unlocked)
       try {
-        if (typeof window.__sgsPlayNotifySound === 'function') {
-          window.__sgsPlayNotifySound();
-        }
+        if (typeof window.__sgsPlayNotifySound === 'function') window.__sgsPlayNotifySound();
       } catch (e) {}
     }
-
-    // child_removed: kalau admin hapus di tab lain, UI akan update
-    // tapi tidak perlu toast (admin sudah tahu)
   };
 
-  // Buat callback per event
-  window.__sgsResultsAddedCb   = window.__sgsResultsCb('child_added');
-  window.__sgsResultsChangedCb = window.__sgsResultsCb('child_changed');
-  window.__sgsResultsRemovedCb = window.__sgsResultsCb('child_removed');
+  window.__sgsResultsAddedCb   = makeCb('child_added');
+  window.__sgsResultsChangedCb = makeCb('child_changed');
+  window.__sgsResultsRemovedCb = makeCb('child_removed');
 
-  // Daftarkan listener
   window.__sgsResultsRef.on('child_added',   window.__sgsResultsAddedCb);
   window.__sgsResultsRef.on('child_changed', window.__sgsResultsChangedCb);
   window.__sgsResultsRef.on('child_removed', window.__sgsResultsRemovedCb);
 
-  // Setelah 2 detik, initial batch selesai → aktifkan
-  setTimeout(() => {
-    window.__sgsResultsFirstLoad = false;
-    console.log('[RESULTS-RT] ✅ Listener aktif — siap menerima event baru');
-  }, 2000);
-
-  console.log('[RESULTS-RT] 👂 Listening /sgs_results');
+  setTimeout(() => { window.__sgsResultsFirstLoad = false; }, 2000);
 }
 
 function stopResultsRealtimeListener() {
   if (window.__sgsResultsRef) {
     try {
-      if (window.__sgsResultsAddedCb) {
-        window.__sgsResultsRef.off('child_added', window.__sgsResultsAddedCb);
-      }
-      if (window.__sgsResultsChangedCb) {
-        window.__sgsResultsRef.off('child_changed', window.__sgsResultsChangedCb);
-      }
-      if (window.__sgsResultsRemovedCb) {
-        window.__sgsResultsRef.off('child_removed', window.__sgsResultsRemovedCb);
-      }
+      if (window.__sgsResultsAddedCb)   window.__sgsResultsRef.off('child_added', window.__sgsResultsAddedCb);
+      if (window.__sgsResultsChangedCb) window.__sgsResultsRef.off('child_changed', window.__sgsResultsChangedCb);
+      if (window.__sgsResultsRemovedCb) window.__sgsResultsRef.off('child_removed', window.__sgsResultsRemovedCb);
     } catch (e) {}
   }
-  window.__sgsResultsRef         = null;
-  window.__sgsResultsCb          = null;
-  window.__sgsResultsAddedCb     = null;
-  window.__sgsResultsChangedCb   = null;
-  window.__sgsResultsRemovedCb   = null;
-  window.__sgsResultsFirstLoad   = true;
-  console.log('[RESULTS-RT] 🔇 Listener stopped');
+  window.__sgsResultsRef = null;
+  window.__sgsResultsAddedCb = null;
+  window.__sgsResultsChangedCb = null;
+  window.__sgsResultsRemovedCb = null;
+  window.__sgsResultsFirstLoad = true;
 }
 
 /* ============================================================
-   🆕 TOAST NOTIFIKASI (kanan atas, stackable)
+   TOAST NOTIFIKASI
    ============================================================ */
 function showResultToast(icon, title, subtitle) {
-  // Container (dibuat sekali)
   let container = document.getElementById('sgsResultToastContainer');
   if (!container) {
     container = document.createElement('div');
     container.id = 'sgsResultToastContainer';
     container.style.cssText = `
-      position: fixed;
-      top: 20px; right: 20px;
-      z-index: 2147483647;
-      display: flex; flex-direction: column;
-      gap: 10px;
-      max-width: 380px;
-      pointer-events: none;
+      position: fixed; top: 20px; right: 20px;
+      z-index: 2147483647; display: flex; flex-direction: column;
+      gap: 10px; max-width: 380px; pointer-events: none;
     `;
     document.body.appendChild(container);
 
-    // Inject animasi sekali saja
     if (!document.getElementById('sgsResultToastStyle')) {
       const style = document.createElement('style');
       style.id = 'sgsResultToastStyle';
       style.textContent = `
-        @keyframes sgsToastSlideIn {
-          from { opacity: 0; transform: translateX(40px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes sgsToastSlideOut {
-          from { opacity: 1; transform: translateX(0); }
-          to   { opacity: 0; transform: translateX(40px); }
-        }
-        @keyframes sgsToastProgress {
-          from { width: 100%; }
-          to   { width: 0%; }
-        }
+        @keyframes sgsToastSlideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes sgsToastSlideOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+        @keyframes sgsToastProgress { from { width: 100%; } to { width: 0%; } }
       `;
       document.head.appendChild(style);
     }
@@ -573,71 +554,33 @@ function showResultToast(icon, title, subtitle) {
   const toast = document.createElement('div');
   toast.style.cssText = `
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border: 1px solid rgba(34,197,94,.35);
-    color: #e2e8f0;
-    padding: 14px 16px 12px 16px;
-    border-radius: 14px;
+    border: 1px solid rgba(34,197,94,.35); color: #e2e8f0;
+    padding: 14px 16px 12px 16px; border-radius: 14px;
     font-family: Inter, system-ui, -apple-system, sans-serif;
     font-size: 13px;
-    box-shadow:
-      0 20px 50px rgba(0,0,0,.5),
-      0 0 0 1px rgba(34,197,94,.08),
-      inset 0 1px 0 rgba(255,255,255,.04);
+    box-shadow: 0 20px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(34,197,94,.08), inset 0 1px 0 rgba(255,255,255,.04);
     display: flex; align-items: center; gap: 12px;
     animation: sgsToastSlideIn .35s cubic-bezier(.2,.8,.2,1);
-    pointer-events: auto;
-    position: relative;
-    overflow: hidden;
+    pointer-events: auto; position: relative; overflow: hidden;
   `;
 
   toast.innerHTML = `
-    <div style="
-      width: 38px; height: 38px; flex: 0 0 38px;
-      display: grid; place-items: center;
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      border-radius: 10px; font-size: 19px;
-      box-shadow:
-        0 6px 16px rgba(34,197,94,.35),
-        inset 0 1px 0 rgba(255,255,255,.2);
-    ">${icon}</div>
-
+    <div style="width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center;
+      background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 10px; font-size: 19px;
+      box-shadow: 0 6px 16px rgba(34,197,94,.35), inset 0 1px 0 rgba(255,255,255,.2);">${icon}</div>
     <div style="flex: 1; min-width: 0;">
-      <div style="
-        font-weight: 800; color: #fff;
-        margin-bottom: 2px; line-height: 1.3;
-        word-break: break-word;
-      ">${title}</div>
-      ${subtitle
-        ? `<div style="font-size: 11px; color: #94a3b8; line-height: 1.3; word-break: break-word;">📍 ${subtitle}</div>`
-        : ''}
+      <div style="font-weight: 800; color: #fff; margin-bottom: 2px; line-height: 1.3; word-break: break-word;">${__adminEscape(title)}</div>
+      ${subtitle ? `<div style="font-size: 11px; color: #94a3b8; line-height: 1.3; word-break: break-word;">📍 ${__adminEscape(subtitle)}</div>` : ''}
     </div>
-
-    <button type="button" style="
-      width: 22px; height: 22px;
-      display: grid; place-items: center;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 6px;
-      color: #94a3b8;
-      font-size: 12px; font-weight: 800;
-      cursor: pointer;
-      font-family: inherit;
-      flex: 0 0 auto;
-      padding: 0;
-    " title="Tutup">✕</button>
-
-    <div style="
-      position: absolute;
-      left: 0; bottom: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, #22c55e, #16a34a);
-      border-radius: 0 0 14px 14px;
-      animation: sgsToastProgress 6s linear forwards;
-      transform-origin: left;
-    "></div>
+    <button type="button" style="width: 22px; height: 22px; display: grid; place-items: center;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); border-radius: 6px;
+      color: #94a3b8; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; flex: 0 0 auto; padding: 0;"
+      title="Tutup">✕</button>
+    <div style="position: absolute; left: 0; bottom: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #22c55e, #16a34a); border-radius: 0 0 14px 14px;
+      animation: sgsToastProgress 6s linear forwards; transform-origin: left;"></div>
   `;
 
-  // Tombol close
   toast.querySelector('button').onclick = () => {
     toast.style.animation = 'sgsToastSlideOut .25s ease forwards';
     setTimeout(() => toast.remove(), 250);
@@ -645,34 +588,25 @@ function showResultToast(icon, title, subtitle) {
 
   container.appendChild(toast);
 
-  // Auto-dismiss 6 detik
   setTimeout(() => {
     if (toast.parentElement) {
       toast.style.animation = 'sgsToastSlideOut .3s ease forwards';
       setTimeout(() => {
         try { toast.remove(); } catch (e) {}
-        // Hapus container kalau sudah kosong
-        if (container.children.length === 0) {
-          container.remove();
-        }
+        if (container.children.length === 0) container.remove();
       }, 300);
     }
   }, 6000);
 }
 
 /* ============================================================
-   ✅ OPTIMASI: Cache hasil fetch GAS (shared global)
+   CACHE MANAGEMENT
    ============================================================ */
-window.__resultFilesCacheData  = null;
-window.__resultFilesCacheTime  = 0;
+window.__resultFilesCacheData    = null;
+window.__resultFilesCacheTime    = 0;
 window.__resultFilesFetchPromise = null;
-window.__resultFilesCache = [];
-
-window.__recentlyDeletedFileIds = new Set();
-
-const RESULT_CACHE_TTL_MS = 30000;
-const RECENTLY_DELETED_TTL_MS = 10000;
-const DRIVE_PROPAGATION_DELAY_MS = 2000;
+window.__resultFilesCache        = [];
+window.__recentlyDeletedFileIds  = new Set();
 
 function __removeFileFromCache(fileId) {
   if (!fileId) return;
@@ -684,33 +618,39 @@ function __removeFileFromCache(fileId) {
   }
 }
 
+/* ============================================================
+   🔒 S2: fetchResultFiles — POST + idToken
+   ============================================================ */
 async function fetchResultFiles(forceRefresh = false) {
   const now = Date.now();
   const cacheAge = now - (window.__resultFilesCacheTime || 0);
 
-  if (!forceRefresh
-      && window.__resultFilesCacheData
-      && cacheAge < RESULT_CACHE_TTL_MS) {
+  if (!forceRefresh && window.__resultFilesCacheData && cacheAge < RESULT_CACHE_TTL_MS) {
     return window.__resultFilesCacheData;
   }
-
-  if (window.__resultFilesFetchPromise) {
-    return window.__resultFilesFetchPromise;
-  }
+  if (window.__resultFilesFetchPromise) return window.__resultFilesFetchPromise;
 
   window.__resultFilesFetchPromise = (async () => {
     const maxRetry = 3;
     let lastErr = null;
 
+    const idToken = await __getFirebaseIdToken();
+    if (!idToken) {
+      console.warn('[PDF-LIST] Tidak ada ID token — user belum login');
+      window.__resultFilesFetchPromise = null;
+      return window.__resultFilesCacheData || [];
+    }
+
     for (let attempt = 1; attempt <= maxRetry; attempt++) {
       try {
-        const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now() + '_' + attempt;
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(GAS_ADMIN_URL, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'list', idToken, _t: Date.now() })
+        });
 
-        if (!res.ok) {
-          throw new Error('HTTP ' + res.status);
-        }
-
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
 
         if (text.trim().startsWith('<')) {
@@ -720,9 +660,7 @@ async function fetchResultFiles(forceRefresh = false) {
         const data = JSON.parse(text);
 
         if (data && data.success) {
-          const filtered = (data.files || []).filter(
-            f => !window.__recentlyDeletedFileIds.has(f.id)
-          );
+          const filtered = (data.files || []).filter(f => !window.__recentlyDeletedFileIds.has(f.id));
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
           window.__resultFilesFetchPromise = null;
@@ -732,14 +670,10 @@ async function fetchResultFiles(forceRefresh = false) {
         console.warn('[PDF-LIST] Gagal:', data?.error);
         window.__resultFilesFetchPromise = null;
         return window.__resultFilesCacheData || [];
-
       } catch (e) {
         lastErr = e;
         console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
-
-        if (attempt < maxRetry) {
-          await new Promise(r => setTimeout(r, attempt * 500));
-        }
+        if (attempt < maxRetry) await new Promise(r => setTimeout(r, attempt * 500));
       }
     }
 
@@ -758,60 +692,58 @@ function __invalidateResultCache() {
 }
 
 /* ============================================================
-   HAPUS FILE DARI DRIVE
+   🔒 S2: deleteResultFile — POST + idToken
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
-  if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash (bisa dipulihkan dalam 30 hari).')) return;
+  const ok = await __confirmDanger(
+    'Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash (bisa dipulihkan dalam 30 hari).',
+    { title: '🗑️ Hapus File', okText: 'Ya, Hapus' }
+  );
+  if (!ok) return;
 
   if (!fileId) {
-    alert('❌ File ID tidak valid');
+    await __alert('File ID tidak valid', '❌ Error');
     return;
   }
 
   try {
+    const idToken = await __getFirebaseIdToken();
+    if (!idToken) {
+      await __alert('Sesi admin berakhir. Login ulang.', '⚠️ Error');
+      return;
+    }
+
     const res = await fetch(GAS_ADMIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', fileId: fileId })
+      body: JSON.stringify({ action: 'delete', fileId, idToken })
     });
 
     const data = await res.json();
 
     if (!data || !data.success) {
-      alert('❌ Gagal hapus: ' + (data?.error || 'Unknown error'));
+      await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
       return;
     }
 
     window.__recentlyDeletedFileIds.add(fileId);
-    setTimeout(() => {
-      window.__recentlyDeletedFileIds.delete(fileId);
-    }, RECENTLY_DELETED_TTL_MS);
+    setTimeout(() => { window.__recentlyDeletedFileIds.delete(fileId); }, RECENTLY_DELETED_TTL_MS);
 
     __removeFileFromCache(fileId);
 
-    if (document.getElementById('resultFilesPageOverlay')) {
-      __renderResultPageContent();
-    }
-    if (typeof __updateAdminResultCounter === 'function') {
-      __updateAdminResultCounter();
-    }
+    if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+    if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-    alert('✅ File berhasil dihapus dari Drive');
+    await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
 
     setTimeout(async () => {
       __invalidateResultCache();
-
       try {
         const files = await fetchResultFiles(true);
         window.__resultFilesCache = files;
-
-        if (document.getElementById('resultFilesPageOverlay')) {
-          __renderResultPageContent();
-        }
-        if (typeof __updateAdminResultCounter === 'function') {
-          __updateAdminResultCounter();
-        }
+        if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+        if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
       } catch (err) {
         console.warn('[DELETE-PDF] Delayed refresh gagal:', err);
       }
@@ -819,17 +751,15 @@ async function deleteResultFile(fileId, fileName) {
 
   } catch (e) {
     console.error('[DELETE-PDF] Error:', e);
-    alert('❌ Gagal hapus: ' + e.message);
+    await __alert('Gagal hapus: ' + e.message, '❌ Error');
   }
 }
 
 /* ============================================================
-   HELPER — Ekstrak info kandidat dari file
+   HELPER — Ekstrak info kandidat
    ============================================================ */
 function __extractCandidateInfo(file) {
-  let name = '-';
-  let position = '-';
-  let password = '-';
+  let name = '-', position = '-', password = '-';
 
   try {
     const lines = String(file.description || '').split('\n');
@@ -851,9 +781,9 @@ function __extractCandidateInfo(file) {
 
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
-  if (/\.pdf$/.test(n))               return 'pdf';
-  if (/\.xlsx?$/.test(n))             return 'excel';
-  if (/\.(csv|ods)$/.test(n))         return 'excel';
+  if (/\.pdf$/.test(n))       return 'pdf';
+  if (/\.xlsx?$/.test(n))     return 'excel';
+  if (/\.(csv|ods)$/.test(n)) return 'excel';
   return 'other';
 }
 
@@ -862,29 +792,15 @@ function __detectFileKind(file) {
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
-    return `
-      <div style="
-        padding: 20px 14px; text-align: center;
-        color: #94a3b8; font-size: 12px;
-        background: #fff; border-radius: 10px;
-      ">
-        📭 Belum ada PDF yang dikirim kandidat
-      </div>`;
+    return `<div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada PDF yang dikirim kandidat</div>`;
   }
 
   const groups = new Map();
-
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
-    const key  = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
-
+    const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
     if (!groups.has(key)) {
-      groups.set(key, {
-        name: info.name,
-        position: info.position,
-        password: info.password,
-        files: []
-      });
+      groups.set(key, { name: info.name, position: info.position, password: info.password, files: [] });
     }
     const g = groups.get(key);
     if (info.position !== '-' && g.position === '-') g.position = info.position;
@@ -893,126 +809,67 @@ function renderResultFilesHTML(files) {
   });
 
   const groupArr = Array.from(groups.values()).sort((a, b) => {
-    const latestA = Math.max(...a.files.map(f => f.date || 0));
-    const latestB = Math.max(...b.files.map(f => f.date || 0));
-    return latestB - latestA;
+    const la = Math.max(...a.files.map(f => f.date || 0));
+    const lb = Math.max(...b.files.map(f => f.date || 0));
+    return lb - la;
   });
 
   function renderFileRow(f, kind) {
-    const sizeMB = f.size
-      ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
-      : '-';
-
+    const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
     const styleMap = {
-      pdf:   { icon: '📄', label: 'Hasil Tes (PDF)',   bg: '#eff6ff', br: '#bfdbfe', iconBg: '#dbeafe', text: '#1e40af' },
-      excel: { icon: '📊', label: 'Jawaban Excel',      bg: '#ecfdf5', br: '#86efac', iconBg: '#d1fae5', text: '#15803d' },
-      other: { icon: '📁', label: 'File Lain',           bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' }
+      pdf:   { icon: '📄', label: 'Hasil Tes (PDF)', bg: '#eff6ff', br: '#bfdbfe', iconBg: '#dbeafe', text: '#1e40af' },
+      excel: { icon: '📊', label: 'Jawaban Excel',    bg: '#ecfdf5', br: '#86efac', iconBg: '#d1fae5', text: '#15803d' },
+      other: { icon: '📁', label: 'File Lain',         bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' }
     };
     const s = styleMap[kind] || styleMap.other;
-    const shortName = (f.name || '').length > 42
-      ? (f.name || '').slice(0, 42) + '...'
-      : (f.name || '');
+    const shortName = (f.name || '').length > 42 ? (f.name || '').slice(0, 42) + '...' : (f.name || '');
 
     let pdfPassword = '-';
     if (kind === 'pdf') {
       try {
-        const lines = String(f.description || '').split('\n');
-        lines.forEach(l => {
+        String(f.description || '').split('\n').forEach(l => {
           const t = l.trim();
-          if (t.startsWith('Password PDF:')) {
-            pdfPassword = t.replace('Password PDF:', '').trim();
-          }
+          if (t.startsWith('Password PDF:')) pdfPassword = t.replace('Password PDF:', '').trim();
         });
       } catch (e) {}
     }
 
     const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
       ? `
-        <div style="
-          margin-top: 6px; padding: 6px 10px;
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #fef9c3; border: 1px solid #fde047;
-          border-radius: 6px;
-          font-size: 10.5px;
-        ">
+        <div style="margin-top: 6px; padding: 6px 10px; display: inline-flex; align-items: center; gap: 8px;
+          background: #fef9c3; border: 1px solid #fde047; border-radius: 6px; font-size: 10.5px;">
           <span style="font-weight: 800; color: #713f12; white-space: nowrap;">🔑 Password PDF:</span>
-          <code style="
-            font-family: 'Courier New', monospace;
-            font-weight: 800; color: #1e3a8a;
-            background: #fff; padding: 3px 8px;
-            border-radius: 4px; font-size: 11px;
-            letter-spacing: 0.3px;
-            word-break: break-all;
-          ">${__adminEscape(pdfPassword)}</code>
-          <button
-            class="js-copy-pdf-password"
-            data-password="${__adminEscape(pdfPassword)}"
-            style="
-              padding: 3px 8px; border: 1px solid #fde047;
-              background: #fff; border-radius: 4px;
-              cursor: pointer; font-size: 11px;
-              font-family: inherit; font-weight: 800;
-              color: #713f12;
-            "
+          <code style="font-family: 'Courier New', monospace; font-weight: 800; color: #1e3a8a;
+            background: #fff; padding: 3px 8px; border-radius: 4px; font-size: 11px; word-break: break-all;">${__adminEscape(pdfPassword)}</code>
+          <button class="js-copy-pdf-password" data-password="${__adminEscape(pdfPassword)}"
+            style="padding: 3px 8px; border: 1px solid #fde047; background: #fff; border-radius: 4px;
+            cursor: pointer; font-size: 11px; font-family: inherit; font-weight: 800; color: #713f12;"
             title="Copy password">📋</button>
         </div>
-      `
-      : '';
+      ` : '';
 
     const safeFileUrl = __safeUrl(f.url);
 
     return `
-      <div style="
-        display: flex; align-items: flex-start; gap: 9px;
-        padding: 8px 10px;
-        background: ${s.bg};
-        border: 1px solid ${s.br};
-        border-radius: 9px;
-      ">
-        <div style="
-          width: 30px; height: 30px; flex: 0 0 30px;
-          display: grid; place-items: center;
-          background: ${s.iconBg}; border-radius: 8px;
-          font-size: 15px;
-        ">${s.icon}</div>
-
+      <div style="display: flex; align-items: flex-start; gap: 9px; padding: 8px 10px;
+        background: ${s.bg}; border: 1px solid ${s.br}; border-radius: 9px;">
+        <div style="width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
+          background: ${s.iconBg}; border-radius: 8px; font-size: 15px;">${s.icon}</div>
         <div style="flex: 1; min-width: 0;">
-          <div style="
-            font-weight: 800; color: ${s.text};
-            font-size: 11.5px; margin-bottom: 2px;
-          ">${s.label}</div>
-          <div style="
-            color: #64748b; font-size: 10px;
-            word-break: break-all; line-height: 1.35;
-          ">
+          <div style="font-weight: 800; color: ${s.text}; font-size: 11.5px; margin-bottom: 2px;">${s.label}</div>
+          <div style="color: #64748b; font-size: 10px; word-break: break-all; line-height: 1.35;">
             ${__adminEscape(shortName)} &nbsp;·&nbsp; ${sizeMB}
           </div>
           ${passwordRow}
         </div>
-
         <div style="display: flex; gap: 5px; flex: 0 0 auto;">
-          <a href="${safeFileUrl}" target="_blank" rel="noopener"
-             style="
-              padding: 5px 10px;
-              background: linear-gradient(135deg, #3b82f6, #1e40af);
-              color: #fff; border: 0; border-radius: 7px;
-              font-size: 10px; font-weight: 800;
-              text-decoration: none; white-space: nowrap;
-              box-shadow: 0 3px 8px rgba(59,130,246,.22);
-            ">⬇️ Buka</a>
-
-          <button
-            class="js-delete-file"
-            data-file-id="${__adminEscape(f.id)}"
-            data-file-name="${__adminEscape(f.name)}"
-            style="
-              padding: 5px 9px;
-              background: #fff; color: #dc2626;
-              border: 1.5px solid #fca5a5; border-radius: 7px;
-              font-size: 10px; font-weight: 800;
-              cursor: pointer; font-family: inherit;
-              white-space: nowrap;
-            ">🗑️</button>
+          <a href="${safeFileUrl}" target="_blank" rel="noopener" style="padding: 5px 10px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff; border: 0; border-radius: 7px;
+            font-size: 10px; font-weight: 800; text-decoration: none; white-space: nowrap;
+            box-shadow: 0 3px 8px rgba(59,130,246,.22);">⬇️ Buka</a>
+          <button class="js-delete-file" data-file-id="${__adminEscape(f.id)}" data-file-name="${__adminEscape(f.name)}"
+            style="padding: 5px 9px; background: #fff; color: #dc2626; border: 1.5px solid #fca5a5;
+            border-radius: 7px; font-size: 10px; font-weight: 800; cursor: pointer; font-family: inherit;">🗑️</button>
         </div>
       </div>
     `;
@@ -1030,86 +887,32 @@ function renderResultFilesHTML(files) {
 
     let badge;
     if (pdfs.length > 0 && excels.length > 0) {
-      badge = `
-        <span style="
-          display: inline-flex; align-items: center; gap: 5px;
-          font-size: 10px; color: #15803d; font-weight: 800;
-          background: #dcfce7; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #86efac;
-          white-space: nowrap;
-        ">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-            <circle cx="12" cy="12" r="10" fill="#16a34a"/>
-            <path d="M7 12.5l3.2 3L17 9" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Lengkap (${g.files.length})
-        </span>`;
-    } else if (pdfs.length > 0 && excels.length === 0) {
-      badge = `
-        <span style="
-          display: inline-flex; align-items: center; gap: 5px;
-          font-size: 10px; color: #1e40af; font-weight: 800;
-          background: #eff6ff; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #bfdbfe;
-          white-space: nowrap;
-        ">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-            <rect x="3" y="3" width="18" height="18" rx="2" fill="#2563eb"/>
-            <path d="M7 7h6M7 11h6M7 15h3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          PDF
-        </span>`;
-    } else if (excels.length > 0 && pdfs.length === 0) {
-      badge = `
-        <span style="
-          display: inline-flex; align-items: center; gap: 5px;
-          font-size: 10px; color: #15803d; font-weight: 800;
-          background: #dcfce7; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #86efac;
-          white-space: nowrap;
-        ">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex:0 0 11px;">
-            <rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/>
-            <path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          </svg>
-          Excel
-        </span>`;
-    } else if (g.files.length > 0) {
-      badge = `
-        <span style="
-          font-size: 10px; color: #475569; font-weight: 800;
-          background: #f1f5f9; padding: 3px 9px;
-          border-radius: 999px; border: 1px solid #cbd5e1;
-          white-space: nowrap;
-        ">📁 ${g.files.length} file</span>`;
+      badge = `<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #15803d;
+        font-weight: 800; background: #dcfce7; padding: 3px 9px; border-radius: 999px; border: 1px solid #86efac;">✓ Lengkap (${g.files.length})</span>`;
+    } else if (pdfs.length > 0) {
+      badge = `<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #1e40af;
+        font-weight: 800; background: #eff6ff; padding: 3px 9px; border-radius: 999px; border: 1px solid #bfdbfe;">📄 PDF</span>`;
+    } else if (excels.length > 0) {
+      badge = `<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #15803d;
+        font-weight: 800; background: #dcfce7; padding: 3px 9px; border-radius: 999px; border: 1px solid #86efac;">📊 Excel</span>`;
+    } else {
+      badge = `<span style="font-size: 10px; color: #475569; font-weight: 800; background: #f1f5f9;
+        padding: 3px 9px; border-radius: 999px; border: 1px solid #cbd5e1;">📁 ${g.files.length} file</span>`;
     }
 
     return `
-      <div style="
-        padding: 12px 14px;
-        background: linear-gradient(180deg, #ffffff, #fbfdff);
-        border: 1px solid #dbeafe; border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(30,64,175,.04);
-      ">
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: flex-start; gap: 10px;
-          margin-bottom: 10px; padding-bottom: 8px;
-          border-bottom: 1px dashed #e2e8f0;
-        ">
+      <div style="padding: 12px 14px; background: linear-gradient(180deg, #ffffff, #fbfdff);
+        border: 1px solid #dbeafe; border-radius: 12px; box-shadow: 0 2px 8px rgba(30,64,175,.04);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+          margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0;">
           <div style="min-width: 0;">
-            <div style="
-              font-weight: 800; color: #1e293b;
-              font-size: 13px; word-break: break-word;
-            ">👤 ${__adminEscape(g.name)}</div>
+            <div style="font-weight: 800; color: #1e293b; font-size: 13px; word-break: break-word;">👤 ${__adminEscape(g.name)}</div>
             <div style="color: #64748b; font-size: 11px; margin-top: 3px;">
-              ${g.position !== '-' ? `📍 ${__adminEscape(g.position)} &nbsp;·&nbsp; ` : ''}
-              🕐 ${dateStr}
+              ${g.position !== '-' ? `📍 ${__adminEscape(g.position)} &nbsp;·&nbsp; ` : ''}🕐 ${dateStr}
             </div>
           </div>
           ${badge}
         </div>
-
         <div style="display: flex; flex-direction: column; gap: 6px;">
           ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
           ${excels.map(f => renderFileRow(f, 'excel')).join('')}
@@ -1125,23 +928,17 @@ function renderResultFilesHTML(files) {
    ============================================================ */
 async function refreshResultFilesList() {
   const container = document.getElementById('adminResultFiles');
-  const countEl   = document.getElementById('adminResultCount');
-
+  const countEl = document.getElementById('adminResultCount');
   if (!container) return;
 
-  container.innerHTML = `
-    <div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px;">
-      ⏳ Memuat daftar PDF...
-    </div>
-  `;
+  container.innerHTML = `<div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px;">⏳ Memuat daftar PDF...</div>`;
 
   const files = await fetchResultFiles();
 
   const uniqueNames = new Set();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
-    const key = (info.name || 'tanpa-nama').toLowerCase().trim();
-    uniqueNames.add(key);
+    uniqueNames.add((info.name || 'tanpa-nama').toLowerCase().trim());
   });
 
   if (countEl) {
@@ -1170,83 +967,37 @@ function renderAdminLoginPrompt() {
   overlay.id = 'adminLoginOverlay';
   overlay.style.cssText = `
     position: fixed; inset: 0; z-index: 99999;
-    background: rgba(10,20,35,0.95);
-    backdrop-filter: blur(10px);
+    background: rgba(10,20,35,0.95); backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center;
-    padding: 20px;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+    padding: 20px; font-family: Inter, system-ui, -apple-system, sans-serif;
   `;
 
   overlay.innerHTML = `
-    <div style="
-      width: min(420px, 100%);
-      background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
-      border-radius: 22px;
-      box-shadow: 0 30px 90px rgba(0,0,0,.60);
-      overflow: hidden;
-    ">
-      <div style="
-        padding: 26px 28px 22px;
-        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-        color: #fff; text-align: center;
-      ">
-        <div style="
-          width: 62px; height: 62px;
-          margin: 0 auto 12px;
-          display: grid; place-items: center;
-          background: rgba(255,255,255,.15);
-          border: 1px solid rgba(255,255,255,.3);
-          border-radius: 18px; font-size: 28px;
-        ">🔒</div>
-        <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85;">
-          ADMIN PANEL
-        </div>
-        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">
-          Login Admin
-        </div>
-        <div style="font-size: 13px; opacity: .85; margin-top: 6px;">
-          Masukkan email & password
-        </div>
+    <div style="width: min(420px, 100%); background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
+      border-radius: 22px; box-shadow: 0 30px 90px rgba(0,0,0,.60); overflow: hidden;">
+      <div style="padding: 26px 28px 22px; background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: #fff; text-align: center;">
+        <div style="width: 62px; height: 62px; margin: 0 auto 12px; display: grid; place-items: center;
+          background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+          border-radius: 18px; font-size: 28px;">🔒</div>
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85;">ADMIN PANEL</div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">Login Admin</div>
+        <div style="font-size: 13px; opacity: .85; margin-top: 6px;">Masukkan email & password</div>
       </div>
-
       <div style="padding: 26px 28px 28px;">
-        <input type="email" id="adminLoginEmail" placeholder="Email admin..."
-          autocomplete="off"
-          style="
-            width: 100%; padding: 14px 16px;
-            border: 2px solid #e2e8f0; border-radius: 12px;
-            font-size: 15px; outline: none;
-            font-family: inherit; background: #fff;
-            box-sizing: border-box;
-            transition: border-color .18s, box-shadow .18s;
-            margin-bottom: 10px;
-          ">
-        <input type="password" id="adminLoginPassword" placeholder="Password..."
-          autocomplete="off"
-          style="
-            width: 100%; padding: 14px 16px;
-            border: 2px solid #e2e8f0; border-radius: 12px;
-            font-size: 15px; outline: none;
-            font-family: inherit; background: #fff;
-            box-sizing: border-box;
-            transition: border-color .18s, box-shadow .18s;
-          ">
-        <div id="adminLoginError" style="
-          color: #dc2626; font-size: 13px;
-          min-height: 20px; margin-top: 10px;
-          text-align: center; font-weight: 600;
-        "></div>
-        <button id="adminLoginBtn" style="
-          width: 100%; padding: 14px;
-          background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-          color: #fff; border: 0; border-radius: 12px;
-          font-size: 15px; font-weight: 800;
-          cursor: pointer; font-family: inherit;
-          margin-top: 6px;
-          box-shadow: 0 10px 24px rgba(30,58,138,.24);
-          transition: transform .18s, box-shadow .18s, filter .18s;
-        ">🔓 Masuk</button>
-
+        <input type="email" id="adminLoginEmail" placeholder="Email admin..." autocomplete="off"
+          style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
+          font-size: 15px; outline: none; font-family: inherit; background: #fff; box-sizing: border-box;
+          margin-bottom: 10px;">
+        <input type="password" id="adminLoginPassword" placeholder="Password..." autocomplete="off"
+          style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
+          font-size: 15px; outline: none; font-family: inherit; background: #fff; box-sizing: border-box;">
+        <div id="adminLoginError" style="color: #dc2626; font-size: 13px; min-height: 20px;
+          margin-top: 10px; text-align: center; font-weight: 600;"></div>
+        <button id="adminLoginBtn" style="width: 100%; padding: 14px;
+          background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff; border: 0; border-radius: 12px;
+          font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; margin-top: 6px;
+          box-shadow: 0 10px 24px rgba(30,58,138,.24);">🔓 Masuk</button>
         <div style="margin-top: 16px; text-align: center; font-size: 11px; color: #94a3b8;">
           Akses hanya untuk administrator
         </div>
@@ -1302,10 +1053,8 @@ function renderAdminLoginPrompt() {
         overlay.remove();
         renderAdminPanel();
       }, 200);
-
     } catch (err) {
       console.error('[ADMIN] Login error:', err);
-
       let msg = err.message || 'Login gagal';
       if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
         msg = 'Email atau password salah';
@@ -1314,7 +1063,6 @@ function renderAdminLoginPrompt() {
       } else if (msg.includes('network')) {
         msg = 'Koneksi bermasalah. Coba lagi.';
       }
-
       errorEl.style.color = '#dc2626';
       errorEl.textContent = '❌ ' + msg;
       pwdEl.value = '';
@@ -1338,19 +1086,19 @@ function renderAdminLoginPrompt() {
 /* ============================================================
    ADMIN LOGOUT
    ============================================================ */
-function adminLogout() {
-  if (!confirm('Keluar dari panel admin?')) return;
-
-  if (typeof __stopAdminIdleTracking === 'function') {
-    __stopAdminIdleTracking();
+async function adminLogout(skipConfirm) {
+  if (!skipConfirm) {
+    const ok = await __confirm('Keluar dari panel admin?', { title: '🚪 Logout', okText: 'Ya, Logout' });
+    if (!ok) return;
   }
 
-  // 🆕 Stop real-time listener
+  if (typeof __stopAdminIdleTracking === 'function') __stopAdminIdleTracking();
   if (typeof stopResultsRealtimeListener === 'function') {
     try { stopResultsRealtimeListener(); } catch (e) {}
   }
 
   try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) {}
+  try { sessionStorage.removeItem(ADMIN_KEY_OK_KEY); } catch (e) {}
   try { firebase.auth().signOut(); } catch (e) {}
 
   if (typeof window.stopListeningActiveSessions === 'function') {
@@ -1370,7 +1118,6 @@ function adminLogout() {
     try { stopListeningAccessRequests(); } catch (e) {}
   }
 
-  // Hapus toast container kalau ada
   const toastContainer = document.getElementById('sgsResultToastContainer');
   if (toastContainer) toastContainer.remove();
 
@@ -1410,10 +1157,7 @@ let __adminRequestCb = null;
 window.__adminAccessRequests = [];
 
 function listenAccessRequests(callback) {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    callback([]);
-    return;
-  }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) { callback([]); return; }
   if (__adminRequestRef && __adminRequestCb) {
     try { __adminRequestRef.off('value', __adminRequestCb); } catch (e) {}
   }
@@ -1440,12 +1184,7 @@ function stopListeningAccessRequests() {
 
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
-    return `
-      <div style="
-        padding: 14px; text-align: center;
-        color: #94a3b8; font-size: 12px;
-        background: #fff; border-radius: 10px;
-      ">📭 Belum ada request izin akses</div>`;
+    return `<div style="padding: 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada request izin akses</div>`;
   }
 
   return requests.map(r => {
@@ -1457,63 +1196,27 @@ function renderAccessRequestsHTML(requests) {
                    Math.floor(ago / 86400) + 'h lalu';
 
     return `
-      <div style="
-        padding: 12px 14px; background: #fff;
-        border: 1px solid #fde68a; border-radius: 10px;
-        font-size: 12px; line-height: 1.5;
-      ">
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: flex-start; gap: 8px; margin-bottom: 6px;
-        ">
-          <div style="font-weight: 800; color: #1e293b; min-width:0;">
-            ${__adminEscape(r.name || '(tanpa nama)')}
-          </div>
-          <div style="
-            font-size: 10px; color: #92400e;
-            font-weight: 800; white-space: nowrap;
-            background: #fef3c7; padding: 3px 8px;
-            border-radius: 999px;
-          ">⏳ Menunggu</div>
+      <div style="padding: 12px 14px; background: #fff; border: 1px solid #fde68a; border-radius: 10px;
+        font-size: 12px; line-height: 1.5;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+          <div style="font-weight: 800; color: #1e293b; min-width:0;">${__adminEscape(r.name || '(tanpa nama)')}</div>
+          <div style="font-size: 10px; color: #92400e; font-weight: 800; white-space: nowrap;
+            background: #fef3c7; padding: 3px 8px; border-radius: 999px;">⏳ Menunggu</div>
         </div>
-
         <div style="color: #64748b; font-size: 11px; margin-bottom: 8px;">
-          ${r.position ? '📍 ' + __adminEscape(r.position) + ' &nbsp;·&nbsp; ' : ''}
-          🕐 ${agoStr}
+          ${r.position ? '📍 ' + __adminEscape(r.position) + ' &nbsp;·&nbsp; ' : ''}🕐 ${agoStr}
         </div>
-
-        <div style="
-          display: flex; justify-content: space-between;
-          align-items: center; gap: 8px;
-          padding-top: 6px;
-          border-top: 1px dashed #fde68a;
-        ">
-          <div style="color: #94a3b8; font-size: 10px;">
-            ID: ${__adminEscape(String(r.deviceId || '').slice(-8))}
-          </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;
+          padding-top: 6px; border-top: 1px dashed #fde68a;">
+          <div style="color: #94a3b8; font-size: 10px;">ID: ${__adminEscape(String(r.deviceId || '').slice(-8))}</div>
           <div style="display: flex; gap: 6px;">
-            <button
-              class="js-reject-request"
-              data-device-id="${__adminEscape(r.deviceId)}"
-              style="
-                padding: 5px 12px;
-                background: #fff; color: #dc2626;
-                border: 1.5px solid #fca5a5; border-radius: 7px;
-                font-size: 11px; font-weight: 800;
-                cursor: pointer; font-family: inherit;
-              ">✕ Tolak</button>
-            <button
-              class="js-approve-request"
-              data-device-id="${__adminEscape(r.deviceId)}"
-              data-name="${__adminEscape(r.name || '')}"
-              style="
-                padding: 5px 12px;
-                background: linear-gradient(135deg, #16a34a, #059669);
-                color: #fff; border: 0; border-radius: 7px;
-                font-size: 11px; font-weight: 800;
-                cursor: pointer; font-family: inherit;
-                box-shadow: 0 3px 8px rgba(22,163,74,.25);
-              ">✓ Setujui</button>
+            <button class="js-reject-request" data-device-id="${__adminEscape(r.deviceId)}"
+              style="padding: 5px 12px; background: #fff; color: #dc2626; border: 1.5px solid #fca5a5;
+              border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit;">✕ Tolak</button>
+            <button class="js-approve-request" data-device-id="${__adminEscape(r.deviceId)}" data-name="${__adminEscape(r.name || '')}"
+              style="padding: 5px 12px; background: linear-gradient(135deg, #16a34a, #059669); color: #fff;
+              border: 0; border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer;
+              font-family: inherit; box-shadow: 0 3px 8px rgba(22,163,74,.25);">✓ Setujui</button>
           </div>
         </div>
       </div>
@@ -1523,7 +1226,14 @@ function renderAccessRequestsHTML(requests) {
 
 async function approveAccessRequest(deviceId, name) {
   const n = name || 'kandidat';
-  if (!confirm('Setujui izin akses untuk "' + n + '"?\n\n• Device akan di-reset (mulai dari nol)\n• Kandidat pakai password FRESH\n• Kandidat harus login ulang')) return;
+  const ok = await __confirm(
+    'Setujui izin akses untuk "' + n + '"?\n\n' +
+    '• Device akan di-reset (mulai dari nol)\n' +
+    '• Kandidat pakai password FRESH\n' +
+    '• Kandidat harus login ulang',
+    { title: '✓ Setujui Akses', okText: 'Ya, Setujui', okStyle: 'success' }
+  );
+  if (!ok) return;
 
   try {
     await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
@@ -1539,25 +1249,26 @@ async function approveAccessRequest(deviceId, name) {
       respondedAt: firebase.database.ServerValue.TIMESTAMP,
       respondedBy: 'admin'
     });
-    alert('✅ Izin akses diberikan untuk "' + n + '".\n\nKandidat akan otomatis logout & bisa login dengan password FRESH.');
+    await __alert('Izin akses diberikan untuk "' + n + '".\n\nKandidat akan otomatis logout & bisa login dengan password FRESH.', '✅ Sukses');
   } catch (e) {
     console.error('[ADMIN] Gagal approve:', e);
-    alert('❌ Gagal: ' + e.message);
+    await __alert('Gagal: ' + e.message, '❌ Error');
   }
 }
 
 async function rejectAccessRequest(deviceId) {
-  if (!confirm('Tolak request izin ini?')) return;
+  const ok = await __confirmDanger('Tolak request izin ini?', { title: '✕ Tolak Request', okText: 'Ya, Tolak' });
+  if (!ok) return;
   try {
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'rejected',
       respondedAt: firebase.database.ServerValue.TIMESTAMP,
       respondedBy: 'admin'
     });
-    alert('✅ Request ditolak.');
+    await __alert('Request ditolak.', '✅ Sukses');
   } catch (e) {
     console.error('[ADMIN] Gagal reject:', e);
-    alert('❌ Gagal: ' + e.message);
+    await __alert('Gagal: ' + e.message, '❌ Error');
   }
 }
 
@@ -1579,178 +1290,81 @@ function openResultFilesPage() {
 
     const overlay = document.createElement('div');
     overlay.id = 'resultFilesPageOverlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 100000;
+    overlay.style.cssText = `position: fixed; inset: 0; z-index: 100000;
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
       display: flex; flex-direction: column;
       font-family: Inter, system-ui, -apple-system, sans-serif;
-      color: #e2e8f0;
-      animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);
-    `;
+      color: #e2e8f0; animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);`;
 
     overlay.innerHTML = `
       <style>
-        @keyframes resultPageIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes resultCardIn {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes resultSpinner {
-          to { transform: rotate(360deg); }
-        }
+        @keyframes resultPageIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes resultCardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes resultSpinner { to { transform: rotate(360deg); } }
         #resultFilesPageOverlay ::-webkit-scrollbar { width: 8px; height: 8px; }
         #resultFilesPageOverlay ::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
         #resultFilesPageOverlay ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
         #resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.25); }
-        .rf-chip {
-          padding: 8px 16px; border-radius: 999px;
-          background: rgba(255,255,255,.06);
-          border: 1.5px solid rgba(255,255,255,.1);
-          color: #cbd5e1; font-size: 13px; font-weight: 700;
-          cursor: pointer; transition: all .18s ease;
-          font-family: inherit; white-space: nowrap;
-        }
+        .rf-chip { padding: 8px 16px; border-radius: 999px; background: rgba(255,255,255,.06);
+          border: 1.5px solid rgba(255,255,255,.1); color: #cbd5e1; font-size: 13px; font-weight: 700;
+          cursor: pointer; transition: all .18s ease; font-family: inherit; white-space: nowrap; }
         .rf-chip:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
-        .rf-chip.active {
-          background: linear-gradient(135deg, #3b82f6, #6366f1);
-          border-color: transparent; color: #fff;
-          box-shadow: 0 4px 14px rgba(59,130,246,.4);
-        }
-        .rf-card {
-          background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-          border: 1px solid rgba(255,255,255,.08);
-          border-radius: 18px; padding: 20px;
-          transition: all .22s ease;
-          backdrop-filter: blur(10px);
-          animation: resultCardIn .35s ease both;
-        }
-        .rf-card:hover {
-          border-color: rgba(99,102,241,.4);
-          transform: translateY(-3px);
-          box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2);
-        }
-        .rf-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 8px 14px; border-radius: 9px;
-          font-size: 12px; font-weight: 800;
-          cursor: pointer; transition: all .18s ease;
-          font-family: inherit; text-decoration: none;
-          border: 0;
-        }
+        .rf-chip.active { background: linear-gradient(135deg, #3b82f6, #6366f1);
+          border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
+        .rf-card { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+          border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 20px;
+          transition: all .22s ease; backdrop-filter: blur(10px); animation: resultCardIn .35s ease both; }
+        .rf-card:hover { border-color: rgba(99,102,241,.4); transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2); }
+        .rf-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+          border-radius: 9px; font-size: 12px; font-weight: 800; cursor: pointer;
+          transition: all .18s ease; font-family: inherit; text-decoration: none; border: 0; }
         .rf-btn:hover { transform: translateY(-1px); }
-        .rf-btn-primary {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
-          color: #fff;
-          box-shadow: 0 4px 12px rgba(59,130,246,.3);
-        }
+        .rf-btn-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff;
+          box-shadow: 0 4px 12px rgba(59,130,246,.3); }
         .rf-btn-primary:hover { box-shadow: 0 6px 16px rgba(59,130,246,.4); }
-        .rf-btn-danger {
-          background: rgba(239,68,68,.12);
-          color: #fca5a5;
-          border: 1px solid rgba(239,68,68,.3);
-        }
+        .rf-btn-danger { background: rgba(239,68,68,.12); color: #fca5a5;
+          border: 1px solid rgba(239,68,68,.3); }
         .rf-btn-danger:hover { background: rgba(239,68,68,.2); color: #fecaca; }
       </style>
 
-      <div style="
-        padding: 20px 28px;
-        background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
-        border-bottom: 1px solid rgba(255,255,255,.08);
-        display: flex; align-items: center; gap: 18px;
-        flex-wrap: wrap;
-      ">
-        <button id="rfBackBtn" style="
-          width: 42px; height: 42px; flex: 0 0 42px;
-          display: grid; place-items: center;
-          background: rgba(255,255,255,.08);
-          border: 1.5px solid rgba(255,255,255,.14);
-          border-radius: 12px; color: #fff;
-          font-size: 18px; cursor: pointer;
-          font-family: inherit; transition: all .18s ease;
-        " onmouseover="this.style.background='rgba(255,255,255,.15)'"
-           onmouseout="this.style.background='rgba(255,255,255,.08)'">←</button>
-
+      <div style="padding: 20px 28px; background: linear-gradient(180deg, rgba(0,0,0,.25), transparent);
+        border-bottom: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; gap: 18px; flex-wrap: wrap;">
+        <button id="rfBackBtn" style="width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center;
+          background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.14); border-radius: 12px;
+          color: #fff; font-size: 18px; cursor: pointer; font-family: inherit;">←</button>
         <div style="flex: 1; min-width: 0;">
-          <div style="
-            font-size: 11px; font-weight: 800;
-            letter-spacing: 2px; color: #818cf8;
-            margin-bottom: 4px;
-          ">ADMIN PANEL · HASIL TES</div>
-          <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">
-            📄 Hasil Tes Terkirim
-          </div>
+          <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #818cf8; margin-bottom: 4px;">ADMIN PANEL · HASIL TES</div>
+          <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📄 Hasil Tes Terkirim</div>
         </div>
-
         <div id="rfStats" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
-
-        <button id="rfRefreshBtn" style="
-          padding: 10px 18px;
-          background: linear-gradient(135deg, #16a34a, #059669);
-          border: 0; border-radius: 11px; color: #fff;
-          font-size: 13px; font-weight: 800;
-          cursor: pointer; font-family: inherit;
-          box-shadow: 0 6px 16px rgba(22,163,74,.3);
-          transition: all .18s ease;
-        " onmouseover="this.style.transform='translateY(-1px)'"
-           onmouseout="this.style.transform='translateY(0)'">🔄 Refresh</button>
+        <button id="rfRefreshBtn" style="padding: 10px 18px; background: linear-gradient(135deg, #16a34a, #059669);
+          border: 0; border-radius: 11px; color: #fff; font-size: 13px; font-weight: 800;
+          cursor: pointer; font-family: inherit; box-shadow: 0 6px 16px rgba(22,163,74,.3);">🔄 Refresh</button>
       </div>
 
-      <div style="
-        padding: 18px 28px;
-        background: rgba(0,0,0,.15);
-        border-bottom: 1px solid rgba(255,255,255,.06);
-      ">
+      <div style="padding: 18px 28px; background: rgba(0,0,0,.15); border-bottom: 1px solid rgba(255,255,255,.06);">
         <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
           <div style="flex: 1; min-width: 240px; position: relative;">
-            <input id="rfSearchInput" type="text" placeholder="Cari nama kandidat atau posisi..."
-              autocomplete="off"
-              style="
-                width: 100%; padding: 12px 16px 12px 42px;
-                background: rgba(255,255,255,.06);
-                border: 1.5px solid rgba(255,255,255,.1);
-                border-radius: 12px;
-                color: #fff; font-size: 14px;
-                font-family: inherit; outline: none;
-                transition: all .18s ease;
-                box-sizing: border-box;
-              "
-              onfocus="this.style.borderColor='rgba(99,102,241,.6)';this.style.background='rgba(255,255,255,.09)'"
-              onblur="this.style.borderColor='rgba(255,255,255,.1)';this.style.background='rgba(255,255,255,.06)'">
-            <span style="
-              position: absolute; left: 15px; top: 50%;
-              transform: translateY(-50%);
-              font-size: 16px; color: #64748b;
-              pointer-events: none;
-            ">🔍</span>
+            <input id="rfSearchInput" type="text" placeholder="Cari nama kandidat atau posisi..." autocomplete="off"
+              style="width: 100%; padding: 12px 16px 12px 42px; background: rgba(255,255,255,.06);
+              border: 1.5px solid rgba(255,255,255,.1); border-radius: 12px; color: #fff; font-size: 14px;
+              font-family: inherit; outline: none; box-sizing: border-box;">
+            <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+              font-size: 16px; color: #64748b; pointer-events: none;">🔍</span>
           </div>
         </div>
-
         <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-          <span style="
-            font-size: 11px; font-weight: 800;
-            letter-spacing: 1px; color: #64748b;
-            margin-right: 4px;
-          ">FILTER POSISI:</span>
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #64748b; margin-right: 4px;">FILTER POSISI:</span>
           <div id="rfPositionChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
         </div>
       </div>
 
       <div id="rfContent" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">
-        <div style="
-          display: flex; align-items: center; justify-content: center;
-          padding: 60px 20px; color: #64748b;
-          font-size: 14px; flex-direction: column; gap: 14px;
-        ">
-          <div style="
-            width: 40px; height: 40px;
-            border: 3px solid rgba(255,255,255,.1);
-            border-top-color: #6366f1;
-            border-radius: 50%;
-            animation: resultSpinner 0.8s linear infinite;
-          "></div>
+        <div style="display: flex; align-items: center; justify-content: center; padding: 60px 20px;
+          color: #64748b; font-size: 14px; flex-direction: column; gap: 14px;">
+          <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.1);
+            border-top-color: #6366f1; border-radius: 50%; animation: resultSpinner 0.8s linear infinite;"></div>
           Memuat daftar hasil tes...
         </div>
       </div>
@@ -1765,11 +1379,8 @@ function openResultFilesPage() {
       const originalText = btn.textContent;
       btn.disabled = true;
       btn.textContent = '⏳ Memuat...';
-
       try {
-        if (typeof __invalidateResultCache === 'function') {
-          __invalidateResultCache();
-        }
+        if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
         const files = await fetchResultFiles(true);
         window.__resultFilesCache = files;
         __renderResultPageContent();
@@ -1786,17 +1397,14 @@ function openResultFilesPage() {
     searchInput.addEventListener('input', (e) => {
       window.__resultSearchQuery = (e.target.value || '').toLowerCase().trim();
       clearTimeout(__searchDebounceTimer);
-      __searchDebounceTimer = setTimeout(() => {
-        __renderResultPageContent();
-      }, 250);
+      __searchDebounceTimer = setTimeout(() => __renderResultPageContent(), 250);
     });
 
     loadResultFilesForPage();
-
   } catch (err) {
     console.error('[RESULT-PAGE] Gagal buka halaman:', err);
     window.__resultFilesPageOpen = false;
-    alert('❌ Gagal membuka halaman hasil tes: ' + err.message);
+    __alert('Gagal membuka halaman hasil tes: ' + err.message, '❌ Error');
   }
 }
 
@@ -1804,9 +1412,7 @@ function closeResultFilesPage() {
   const overlay = document.getElementById('resultFilesPageOverlay');
   if (overlay) overlay.remove();
   window.__resultFilesPageOpen = false;
-  if (typeof __updateAdminResultCounter === 'function') {
-    __updateAdminResultCounter();
-  }
+  if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 }
 
 /* ============================================================
@@ -1831,18 +1437,10 @@ async function loadResultFilesForPage() {
   }
 
   content.innerHTML = `
-    <div style="
-      display: flex; align-items: center; justify-content: center;
-      padding: 60px 20px; color: #64748b;
-      font-size: 14px; flex-direction: column; gap: 14px;
-    ">
-      <div style="
-        width: 40px; height: 40px;
-        border: 3px solid rgba(255,255,255,.1);
-        border-top-color: #6366f1;
-        border-radius: 50%;
-        animation: resultSpinner 0.8s linear infinite;
-      "></div>
+    <div style="display: flex; align-items: center; justify-content: center; padding: 60px 20px;
+      color: #64748b; font-size: 14px; flex-direction: column; gap: 14px;">
+      <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,.1);
+        border-top-color: #6366f1; border-radius: 50%; animation: resultSpinner 0.8s linear infinite;"></div>
       Memuat daftar hasil tes...
     </div>
   `;
@@ -1867,73 +1465,53 @@ function __renderResultPageContent() {
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
     const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
-    if (!groups.has(key)) {
-      groups.set(key, { name: info.name, position: info.position, files: [] });
-    }
+    if (!groups.has(key)) groups.set(key, { name: info.name, position: info.position, files: [] });
     const g = groups.get(key);
     if (info.position !== '-' && g.position === '-') g.position = info.position;
     g.files.push(f);
   });
 
   let groupArr = Array.from(groups.values());
-
   groupArr.sort((a, b) => {
-    const latestA = Math.max(...a.files.map(f => f.date || 0));
-    const latestB = Math.max(...b.files.map(f => f.date || 0));
-    return latestB - latestA;
+    const la = Math.max(...a.files.map(f => f.date || 0));
+    const lb = Math.max(...b.files.map(f => f.date || 0));
+    return lb - la;
   });
 
   const positionSet = new Set();
-  groupArr.forEach(g => {
-    if (g.position && g.position !== '-') positionSet.add(g.position);
-  });
+  groupArr.forEach(g => { if (g.position && g.position !== '-') positionSet.add(g.position); });
   const positions = Array.from(positionSet).sort();
 
   const currentFilter = window.__resultFilterPosition || 'all';
-  let chipsHTML = `
-    <button class="rf-chip ${currentFilter === 'all' ? 'active' : ''}"
-      onclick="__setResultFilter('all')">Semua (${groupArr.length})</button>
-  `;
+  let chipsHTML = `<button class="rf-chip ${currentFilter === 'all' ? 'active' : ''}"
+    onclick="__setResultFilter('all')">Semua (${groupArr.length})</button>`;
+
   positions.forEach(p => {
     const count = groupArr.filter(g => g.position === p).length;
-    const isActive = currentFilter === p;
     const safeP = String(p).replace(/'/g, "\\'");
-    chipsHTML += `
-      <button class="rf-chip ${isActive ? 'active' : ''}"
-        onclick="__setResultFilter('${safeP}')">${__adminEscape(p)} (${count})</button>
-    `;
+    chipsHTML += `<button class="rf-chip ${currentFilter === p ? 'active' : ''}"
+      onclick="__setResultFilter('${safeP}')">${__adminEscape(p)} (${count})</button>`;
   });
 
   const noPosCount = groupArr.filter(g => !g.position || g.position === '-').length;
   if (noPosCount > 0) {
-    const isActive = currentFilter === '__no_position__';
-    chipsHTML += `
-      <button class="rf-chip ${isActive ? 'active' : ''}"
-        onclick="__setResultFilter('__no_position__')">Tanpa Posisi (${noPosCount})</button>
-    `;
+    chipsHTML += `<button class="rf-chip ${currentFilter === '__no_position__' ? 'active' : ''}"
+      onclick="__setResultFilter('__no_position__')">Tanpa Posisi (${noPosCount})</button>`;
   }
-
   chipsContainer.innerHTML = chipsHTML;
 
   const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
   statsContainer.innerHTML = `
-    <div style="
-      padding: 8px 14px; border-radius: 10px;
-      background: rgba(99,102,241,.12);
-      border: 1px solid rgba(99,102,241,.3);
-      font-size: 12px; font-weight: 800; color: #a5b4fc;
-    ">👥 ${groupArr.length} kandidat</div>
-    <div style="
-      padding: 8px 14px; border-radius: 10px;
-      background: rgba(34,197,94,.12);
-      border: 1px solid rgba(34,197,94,.3);
-      font-size: 12px; font-weight: 800; color: #86efac;
-    ">📎 ${totalFiles} file</div>
+    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(99,102,241,.12);
+      border: 1px solid rgba(99,102,241,.3); font-size: 12px; font-weight: 800; color: #a5b4fc;">
+      👥 ${groupArr.length} kandidat</div>
+    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(34,197,94,.12);
+      border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">
+      📎 ${totalFiles} file</div>
   `;
 
   const search = window.__resultSearchQuery || '';
   const filterPos = window.__resultFilterPosition || 'all';
-
   let filtered = groupArr;
 
   if (filterPos === '__no_position__') {
@@ -1941,7 +1519,6 @@ function __renderResultPageContent() {
   } else if (filterPos !== 'all') {
     filtered = filtered.filter(g => g.position === filterPos);
   }
-
   if (search) {
     filtered = filtered.filter(g =>
       (g.name || '').toLowerCase().includes(search) ||
@@ -1951,28 +1528,18 @@ function __renderResultPageContent() {
 
   if (filtered.length === 0) {
     content.innerHTML = `
-      <div style="
-        display: flex; align-items: center; justify-content: center;
-        padding: 80px 20px; color: #64748b;
-        font-size: 14px; flex-direction: column; gap: 12px;
-        text-align: center;
-      ">
+      <div style="display: flex; align-items: center; justify-content: center; padding: 80px 20px;
+        color: #64748b; font-size: 14px; flex-direction: column; gap: 12px; text-align: center;">
         <div style="font-size: 52px; opacity: .5;">📭</div>
         <div style="font-weight: 700; color: #94a3b8;">
           ${files.length === 0 ? 'Belum ada hasil tes yang terkirim' : 'Tidak ada kandidat yang cocok dengan filter'}
         </div>
         ${files.length > 0 ? `
-          <button onclick="__resetResultFilter()" style="
-            margin-top: 8px; padding: 9px 20px;
-            background: rgba(99,102,241,.15);
-            border: 1px solid rgba(99,102,241,.4);
-            color: #a5b4fc; border-radius: 9px;
-            font-family: inherit; font-size: 13px; font-weight: 800;
-            cursor: pointer;
-          ">Reset Filter</button>
-        ` : ''}
-      </div>
-    `;
+          <button onclick="__resetResultFilter()" style="margin-top: 8px; padding: 9px 20px;
+            background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.4);
+            color: #a5b4fc; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 800;
+            cursor: pointer;">Reset Filter</button>` : ''}
+      </div>`;
     return;
   }
 
@@ -1983,22 +1550,14 @@ function __renderResultPageContent() {
 
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '-';
 
-    const initials = (g.name || '?')
-      .split(/\s+/).slice(0, 2)
-      .map(w => w[0] || '').join('').toUpperCase() || '?';
-
+    const initials = (g.name || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
     const hash = (g.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
     const avatarColors = [
-      ['#3b82f6', '#1e40af'],
-      ['#8b5cf6', '#6d28d9'],
-      ['#10b981', '#047857'],
-      ['#f59e0b', '#b45309'],
-      ['#ec4899', '#be185d'],
-      ['#06b6d4', '#0e7490']
+      ['#3b82f6', '#1e40af'], ['#8b5cf6', '#6d28d9'], ['#10b981', '#047857'],
+      ['#f59e0b', '#b45309'], ['#ec4899', '#be185d'], ['#06b6d4', '#0e7490']
     ];
     const [c1, c2] = avatarColors[hash % avatarColors.length];
 
@@ -2008,8 +1567,7 @@ function __renderResultPageContent() {
     } else if (pdfs.length > 0) {
       badge = '📄 PDF'; badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd' };
     } else if (excels.length > 0) {
-      badge = '<span style="display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" style="flex:0 0 11px;"><rect x="2" y="3" width="20" height="18" rx="2" fill="#16a34a"/><path d="M7 8l3 4-3 4M12 8l3 4-3 4M17 8v8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Excel</span>';
-      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
+      badge = '📊 Excel'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' };
     } else {
       badge = `📁 ${g.files.length} file`; badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1' };
     }
@@ -2022,88 +1580,43 @@ function __renderResultPageContent() {
       let pdfPassword = '-';
       if (kind === 'pdf') {
         try {
-          const lines = String(f.description || '').split('\n');
-          lines.forEach(l => {
+          String(f.description || '').split('\n').forEach(l => {
             const t = l.trim();
-            if (t.startsWith('Password PDF:')) {
-              pdfPassword = t.replace('Password PDF:', '').trim();
-            }
+            if (t.startsWith('Password PDF:')) pdfPassword = t.replace('Password PDF:', '').trim();
           });
         } catch (e) {}
       }
 
       const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
-        ? `
-          <div style="
-            margin-top: 8px; padding: 8px 10px;
-            display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(250,204,21,.15);
-            border: 1px solid rgba(250,204,21,.4);
-            border-radius: 7px;
-            font-size: 11px;
-            flex-wrap: wrap;
-          ">
+        ? `<div style="margin-top: 8px; padding: 8px 10px; display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(250,204,21,.15); border: 1px solid rgba(250,204,21,.4); border-radius: 7px;
+            font-size: 11px; flex-wrap: wrap;">
             <span style="font-weight: 800; color: #fde047; white-space: nowrap;">🔑 Password PDF:</span>
-            <code style="
-              font-family: 'Courier New', monospace;
-              font-weight: 800; color: #fff;
-              background: rgba(0,0,0,.35); padding: 3px 9px;
-              border-radius: 4px; font-size: 11.5px;
-              letter-spacing: 0.3px;
-              word-break: break-all;
-            ">${__adminEscape(pdfPassword)}</code>
-            <button
-              class="js-copy-pdf-password"
-              data-password="${__adminEscape(pdfPassword)}"
-              style="
-                padding: 3px 9px; border: 1px solid rgba(250,204,21,.5);
-                background: rgba(255,255,255,.08); border-radius: 5px;
-                cursor: pointer; font-size: 11px;
-                font-family: inherit; font-weight: 800;
-                color: #fde047;
-              "
-              title="Copy password">📋</button>
-          </div>
-        `
-        : '';
+            <code style="font-family: 'Courier New', monospace; font-weight: 800; color: #fff;
+              background: rgba(0,0,0,.35); padding: 3px 9px; border-radius: 4px; font-size: 11.5px;
+              word-break: break-all;">${__adminEscape(pdfPassword)}</code>
+            <button class="js-copy-pdf-password" data-password="${__adminEscape(pdfPassword)}"
+              style="padding: 3px 9px; border: 1px solid rgba(250,204,21,.5); background: rgba(255,255,255,.08);
+              border-radius: 5px; cursor: pointer; font-size: 11px; font-family: inherit;
+              font-weight: 800; color: #fde047;">📋</button>
+          </div>` : '';
 
       const safeFileUrl = __safeUrl(f.url);
 
       return `
-        <div style="
-          display: flex; align-items: flex-start; gap: 10px;
-          padding: 10px 12px;
-          background: rgba(255,255,255,.03);
-          border: 1px solid rgba(255,255,255,.06);
-          border-radius: 11px;
-          transition: all .15s ease;
-        " onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)'"
-           onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='rgba(255,255,255,.06)'">
-
-          <div style="
-            width: 34px; height: 34px; flex: 0 0 34px;
-            display: grid; place-items: center;
-            background: rgba(255,255,255,.06);
-            border-radius: 9px; font-size: 16px;
-          ">${iconMap[kind] || iconMap.other}</div>
-
+        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+          background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 11px;">
+          <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
+            background: rgba(255,255,255,.06); border-radius: 9px; font-size: 16px;">${iconMap[kind] || iconMap.other}</div>
           <div style="flex: 1; min-width: 0;">
-            <div style="
-              font-weight: 800; color: #e2e8f0;
-              font-size: 12px; margin-bottom: 3px;
-            ">${labelMap[kind] || labelMap.other}</div>
-            <div style="
-              color: #64748b; font-size: 10.5px;
-              word-break: break-all; line-height: 1.4;
-            ">${__adminEscape((f.name || '').slice(0, 45))}${(f.name || '').length > 45 ? '...' : ''} · ${sizeMB}</div>
+            <div style="font-weight: 800; color: #e2e8f0; font-size: 12px; margin-bottom: 3px;">${labelMap[kind] || labelMap.other}</div>
+            <div style="color: #64748b; font-size: 10.5px; word-break: break-all; line-height: 1.4;">
+              ${__adminEscape((f.name || '').slice(0, 45))}${(f.name || '').length > 45 ? '...' : ''} · ${sizeMB}</div>
             ${passwordRow}
           </div>
-
           <div style="display: flex; gap: 6px; flex: 0 0 auto;">
             <a href="${safeFileUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
-            <button
-              class="js-delete-file rf-btn rf-btn-danger"
-              data-file-id="${__adminEscape(f.id)}"
+            <button class="js-delete-file rf-btn rf-btn-danger" data-file-id="${__adminEscape(f.id)}"
               data-file-name="${__adminEscape(f.name)}">🗑</button>
           </div>
         </div>
@@ -2112,48 +1625,25 @@ function __renderResultPageContent() {
 
     return `
       <div class="rf-card">
-        <div style="
-          display: flex; align-items: flex-start; gap: 14px;
-          margin-bottom: 14px; padding-bottom: 14px;
-          border-bottom: 1px solid rgba(255,255,255,.06);
-        ">
-          <div style="
-            width: 48px; height: 48px; flex: 0 0 48px;
-            display: grid; place-items: center;
-            background: linear-gradient(135deg, ${c1}, ${c2});
-            border-radius: 14px;
-            font-size: 17px; font-weight: 900; color: #fff;
-            letter-spacing: -.5px;
-            box-shadow: 0 6px 16px ${c1}55;
-          ">${initials}</div>
-
+        <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px;
+          padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.06);">
+          <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+            background: linear-gradient(135deg, ${c1}, ${c2}); border-radius: 14px; font-size: 17px;
+            font-weight: 900; color: #fff; letter-spacing: -.5px; box-shadow: 0 6px 16px ${c1}55;">${initials}</div>
           <div style="flex: 1; min-width: 0;">
-            <div style="
-              display: flex; align-items: center; gap: 10px;
-              flex-wrap: wrap; margin-bottom: 6px;
-            ">
-              <div style="
-                font-size: 15px; font-weight: 900; color: #fff;
-                letter-spacing: -.2px;
-                word-break: break-word;
-              ">${__adminEscape(g.name)}</div>
-              <span style="
-                padding: 3px 10px; border-radius: 999px;
-                background: ${badgeColor.bg};
-                border: 1px solid ${badgeColor.br};
-                color: ${badgeColor.text};
-                font-size: 10px; font-weight: 800;
-                white-space: nowrap;
-              ">${badge}</span>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;">
+              <div style="font-size: 15px; font-weight: 900; color: #fff; letter-spacing: -.2px;
+                word-break: break-word;">${__adminEscape(g.name)}</div>
+              <span style="padding: 3px 10px; border-radius: 999px; background: ${badgeColor.bg};
+                border: 1px solid ${badgeColor.br}; color: ${badgeColor.text}; font-size: 10px;
+                font-weight: 800; white-space: nowrap;">${badge}</span>
             </div>
             <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
               ${g.position !== '-' ? `💼 ${__adminEscape(g.position)}` : '💼 <span style="opacity:.6">Tanpa posisi</span>'}
-              <span style="opacity:.4; margin: 0 8px;">•</span>
-              🕐 ${dateStr}
+              <span style="opacity:.4; margin: 0 8px;">•</span>🕐 ${dateStr}
             </div>
           </div>
         </div>
-
         <div style="display: flex; flex-direction: column; gap: 8px;">
           ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
           ${excels.map(f => fileRow(f, 'excel')).join('')}
@@ -2163,15 +1653,7 @@ function __renderResultPageContent() {
     `;
   }).join('');
 
-  content.innerHTML = `
-    <div style="
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-      gap: 16px;
-    ">
-      ${cardsHTML}
-    </div>
-  `;
+  content.innerHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px;">${cardsHTML}</div>`;
 }
 
 function __setResultFilter(pos) {
@@ -2215,8 +1697,7 @@ function __renderCounterFromData(files) {
   const uniqueNames = new Set();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
-    const key = (info.name || 'tanpa-nama').toLowerCase().trim();
-    uniqueNames.add(key);
+    uniqueNames.add((info.name || 'tanpa-nama').toLowerCase().trim());
   });
 
   countEl.textContent = `${uniqueNames.size} kandidat · ${files.length} file`;
@@ -2259,58 +1740,32 @@ function renderAdminPanel() {
 
   const overlay = document.createElement('div');
   overlay.id = 'adminPanelOverlay';
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 99999;
-    background: rgba(10,20,35,0.90);
-    backdrop-filter: blur(10px);
+  overlay.style.cssText = `position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,0.90); backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center;
-    padding: 20px; overflow-y: auto;
-  `;
+    padding: 20px; overflow-y: auto;`;
 
   overlay.innerHTML = `
-    <div style="
-      width: min(720px, 100%);
-      max-height: calc(100vh - 40px);
-      overflow-y: auto;
-      background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
-      border-radius: 22px;
+    <div style="width: min(720px, 100%); max-height: calc(100vh - 40px); overflow-y: auto;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%); border-radius: 22px;
       box-shadow: 0 30px 90px rgba(0,0,0,.55);
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-      color: #1a2332;
-    ">
-      <div style="
-        padding: 24px 28px 20px;
+      font-family: Inter, system-ui, -apple-system, sans-serif; color: #1a2332;">
+
+      <div style="padding: 24px 28px 20px;
         background: linear-gradient(135deg, ${locked ? '#7f1d1d' : '#1e3a8a'}, ${locked ? '#dc2626' : '#3b82f6'});
-        border-radius: 22px 22px 0 0;
-        color: #fff; position: relative;
-      ">
-        <div style="
-          position: absolute; top: 16px; right: 16px;
-          display: flex; gap: 6px;
-        ">
-          <button id="btnAdminLogout" title="Logout" style="
-            height: 34px; padding: 0 12px;
-            background: rgba(255,255,255,.15);
-            border: 1px solid rgba(255,255,255,.3);
-            border-radius: 9px; cursor: pointer;
-            color: #fff; font-size: 12px; font-weight: 800;
-            font-family: inherit;
-          ">🚪 Logout</button>
-          <button id="btnAdminClose" title="Tutup" style="
-            width: 34px; height: 34px;
-            background: rgba(255,255,255,.15);
-            border: 1px solid rgba(255,255,255,.3);
-            border-radius: 9px; cursor: pointer;
-            color: #fff; font-size: 16px; font-weight: 700;
-            font-family: inherit;
-          ">✕</button>
+        border-radius: 22px 22px 0 0; color: #fff; position: relative;">
+        <div style="position: absolute; top: 16px; right: 16px; display: flex; gap: 6px;">
+          <button id="btnAdminLogout" title="Logout" style="height: 34px; padding: 0 12px;
+            background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+            border-radius: 9px; cursor: pointer; color: #fff; font-size: 12px; font-weight: 800;
+            font-family: inherit;">🚪 Logout</button>
+          <button id="btnAdminClose" title="Tutup" style="width: 34px; height: 34px;
+            background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+            border-radius: 9px; cursor: pointer; color: #fff; font-size: 16px; font-weight: 700;
+            font-family: inherit;">✕</button>
         </div>
-        <div style="font-size: 12px; font-weight: 800; letter-spacing: 2px; opacity: .85;">
-          ADMIN PANEL
-        </div>
-        <div style="font-size: 24px; font-weight: 900; margin-top: 6px;">
-          🔐 Login Control
-        </div>
+        <div style="font-size: 12px; font-weight: 800; letter-spacing: 2px; opacity: .85;">ADMIN PANEL</div>
+        <div style="font-size: 24px; font-weight: 900; margin-top: 6px;">🔐 Login Control</div>
         <div style="font-size: 13px; opacity: .85; margin-top: 6px;">
           ${locked ? '🔒 SEMUA LOGIN DITOLAK' : '🔓 Kandidat bisa login'}
         </div>
@@ -2318,35 +1773,17 @@ function renderAdminPanel() {
 
       <div style="padding: 24px 28px 28px;">
 
-        <div style="
-          padding: 18px 20px;
-          background: ${locked ? '#fef2f2' : '#f0fdf4'};
-          border: 2px solid ${locked ? '#fca5a5' : '#86efac'};
-          border-radius: 16px;
-          margin-bottom: 22px;
-        ">
-          <label style="
-            display: flex; align-items: center; gap: 12px;
-            cursor: pointer; user-select: none;
-          ">
+        <div style="padding: 18px 20px; background: ${locked ? '#fef2f2' : '#f0fdf4'};
+          border: 2px solid ${locked ? '#fca5a5' : '#86efac'}; border-radius: 16px; margin-bottom: 22px;">
+          <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none;">
             <input type="checkbox" id="adminLockCheckbox" ${locked ? 'checked' : ''}
                    onchange="toggleLockState()"
-                   style="
-                     width: 22px; height: 22px;
-                     cursor: pointer;
-                     accent-color: ${locked ? '#dc2626' : '#16a34a'};
-                   ">
+                   style="width: 22px; height: 22px; cursor: pointer; accent-color: ${locked ? '#dc2626' : '#16a34a'};">
             <div>
-              <div style="
-                font-size: 16px; font-weight: 900;
-                color: ${locked ? '#991b1b' : '#166534'};
-              ">
+              <div style="font-size: 16px; font-weight: 900; color: ${locked ? '#991b1b' : '#166534'};">
                 ${locked ? '🔒 LOCK AKTIF — semua login ditolak' : '🔓 UNLOCKED — kandidat bisa login'}
               </div>
-              <div style="
-                font-size: 12px; color: ${locked ? '#b91c1c' : '#15803d'};
-                margin-top: 4px; line-height: 1.5;
-              ">
+              <div style="font-size: 12px; color: ${locked ? '#b91c1c' : '#15803d'}; margin-top: 4px; line-height: 1.5;">
                 ${locked
                   ? 'Kandidat tidak bisa login dengan password apapun.'
                   : 'Centang untuk memblokir semua login kandidat.'}
@@ -2355,210 +1792,101 @@ function renderAdminPanel() {
           </label>
         </div>
 
-        <div style="
-          padding: 18px 20px;
-          background: linear-gradient(135deg, #fef3c7, #fffbeb);
-          border: 2px solid #fde68a;
-          border-radius: 14px;
-          margin-bottom: 16px;
-        ">
-          <div onclick="toggleAdminSection('request')" style="
-            cursor: pointer; user-select: none;
-            display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 8px;
-          ">
-            <div style="
-              font-size: 14px; font-weight: 900; color: #92400e;
-              display: flex; align-items: center; gap: 8px;
-            ">
+        <div style="padding: 18px 20px; background: linear-gradient(135deg, #fef3c7, #fffbeb);
+          border: 2px solid #fde68a; border-radius: 14px; margin-bottom: 16px;">
+          <div onclick="toggleAdminSection('request')" style="cursor: pointer; user-select: none;
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 14px; font-weight: 900; color: #92400e; display: flex; align-items: center; gap: 8px;">
               <span id="adminSectionArrow_request" style="font-size: 11px; color: #92400e; width: 12px;">
                 ${window.__adminSectionOpen.request ? '▼' : '▶'}
               </span>
               <span style="font-size: 16px;">📨</span>
               Request Izin Akses
             </div>
-            <div id="adminRequestCount" style="
-              font-size: 12px; font-weight: 800; color: #94a3b8;
-              background: #fff; padding: 4px 10px; border-radius: 999px;
-              border: 1px solid #fde68a;
-            ">0 request</div>
+            <div id="adminRequestCount" style="font-size: 12px; font-weight: 800; color: #94a3b8;
+              background: #fff; padding: 4px 10px; border-radius: 999px; border: 1px solid #fde68a;">
+              0 request
+            </div>
           </div>
-
-          <div id="adminSectionBody_request" style="
-            display: ${window.__adminSectionOpen.request ? 'block' : 'none'};
-            margin-top: 14px;
-          ">
-            <div id="adminAccessRequests" style="
-              display: flex; flex-direction: column; gap: 8px;
-              max-height: 400px; overflow-y: auto;
-            ">
-              <div style="
-                padding: 14px; text-align: center;
-                color: #94a3b8; font-size: 12px;
-              ">⏳ Memuat...</div>
+          <div id="adminSectionBody_request" style="display: ${window.__adminSectionOpen.request ? 'block' : 'none'}; margin-top: 14px;">
+            <div id="adminAccessRequests" style="display: flex; flex-direction: column; gap: 8px;
+              max-height: 400px; overflow-y: auto;">
+              <div style="padding: 14px; text-align: center; color: #94a3b8; font-size: 12px;">⏳ Memuat...</div>
             </div>
           </div>
         </div>
 
-        <button onclick="openActiveCandidatesPage()" style="
-          width: 100%;
-          padding: 20px 22px;
-          background: linear-gradient(135deg, #eff6ff, #dbeafe);
-          border: 2px solid #93c5fd;
-          border-radius: 14px;
-          margin-bottom: 16px;
-          cursor: pointer;
-          font-family: inherit;
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 14px; text-align: left;
-          transition: all .18s ease;
-          box-shadow: 0 2px 8px rgba(59,130,246,.08);
-        "
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(59,130,246,.18)';this.style.borderColor='#60a5fa'"
-        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(59,130,246,.08)';this.style.borderColor='#93c5fd'">
-
+        <button onclick="openActiveCandidatesPage()" style="width: 100%; padding: 20px 22px;
+          background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #93c5fd;
+          border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;
+          box-shadow: 0 2px 8px rgba(59,130,246,.08);">
           <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-            <div style="
-              width: 48px; height: 48px; flex: 0 0 48px;
-              display: grid; place-items: center;
-              background: linear-gradient(135deg, #3b82f6, #1e40af);
-              border-radius: 14px; font-size: 22px;
-              box-shadow: 0 6px 16px rgba(59,130,246,.3);
-            ">📊</div>
+            <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+              background: linear-gradient(135deg, #3b82f6, #1e40af); border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(59,130,246,.3);">📊</div>
             <div style="min-width: 0;">
-              <div style="
-                font-size: 15px; font-weight: 900; color: #1e3a8a;
-                margin-bottom: 4px;
-              ">Kandidat Aktif &amp; Selesai</div>
-              <div id="adminActiveCount" style="
-                font-size: 12px; font-weight: 700; color: #1e40af;
-              ">Memuat...</div>
+              <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px;">
+                Kandidat Aktif &amp; Selesai
+              </div>
+              <div id="adminActiveCount" style="font-size: 12px; font-weight: 700; color: #1e40af;">Memuat...</div>
             </div>
           </div>
-
-          <div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 18px;
-            background: linear-gradient(135deg, #3b82f6, #1e40af);
-            color: #fff; border-radius: 11px;
-            font-size: 13px; font-weight: 800;
-            box-shadow: 0 6px 16px rgba(59,130,246,.3);
-            white-space: nowrap; flex: 0 0 auto;
-          ">Buka Halaman →</div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+            background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800; box-shadow: 0 6px 16px rgba(59,130,246,.3);
+            white-space: nowrap; flex: 0 0 auto;">Buka Halaman →</div>
         </button>
 
-        <button onclick="openResultFilesPage()" style="
-          width: 100%;
-          padding: 20px 22px;
-          background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-          border: 2px solid #86efac;
-          border-radius: 14px;
-          margin-bottom: 16px;
-          cursor: pointer;
-          font-family: inherit;
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 14px; text-align: left;
-          transition: all .18s ease;
-          box-shadow: 0 2px 8px rgba(34,197,94,.08);
-        "
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(34,197,94,.18)';this.style.borderColor='#4ade80'"
-        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(34,197,94,.08)';this.style.borderColor='#86efac'">
-
+        <button onclick="openResultFilesPage()" style="width: 100%; padding: 20px 22px;
+          background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border: 2px solid #86efac;
+          border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;
+          box-shadow: 0 2px 8px rgba(34,197,94,.08);">
           <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-            <div style="
-              width: 48px; height: 48px; flex: 0 0 48px;
-              display: grid; place-items: center;
-              background: linear-gradient(135deg, #22c55e, #16a34a);
-              border-radius: 14px; font-size: 22px;
-              box-shadow: 0 6px 16px rgba(34,197,94,.3);
-            ">📄</div>
+            <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+              background: linear-gradient(135deg, #22c55e, #16a34a); border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(34,197,94,.3);">📄</div>
             <div style="min-width: 0;">
-              <div style="
-                font-size: 15px; font-weight: 900; color: #14532d;
-                margin-bottom: 4px;
-              ">Hasil Tes Terkirim</div>
-              <div id="adminResultCount" style="
-                font-size: 12px; font-weight: 700; color: #15803d;
-              ">Memuat...</div>
+              <div style="font-size: 15px; font-weight: 900; color: #14532d; margin-bottom: 4px;">
+                Hasil Tes Terkirim
+              </div>
+              <div id="adminResultCount" style="font-size: 12px; font-weight: 700; color: #15803d;">Memuat...</div>
             </div>
           </div>
-
-          <div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 18px;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: #fff; border-radius: 11px;
-            font-size: 13px; font-weight: 800;
-            box-shadow: 0 6px 16px rgba(34,197,94,.3);
-            white-space: nowrap; flex: 0 0 auto;
-          ">Buka Halaman →</div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+            background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800; box-shadow: 0 6px 16px rgba(34,197,94,.3);
+            white-space: nowrap; flex: 0 0 auto;">Buka Halaman →</div>
         </button>
 
-        <style>
-          @keyframes adminPulseDot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50%      { transform: scale(1.35); opacity: .7; }
-          }
-        </style>
-
-        <button onclick="openPasswordSettingsPage()" style="
-          width: 100%;
-          padding: 20px 22px;
-          background: linear-gradient(135deg, #fef3c7, #fde68a);
-          border: 2px solid #fcd34d;
-          border-radius: 14px;
-          margin-bottom: 16px;
-          cursor: pointer;
-          font-family: inherit;
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 14px; text-align: left;
-          transition: all .18s ease;
-          box-shadow: 0 2px 8px rgba(245,158,11,.08);
-        "
-        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(245,158,11,.18)';this.style.borderColor='#f59e0b'"
-        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 8px rgba(245,158,11,.08)';this.style.borderColor='#fcd34d'">
-
+        <button onclick="openPasswordSettingsPage()" style="width: 100%; padding: 20px 22px;
+          background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #fcd34d;
+          border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;
+          box-shadow: 0 2px 8px rgba(245,158,11,.08);">
           <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-            <div style="
-              width: 48px; height: 48px; flex: 0 0 48px;
-              display: grid; place-items: center;
-              background: linear-gradient(135deg, #f59e0b, #d97706);
-              border-radius: 14px; font-size: 22px;
-              box-shadow: 0 6px 16px rgba(245,158,11,.3);
-            ">🔑</div>
+            <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+              background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 14px; font-size: 22px;
+              box-shadow: 0 6px 16px rgba(245,158,11,.3);">🔑</div>
             <div style="min-width: 0;">
-              <div style="
-                font-size: 15px; font-weight: 900; color: #78350f;
-                margin-bottom: 4px;
-              ">Pengaturan Password</div>
-              <div style="
-                font-size: 12px; font-weight: 700; color: #92400e;
-              ">${locked ? '🔒 Login sedang dikunci' : '🔓 Kelola FRESH & USED'}</div>
+              <div style="font-size: 15px; font-weight: 900; color: #78350f; margin-bottom: 4px;">
+                Pengaturan Password
+              </div>
+              <div style="font-size: 12px; font-weight: 700; color: #92400e;">
+                ${locked ? '🔒 Login sedang dikunci' : '🔓 Kelola FRESH &amp; USED'}
+              </div>
             </div>
           </div>
-
-          <div style="
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 18px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: #fff; border-radius: 11px;
-            font-size: 13px; font-weight: 800;
-            box-shadow: 0 6px 16px rgba(245,158,11,.3);
-            white-space: nowrap; flex: 0 0 auto;
-          ">Buka Halaman →</div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+            background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border-radius: 11px;
+            font-size: 13px; font-weight: 800; box-shadow: 0 6px 16px rgba(245,158,11,.3);
+            white-space: nowrap; flex: 0 0 auto;">Buka Halaman →</div>
         </button>
 
-        <div style="
-          padding: 16px 18px;
-          background: #f1f5f9;
-          border-radius: 12px;
-          margin-bottom: 16px;
-          font-size: 13px; color: #334155;
-          line-height: 1.9;
-        ">
-          <div style="font-weight: 800; margin-bottom: 8px; color: #1e293b;">
-            📱 Device ini
-          </div>
+        <div style="padding: 16px 18px; background: #f1f5f9; border-radius: 12px; margin-bottom: 16px;
+          font-size: 13px; color: #334155; line-height: 1.9;">
+          <div style="font-weight: 800; margin-bottom: 8px; color: #1e293b;">📱 Device ini</div>
           <div><strong>Nama:</strong> ${__adminEscape(identityName)}</div>
           <div><strong>Tes selesai:</strong> ${completedCount}</div>
           <div><strong>Used flag:</strong> ${usedPragas ? '✅ aktif (kandidat sudah logout)' : '❌ belum'}</div>
@@ -2567,56 +1895,28 @@ function renderAdminPanel() {
 
         ${myDeviceId ? `
         <div style="margin-bottom: 12px;">
-          <button
-            class="js-test-chat"
-            data-device-id="${__adminEscape(myDeviceId)}"
-            data-name="${__adminEscape(identityName)}"
-            style="
-              width: 100%;
-              padding: 12px 16px;
-              background: linear-gradient(135deg, #64748b, #334155);
-              color: #fff; border: 0; border-radius: 10px;
-              font-family: inherit; font-size: 13px; font-weight: 800;
-              cursor: pointer;
-              box-shadow: 0 8px 20px rgba(51,65,85,.28);
-            ">🧪 Test Chat (Device Sendiri)</button>
-        </div>
-        ` : ''}
+          <button class="js-test-chat" data-device-id="${__adminEscape(myDeviceId)}" data-name="${__adminEscape(identityName)}"
+            style="width: 100%; padding: 12px 16px; background: linear-gradient(135deg, #64748b, #334155);
+            color: #fff; border: 0; border-radius: 10px; font-family: inherit; font-size: 13px;
+            font-weight: 800; cursor: pointer; box-shadow: 0 8px 20px rgba(51,65,85,.28);">
+            🧪 Test Chat (Device Sendiri)</button>
+        </div>` : ''}
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button onclick="adminResetThisDevice()" style="
-            flex: 1; min-width: 140px;
-            padding: 12px 16px;
-            background: #f59e0b; color: #fff;
-            border: 0; border-radius: 10px;
-            font-family: inherit; font-size: 13px; font-weight: 800;
-            cursor: pointer;
-          ">🔄 Reset Device</button>
-          <button onclick="adminUnlockDevice()" style="
-            flex: 1; min-width: 140px;
-            padding: 12px 16px;
-            background: #fff; color: #dc2626;
-            border: 2px solid #fca5a5; border-radius: 10px;
-            font-family: inherit; font-size: 13px; font-weight: 800;
-            cursor: pointer;
-          ">🔓 Unlock Device</button>
-          <button onclick="adminCleanupInactive()" style="
-            flex: 1; min-width: 140px;
-            padding: 12px 16px;
-            background: #fff; color: #7c3aed;
-            border: 2px solid #c4b5fd; border-radius: 10px;
-            font-family: inherit; font-size: 13px; font-weight: 800;
-            cursor: pointer;
-          ">🧹 Bersihkan Chat Tidak Aktif</button>
+          <button onclick="adminResetThisDevice()" style="flex: 1; min-width: 140px; padding: 12px 16px;
+            background: #f59e0b; color: #fff; border: 0; border-radius: 10px; font-family: inherit;
+            font-size: 13px; font-weight: 800; cursor: pointer;">🔄 Reset Device</button>
+          <button onclick="adminUnlockDevice()" style="flex: 1; min-width: 140px; padding: 12px 16px;
+            background: #fff; color: #dc2626; border: 2px solid #fca5a5; border-radius: 10px;
+            font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">🔓 Unlock Device</button>
+          <button onclick="adminCleanupInactive()" style="flex: 1; min-width: 140px; padding: 12px 16px;
+            background: #fff; color: #7c3aed; border: 2px solid #c4b5fd; border-radius: 10px;
+            font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">🧹 Bersihkan Chat Tidak Aktif</button>
         </div>
 
-        <div style="
-          margin-top: 20px; padding-top: 16px;
-          border-top: 1px solid #e2e8f0;
-          font-size: 11px; color: #94a3b8;
-          text-align: center;
-        ">
-          URL admin: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">?admin=${__adminEscape(APP_CONFIG.ADMIN_KEY)}</code>
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px;
+          color: #94a3b8; text-align: center;">
+          🔒 Admin key disimpan sebagai hash — tidak ditampilkan untuk keamanan
         </div>
       </div>
     </div>
@@ -2624,9 +1924,7 @@ function renderAdminPanel() {
 
   document.body.appendChild(overlay);
 
-  if (typeof __startAdminIdleTracking === 'function') {
-    __startAdminIdleTracking();
-  }
+  if (typeof __startAdminIdleTracking === 'function') __startAdminIdleTracking();
 
   setTimeout(() => {
     const countEl = document.getElementById('adminActiveCount');
@@ -2639,38 +1937,21 @@ function renderAdminPanel() {
       }
     });
 
-    if (typeof startAdminUnreadTracker === 'function') {
-      startAdminUnreadTracker();
-    }
+    if (typeof startAdminUnreadTracker === 'function') startAdminUnreadTracker();
+    if (typeof startAdminTimerTick === 'function') startAdminTimerTick();
+    if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-    if (typeof startAdminTimerTick === 'function') {
-      startAdminTimerTick();
-    }
-
-    if (typeof __updateAdminResultCounter === 'function') {
-      __updateAdminResultCounter();
-    }
-
-    if (window.__pdfAutoRefreshTimer) {
-      clearInterval(window.__pdfAutoRefreshTimer);
-    }
+    if (window.__pdfAutoRefreshTimer) clearInterval(window.__pdfAutoRefreshTimer);
     window.__pdfAutoRefreshTimer = setInterval(() => {
-      if (document.getElementById('adminResultCount')) {
-        __updateAdminResultCounter();
-      }
+      if (document.getElementById('adminResultCount')) __updateAdminResultCounter();
     }, 30000);
 
-    // 🆕 Start real-time listener
-    if (typeof startResultsRealtimeListener === 'function') {
-      startResultsRealtimeListener();
-    }
+    if (typeof startResultsRealtimeListener === 'function') startResultsRealtimeListener();
 
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
       setTimeout(() => {
         cleanupInactiveChatRooms({ silent: true }).then(r => {
-          if (r.removed > 0) {
-            console.log('[AUTO-CLEANUP] 🧹 ' + r.removed + ' chat lama dibersihkan');
-          }
+          if (r.removed > 0) console.log('[AUTO-CLEANUP] 🧹 ' + r.removed + ' chat lama dibersihkan');
         });
       }, 500);
     }
@@ -2682,48 +1963,25 @@ function renderAdminPanel() {
         if (reqCountEl) {
           reqCountEl.textContent = requests.length + ' request';
           reqCountEl.style.color = requests.length > 0 ? '#92400e' : '#94a3b8';
-          if (requests.length > 0) {
-            reqCountEl.style.animation = 'adminPulseDot 1.4s ease-in-out infinite';
-          } else {
-            reqCountEl.style.animation = '';
-          }
+          reqCountEl.style.animation = requests.length > 0 ? 'adminPulseDot 1.4s ease-in-out infinite' : '';
         }
-        if (reqContainer) {
-          reqContainer.innerHTML = renderAccessRequestsHTML(requests);
-        }
+        if (reqContainer) reqContainer.innerHTML = renderAccessRequestsHTML(requests);
       });
     }
-
   }, 200);
 
   const closeBtn = document.getElementById('btnAdminClose');
   if (closeBtn) {
     closeBtn.onclick = () => {
-      if (typeof window.stopListeningActiveSessions === 'function') {
-        try { window.stopListeningActiveSessions(); } catch (e) {}
-      }
-      if (typeof stopAdminUnreadTracker === 'function') {
-        try { stopAdminUnreadTracker(); } catch (e) {}
-      }
-      if (typeof stopAdminTimerTick === 'function') {
-        try { stopAdminTimerTick(); } catch (e) {}
-      }
-
-      // 🆕 Stop real-time listener
-      if (typeof stopResultsRealtimeListener === 'function') {
-        try { stopResultsRealtimeListener(); } catch (e) {}
-      }
+      if (typeof window.stopListeningActiveSessions === 'function') { try { window.stopListeningActiveSessions(); } catch (e) {} }
+      if (typeof stopAdminUnreadTracker === 'function') { try { stopAdminUnreadTracker(); } catch (e) {} }
+      if (typeof stopAdminTimerTick === 'function') { try { stopAdminTimerTick(); } catch (e) {} }
+      if (typeof stopResultsRealtimeListener === 'function') { try { stopResultsRealtimeListener(); } catch (e) {} }
 
       overlay.remove();
-      if (typeof stopListeningAccessRequests === 'function') {
-        try { stopListeningAccessRequests(); } catch (e) {}
-      }
-      if (window.__pdfAutoRefreshTimer) {
-        clearInterval(window.__pdfAutoRefreshTimer);
-        window.__pdfAutoRefreshTimer = null;
-      }
+      if (typeof stopListeningAccessRequests === 'function') { try { stopListeningAccessRequests(); } catch (e) {} }
+      if (window.__pdfAutoRefreshTimer) { clearInterval(window.__pdfAutoRefreshTimer); window.__pdfAutoRefreshTimer = null; }
 
-      // Hapus toast container
       const toastContainer = document.getElementById('sgsResultToastContainer');
       if (toastContainer) toastContainer.remove();
 
@@ -2737,9 +1995,7 @@ function renderAdminPanel() {
   }
 
   const logoutBtn = document.getElementById('btnAdminLogout');
-  if (logoutBtn) {
-    logoutBtn.onclick = adminLogout;
-  }
+  if (logoutBtn) logoutBtn.onclick = () => adminLogout();
 
   document.addEventListener('keydown', function adminEsc(e) {
     if (e.key === 'Escape') {
@@ -2750,22 +2006,39 @@ function renderAdminPanel() {
 }
 
 /* ============================================================
-   CEK URL ADMIN
+   🔒 S1: CEK URL ADMIN — verify hash async
    ============================================================ */
-function checkAdminUrlAndRender() {
+async function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
   const loading = document.createElement('div');
   loading.id = 'adminAuthLoading';
-  loading.style.cssText = `
-    position: fixed; inset: 0; z-index: 99999;
-    background: rgba(10,20,35,0.95);
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-family: Inter, system-ui, sans-serif;
-    font-size: 15px; font-weight: 700;
-  `;
-  loading.innerHTML = '⏳ Memeriksa sesi admin...';
+  loading.style.cssText = `position: fixed; inset: 0; z-index: 99999;
+    background: rgba(10,20,35,0.95); display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 700;`;
+  loading.innerHTML = '⏳ Memverifikasi akses admin...';
   document.body.appendChild(loading);
+
+  // 🔒 Verifikasi hash key
+  const keyOk = await verifyAdminKeyFromUrl();
+  if (!keyOk) {
+    loading.remove();
+    console.warn('[ADMIN] Key tidak valid — akses ditolak');
+    // Hapus URL param
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('admin');
+      url.hash = '';
+      window.history.replaceState({}, '', url.pathname + (url.search || ''));
+    } catch (e) {}
+    // Redirect ke halaman biasa
+    if (typeof window.__reinitApp === 'function') {
+      window.__reinitApp();
+    } else {
+      window.location.reload();
+    }
+    return true;  // Tetap return true agar init normal di-skip
+  }
 
   let resolved = false;
 
@@ -2824,9 +2097,7 @@ function checkAdminUrlAndRender() {
       e.stopPropagation();
       const fileId = deleteBtn.getAttribute('data-file-id');
       const fileName = deleteBtn.getAttribute('data-file-name');
-      if (fileId && typeof deleteResultFile === 'function') {
-        deleteResultFile(fileId, fileName);
-      }
+      if (fileId && typeof deleteResultFile === 'function') deleteResultFile(fileId, fileName);
       return;
     }
 
@@ -2841,9 +2112,7 @@ function checkAdminUrlAndRender() {
             const prev = copyBtn.textContent;
             copyBtn.textContent = '✓';
             setTimeout(() => { copyBtn.textContent = prev; }, 1000);
-          }).catch(() => {
-            fallbackCopy(password);
-          });
+          }).catch(() => fallbackCopy(password));
         } else {
           fallbackCopy(password);
         }
@@ -2857,9 +2126,7 @@ function checkAdminUrlAndRender() {
       e.stopPropagation();
       const deviceId = approveBtn.getAttribute('data-device-id');
       const name = approveBtn.getAttribute('data-name');
-      if (deviceId && typeof approveAccessRequest === 'function') {
-        approveAccessRequest(deviceId, name);
-      }
+      if (deviceId && typeof approveAccessRequest === 'function') approveAccessRequest(deviceId, name);
       return;
     }
 
@@ -2868,9 +2135,7 @@ function checkAdminUrlAndRender() {
       e.preventDefault();
       e.stopPropagation();
       const deviceId = rejectBtn.getAttribute('data-device-id');
-      if (deviceId && typeof rejectAccessRequest === 'function') {
-        rejectAccessRequest(deviceId);
-      }
+      if (deviceId && typeof rejectAccessRequest === 'function') rejectAccessRequest(deviceId);
       return;
     }
 
@@ -2880,9 +2145,7 @@ function checkAdminUrlAndRender() {
       e.stopPropagation();
       const deviceId = testChatBtn.getAttribute('data-device-id');
       const name = testChatBtn.getAttribute('data-name');
-      if (deviceId && typeof window.openChatForAdmin === 'function') {
-        window.openChatForAdmin(deviceId, name);
-      }
+      if (deviceId && typeof window.openChatForAdmin === 'function') window.openChatForAdmin(deviceId, name);
       return;
     }
   }, true);
@@ -2894,6 +2157,7 @@ function checkAdminUrlAndRender() {
    EXPORT
    ============================================================ */
 window.isAdminUrl = isAdminUrl;
+window.verifyAdminKeyFromUrl = verifyAdminKeyFromUrl;
 window.renderAdminPanel = renderAdminPanel;
 window.renderAdminLoginPrompt = renderAdminLoginPrompt;
 window.checkAdminUrlAndRender = checkAdminUrlAndRender;
@@ -2912,46 +2176,45 @@ window.cleanupInactiveChatRooms = cleanupInactiveChatRooms;
 
 window.startAdminTimerTick = startAdminTimerTick;
 window.stopAdminTimerTick = stopAdminTimerTick;
-window.fetchResultFiles        = fetchResultFiles;
-window.renderResultFilesHTML   = renderResultFilesHTML;
-window.refreshResultFilesList  = refreshResultFilesList;
-window.deleteResultFile        = deleteResultFile;
+window.fetchResultFiles = fetchResultFiles;
+window.renderResultFilesHTML = renderResultFilesHTML;
+window.refreshResultFilesList = refreshResultFilesList;
+window.deleteResultFile = deleteResultFile;
 
-window.__extractCandidateInfo  = __extractCandidateInfo;
-window.__detectFileKind        = __detectFileKind;
+window.__extractCandidateInfo = __extractCandidateInfo;
+window.__detectFileKind = __detectFileKind;
 
-window.openResultFilesPage     = openResultFilesPage;
-window.closeResultFilesPage    = closeResultFilesPage;
-window.loadResultFilesForPage  = loadResultFilesForPage;
-window.__setResultFilter       = __setResultFilter;
-window.__resetResultFilter     = __resetResultFilter;
+window.openResultFilesPage = openResultFilesPage;
+window.closeResultFilesPage = closeResultFilesPage;
+window.loadResultFilesForPage = loadResultFilesForPage;
+window.__setResultFilter = __setResultFilter;
+window.__resetResultFilter = __resetResultFilter;
 window.__updateAdminResultCounter = __updateAdminResultCounter;
 
 window.__invalidateResultCache = __invalidateResultCache;
 
-window.__removeFileFromCache   = __removeFileFromCache;
+window.__removeFileFromCache = __removeFileFromCache;
 window.__recentlyDeletedFileIds = window.__recentlyDeletedFileIds;
 
-window.listenAccessRequests         = listenAccessRequests;
-window.stopListeningAccessRequests  = stopListeningAccessRequests;
-window.approveAccessRequest         = approveAccessRequest;
-window.rejectAccessRequest          = rejectAccessRequest;
-window.renderAccessRequestsHTML     = renderAccessRequestsHTML;
+window.listenAccessRequests = listenAccessRequests;
+window.stopListeningAccessRequests = stopListeningAccessRequests;
+window.approveAccessRequest = approveAccessRequest;
+window.rejectAccessRequest = rejectAccessRequest;
+window.renderAccessRequestsHTML = renderAccessRequestsHTML;
 
-/* 🆕 Real-time listener exports */
 window.startResultsRealtimeListener = startResultsRealtimeListener;
-window.stopResultsRealtimeListener  = stopResultsRealtimeListener;
-window.showResultToast              = showResultToast;
+window.stopResultsRealtimeListener = stopResultsRealtimeListener;
+window.showResultToast = showResultToast;
 
 /* ============================================================
-   SESI 8.1 — ADMIN SESSION TIMEOUT
+   ADMIN SESSION TIMEOUT — 15 menit idle
    ============================================================ */
 const ADMIN_SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const ADMIN_WARNING_BEFORE_MS  = 60 * 1000;
 
-let __adminIdleTimer        = null;
-let __adminWarningTimer     = null;
-let __adminWarningShown     = false;
+let __adminIdleTimer    = null;
+let __adminWarningTimer = null;
+let __adminWarningShown = false;
 
 function __resetAdminIdleTimer() {
   if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
@@ -2972,15 +2235,14 @@ function __resetAdminIdleTimer() {
     __showAdminIdleWarning();
   }, ADMIN_SESSION_TIMEOUT_MS - ADMIN_WARNING_BEFORE_MS);
 
-  __adminIdleTimer = setTimeout(() => {
+  __adminIdleTimer = setTimeout(async () => {
     if (typeof adminLogout === 'function') {
       const panel = document.getElementById('adminPanelOverlay');
       if (panel) {
         const warn = document.getElementById('adminIdleWarning');
         if (warn) warn.remove();
-
-        alert('🔒 Sesi admin berakhir karena tidak ada aktivitas 15 menit.\n\nSilakan login ulang untuk melanjutkan.');
-        try { adminLogout(); } catch (e) {}
+        await __alert('Sesi admin berakhir karena tidak ada aktivitas 15 menit.\n\nSilakan login ulang untuk melanjutkan.', '🔒 Sesi Berakhir');
+        try { adminLogout(true); } catch (e) {}
       }
     }
   }, ADMIN_SESSION_TIMEOUT_MS);
@@ -2992,50 +2254,26 @@ function __showAdminIdleWarning() {
 
   const overlay = document.createElement('div');
   overlay.id = 'adminIdleWarning';
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 2147483646;
-    background: rgba(10,20,35,.85);
-    backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px;
-    font-family: Inter, system-ui, -apple-system, sans-serif;
-  `;
+  overlay.style.cssText = `position: fixed; inset: 0; z-index: 2147483646;
+    background: rgba(10,20,35,.85); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;`;
 
   overlay.innerHTML = `
-    <div style="
-      width: min(440px, 100%);
-      background: #fff; border-radius: 22px;
-      padding: 32px 28px 28px;
-      box-shadow: 0 30px 90px rgba(0,0,0,.5);
-      text-align: center;
-    ">
+    <div style="width: min(440px, 100%); background: #fff; border-radius: 22px;
+      padding: 32px 28px 28px; box-shadow: 0 30px 90px rgba(0,0,0,.5); text-align: center;">
       <div style="font-size: 52px; margin-bottom: 14px;">⏰</div>
-      <h2 style="
-        margin: 0 0 12px;
-        color: #b45309; font-size: 22px; font-weight: 900;
-      ">Sesi Hampir Berakhir</h2>
-      <p style="
-        color: #475569; font-size: 14.5px;
-        line-height: 1.65; margin: 0 0 22px;
-      ">
-        Anda tidak ada aktivitas selama 14 menit.<br>
-        Sesi akan otomatis berakhir dalam <b>1 menit</b>.
+      <h2 style="margin: 0 0 12px; color: #b45309; font-size: 22px; font-weight: 900;">Sesi Hampir Berakhir</h2>
+      <p style="color: #475569; font-size: 14.5px; line-height: 1.65; margin: 0 0 22px;">
+        Anda tidak ada aktivitas selama 14 menit.<br>Sesi akan otomatis berakhir dalam <b>1 menit</b>.
       </p>
-      <button id="btnAdminStay" style="
-        width: 100%; padding: 14px;
-        background: linear-gradient(135deg, #16a34a, #059669);
-        color: #fff; border: 0; border-radius: 12px;
-        font-size: 15px; font-weight: 800;
-        cursor: pointer; font-family: inherit;
-        box-shadow: 0 10px 24px rgba(5,150,105,.28);
-      ">✅ Saya Masih di Sini</button>
-      <button id="btnAdminLogoutNow" style="
-        width: 100%; padding: 12px; margin-top: 10px;
-        background: #f1f5f9; color: #475569;
-        border: 0; border-radius: 12px;
-        font-size: 13px; font-weight: 700;
-        cursor: pointer; font-family: inherit;
-      ">🚪 Logout Sekarang</button>
+      <button id="btnAdminStay" style="width: 100%; padding: 14px;
+        background: linear-gradient(135deg, #16a34a, #059669); color: #fff; border: 0; border-radius: 12px;
+        font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit;
+        box-shadow: 0 10px 24px rgba(5,150,105,.28);">✅ Saya Masih di Sini</button>
+      <button id="btnAdminLogoutNow" style="width: 100%; padding: 12px; margin-top: 10px;
+        background: #f1f5f9; color: #475569; border: 0; border-radius: 12px;
+        font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;">🚪 Logout Sekarang</button>
     </div>
   `;
 
@@ -3046,11 +2284,10 @@ function __showAdminIdleWarning() {
     __adminWarningShown = false;
     __resetAdminIdleTimer();
   };
-
   document.getElementById('btnAdminLogoutNow').onclick = () => {
     overlay.remove();
     if (typeof adminLogout === 'function') {
-      try { adminLogout(); } catch (e) {}
+      try { adminLogout(true); } catch (e) {}
     }
   };
 }
@@ -3061,9 +2298,7 @@ function __startAdminIdleTracking() {
   window.__adminIdleListenersAttached = true;
 
   const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click', 'scroll'];
-  events.forEach(evt => {
-    document.addEventListener(evt, __resetAdminIdleTimer, { passive: true });
-  });
+  events.forEach(evt => document.addEventListener(evt, __resetAdminIdleTimer, { passive: true }));
 
   __resetAdminIdleTimer();
   console.log('[ADMIN] ⏰ Session timeout aktif (15 menit idle)');
@@ -3082,4 +2317,5 @@ function __stopAdminIdleTracking() {
 window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
-console.log('[ADMIN] ✓ Loaded — lock + 2 passwords + login gate + monitoring + chat + allow_retake + unread + cleanup + timer + grouped results + cache optimized + XSS fix + DELETE-FIX + REAL-TIME');
+
+console.log('[ADMIN] ✓ Loaded — SECURED (hash key + POST token + custom modal + fail-closed)');
