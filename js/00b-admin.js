@@ -660,6 +660,7 @@ async function fetchResultFiles(forceRefresh = false) {
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
           window.__resultFilesFetchPromise = null;
+          console.log('[PDF-LIST] ✅ Loaded', filtered.length, 'file dari Drive');
           return window.__resultFilesCacheData;
         }
 
@@ -694,7 +695,7 @@ function __invalidateResultCache() {
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
-  if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash (bisa dipulihkan dalam 30 hari).')) return;
+  if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.')) return;
 
   if (!fileId) {
     alert('❌ File ID tidak valid');
