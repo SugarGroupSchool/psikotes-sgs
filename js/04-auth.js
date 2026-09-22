@@ -6,6 +6,32 @@
    - P1-4: Cek finished/disqualified server-side
    - P1-6: Fail-closed kalau cloud belum ready
    ============================================================ */
+/* ============================================================
+   WRONG PASSWORD EFFECTS
+   ============================================================ */
+function passwordWrongImageEffect() {
+  const screen = document.getElementById('passwordScreen');
+  document.querySelectorAll('img').forEach(img => {
+    img.classList.remove('password-image-error');
+    void img.offsetWidth;
+    img.classList.add('password-image-error');
+  });
+  if (screen) {
+    screen.classList.remove('password-screen-error');
+    void screen.offsetWidth;
+    screen.classList.add('password-screen-error');
+  }
+  setTimeout(() => {
+    document.querySelectorAll('img').forEach(i => i.classList.remove('password-image-error'));
+    if (screen) screen.classList.remove('password-screen-error');
+  }, 950);
+}
+
+function runWrongPasswordEffects() {
+  passwordWrongImageEffect();
+  if (typeof playWrongPasswordAlarm === 'function') playWrongPasswordAlarm();
+}
+
 async function checkPassword() {
   const input = document.getElementById('passwordInput');
   const error = document.getElementById('passwordError');
@@ -100,7 +126,11 @@ async function checkPassword() {
   /* ---------- CEK 4: Cocok? ---------- */
   if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
-    runWrongPasswordEffects();
+    if (typeof runWrongPasswordEffects === 'function') {
+  runWrongPasswordEffects();
+} else if (typeof playWrongPasswordAlarm === 'function') {
+  playWrongPasswordAlarm();
+}
     input.focus();
     input.select();
     return;
