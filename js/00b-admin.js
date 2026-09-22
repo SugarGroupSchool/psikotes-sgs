@@ -584,9 +584,19 @@ async function fetchResultFiles(forceRefresh = false) {
     const maxRetry = 3;
     let lastErr = null;
 
+    // 🆕 Ambil ID token FRESH
+    const idToken = await __getFirebaseIdToken();
+    if (!idToken) {
+      console.warn('[PDF-LIST] ⚠️ Tidak ada ID token — skip fetch');
+      return window.__resultFilesCacheData || [];
+    }
+
     for (let attempt = 1; attempt <= maxRetry; attempt++) {
       try {
-        const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now() + '_' + attempt;
+        const url = GAS_ADMIN_URL
+          + '?action=list'
+          + '&idToken=' + encodeURIComponent(idToken)
+          + '&_t=' + Date.now() + '_' + attempt;
         const res = await fetch(url, { cache: 'no-store' });
 
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -600,35 +610,25 @@ async function fetchResultFiles(forceRefresh = false) {
           const allFiles = data.files || [];
           const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
 
-          /* 🆕 Update cache HANYA kalau berhasil */
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
 
-          if (attempt > 1) {
-            console.log('[PDF-LIST] ✅', filtered.length, 'file (attempt ' + attempt + ')');
-          } else {
-            console.log('[PDF-LIST] ✅', filtered.length, 'file');
-          }
+          console.log('[PDF-LIST] ✅', filtered.length, 'file');
           return window.__resultFilesCacheData;
         }
 
         console.warn('[PDF-LIST] Gagal:', data?.error);
       } catch (e) {
         lastErr = e;
-        /* 🆕 Log lebih tenang — jangan warn merah tiap attempt */
         if (attempt === maxRetry) {
           console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
-        } else {
-          // console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
         }
-
         if (attempt < maxRetry) {
           await new Promise(r => setTimeout(r, 800));
         }
       }
     }
 
-    /* Semua attempt gagal → pakai cache lama (JANGAN kosongkan) */
     console.warn('[PDF-LIST] Semua retry gagal, pakai cache lama');
     return window.__resultFilesCacheData || [];
   })();
