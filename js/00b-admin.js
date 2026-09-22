@@ -652,59 +652,103 @@ function __invalidateResultCache() {
 /* ============================================================
    🆕 deleteResultFile — kirim sinyal delete
    ============================================================ */
+/* ============================================================
+   deleteResultFile — POST + retry + robust JSON parsing
+   ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
- const ok = await __confirmDanger('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.', { title: '🗑️ Hapus File', okText: 'Ya, Hapus' });
-if (!ok) return;
-  if (!fileId) { await __alert('File ID tidak valid', '❌ Error'); return; }
 
-  try {
-    const idToken = await __getFirebaseIdToken();
-    if (!idToken) { await __alert('Sesi admin berakhir. Login ulang.', '⚠️ Error'); return; }
+  const ok = await __confirmDanger(
+    'Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.',
+    { title: '🗑️ Hapus File', okText: 'Ya, Hapus' }
+  );
+  if (!ok) return;
 
-    const res = await fetch(GAS_ADMIN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', fileId, idToken })
-    });
-
-    const data = await res.json();
-    if (!data || !data.success) {
-      await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
-      return;
-    }
-
-    window.__recentlyDeletedFileIds.add(fileId);
-    setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
-    __removeFileFromCache(fileId);
-
-    if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-    if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-
-    /* 🆕 Kirim sinyal delete ke admin lain */
-    try {
-      firebase.database().ref('sgs_state/lastDelete').set({
-        ts: firebase.database.ServerValue.TIMESTAMP,
-        fileId: fileId
-      }).catch(() => {});
-    } catch (e) {}
-
-    await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
-
-    setTimeout(async () => {
-      __invalidateResultCache();
-      try {
-        const files = await fetchResultFiles(true);
-        window.__resultFilesCache = files;
-        if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-        if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-      } catch (err) {}
-    }, DRIVE_PROPAGATION_DELAY_MS);
-  } catch (e) {
-    await __alert('Gagal hapus: ' + e.message, '❌ Error');
+  if (!fileId) {
+    await __alert('File ID tidak valid', '❌ Error');
+    return;
   }
-}
 
+  const idToken = await __getFirebaseIdToken();
+  if (!idToken) {
+    await __alert('Sesi admin berakhir. Login ulang.', '⚠️ Error');
+    return;
+  }
+
+  const maxRetry = 3;
+  let lastErr = null;
+
+  for (let attempt = 1; attempt <= maxRetry; attempt++) {
+    try {
+      const res = await fetch(GAS_ADMIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete', fileId, idToken })
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const text = await res.text();
+
+      /* Guard: kalau GAS balas HTML (redirect), retry */
+      if (text.trim().startsWith('<')) {
+        throw new Error('Respon HTML (GAS redirect)');
+      }
+
+      const data = JSON.parse(text);
+
+      if (!data || !data.success) {
+        // Server balas JSON tapi gagal → tidak perlu retry
+        await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
+        return;
+      }
+
+      /* ===== SUKSES ===== */
+      window.__recentlyDeletedFileIds.add(fileId);
+      setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
+      __removeFileFromCache(fileId);
+
+      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+
+      /* 🆕 Kirim sinyal delete ke admin lain */
+      try {
+        firebase.database().ref('sgs_state/lastDelete').set({
+          ts: firebase.database.ServerValue.TIMESTAMP,
+          fileId: fileId
+        }).catch(() => {});
+      } catch (e) {}
+
+      await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
+
+      /* Refresh cache setelah Drive propagation */
+      setTimeout(async () => {
+        __invalidateResultCache();
+        try {
+          const files = await fetchResultFiles(true);
+          window.__resultFilesCache = files;
+          if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+          if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+        } catch (err) {}
+      }, DRIVE_PROPAGATION_DELAY_MS);
+
+      return; // ✅ Keluar dari fungsi setelah sukses
+
+    } catch (e) {
+      lastErr = e;
+      if (attempt === maxRetry) {
+        console.warn(`[DELETE] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
+      } else {
+        console.log(`[DELETE] Retry ${attempt}/${maxRetry}...`, e.message);
+        await new Promise(r => setTimeout(r, 800));
+      }
+    }
+  }
+
+  /* Semua attempt gagal */
+  console.error('[DELETE] Semua retry gagal:', lastErr?.message);
+  await __alert('Gagal hapus: ' + (lastErr?.message || 'Koneksi bermasalah'), '❌ Error');
+}
 /* ============================================================
    HELPER
    ============================================================ */
