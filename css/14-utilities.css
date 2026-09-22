@@ -142,6 +142,26 @@
 
 .option-box input { position: absolute; opacity: 0; cursor: pointer; }
 
+/* =========================================================
+   GLOBAL FOCUS — Keyboard accessibility
+   ========================================================= */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .45);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Matikan focus ring untuk mouse click */
+button:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
 @media (max-width: 600px) {
   .option-grid { grid-template-columns: 1fr; gap: 11px; }
   .option-box { font-size: 15px; padding: 10px 13px 10px 32px; min-width: 0; }
