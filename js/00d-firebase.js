@@ -68,27 +68,23 @@ async function ensureDeviceOwnership(deviceId) {
   const user = firebase.auth().currentUser;
   if (!user) return false;
   const uid = user.uid;
+
   try {
     const ref = firebase.database().ref('device_owners/' + deviceId);
-    const snap = await ref.once('value');
-    if (snap.exists() && snap.val() === uid) return true;
-if (snap.exists() && snap.val() !== uid) {
-  // Cek apakah device sudah selesai → kalau ya, TOLAK
-  const sessionSnap = await firebase.database()
-    .ref('sgs_state/sessions/' + deviceId + '/finished').once('value');
-  if (sessionSnap.val() === true) {
-    console.warn('[OWNERSHIP] ❌ Device sudah terdaftar user lain');
-    return false;
-  }
-  // Device belum selesai → kemungkinan device baru diformat, izinkan re-register
-  await ref.set(uid);
-  return true;
-}
-    await ref.set(uid);
-    console.log('[OWNERSHIP] ✅ Registered:', deviceId.slice(-8), '→', uid.slice(0, 8));
+    // Use transaction — atomic
+    const result = await ref.transaction(current => {
+      if (current === null) return uid;         // belum ada → set
+      if (current === uid) return;              // sudah punya → no-op
+      return;                                    // milik orang lain → abort
+    });
+
+    if (!result.committed) {
+      console.warn('[OWNERSHIP] ❌ Device sudah milik user lain');
+      return false;
+    }
     return true;
   } catch (e) {
-    console.warn('[OWNERSHIP] Gagal register:', e.message);
+    console.warn('[OWNERSHIP] Error:', e.message);
     return false;
   }
 }
