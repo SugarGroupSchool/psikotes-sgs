@@ -6,6 +6,9 @@
    - R2: deleteResultFile() kirim sinyal lastDelete ke admin lain
    - R3: startSignalListeners() dipanggil di renderAdminPanel()
    - R4: stopSignalListeners() dipanggil di adminLogout() + close button
+   ------------------------------------------------------------
+   🔒 SECURITY FIX [2026-09-22]:
+   - P0-1: fetchResultFiles() kirim Firebase ID Token ke GAS
    ============================================================ */
 
 /* ============================================================
@@ -567,7 +570,8 @@ function __removeFileFromCache(fileId) {
 }
 
 /* ============================================================
-   fetchResultFiles — mutex + cache
+   fetchResultFiles — mutex + cache + ID token
+   🔒 P0-1: Kirim Firebase ID Token ke GAS (wajib untuk action=list)
    ============================================================ */
 async function fetchResultFiles(forceRefresh = false) {
   const now = Date.now();
@@ -584,10 +588,10 @@ async function fetchResultFiles(forceRefresh = false) {
     const maxRetry = 3;
     let lastErr = null;
 
-    // 🆕 Ambil ID token FRESH
+    /* 🔒 Ambil ID token FRESH dari Firebase Auth */
     const idToken = await __getFirebaseIdToken();
     if (!idToken) {
-      console.warn('[PDF-LIST] ⚠️ Tidak ada ID token — skip fetch');
+      console.warn('[PDF-LIST] ⚠️ Tidak ada ID token — admin belum login Firebase');
       return window.__resultFilesCacheData || [];
     }
 
@@ -610,25 +614,35 @@ async function fetchResultFiles(forceRefresh = false) {
           const allFiles = data.files || [];
           const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
 
+          /* 🆕 Update cache HANYA kalau berhasil */
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
 
-          console.log('[PDF-LIST] ✅', filtered.length, 'file');
+          if (attempt > 1) {
+            console.log('[PDF-LIST] ✅', filtered.length, 'file (attempt ' + attempt + ')');
+          } else {
+            console.log('[PDF-LIST] ✅', filtered.length, 'file');
+          }
           return window.__resultFilesCacheData;
         }
 
         console.warn('[PDF-LIST] Gagal:', data?.error);
       } catch (e) {
         lastErr = e;
+        /* 🆕 Log lebih tenang — jangan warn merah tiap attempt */
         if (attempt === maxRetry) {
           console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
+        } else {
+          // console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
         }
+
         if (attempt < maxRetry) {
           await new Promise(r => setTimeout(r, 800));
         }
       }
     }
 
+    /* Semua attempt gagal → pakai cache lama (JANGAN kosongkan) */
     console.warn('[PDF-LIST] Semua retry gagal, pakai cache lama');
     return window.__resultFilesCacheData || [];
   })();
