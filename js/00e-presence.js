@@ -518,21 +518,37 @@ function showRetakeBanner() {
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
-  let excludeId = null;
+  const ACTIVE_THRESHOLD_MS = 2 * 60 * 1000; // aktif = lastSeen < 2 menit
+
+  // Exclude device admin yang sedang buka panel
+  let adminDeviceId = null;
   try {
     if (typeof isAdminUrl === 'function' && isAdminUrl()) {
-      excludeId = localStorage.getItem('_sgs_device_id');
+      adminDeviceId = localStorage.getItem('_sgs_device_id');
     }
   } catch (e) {}
 
   return Object.keys(data || {})
     .map(k => ({ deviceId: k, ...data[k] }))
     .filter(s => {
+      // Wajib ada lastSeen
       if (!s.lastSeen) return false;
-      if (excludeId && s.deviceId === excludeId) return false;
-      if (s.finished === true) return true;
+
+      // Exclude device admin sendiri
+      if (adminDeviceId && s.deviceId === adminDeviceId) return false;
+
+      // Exclude yang sudah selesai
+      if (s.finished === true) return false;
+
+      // Exclude yang diskualifikasi
+      if (s.disqualified === true) return false;
+
+      // Exclude offline
       if (s.status === 'offline') return false;
-      if ((now - s.lastSeen) >= PRESENCE_STALE_MS) return false;
+
+      // ✅ HANYA kandidat aktif (lastSeen < 2 menit)
+      if ((now - s.lastSeen) >= ACTIVE_THRESHOLD_MS) return false;
+
       return true;
     })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
