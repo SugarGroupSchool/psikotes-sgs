@@ -588,7 +588,6 @@ async function fetchResultFiles(forceRefresh = false) {
     const maxRetry = 3;
     let lastErr = null;
 
-    /* 🔒 Ambil ID token FRESH dari Firebase Auth */
     const idToken = await __getFirebaseIdToken();
     if (!idToken) {
       console.warn('[PDF-LIST] ⚠️ Tidak ada ID token — admin belum login Firebase');
@@ -598,14 +597,14 @@ async function fetchResultFiles(forceRefresh = false) {
     for (let attempt = 1; attempt <= maxRetry; attempt++) {
       try {
         const res = await fetch(GAS_ADMIN_URL, {
-  method: 'POST',
-  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-  body: JSON.stringify({
-    action: 'list',
-    idToken: idToken,
-    _t: Date.now() + '_' + attempt
-  })
-});
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'list',
+            idToken: idToken,
+            _t: Date.now() + '_' + attempt
+          })
+        });
 
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
@@ -618,35 +617,25 @@ async function fetchResultFiles(forceRefresh = false) {
           const allFiles = data.files || [];
           const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
 
-          /* 🆕 Update cache HANYA kalau berhasil */
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
 
-          if (attempt > 1) {
-            console.log('[PDF-LIST] ✅', filtered.length, 'file (attempt ' + attempt + ')');
-          } else {
-            console.log('[PDF-LIST] ✅', filtered.length, 'file');
-          }
+          console.log('[PDF-LIST] ✅', filtered.length, 'file');
           return window.__resultFilesCacheData;
         }
 
         console.warn('[PDF-LIST] Gagal:', data?.error);
       } catch (e) {
         lastErr = e;
-        /* 🆕 Log lebih tenang — jangan warn merah tiap attempt */
         if (attempt === maxRetry) {
           console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
-        } else {
-          // console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
         }
-
         if (attempt < maxRetry) {
           await new Promise(r => setTimeout(r, 800));
         }
       }
     }
 
-    /* Semua attempt gagal → pakai cache lama (JANGAN kosongkan) */
     console.warn('[PDF-LIST] Semua retry gagal, pakai cache lama');
     return window.__resultFilesCacheData || [];
   })();
@@ -657,7 +646,6 @@ async function fetchResultFiles(forceRefresh = false) {
     window.__resultFilesFetchPromise = null;
   }
 }
-
 /* ============================================================
    INVALIDATE CACHE
    ============================================================ */
