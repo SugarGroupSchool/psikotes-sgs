@@ -3913,47 +3913,134 @@ if (appState.completed.GRAFIS && appState.grafis) {
       doc.setTextColor(44, 62, 80);
     }
   
-    /* ============================================================
-       SUBJECT (upload jawaban)
-       ============================================================ */
+/* ============================================================
+   SUBJECT — Soal + Jawaban
+   🆕 Soal dirender dulu, baru jawaban kandidat
+   ============================================================ */
 if (
   appState.completed &&
-  appState.completed.SUBJECT &&
-  Array.isArray(appState.subjectUpload) &&
-  appState.subjectUpload.length > 0
+  appState.completed.SUBJECT
 ) {
-  for (let i = 0; i < appState.subjectUpload.length; i++) {
-    // ↓ KOMPRES GAMBAR DULU
-    const compressedImg = await __compressImageForPDF(appState.subjectUpload[i], 1400, 0.6);
+  /* ---------- BAGIAN 1: SOAL ---------- */
+  if (appState.subjectSelected) {
+    const subj = (tests?.SUBJECT?.subjects || []).find(s => s.id === appState.subjectSelected);
 
-    await new Promise(resolve => {
+    if (subj) {
       doc.addPage();
-      const img = new window.Image();
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      let ySoal = 22;
 
-      img.onload = function () {
-        const pxToMm = px => px * 0.264583;
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
+      // Judul
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text('SOAL TES SUBJEK', pageW / 2, ySoal, { align: 'center' });
+      ySoal += 6;
 
-        let imgWmm = pxToMm(img.naturalWidth);
-        let imgHmm = pxToMm(img.naturalHeight);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      doc.text(subj.name || '-', pageW / 2, ySoal, { align: 'center' });
+      ySoal += 8;
 
-        const scale = Math.min(pageW / imgWmm, pageH / imgHmm, 1);
-        imgWmm *= scale;
-        imgHmm *= scale;
+      // Extract & render gambar soal
+      const htmlQuestions = subj.questions || [];
+      let soalRendered = 0;
 
-        const x = (pageW - imgWmm) / 2;
-        const y = (pageH - imgHmm) / 2;
+      for (const q of htmlQuestions) {
+        if (!q.question) continue;
 
-        doc.addImage(compressedImg, 'JPEG', x, y, imgWmm, imgHmm);
-        resolve();
-      };
-      img.onerror = () => resolve();
-      img.src = compressedImg;
-    });
+        // Extract semua <img src="..."> dari HTML soal
+        const imgUrls = [];
+        const re = /<img[^>]+src=["']([^"']+)["']/gi;
+        let m;
+        while ((m = re.exec(q.question)) !== null) imgUrls.push(m[1]);
+
+        for (const url of imgUrls) {
+          try {
+            // Fetch gambar → dataURL
+            const imgDataUrl = await (async () => {
+              const r = await fetch(url, { cache: 'no-cache' });
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              const blob = await r.blob();
+              return await new Promise((res, rej) => {
+                const reader = new FileReader();
+                reader.onloadend = () => res(reader.result);
+                reader.onerror = rej;
+                reader.readAsDataURL(blob);
+              });
+            })();
+
+            // Load untuk dapat dimensi
+            const img = await new Promise((res, rej) => {
+              const im = new window.Image();
+              im.onload = () => res(im);
+              im.onerror = rej;
+              im.src = imgDataUrl;
+            });
+
+            const pxToMm = px => px * 0.264583;
+            let imgWmm = pxToMm(img.naturalWidth);
+            let imgHmm = pxToMm(img.naturalHeight);
+
+            const maxW = pageW - 24;
+            const maxH = pageH - 44;
+            const scale = Math.min(maxW / imgWmm, maxH / imgHmm, 1);
+            imgWmm *= scale;
+            imgHmm *= scale;
+
+            const x = (pageW - imgWmm) / 2;
+
+            if (soalRendered > 0) doc.addPage();
+            doc.addImage(imgDataUrl, 'JPEG', x, 22, imgWmm, imgHmm);
+            soalRendered++;
+
+          } catch (e) {
+            console.warn('[PDF] Gagal render soal:', url, e.message);
+          }
+        }
+      }
+
+      if (soalRendered === 0) {
+        doc.setFontSize(9);
+        doc.text('(Soal tidak dapat dimuat)', pageW / 2, ySoal, { align: 'center' });
+      }
+    }
   }
-  doc.addPage();
-  ySection = 25;
+
+  /* ---------- BAGIAN 2: JAWABAN KANDIDAT ---------- */
+  if (Array.isArray(appState.subjectUpload) && appState.subjectUpload.length > 0) {
+    for (let i = 0; i < appState.subjectUpload.length; i++) {
+      const compressedImg = await __compressImageForPDF(appState.subjectUpload[i], 1400, 0.6);
+
+      await new Promise(resolve => {
+        doc.addPage();
+        const img = new window.Image();
+
+        img.onload = function () {
+          const pxToMm = px => px * 0.264583;
+          const pageW = doc.internal.pageSize.getWidth();
+          const pageH = doc.internal.pageSize.getHeight();
+
+          let imgWmm = pxToMm(img.naturalWidth);
+          let imgHmm = pxToMm(img.naturalHeight);
+
+          const scale = Math.min(pageW / imgWmm, pageH / imgHmm, 1);
+          imgWmm *= scale;
+          imgHmm *= scale;
+
+          const x = (pageW - imgWmm) / 2;
+          const y = (pageH - imgHmm) / 2;
+
+          doc.addImage(compressedImg, 'JPEG', x, y, imgWmm, imgHmm);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = compressedImg;
+      });
+    }
+    doc.addPage();
+    ySection = 25;
+  }
 }
   
     /* ============================================================
