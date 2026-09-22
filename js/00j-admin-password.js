@@ -251,8 +251,7 @@
     }
 
     if (action === 'regen-fresh') {
-      if (!confirm('Generate password FRESH baru? Password lama hangus.')) return;
-      var newFresh = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
+  var newFresh = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
         ? APP_CONFIG.generateRandomPassword('SGS-F-')
         : 'SGS-F-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
@@ -266,9 +265,8 @@
       return;
     }
 
-    if (action === 'regen-used') {
-      if (!confirm('Generate password USED baru? Password lama hangus.')) return;
-      var newUsed = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
+ if (action === 'regen-used') {
+  var newUsed = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
         ? APP_CONFIG.generateRandomPassword('SGS-U-')
         : 'SGS-U-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
