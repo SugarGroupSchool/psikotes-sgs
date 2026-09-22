@@ -597,11 +597,15 @@ async function fetchResultFiles(forceRefresh = false) {
 
     for (let attempt = 1; attempt <= maxRetry; attempt++) {
       try {
-        const url = GAS_ADMIN_URL
-          + '?action=list'
-          + '&idToken=' + encodeURIComponent(idToken)
-          + '&_t=' + Date.now() + '_' + attempt;
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(GAS_ADMIN_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+  body: JSON.stringify({
+    action: 'list',
+    idToken: idToken,
+    _t: Date.now() + '_' + attempt
+  })
+});
 
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
