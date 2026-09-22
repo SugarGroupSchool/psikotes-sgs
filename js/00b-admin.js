@@ -639,10 +639,22 @@ async function fetchResultFiles(forceRefresh = false) {
     const maxRetry = 3;
     let lastErr = null;
 
+    // 🔒 Ambil Firebase ID token
+    const idToken = await __getFirebaseIdToken();
+    if (!idToken) {
+      console.warn('[PDF-LIST] Tidak ada ID token — user belum login');
+      window.__resultFilesFetchPromise = null;
+      return window.__resultFilesCacheData || [];
+    }
+
     for (let attempt = 1; attempt <= maxRetry; attempt++) {
       try {
-        const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now() + '_' + attempt;
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(GAS_ADMIN_URL, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'list', idToken, _t: Date.now() })
+        });
 
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
@@ -696,39 +708,30 @@ function __invalidateResultCache() {
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
   if (!confirm('Hapus "' + name + '" dari Google Drive?\n\nFile akan dipindah ke Trash.')) return;
-
-  if (!fileId) {
-    alert('❌ File ID tidak valid');
-    return;
-  }
+  if (!fileId) { alert('❌ File ID tidak valid'); return; }
 
   try {
+    const idToken = await __getFirebaseIdToken();
+    if (!idToken) { alert('❌ Sesi admin berakhir. Login ulang.'); return; }
+
     const res = await fetch(GAS_ADMIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', fileId: fileId })
+      body: JSON.stringify({ action: 'delete', fileId, idToken })
     });
 
     const data = await res.json();
-
     if (!data || !data.success) {
       alert('❌ Gagal hapus: ' + (data?.error || 'Unknown error'));
       return;
     }
 
     window.__recentlyDeletedFileIds.add(fileId);
-    setTimeout(() => {
-      window.__recentlyDeletedFileIds.delete(fileId);
-    }, RECENTLY_DELETED_TTL_MS);
-
+    setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
     __removeFileFromCache(fileId);
 
-    if (document.getElementById('resultFilesPageOverlay')) {
-      __renderResultPageContent();
-    }
-    if (typeof __updateAdminResultCounter === 'function') {
-      __updateAdminResultCounter();
-    }
+    if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+    if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
     alert('✅ File berhasil dihapus dari Drive');
 
@@ -737,15 +740,9 @@ async function deleteResultFile(fileId, fileName) {
       try {
         const files = await fetchResultFiles(true);
         window.__resultFilesCache = files;
-        if (document.getElementById('resultFilesPageOverlay')) {
-          __renderResultPageContent();
-        }
-        if (typeof __updateAdminResultCounter === 'function') {
-          __updateAdminResultCounter();
-        }
-      } catch (err) {
-        console.warn('[DELETE-PDF] Delayed refresh gagal:', err);
-      }
+        if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+        if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+      } catch (err) { console.warn('[DELETE-PDF] Delayed refresh gagal:', err); }
     }, DRIVE_PROPAGATION_DELAY_MS);
   } catch (e) {
     console.error('[DELETE-PDF] Error:', e);
