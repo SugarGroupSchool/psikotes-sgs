@@ -18,10 +18,7 @@ const FORM_FALLBACK_URL = 'https://forms.gle/G69K56TRfxNnBXtr9';
    PASSWORD AKTIF (fallback)
    ============================================================ */
 if (typeof PASSWORD === 'undefined') {
-  var PASSWORD =
-    localStorage.getItem('usedPragas') === '1'
-      ? "SGS-HC-Talent27"
-      : "SGS-REC-Assessment84";
+  var PASSWORD = null; // akan di-fetch dari cloud
 }
 
 /* ============================================================
