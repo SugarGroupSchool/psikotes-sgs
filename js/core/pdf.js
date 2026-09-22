@@ -308,7 +308,15 @@ const _pdfName = (appState?.identity?.name || 'Peserta')
   .slice(0, 6) || 'Peserta';
 const _pdfDevice = (localStorage.getItem('_sgs_device_id') || 'xxx')
   .slice(-3);
-const _pdfPassword = 'SGS-' + _pdfName + '-' + _pdfDevice;
+function __genPdfPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let p = 'SGS-';
+  const buf = new Uint8Array(8);
+  crypto.getRandomValues(buf);
+  for (let i = 0; i < 8; i++) p += chars[buf[i] % chars.length];
+  return p;
+}
+const _pdfPassword = __genPdfPassword();
 window.__lastPdfPassword = _pdfPassword;  // ← TAMBAHAN
      
 const doc = new jsPDF({
