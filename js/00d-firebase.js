@@ -1,15 +1,12 @@
 /* ============================================================
    js/00d-firebase.js
    - Sync lock state & password antar device via Firebase
-   - FASE 3: Baca data per-node (bukan root sgs_state)
-   ------------------------------------------------------------
-   🔒 AUDIT FIX [2026-09-21]:
-   - C4: Guard anti double-init (window.__firebaseInitialized)
+   - 🔒 SECURITY FIX [2026-09-22]:
+     * P1-6: Fail-closed — password/lock tidak punya fallback
+     * P1-7: Auto-register device_owners (untuk rules baru)
+     * P1-8: Guard anti double-init
    ============================================================ */
 
-/* ============================================================
-   KONFIGURASI FIREBASE
-   ============================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyDoa8VnRk7SyBJxmD1E06KmACZsMJEXyMk",
   authDomain: "sgs-psikotes.firebaseapp.com",
@@ -21,29 +18,29 @@ const firebaseConfig = {
 };
 
 /* ============================================================
-   STATE CACHE — hasil sync dari Firebase
+   STATE — FAIL-CLOSED
+   null = belum sync → anggap LOCKED (fail-closed)
    ============================================================ */
 window.__cloudState = {
-  lock: false,
-  freshPwd: '',
-  usedPwd: '',
-  ready: false,
+  lock:      null,   // null = unknown → treat as locked
+  freshPwd:  null,
+  usedPwd:   null,
+  ready:     false,
+  error:     null,
 };
 
 /* ============================================================
-   ANONYMOUS AUTH — Login otomatis untuk kandidat
+   ANONYMOUS AUTH
    ============================================================ */
 function initAnonymousAuth() {
   return new Promise((resolve) => {
     if (typeof firebase === 'undefined' || !firebase.auth) {
-      console.warn('[AUTH] Firebase Auth belum siap');
       resolve(null);
       return;
     }
-
     const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
       if (user) {
-        console.log('[AUTH] User login:', user.uid.slice(0, 8));
+        console.log('[AUTH] User login:', user.uid.slice(0, 8), user.isAnonymous ? '(anon)' : '(email)');
         unsubscribe();
         resolve(user);
       } else {
@@ -55,31 +52,54 @@ function initAnonymousAuth() {
           });
       }
     });
-
     setTimeout(() => {
       unsubscribe();
       resolve(firebase.auth().currentUser);
-    }, 5000);
+    }, 8000);
   });
 }
 
+/* ============================================================
+   🔒 P1-7: REGISTER device_owners → uid
+   Wajib sebelum kandidat boleh write apa pun.
+   ============================================================ */
+async function ensureDeviceOwnership(deviceId) {
+  if (!deviceId) return false;
+  const user = firebase.auth().currentUser;
+  if (!user) return false;
+  const uid = user.uid;
+  try {
+    const ref = firebase.database().ref('device_owners/' + deviceId);
+    const snap = await ref.once('value');
+    if (snap.exists() && snap.val() === uid) return true;
+    if (snap.exists() && snap.val() !== uid) {
+      console.error('[OWNERSHIP] deviceId sudah milik uid lain:', deviceId);
+      return false;
+    }
+    await ref.set(uid);
+    console.log('[OWNERSHIP] ✅ Registered:', deviceId.slice(-8), '→', uid.slice(0, 8));
+    return true;
+  } catch (e) {
+    console.warn('[OWNERSHIP] Gagal register:', e.message);
+    return false;
+  }
+}
+
 window.initAnonymousAuth = initAnonymousAuth;
+window.ensureDeviceOwnership = ensureDeviceOwnership;
 
 /* ============================================================
    INIT FIREBASE
-   🔒 C4 FIX: Guard anti double-init
    ============================================================ */
 function initFirebase() {
-  // ── 🔒 C4 FIX: Cegah double-init ──
   if (window.__firebaseInitialized) {
     console.log('[FIREBASE] Sudah init, skip');
     return;
   }
   window.__firebaseInitialized = true;
-  // ── AKHIR GUARD ──
 
   if (typeof firebase === 'undefined') {
-    console.warn('[FIREBASE] SDK belum ke-load — cek CDN di index.html');
+    console.warn('[FIREBASE] SDK belum ke-load');
     return;
   }
 
@@ -90,11 +110,6 @@ function initFirebase() {
 
     const db = firebase.database();
 
-    // ============================================================
-    // AUTH-AWARE LISTENERS
-    // Re-attach listener setiap auth berubah (login/logout/switch)
-    // Solusi untuk race condition: anonim → admin email
-    // ============================================================
     let __fbStateRefs = [];
 
     function __detachFbListeners() {
@@ -110,214 +125,167 @@ function initFirebase() {
       let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
 
       function __handleStateChange() {
-        const newLock = window.__cloudState.lock;
+        const newLock     = window.__cloudState.lock;
         const newFreshPwd = window.__cloudState.freshPwd;
-        const newUsedPwd = window.__cloudState.usedPwd;
+        const newUsedPwd  = window.__cloudState.usedPwd;
 
         const changed =
-          __lastSync.lock !== newLock ||
+          __lastSync.lock     !== newLock ||
           __lastSync.freshPwd !== newFreshPwd ||
-          __lastSync.usedPwd !== newUsedPwd;
+          __lastSync.usedPwd  !== newUsedPwd;
 
-        window.__cloudState.ready = true;
+        const isReady = (newLock !== null) && (newFreshPwd !== null) && (newUsedPwd !== null);
+        window.__cloudState.ready = isReady;
 
         if (changed) {
           __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
-          console.log('[FIREBASE] Sync:', __lastSync);
+          console.log('[FIREBASE] Sync:', { lock: newLock, fresh: !!newFreshPwd, used: !!newUsedPwd, ready: isReady });
 
           const panel = document.getElementById('adminPanelOverlay');
-          if (panel && typeof renderAdminPanel === 'function') {
-            renderAdminPanel();
-          }
+          if (panel && typeof renderAdminPanel === 'function') renderAdminPanel();
+
+          // 🔔 Dispatch event supaya login screen bisa cek kapan cloud ready
+          try {
+            window.dispatchEvent(new CustomEvent('cloudStateReady', { detail: { ready: isReady } }));
+          } catch (e) {}
         }
       }
 
-      // ─── lock ───
       const lockRef = db.ref('sgs_state/lock');
-      const lockCb = s => {
-        window.__cloudState.lock = s.val() === true;
-        __handleStateChange();
-      };
-      lockRef.on('value', lockCb, err => console.warn('[FIREBASE] lock read error:', err.message));
+      const lockCb  = s => { window.__cloudState.lock = s.val() === true; __handleStateChange(); };
+      lockRef.on('value', lockCb, err => { window.__cloudState.error = err.message; console.warn('[FIREBASE] lock err:', err.message); });
       __fbStateRefs.push({ ref: lockRef, cb: lockCb });
 
-      // ─── freshPwd ───
       const freshRef = db.ref('sgs_state/freshPwd');
-      const freshCb = s => {
-        window.__cloudState.freshPwd = s.val() || '';
-        __handleStateChange();
-      };
-      freshRef.on('value', freshCb, err => console.warn('[FIREBASE] freshPwd read error:', err.message));
+      const freshCb  = s => { window.__cloudState.freshPwd = s.val() || null; __handleStateChange(); };
+      freshRef.on('value', freshCb, err => { window.__cloudState.error = err.message; console.warn('[FIREBASE] freshPwd err:', err.message); });
       __fbStateRefs.push({ ref: freshRef, cb: freshCb });
 
-      // ─── usedPwd ───
       const usedRef = db.ref('sgs_state/usedPwd');
-      const usedCb = s => {
-        window.__cloudState.usedPwd = s.val() || '';
-        __handleStateChange();
-      };
-      usedRef.on('value', usedCb, err => console.warn('[FIREBASE] usedPwd read error:', err.message));
+      const usedCb  = s => { window.__cloudState.usedPwd = s.val() || null; __handleStateChange(); };
+      usedRef.on('value', usedCb, err => { window.__cloudState.error = err.message; console.warn('[FIREBASE] usedPwd err:', err.message); });
       __fbStateRefs.push({ ref: usedRef, cb: usedCb });
     }
 
-    // Attach pertama (saat page load)
     __attachFbListeners();
 
-    // Re-attach setiap auth berubah
     firebase.auth().onAuthStateChanged((user) => {
       const type = user ? (user.isAnonymous ? 'anonim' : 'email') : 'logout';
       console.log('[FIREBASE] 🔄 Auth changed:', type);
-      // Tunggu token refresh selesai sebelum re-attach
-      setTimeout(__attachFbListeners, 400);
+      setTimeout(async () => {
+        __attachFbListeners();
+        // 🔒 Register device ownership tiap auth berubah
+        const did = localStorage.getItem('_sgs_device_id');
+        if (did && user) await ensureDeviceOwnership(did);
+      }, 400);
     });
 
-    console.log('[FIREBASE] ✓ Initialized (auth-aware listeners)');
-
+    console.log('[FIREBASE] ✓ Initialized (auth-aware + fail-closed)');
   } catch (e) {
     console.error('[FIREBASE] Init error:', e);
-    window.__firebaseInitialized = false;  // ← reset kalau gagal
+    window.__firebaseInitialized = false;
   }
 }
 
 /* ============================================================
-   SET LOCK STATE — sync ke cloud
+   SETTERS (admin only)
    ============================================================ */
 async function setLockStateCloud(locked) {
   if (typeof firebase === 'undefined') return;
-  try {
-    await firebase.database().ref('sgs_state/lock').set(locked === true);
-    console.log('[FIREBASE] ✅ Lock sync:', locked);
-  } catch (e) {
-    console.error('[FIREBASE] Gagal set lock:', e);
-    alert('⚠️ Gagal sync ke server: ' + e.message);
-  }
+  await firebase.database().ref('sgs_state/lock').set(locked === true);
+  console.log('[FIREBASE] ✅ Lock sync:', locked);
 }
 
-/* ============================================================
-   SET PASSWORD — sync ke cloud
-   ============================================================ */
 async function setFreshPwdCloud(pwd) {
-  try {
-    await firebase.database().ref('sgs_state/freshPwd').set(pwd);
-    console.log('[FIREBASE] ✅ Fresh pwd sync');
-  } catch (e) {
-    console.error('[FIREBASE] Gagal set fresh:', e);
-    alert('⚠️ Gagal sync: ' + e.message);
-  }
+  if (!pwd || pwd.length < 6) throw new Error('Password minimal 6 karakter');
+  await firebase.database().ref('sgs_state/freshPwd').set(pwd);
+  console.log('[FIREBASE] ✅ Fresh pwd sync');
 }
 
 async function setUsedPwdCloud(pwd) {
-  try {
-    await firebase.database().ref('sgs_state/usedPwd').set(pwd);
-    console.log('[FIREBASE] ✅ Used pwd sync');
-  } catch (e) {
-    console.error('[FIREBASE] Gagal set used:', e);
-    alert('⚠️ Gagal sync: ' + e.message);
-  }
+  if (!pwd || pwd.length < 6) throw new Error('Password minimal 6 karakter');
+  await firebase.database().ref('sgs_state/usedPwd').set(pwd);
+  console.log('[FIREBASE] ✅ Used pwd sync');
 }
 
 /* ============================================================
-   GET STATE — dari cloud, fallback ke localStorage
+   🔒 GETTERS — FAIL-CLOSED
    ============================================================ */
 function getCloudLockState() {
-  return window.__cloudState.ready ? window.__cloudState.lock : false;
+  // Kalau belum ready → anggap terkunci (fail-closed)
+  if (!window.__cloudState.ready) return true;
+  return window.__cloudState.lock === true;
 }
 
 function getCloudFreshPwd() {
-  if (window.__cloudState.ready && window.__cloudState.freshPwd) {
-    return window.__cloudState.freshPwd;
-  }
-  return localStorage.getItem('_sgs_pwd_fresh') || 'SGS-REC-Assessment84';
+  if (!window.__cloudState.ready) return null;
+  return window.__cloudState.freshPwd || null;
 }
 
 function getCloudUsedPwd() {
-  if (window.__cloudState.ready && window.__cloudState.usedPwd) {
-    return window.__cloudState.usedPwd;
-  }
-  return localStorage.getItem('_sgs_pwd_used') || 'SGS-HC-Talent27';
+  if (!window.__cloudState.ready) return null;
+  return window.__cloudState.usedPwd || null;
+}
+
+function isCloudReady() {
+  return window.__cloudState.ready === true;
 }
 
 /* ============================================================
-   ADMIN — Toggle Lock
+   ADMIN TOGGLE
    ============================================================ */
 async function toggleLockState() {
   const cb = document.getElementById('adminLockCheckbox');
   if (!cb) return;
-
   const locked = cb.checked;
-  console.log('[ADMIN] Toggle lock →', locked);
-
   await setLockStateCloud(locked);
   localStorage.setItem('_sgs_lock', locked ? '1' : '0');
   renderAdminPanel();
 }
 
-/* ============================================================
-   ADMIN — Regenerate Passwords
-   ============================================================ */
 async function regenFreshPwd() {
-  if (!confirm('Generate password FRESH baru?')) return;
+  if (typeof sgsConfirm === 'function') {
+    const ok = await sgsConfirm('Generate password FRESH baru?', { title: 'Regenerate FRESH' });
+    if (!ok) return;
+  }
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let pwd = 'SGS-F-';
   for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-
   await setFreshPwdCloud(pwd);
   localStorage.setItem('_sgs_pwd_fresh', pwd);
   renderAdminPanel();
 }
 
 async function regenUsedPwd() {
-  if (!confirm('Generate password USED baru?')) return;
+  if (typeof sgsConfirm === 'function') {
+    const ok = await sgsConfirm('Generate password USED baru?', { title: 'Regenerate USED' });
+    if (!ok) return;
+  }
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let pwd = 'SGS-U-';
   for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-
   await setUsedPwdCloud(pwd);
   localStorage.setItem('_sgs_pwd_used', pwd);
   renderAdminPanel();
 }
 
-async function setFreshPwdManual() {
-  const input = document.getElementById('adminFreshInput');
-  if (!input) return;
-  const val = (input.value || '').trim();
-  if (val.length < 6) { alert('Minimal 6 karakter'); return; }
-  await setFreshPwdCloud(val);
-  localStorage.setItem('_sgs_pwd_fresh', val);
-  alert('✅ Password FRESH diganti');
-  renderAdminPanel();
-}
-
-async function setUsedPwdManual() {
-  const input = document.getElementById('adminUsedInput');
-  if (!input) return;
-  const val = (input.value || '').trim();
-  if (val.length < 6) { alert('Minimal 6 karakter'); return; }
-  await setUsedPwdCloud(val);
-  localStorage.setItem('_sgs_pwd_used', val);
-  alert('✅ Password USED diganti');
-  renderAdminPanel();
-}
-
 /* ============================================================
-   OVERRIDE — supaya aplikasi pakai versi cloud
+   OVERRIDE
    ============================================================ */
 window.getLockState = getCloudLockState;
-window.getFreshPwd = getCloudFreshPwd;
-window.getUsedPwd = getCloudUsedPwd;
+window.getFreshPwd  = getCloudFreshPwd;
+window.getUsedPwd   = getCloudUsedPwd;
+window.isCloudReady = isCloudReady;
 window.toggleLockState = toggleLockState;
-window.regenFreshPwd = regenFreshPwd;
-window.regenUsedPwd = regenUsedPwd;
-window.setFreshPwdManual = setFreshPwdManual;
-window.setUsedPwdManual = setUsedPwdManual;
+window.regenFreshPwd   = regenFreshPwd;
+window.regenUsedPwd    = regenUsedPwd;
 
 /* ============================================================
-   BOOTSTRAP — Login anonim DULU, baru init listeners
+   BOOTSTRAP
    ============================================================ */
 async function bootstrapFirebaseWithAuth() {
   const isAdminMode = (typeof isAdminUrl === 'function') && isAdminUrl();
 
-  // ✅ Initialize Firebase DULU sebelum pakai auth
   if (typeof firebase !== 'undefined' && !firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
   }
@@ -327,16 +295,19 @@ async function bootstrapFirebaseWithAuth() {
       if (!firebase.auth().currentUser) {
         await firebase.auth().signInAnonymously();
         console.log('[FIREBASE] ✓ Anonymous login berhasil');
-      } else {
-        console.log('[FIREBASE] ✓ Sudah login:', firebase.auth().currentUser.uid.slice(0, 8));
       }
     } catch (e) {
       console.warn('[FIREBASE] Anonymous gagal:', e.message);
     }
   }
 
-  // Baru attach listeners
   initFirebase();
+
+  // 🔒 Setelah firebase init, register device ownership
+  const did = localStorage.getItem('_sgs_device_id');
+  if (did && firebase.auth().currentUser) {
+    await ensureDeviceOwnership(did);
+  }
 }
 
 if (document.readyState === 'loading') {
@@ -345,9 +316,9 @@ if (document.readyState === 'loading') {
   setTimeout(bootstrapFirebaseWithAuth, 100);
 }
 
-window.initFirebase = initFirebase;
+window.initFirebase     = initFirebase;
 window.setLockStateCloud = setLockStateCloud;
-window.setFreshPwdCloud = setFreshPwdCloud;
-window.setUsedPwdCloud = setUsedPwdCloud;
+window.setFreshPwdCloud  = setFreshPwdCloud;
+window.setUsedPwdCloud   = setUsedPwdCloud;
 
-console.log('[FIREBASE] ✓ Loaded');
+console.log('[FIREBASE] ✓ Loaded — secured + fail-closed');
