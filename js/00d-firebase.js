@@ -73,7 +73,15 @@ async function ensureDeviceOwnership(deviceId) {
     const snap = await ref.once('value');
     if (snap.exists() && snap.val() === uid) return true;
 if (snap.exists() && snap.val() !== uid) {
-  // Admin login di device yang pernah dipakai kandidat → normal, skip tanpa warning
+  // Cek apakah device sudah selesai → kalau ya, TOLAK
+  const sessionSnap = await firebase.database()
+    .ref('sgs_state/sessions/' + deviceId + '/finished').once('value');
+  if (sessionSnap.val() === true) {
+    console.warn('[OWNERSHIP] ❌ Device sudah terdaftar user lain');
+    return false;
+  }
+  // Device belum selesai → kemungkinan device baru diformat, izinkan re-register
+  await ref.set(uid);
   return true;
 }
     await ref.set(uid);
