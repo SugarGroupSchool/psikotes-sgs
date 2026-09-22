@@ -682,6 +682,7 @@ async function fetchResultFiles(forceRefresh = false) {
 
   return window.__resultFilesFetchPromise;
 }
+
 function __invalidateResultCache() {
   window.__resultFilesCacheData = null;
   window.__resultFilesCacheTime = 0;
@@ -750,6 +751,7 @@ async function deleteResultFile(fileId, fileName) {
     alert('❌ Gagal hapus: ' + e.message);
   }
 }
+
 /* ============================================================
    HELPER — Ekstrak info kandidat
    ============================================================ */
