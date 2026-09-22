@@ -22,11 +22,11 @@ const firebaseConfig = {
    null = belum sync → anggap LOCKED (fail-closed)
    ============================================================ */
 window.__cloudState = {
-  lock:      null,   // null = unknown → treat as locked
-  freshPwd:  null,
-  usedPwd:   null,
-  ready:     false,
-  error:     null,
+  lock: undefined,      // ← undefined = belum sync
+  freshPwd: undefined,
+  usedPwd: undefined,
+  ready: false,
+  error: null,
 };
 
 /* ============================================================
@@ -142,7 +142,11 @@ function initFirebase() {
           __lastSync.freshPwd !== newFreshPwd ||
           __lastSync.usedPwd  !== newUsedPwd;
 
-        const isReady = (newLock !== null) && (newFreshPwd !== null) && (newUsedPwd !== null);
+        // Bedakan 'belum load' (undefined) vs 'sengaja kosong' (null)
+const isReady =
+  window.__cloudState.lock !== undefined &&
+  window.__cloudState.freshPwd !== undefined &&
+  window.__cloudState.usedPwd !== undefined;
         window.__cloudState.ready = isReady;
 
         if (changed) {
