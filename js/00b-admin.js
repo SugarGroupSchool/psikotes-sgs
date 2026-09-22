@@ -370,68 +370,58 @@ function startSignalListeners() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   if (__uploadSignalRef) return;
 
-  /* ----- UPLOAD SIGNAL ----- */
+  /* 🆕 Debounce: tunda refresh 500ms biar tidak spam */
+  let __signalRefreshTimer = null;
+  function __scheduleRefresh(reason) {
+    clearTimeout(__signalRefreshTimer);
+    __signalRefreshTimer = setTimeout(() => {
+      console.log('[REALTIME] Refresh karena:', reason);
+      if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
+      fetchResultFiles(true).then(files => {
+        window.__resultFilesCache = files;
+        if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+        if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+      }).catch(() => {});
+    }, 500);
+  }
+
   __lastUploadTs = null;
   __uploadSignalRef = firebase.database().ref('sgs_state/lastUpload');
   __uploadSignalRef.on('value', (snap) => {
     const data = snap.val();
     if (!data || !data.ts) return;
-
-    // Skip initial load
-    if (__lastUploadTs === null) {
-      __lastUploadTs = data.ts;
-      return;
-    }
-
-    // Skip kalau sama atau lama
+    if (__lastUploadTs === null) { __lastUploadTs = data.ts; return; }
     if (data.ts <= __lastUploadTs) return;
     __lastUploadTs = data.ts;
 
     console.log('[REALTIME] 📥 Upload baru:', data.type, 'dari', data.name);
-
-    if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
-    fetchResultFiles(true).then(files => {
-      window.__resultFilesCache = files;
-      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-    }).catch(() => {});
 
     const icon = data.type === 'excel' ? '📊' : '📄';
     const label = data.type === 'excel' ? 'Excel' : 'PDF';
     if (typeof showResultToast === 'function') {
       showResultToast(icon, `${label} baru dari ${data.name}`, data.position || '');
     }
-
     try {
       if (typeof window.__sgsPlayNotifySound === 'function') window.__sgsPlayNotifySound();
     } catch (e) {}
+
+    __scheduleRefresh('upload baru');
   });
 
-  /* ----- DELETE SIGNAL ----- */
   __lastDeleteTs = null;
   __deleteSignalRef = firebase.database().ref('sgs_state/lastDelete');
   __deleteSignalRef.on('value', (snap) => {
     const data = snap.val();
     if (!data || !data.ts) return;
-
-    if (__lastDeleteTs === null) {
-      __lastDeleteTs = data.ts;
-      return;
-    }
+    if (__lastDeleteTs === null) { __lastDeleteTs = data.ts; return; }
     if (data.ts <= __lastDeleteTs) return;
     __lastDeleteTs = data.ts;
 
-    console.log('[REALTIME] 🗑️ Delete terjadi, refresh list');
-
-    if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
-    fetchResultFiles(true).then(files => {
-      window.__resultFilesCache = files;
-      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-    }).catch(() => {});
+    console.log('[REALTIME] 🗑️ Delete terjadi');
+    __scheduleRefresh('delete');
   });
 
-  console.log('[REALTIME] ✓ Signal listeners aktif');
+  console.log('[REALTIME] ✓ Signal listeners aktif (debounced 500ms)');
 }
 
 function stopSignalListeners() {
@@ -591,38 +581,63 @@ async function fetchResultFiles(forceRefresh = false) {
   }
 
   window.__resultFilesFetchPromise = (async () => {
-    try {
-      const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now();
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const text = await res.text();
-      if (text.trim().startsWith('<')) throw new Error('Respon HTML, bukan JSON');
-      const data = JSON.parse(text);
-      if (data && data.success) {
-        const allFiles = data.files || [];
-        const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
-        window.__resultFilesCacheData = filtered;
-        window.__resultFilesCacheTime = Date.now();
-        console.log('[PDF-LIST] ✅', filtered.length, 'file');
-        return window.__resultFilesCacheData;
+    const maxRetry = 3;
+    let lastErr = null;
+
+    for (let attempt = 1; attempt <= maxRetry; attempt++) {
+      try {
+        const url = GAS_ADMIN_URL + '?action=list&_t=' + Date.now() + '_' + attempt;
+        const res = await fetch(url, { cache: 'no-store' });
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const text = await res.text();
+
+        if (text.trim().startsWith('<')) throw new Error('Respon HTML, bukan JSON');
+
+        const data = JSON.parse(text);
+
+        if (data && data.success) {
+          const allFiles = data.files || [];
+          const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
+
+          /* 🆕 Update cache HANYA kalau berhasil */
+          window.__resultFilesCacheData = filtered;
+          window.__resultFilesCacheTime = Date.now();
+
+          if (attempt > 1) {
+            console.log('[PDF-LIST] ✅', filtered.length, 'file (attempt ' + attempt + ')');
+          } else {
+            console.log('[PDF-LIST] ✅', filtered.length, 'file');
+          }
+          return window.__resultFilesCacheData;
+        }
+
+        console.warn('[PDF-LIST] Gagal:', data?.error);
+      } catch (e) {
+        lastErr = e;
+        /* 🆕 Log lebih tenang — jangan warn merah tiap attempt */
+        if (attempt === maxRetry) {
+          console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
+        } else {
+          console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
+        }
+
+        if (attempt < maxRetry) {
+          await new Promise(r => setTimeout(r, 800));
+        }
       }
-      console.warn('[PDF-LIST] Gagal:', data?.error);
-      return window.__resultFilesCacheData || [];
-    } catch (e) {
-      console.warn('[PDF-LIST] Error:', e.message);
-      return window.__resultFilesCacheData || [];
-    } finally {
-      window.__resultFilesFetchPromise = null;
     }
+
+    /* Semua attempt gagal → pakai cache lama (JANGAN kosongkan) */
+    console.warn('[PDF-LIST] Semua retry gagal, pakai cache lama');
+    return window.__resultFilesCacheData || [];
   })();
 
-  return window.__resultFilesFetchPromise;
-}
-
-function __invalidateResultCache() {
-  window.__resultFilesCacheData = null;
-  window.__resultFilesCacheTime = 0;
-  window.__resultFilesFetchPromise = null;
+  try {
+    return await window.__resultFilesFetchPromise;
+  } finally {
+    window.__resultFilesFetchPromise = null;
+  }
 }
 
 /* ============================================================
@@ -1256,6 +1271,13 @@ function __renderResultPageContent() {
   if (!content || !chipsContainer || !statsContainer) return;
 
   const files = window.__resultFilesCache || [];
+
+  /* 🆕 Cegah flicker: kalau data sama, skip render */
+  const signature = JSON.stringify(files.map(f => f.id).sort());
+  if (window.__lastRenderedSignature === signature) {
+    return;  // Data tidak berubah → skip render
+  }
+  window.__lastRenderedSignature = signature;
   const groups = new Map();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
@@ -1654,9 +1676,6 @@ function renderAdminPanel() {
         }).catch(() => {});
       }
     }, 10000);
-
-    /* 🆕 Legacy listener (untuk kompat) */
-    if (typeof startResultsRealtimeListener === 'function') startResultsRealtimeListener();
 
     /* 🆕 REAL-TIME SIGNAL LISTENER */
     if (typeof startSignalListeners === 'function') startSignalListeners();
