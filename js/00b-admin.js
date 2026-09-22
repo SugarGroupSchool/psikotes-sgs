@@ -394,7 +394,7 @@ function startSignalListeners() {
     if (data.ts <= __lastUploadTs) return;
     __lastUploadTs = data.ts;
 
-    console.log('[REALTIME] 📥 Upload baru:', data.type, 'dari', data.name);
+    //console.log('[REALTIME] 📥 Upload baru:', data.type, 'dari', data.name);
 
     const icon = data.type === 'excel' ? '📊' : '📄';
     const label = data.type === 'excel' ? 'Excel' : 'PDF';
@@ -417,7 +417,7 @@ function startSignalListeners() {
     if (data.ts <= __lastDeleteTs) return;
     __lastDeleteTs = data.ts;
 
-    console.log('[REALTIME] 🗑️ Delete terjadi');
+    //console.log('[REALTIME] 🗑️ Delete terjadi');
     __scheduleRefresh('delete');
   });
 
@@ -619,7 +619,7 @@ async function fetchResultFiles(forceRefresh = false) {
         if (attempt === maxRetry) {
           console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
         } else {
-          console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
+          // console.log(`[PDF-LIST] Retry ${attempt}/${maxRetry}...`);
         }
 
         if (attempt < maxRetry) {
@@ -739,7 +739,7 @@ async function deleteResultFile(fileId, fileName) {
       if (attempt === maxRetry) {
         console.warn(`[DELETE] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
       } else {
-        console.log(`[DELETE] Retry ${attempt}/${maxRetry}...`, e.message);
+        //console.log(`[DELETE] Retry ${attempt}/${maxRetry}...`, e.message);
         await new Promise(r => setTimeout(r, 800));
       }
     }
