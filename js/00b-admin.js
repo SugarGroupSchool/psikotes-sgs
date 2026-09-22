@@ -641,6 +641,15 @@ async function fetchResultFiles(forceRefresh = false) {
 }
 
 /* ============================================================
+   INVALIDATE CACHE
+   ============================================================ */
+function __invalidateResultCache() {
+  window.__resultFilesCacheData = null;
+  window.__resultFilesCacheTime = 0;
+  window.__resultFilesFetchPromise = null;
+}
+
+/* ============================================================
    🆕 deleteResultFile — kirim sinyal delete
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
@@ -1919,9 +1928,9 @@ window.stopSignalListeners = stopSignalListeners;
 const ADMIN_SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const ADMIN_WARNING_BEFORE_MS  = 60 * 1000;
 
-let __adminIdleTimer    = null;
-let __adminWarningTimer = null;
-let __adminWarningShown = false;
+var __adminIdleTimer    = null;
+var __adminWarningTimer = null;
+var __adminWarningShown = false;
 
 function __resetAdminIdleTimer() {
   if (typeof isAdminUrl !== 'function' || !isAdminUrl()) return;
