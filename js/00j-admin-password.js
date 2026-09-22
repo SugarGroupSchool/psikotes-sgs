@@ -44,9 +44,9 @@
 
     var overlay = document.createElement('div');
     overlay.id = 'passwordSettingsPageOverlay';
-    overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:99999;',
-      'background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);',
+   overlay.style.cssText = [
+  'position:fixed;inset:0;z-index:100002;',   // ← GANTI
+  'background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);',
       'display:flex;flex-direction:column;',
       'font-family:Inter,system-ui,-apple-system,sans-serif;',
       'color:#e2e8f0;overflow:hidden;',
