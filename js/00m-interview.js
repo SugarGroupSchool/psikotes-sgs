@@ -671,5 +671,115 @@
      INIT
      ============================================================ */
   buildUI();
+  /* ============================================================
+     MODAL LINK UNTUK ADMIN
+     ============================================================ */
+  window.openInterviewLink = function (candidateName, candidatePosition) {
+    const base = window.location.origin + window.location.pathname;
+    const link = base + '?interview=1'
+      + '&n=' + encodeURIComponent(candidateName)
+      + '&p=' + encodeURIComponent(candidatePosition || '');
 
+    // Hapus modal lama
+    const old = document.getElementById('ivLinkModal');
+    if (old) old.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'ivLinkModal';
+    modal.style.cssText = `position: fixed; inset: 0; z-index: 2147483647;
+      background: rgba(10,20,35,.85); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+      font-family: Inter, system-ui, -apple-system, sans-serif;`;
+
+    modal.innerHTML = `
+      <div style="width: min(540px, 100%); background: #fff; border-radius: 22px;
+        overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.5);">
+        <div style="padding: 24px 26px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff;">
+          <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85; margin-bottom: 6px;">
+            FORM WAWANCARA
+          </div>
+          <div style="font-size: 20px; font-weight: 900;">🎤 Link untuk Pewawancara</div>
+        </div>
+        <div style="padding: 24px 26px;">
+          <div style="font-size: 13px; color: #475569; line-height: 1.65; margin-bottom: 16px;">
+            Kirim link ini ke pewawancara via WhatsApp/Email.<br>
+            Pewawancara buka link → isi form → klik Kirim → PDF otomatis masuk ke panel Anda.
+          </div>
+
+          <div style="padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 12px; margin-bottom: 16px;">
+            <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1px; margin-bottom: 6px;">
+              KANDIDAT
+            </div>
+            <div style="font-size: 14px; font-weight: 800; color: #1e293b;">${escapeHtml(candidateName)}</div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+              💼 ${escapeHtml(candidatePosition || '(tanpa posisi)')}
+            </div>
+          </div>
+
+          <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1px; margin-bottom: 6px;">
+            LINK WAWANCARA
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="ivLinkInput" readonly value="${link}"
+              style="flex: 1; padding: 12px 14px; background: #f8fafc;
+                border: 2px solid #e2e8f0; border-radius: 10px;
+                font-family: 'Courier New', monospace; font-size: 12px; color: #334155;
+                outline: none; box-sizing: border-box;">
+            <button id="ivLinkCopy" style="padding: 12px 20px; border: 0; border-radius: 10px;
+              background: linear-gradient(135deg, #16a34a, #059669); color: #fff;
+              font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">
+              📋 Copy
+            </button>
+          </div>
+
+          <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button id="ivLinkOpen" style="flex: 1; padding: 12px; border: 2px solid #93c5fd;
+              background: #eff6ff; color: #1e40af; border-radius: 10px;
+              font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">
+              🔗 Buka Link
+            </button>
+            <button id="ivLinkClose" style="flex: 1; padding: 12px; border: 0;
+              background: #f1f5f9; color: #475569; border-radius: 10px;
+              font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('ivLinkCopy').onclick = () => {
+      const input = document.getElementById('ivLinkInput');
+      input.select();
+      try {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(link).then(() => {
+            const btn = document.getElementById('ivLinkCopy');
+            const prev = btn.textContent;
+            btn.textContent = '✅ Tersalin';
+            setTimeout(() => { btn.textContent = prev; }, 1500);
+          });
+        } else {
+          document.execCommand('copy');
+        }
+      } catch (e) {}
+    };
+
+    document.getElementById('ivLinkOpen').onclick = () => {
+      window.open(link, '_blank');
+    };
+
+    document.getElementById('ivLinkClose').onclick = () => {
+      modal.remove();
+    };
+  };
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 })();
