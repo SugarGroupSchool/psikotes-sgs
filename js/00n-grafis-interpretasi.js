@@ -287,49 +287,88 @@ itemIds.forEach(itemId => {
   /* ============================================================
      🆕 NOTES GABUNGAN — generate data
      ============================================================ */
-  function generateCombinedNotes() {
-    const autoData = window.GRAFIS_AUTO_DATA || {};
-    const testKeys = ['dap', 'baum', 'htp'];
-    const lines = [];
+function generateCombinedNotes() {
+  const autoData = window.GRAFIS_AUTO_DATA || {};
+  const testKeys = ['dap', 'baum', 'htp'];
+  const lines = [];
 
-    testKeys.forEach(key => {
-      const data = autoData[key];
-      if (!data || !data.groups) return;
+  testKeys.forEach(key => {
+    const data = autoData[key];
+    if (!data || !data.groups) return;
 
-      const selected = state.selectedItems[key] || {};
-      const selectedLines = [];
+    const selected = state.selectedItems[key] || {};
+    const selectedLines = [];
 
-      data.groups.forEach(group => {
-        (group.sections || []).forEach(section => {
-          const val = selected[section.id];
-          if (!val) return;
+    data.groups.forEach(group => {
+      (group.sections || []).forEach(section => {
+        const val = selected[section.id];
+        if (!val) return;
 
-          const itemIds = Array.isArray(val) ? val : [val];
-itemIds.forEach(itemId => {
-  const item = (section.items || []).find(i => i.id === itemId);
-  if (!item) return;
-  if (selectedLines.some(l => l.text === item.interpret)) return;
-  selectedLines.push({
-    label: item.label,
-    text: item.interpret,
-    group: group.title
-  });
-});
+        const itemIds = Array.isArray(val) ? val : [val];
+        itemIds.forEach(itemId => {
+          const item = (section.items || []).find(i => i.id === itemId);
+          if (!item) return;
+
+          // ==== Item utama ====
+          if (!selectedLines.some(l => l.text === item.interpret)) {
+            selectedLines.push({
+              label: item.label,
+              text: item.interpret,
+              group: group.title
+            });
+          }
+
+          // ==== Sub-items (dependsOn) ====
+          // Key subItem = `${section.id}::${sub.id}`
+          (item.subItems || []).forEach(sub => {
+            const subKey = section.id + '::' + sub.id;
+            if (selected[subKey] && !selectedLines.some(l => l.text === sub.interpret)) {
+              selectedLines.push({
+                label: '↳ ' + sub.label,
+                text: sub.interpret,
+                group: group.title
+              });
+            }
+          });
         });
       });
 
-      if (selectedLines.length > 0) {
-        lines.push({
-          key,
-          title: data.title || key.toUpperCase(),
-          icon: data.icon || '📄',
-          items: selectedLines
+      // ==== Opsional: handle sub-items yang parentnya TIDAK terpilih ====
+      // (kasus langka: subItem nyangkut setelah parent di-uncheck.
+      //  Ini safety net biar subItem tetap kebaca kalau ada sisa)
+      (group.sections || []).forEach(section => {
+        Object.keys(selected).forEach(k => {
+          if (!k.startsWith(section.id + '::')) return;
+          const subId = k.slice(section.id.length + 2);
+          if (!selected[k]) return;
+          // Cari subItem di section mana pun
+          (section.items || []).forEach(parent => {
+            (parent.subItems || []).forEach(sub => {
+              if (sub.id !== subId) return;
+              if (selectedLines.some(l => l.text === sub.interpret)) return;
+              selectedLines.push({
+                label: '↳ ' + sub.label,
+                text: sub.interpret,
+                group: group.title
+              });
+            });
+          });
         });
-      }
+      });
     });
 
-    return lines;
-  }
+    if (selectedLines.length > 0) {
+      lines.push({
+        key,
+        title: data.title || key.toUpperCase(),
+        icon: data.icon || '📄',
+        items: selectedLines
+      });
+    }
+  });
+
+  return lines;
+}
 
   /* ============================================================
      🆕 NOTES GABUNGAN — render UI
