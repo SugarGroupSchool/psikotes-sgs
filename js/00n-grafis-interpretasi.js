@@ -1,91 +1,31 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v2
    ------------------------------------------------------------
-   URL TRIGGER: ?grafindo=1&n=<nama>&p=<posisi>
-   - Isi DAP/BAUM/HTP items
-   - Skor 7 kategori → narrative AUTO
-   - Tingkat Rekomendasi AUTO
+   🔄 v2 [2026-09-23]:
+   - Dropdown hasil wawancara (fetch dari Firebase sgs_interviews)
+   - Kesimpulan MANUAL (textarea) — hapus auto-generate narrative
+   - Tingkat rekomendasi MANUAL (dropdown)
+   - PDF report: tampilkan dropdown wawancara + kesimpulan manual
    ============================================================ */
 
 (function () {
   'use strict';
 
-  /* ============================================================
-     KONFIGURASI
-     ============================================================ */
   const ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
 
-  // 7 kategori kesimpulan
-  const CATEGORIES = [
-    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
-    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
-    'STABILITAS EMOSI & KONTROL IMPULS',
-    'MOTIVATION & ACHIEVEMENT DRIVE',
-    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
-    'INTEGRITY & RULE COMPLIANCE',
-    'TEACHING CREATIVITY'
+  const RECOMMENDATION_OPTIONS = [
+    { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED' },
+    { value: 'RECOMMENDED',        label: '✅ RECOMMENDED' },
+    { value: 'FAIRLY_RECOMMENDED', label: '⚠️ FAIRLY RECOMMENDED' },
+    { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED' }
   ];
 
-  // Narrative auto per kategori per skor (1-4)
-  const NARRATIVES = {
-    0: {
-      1: 'Data menunjukkan kemampuan berpikir dan problem solving yang sangat terbatas. Subjek cenderung mengalami kesulitan dalam memahami situasi kompleks, mengambil keputusan, dan menemukan solusi yang efektif. Diperlukan pendampingan intensif dan pengembangan terstruktur.',
-      2: 'Data menunjukkan kemampuan berpikir dan problem solving yang masih perlu dikembangkan. Terdapat beberapa modal positif seperti pemahaman empiris dan adaptasi dasar, namun fokus yang sempit, kurangnya insight, dan kesulitan mengambil keputusan dapat menghambat efektivitas.',
-      3: 'Data menunjukkan kemampuan berpikir dan problem solving yang cukup baik. Subjek mampu memahami situasi secara realistis, menyinkronkan pengalaman masa lalu dengan kebutuhan masa depan, serta beradaptasi terhadap lingkungan. Namun efektivitas dapat menurun pada situasi ambigu atau yang membutuhkan pemahaman menyeluruh.',
-      4: 'Data menunjukkan kemampuan berpikir dan problem solving yang sangat baik. Subjek mampu menganalisis situasi secara menyeluruh, mengambil keputusan tepat, dan mengembangkan solusi efektif bahkan dalam kondisi ambigu atau kompleks.'
-    },
-    1: {
-      1: 'Data menunjukkan kemampuan interpersonal yang sangat terbatas. Subjek cenderung mengalami hambatan besar dalam membangun relasi, bekerja sama, dan memahami perspektif orang lain. Diperlukan pengembangan intensif pada aspek sosial-emosional.',
-      2: 'Data menunjukkan kemampuan interpersonal dasar yang tersedia, namun kedalaman relasi, sensitivitas terhadap perspektif orang lain, dan fleksibilitas kerja sama masih perlu diperkuat. Terdapat modal positif seperti keramahan dan dukungan keluarga.',
-      3: 'Data menunjukkan kemampuan interpersonal yang cukup baik. Subjek mampu membangun hubungan yang sehat, bekerja sama dalam tim, dan menunjukkan empati. Masih terdapat ruang untuk penguatan pada aspek sensitivitas dan fleksibilitas.',
-      4: 'Data menunjukkan kemampuan interpersonal yang sangat baik. Subjek mampu membangun relasi yang dalam, berempati secara tulus, serta menjadi penggerak kerja sama tim yang efektif dan harmonis.'
-    },
-    2: {
-      1: 'Data menunjukkan stabilitas emosi dan kontrol impuls yang sangat terbatas. Subjek mudah mengalami kecemasan, ketegangan, dan kesulitan mengendalikan diri di bawah tekanan. Diperlukan intervensi dan pendampingan pada aspek regulasi emosi.',
-      2: 'Data menunjukkan adanya kontrol emosional dan kemampuan adaptasi, namun kestabilan belum konsisten. Terdapat indikator kecemasan, ketegangan internal, perasaan insecure, mudah marah, serta penumpukan emosi yang berpotensi terganggu saat berada dalam tekanan.',
-      3: 'Data menunjukkan stabilitas emosi dan kontrol impuls yang cukup baik. Subjek mampu menampilkan ketenangan dan keseimbangan secara eksternal serta mengelola stres dengan baik. Perlu penguatan konsistensi dalam situasi yang penuh tekanan.',
-      4: 'Data menunjukkan stabilitas emosi dan kontrol impuls yang sangat baik. Subjek tetap tenang, terkontrol, dan mampu mengambil keputusan rasional bahkan di bawah tekanan tinggi.'
-    },
-    3: {
-      1: 'Data menunjukkan motivasi dan dorongan pencapaian yang sangat rendah. Subjek cenderung pasif, mudah menyerah, dan kurang memiliki inisiatif. Diperlukan intervensi untuk membangun kembali dorongan intrinsik.',
-      2: 'Data menunjukkan motivasi dan dorongan pencapaian yang masih perlu diarahkan. Terdapat energi dan kemauan, namun kurangnya arah tujuan dan kesulitan mengambil keputusan dapat menghambat konsistensi.',
-      3: 'Data menunjukkan motivasi dan dorongan pencapaian yang cukup kuat. Subjek memiliki kemauan, ketekunan, serta keinginan mencapai standar tinggi. Perlu diarahkan agar motivasi menjadi terstruktur, realistis, dan tidak terlalu berorientasi pada kontrol atau pengakuan eksternal.',
-      4: 'Data menunjukkan motivasi dan dorongan pencapaian yang sangat kuat. Subjek memiliki semangat tinggi, tidak mudah menyerah, dan mampu menetapkan serta mencapai target secara konsisten dan realistis.'
-    },
-    4: {
-      1: 'Data menunjukkan fleksibilitas, adaptasi, dan learning agility yang sangat terbatas. Subjek cenderung kaku, sulit beradaptasi dengan perubahan, dan lambat dalam mempelajari hal baru. Diperlukan pendampingan khusus.',
-      2: 'Data menunjukkan kemampuan adaptasi dasar, namun fleksibilitas masih terhambat oleh rasa tidak aman, kesulitan menentukan pilihan, dan kurangnya arah tujuan. Membutuhkan struktur dan lingkungan yang memberikan kepastian.',
-      3: 'Data menunjukkan kemampuan adaptasi dan learning agility yang cukup baik. Subjek mudah menyesuaikan diri pada hal nyata, mampu menghubungkan pengalaman masa lalu dengan masa depan, serta merespons perubahan dengan fleksibilitas. Masih membutuhkan struktur dan tujuan jelas untuk berkembang optimal.',
-      4: 'Data menunjukkan fleksibilitas, adaptasi, dan learning agility yang sangat baik. Subjek cepat menyesuaikan diri pada situasi baru, proaktif mempelajari hal baru, dan mampu bertahan di lingkungan yang dinamis.'
-    },
-    5: {
-      1: 'Data menunjukkan integritas dan kepatuhan aturan yang sangat lemah. Subjek cenderung mengabaikan norma, sulit menerima otoritas, dan rentan melanggar aturan. Diperlukan pendampingan intensif pada aspek kontrol moral.',
-      2: 'Data menunjukkan dasar kontrol moral cukup baik, namun kepatuhan terhadap aturan dan penerimaan otoritas perlu diverifikasi melalui perilaku aktual. Terdapat indikator menentang kekuasaan, mempertahankan otonomi, dan sifat keras hati.',
-      3: 'Data menunjukkan integritas dan kepatuhan aturan yang cukup baik. Subjek memahami norma, menunjukkan tanggung jawab, dan mampu bekerja dalam sistem. Perlu penguatan pada aspek penerimaan otoritas dan fleksibilitas terhadap aturan.',
-      4: 'Data menunjukkan integritas dan kepatuhan aturan yang sangat baik. Subjek menjunjung tinggi norma, patuh pada otoritas secara sehat, serta menjadi teladan dalam tanggung jawab dan etika kerja.'
-    },
-    6: {
-      1: 'Data menunjukkan potensi kreativitas yang sangat terbatas. Subjek kurang memiliki rasa ingin tahu, ide baru, dan inisiatif kreatif. Diperlukan stimulasi dan pengembangan terstruktur.',
-      2: 'Data menunjukkan adanya potensi kreativitas, namun masih belum stabil. Daya cipta yang belum kokoh, kurangnya arah tujuan, dan fokus yang sempit dapat menghambat pengembangan kreativitas.',
-      3: 'Data menunjukkan potensi kreativitas yang cukup baik. Subjek memiliki rasa ingin tahu, keinginan mencoba pengalaman baru, energi aktif, serta dorongan memberi pengaruh. Kreativitas masih perlu diarahkan agar relevan dengan tujuan pembelajaran.',
-      4: 'Data menunjukkan kreativitas yang sangat baik. Subjek memiliki daya cipta tinggi, aktif mencari ide baru, dan mampu mengembangkan metode inovatif yang efektif dan relevan dengan kebutuhan.'
-    }
+  const RECOMMENDATION_COLORS = {
+    HIGHLY_RECOMMENDED: [22, 101, 52],
+    RECOMMENDED:        [22, 163, 74],
+    FAIRLY_RECOMMENDED: [217, 119, 6],
+    NOT_RECOMMENDED:    [220, 38, 38]
   };
-
-  // Rekomendasi akhir dari rata-rata
-  const RECOMMENDATION_LEVELS = [
-    { min: 3.5, label: 'Highly Recommended',        emoji: '🌟', color: [22, 101, 52] },
-    { min: 2.5, label: 'Recommended',               emoji: '✅', color: [22, 163, 74] },
-    { min: 1.5, label: 'Fairly Recommended / Dipertimbangkan dengan Catatan', emoji: '⚠️', color: [217, 119, 6] },
-    { min: 0,   label: 'Not Recommended',           emoji: '❌', color: [220, 38, 38] }
-  ];
-
-  function getRecommendation(avg) {
-    for (const r of RECOMMENDATION_LEVELS) {
-      if (avg >= r.min) return r;
-    }
-    return RECOMMENDATION_LEVELS[RECOMMENDATION_LEVELS.length - 1];
-  }
 
   /* ============================================================
      HELPERS
@@ -103,6 +43,11 @@
       .replace(/[\u2013\u2014]/g, '-')
       .replace(/[^\x20-\x7E\n]/g, '')
       .trim();
+  }
+
+  function candidateSlug(name) {
+    return String(name || '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
   }
 
   /* ============================================================
@@ -220,8 +165,42 @@
     dap:   [{ text: '' }],
     baum:  [{ text: '' }],
     htp:   [{ text: '' }],
-    scores: {}  // { catIdx: 1..4 }
+    conclusion: '',
+    recommendation: '',
+    selectedInterview: ''   // interviewer name
   };
+
+  let __availableInterviews = [];   // dari Firebase
+
+  /* ============================================================
+     FETCH HASIL WAWANCARA DARI FIREBASE
+     ============================================================ */
+  async function fetchInterviewsFromFirebase() {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return [];
+
+    try {
+      const slug = candidateSlug(candidateName);
+      const snap = await firebase.database()
+        .ref('sgs_interviews/' + slug)
+        .once('value');
+
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([key, val]) => ({
+        key,
+        interviewer: val.interviewerName || key,
+        average: val.average,
+        conclusion: val.conclusion,
+        notes: val.notes || '',
+        category: val.category || ''
+      }));
+
+      list.sort((a, b) => (b.average || 0) - (a.average || 0));
+      return list;
+    } catch (e) {
+      console.warn('[GRAFIS-INTERP] Gagal fetch interview:', e.message);
+      return [];
+    }
+  }
 
   /* ============================================================
      BUILD UI
@@ -291,6 +270,24 @@
             </select>
           </div>
 
+          <!-- 🆕 DROPDOWN HASIL WAWANCARA -->
+          <div style="margin-bottom: 24px; padding: 16px 18px; background: #fffbeb;
+            border: 2px solid #fde68a; border-radius: 14px;">
+            <label style="display: block; font-size: 12px; font-weight: 800; color: #92400e;
+              letter-spacing: 1px; margin-bottom: 8px;">
+              🎤 HASIL WAWANCARA TERKAIT (opsional)
+            </label>
+            <select id="giInterviewSelect"
+              style="width: 100%; padding: 12px 14px; border: 2px solid #fcd34d; border-radius: 10px;
+                font-size: 14px; font-family: inherit; background: #fff; outline: none; cursor: pointer;">
+              <option value="">— Memuat hasil wawancara... —</option>
+            </select>
+            <div id="giInterviewDetail" style="display: none; margin-top: 12px; padding: 12px 14px;
+              background: #fff; border: 1px solid #fde68a; border-radius: 10px;
+              font-size: 12.5px; line-height: 1.65; color: #475569;">
+            </div>
+          </div>
+
           <!-- DAP -->
           <div style="margin-bottom: 24px; padding: 18px 20px; background: #f8fafc;
             border: 2px solid #e2e8f0; border-radius: 16px;">
@@ -345,39 +342,45 @@
             <div id="htp-list"></div>
           </div>
 
-          <!-- KESIMPULAN -->
+          <!-- 🆕 KESIMPULAN MANUAL -->
           <div style="margin-bottom: 24px; padding: 20px 22px; background: #f0f9ff;
             border: 2px solid #bae6fd; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #075985; margin-bottom: 6px;">
-              📊 KESIMPULAN (Auto-Generate)
+              📝 KESIMPULAN & REKOMENDASI (Manual)
             </div>
             <div style="font-size: 12px; color: #0369a1; margin-bottom: 16px; line-height: 1.6;">
-              Isi <b>skor 1-4</b> untuk tiap kategori. Narrative akan otomatis ditulis oleh sistem.
+              Tulis kesimpulan interpretasi grafis secara manual berdasarkan analisis Anda.
             </div>
-            <div id="cat-list"></div>
 
-            <!-- Rekomendasi Akhir -->
-            <div id="reco-box" style="margin-top: 18px; padding: 16px 18px;
-              background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
-              transition: all .25s ease;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div>
-                  <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1.5px; margin-bottom: 4px;">
-                    RATA-RATA
-                  </div>
-                  <div id="recoAvg" style="font-size: 28px; font-weight: 900; color: #1e293b; line-height: 1;">
-                    —,——
-                  </div>
-                  <div id="recoProgress" style="font-size: 11.5px; color: #64748b; margin-top: 4px;">
-                    0 dari ${CATEGORIES.length} kategori
-                  </div>
-                </div>
-                <div id="recoChip" style="padding: 10px 18px; border-radius: 12px;
-                  background: #f1f5f9; border: 1px solid #cbd5e1;
-                  font-size: 12px; font-weight: 900; color: #64748b; white-space: nowrap;">
-                  ⏳ Menunggu input
-                </div>
-              </div>
+            <div style="margin-bottom: 16px;">
+              <label style="display: block; font-size: 12px; font-weight: 800; color: #0c4a6e;
+                letter-spacing: 1px; margin-bottom: 8px;">
+                KESIMPULAN <span style="color: #dc2626;">*</span>
+              </label>
+              <textarea id="giConclusion" rows="8" required
+                placeholder="Tulis kesimpulan interpretasi grafis di sini...
+
+Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
+                style="width: 100%; padding: 14px 16px; border: 2px solid #7dd3fc;
+                  border-radius: 12px; font-size: 14.5px; font-family: inherit;
+                  resize: vertical; outline: none; box-sizing: border-box;
+                  line-height: 1.6; min-height: 160px;"></textarea>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 800; color: #0c4a6e;
+                letter-spacing: 1px; margin-bottom: 8px;">
+                TINGKAT REKOMENDASI <span style="color: #dc2626;">*</span>
+              </label>
+              <select id="giRecommendation" required
+                style="width: 100%; padding: 14px 16px; border: 2px solid #7dd3fc;
+                  border-radius: 12px; font-size: 15px; font-family: inherit;
+                  background: #fff; outline: none; cursor: pointer;">
+                <option value="">— Pilih Rekomendasi —</option>
+                ${RECOMMENDATION_OPTIONS.map(o =>
+                  `<option value="${o.value}">${o.label}</option>`
+                ).join('')}
+              </select>
             </div>
           </div>
 
@@ -402,9 +405,6 @@
     renderItemList('baum');
     renderItemList('htp');
 
-    // Render kategori
-    renderCategories();
-
     // Attach add buttons
     root.querySelectorAll('.gi-add-btn').forEach(btn => {
       btn.onclick = () => {
@@ -414,7 +414,68 @@
       };
     });
 
+    // Interview dropdown
+    const interviewSelect = document.getElementById('giInterviewSelect');
+    interviewSelect.onchange = () => {
+      state.selectedInterview = interviewSelect.value;
+      renderInterviewDetail();
+    };
+
+    // Load interviews async
+    fetchInterviewsFromFirebase().then(list => {
+      __availableInterviews = list;
+      populateInterviewDropdown(list);
+    });
+
     document.getElementById('giForm').onsubmit = handleSubmit;
+  }
+
+  /* ============================================================
+     POPULATE DROPDOWN WAWANCARA
+     ============================================================ */
+  function populateInterviewDropdown(list) {
+    const sel = document.getElementById('giInterviewSelect');
+    if (!sel) return;
+
+    if (!list || list.length === 0) {
+      sel.innerHTML = '<option value="">— Tidak ada hasil wawancara —</option>';
+      sel.disabled = true;
+      return;
+    }
+
+    sel.innerHTML = '<option value="">— Pilih pewawancara (opsional) —</option>' +
+      list.map(iv => {
+        const avg = iv.average != null ? ` (${iv.average.toFixed(2).replace('.', ',')})` : '';
+        return `<option value="${escapeHtml(iv.interviewer)}">${escapeHtml(iv.interviewer)} — ${escapeHtml(iv.conclusion || '-')}${avg}</option>`;
+      }).join('');
+  }
+
+  function renderInterviewDetail() {
+    const box = document.getElementById('giInterviewDetail');
+    if (!box) return;
+
+    const iv = __availableInterviews.find(x => x.interviewer === state.selectedInterview);
+    if (!iv) {
+      box.style.display = 'none';
+      return;
+    }
+
+    const avg = iv.average != null ? iv.average.toFixed(2).replace('.', ',') : '-';
+    const notes = iv.notes ? cleanForPDF(iv.notes) : '(tidak ada catatan)';
+
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div style="font-weight: 800; color: #92400e; margin-bottom: 6px;">
+        👤 ${escapeHtml(iv.interviewer)} — ${escapeHtml(iv.conclusion || '-')}
+      </div>
+      <div style="margin-bottom: 8px;">
+        <b>Rata-rata:</b> ${avg} / 5.00
+      </div>
+      <div style="padding-top: 8px; border-top: 1px dashed #fde68a;">
+        <b>Catatan pewawancara:</b><br>
+        <span style="white-space: pre-wrap;">${escapeHtml(notes)}</span>
+      </div>
+    `;
   }
 
   /* ============================================================
@@ -452,7 +513,6 @@
       </div>
     `).join('');
 
-    // Attach events
     container.querySelectorAll('.gi-item-input').forEach(ta => {
       ta.addEventListener('input', (e) => {
         const t = e.target.getAttribute('data-target');
@@ -475,7 +535,6 @@
         const t = btn.getAttribute('data-target');
         const i = Number(btn.getAttribute('data-idx'));
         if (state[t].length <= 1) {
-          // Reset saja
           state[t][0].text = '';
         } else {
           state[t].splice(i, 1);
@@ -483,126 +542,6 @@
         renderItemList(t);
       };
     });
-  }
-
-  /* ============================================================
-     RENDER KATEGORI + AUTO NARRATIVE
-     ============================================================ */
-  function renderCategories() {
-    const container = document.getElementById('cat-list');
-    if (!container) return;
-
-    container.innerHTML = CATEGORIES.map((cat, idx) => `
-      <div class="gi-cat" data-idx="${idx}"
-        style="margin-bottom: 12px; padding: 14px 16px; background: #fff;
-          border: 1.5px solid #e2e8f0; border-radius: 12px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;
-          gap: 12px; flex-wrap: wrap; margin-bottom: 10px;">
-          <div style="flex: 1; min-width: 200px; font-size: 13px; font-weight: 900; color: #1e293b;
-            line-height: 1.4;">
-            ${idx + 1}. ${escapeHtml(cat)}
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
-            <select class="gi-cat-score" data-idx="${idx}"
-              style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
-                font-family: inherit; font-size: 13px; font-weight: 800;
-                color: #1e293b; background: #fff; cursor: pointer; outline: none;">
-              <option value="">-- Skor --</option>
-              <option value="1">1 — Sangat Kurang</option>
-              <option value="2">2 — Kurang</option>
-              <option value="3">3 — Cukup</option>
-              <option value="4">4 — Baik</option>
-            </select>
-            <span style="font-size: 11px; color: #94a3b8; font-weight: 800;">/4</span>
-          </div>
-        </div>
-        <div class="gi-cat-narrative" data-idx="${idx}"
-          style="padding: 10px 12px; background: #f8fafc;
-            border: 1px dashed #cbd5e1; border-radius: 10px;
-            font-size: 12.5px; line-height: 1.65; color: #64748b;
-            font-style: italic; transition: all .25s ease;">
-          Pilih skor di atas untuk melihat narrative otomatis.
-        </div>
-      </div>
-    `).join('');
-
-    // Attach score change
-    container.querySelectorAll('.gi-cat-score').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const idx = Number(e.target.getAttribute('data-idx'));
-        const val = Number(e.target.value);
-        if (val >= 1 && val <= 4) {
-          state.scores[idx] = val;
-        } else {
-          delete state.scores[idx];
-        }
-        updateNarrative(idx);
-        updateRecommendation();
-      });
-    });
-  }
-
-  function updateNarrative(idx) {
-    const narrativeEl = document.querySelector(`.gi-cat-narrative[data-idx="${idx}"]`);
-    if (!narrativeEl) return;
-
-    const val = state.scores[idx];
-    if (!val) {
-      narrativeEl.textContent = 'Pilih skor di atas untuk melihat narrative otomatis.';
-      narrativeEl.style.color = '#64748b';
-      narrativeEl.style.background = '#f8fafc';
-      narrativeEl.style.borderColor = '#cbd5e1';
-      narrativeEl.style.fontStyle = 'italic';
-      return;
-    }
-
-    const txt = (NARRATIVES[idx] && NARRATIVES[idx][val]) || '-';
-    narrativeEl.textContent = txt;
-    narrativeEl.style.fontStyle = 'normal';
-    narrativeEl.style.color = '#1e293b';
-    narrativeEl.style.background = '#f0fdf4';
-    narrativeEl.style.borderColor = '#86efac';
-  }
-
-  function updateRecommendation() {
-    const filled = Object.keys(state.scores).length;
-    const total = CATEGORIES.length;
-
-    const avgEl = document.getElementById('recoAvg');
-    const progEl = document.getElementById('recoProgress');
-    const chipEl = document.getElementById('recoChip');
-    const boxEl = document.getElementById('reco-box');
-
-    if (!avgEl || !chipEl || !boxEl) return;
-
-    if (filled === total) {
-      const vals = Object.values(state.scores);
-      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-      const rec = getRecommendation(avg);
-      const avgStr = avg.toFixed(2).replace('.', ',');
-
-      avgEl.textContent = avgStr;
-      progEl.textContent = `${filled} dari ${total} kategori terisi`;
-      chipEl.textContent = rec.emoji + ' ' + rec.label;
-      chipEl.style.background = `rgba(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]}, .12)`;
-      chipEl.style.border = `1px solid rgba(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]}, .4)`;
-      chipEl.style.color = `rgb(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]})`;
-      chipEl.style.whiteSpace = 'normal';
-      boxEl.style.border = `2px solid rgba(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]}, .35)`;
-      boxEl.style.background = `linear-gradient(135deg, #fff, rgba(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]}, .04))`;
-    } else {
-      const vals = Object.values(state.scores);
-      const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-      avgEl.textContent = vals.length ? avg.toFixed(2).replace('.', ',') : '—,——';
-      progEl.textContent = `${filled} dari ${total} kategori terisi`;
-      chipEl.textContent = `⏳ ${filled}/${total}`;
-      chipEl.style.background = '#fef3c7';
-      chipEl.style.border = '1px solid #fde68a';
-      chipEl.style.color = '#92400e';
-      chipEl.style.whiteSpace = 'nowrap';
-      boxEl.style.border = '2px solid #e2e8f0';
-      boxEl.style.background = '#fff';
-    }
   }
 
   /* ============================================================
@@ -614,18 +553,22 @@
     const assessor = document.getElementById('giAssessor').value.trim();
     if (!assessor) { alert('Pilih assessor dulu.'); return; }
 
-    // Cek item terisi
-    const dapValid = state.dap.filter(x => x.text.trim());
+    const conclusion = document.getElementById('giConclusion').value.trim();
+    if (!conclusion) { alert('Kesimpulan wajib diisi.'); return; }
+
+    const recommendation = document.getElementById('giRecommendation').value;
+    if (!recommendation) { alert('Pilih tingkat rekomendasi.'); return; }
+
+    const dapValid  = state.dap.filter(x => x.text.trim());
     const baumValid = state.baum.filter(x => x.text.trim());
-    const htpValid = state.htp.filter(x => x.text.trim());
+    const htpValid  = state.htp.filter(x => x.text.trim());
 
     if (!dapValid.length && !baumValid.length && !htpValid.length) {
       alert('Isi minimal 1 item DAP/BAUM/HTP.'); return;
     }
 
-    if (Object.keys(state.scores).length !== CATEGORIES.length) {
-      alert('Isi skor untuk semua 7 kategori kesimpulan.'); return;
-    }
+    state.conclusion = conclusion;
+    state.recommendation = recommendation;
 
     const btn = document.getElementById('giSubmitBtn');
     btn.disabled = true;
@@ -656,10 +599,8 @@
   async function saveToFirebase(assessor) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
-    const slug = candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-
-    const avg = Object.values(state.scores).reduce((a, b) => a + b, 0) / Object.values(state.scores).length;
-    const rec = getRecommendation(avg);
+    const slug = candidateSlug(candidateName);
+    const recLabel = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation)?.label || '-';
 
     await firebase.database()
       .ref('sgs_grafis_interp/' + slug + '/' + assessor)
@@ -670,9 +611,10 @@
         dap: state.dap.filter(x => x.text.trim()).map(x => x.text.trim()),
         baum: state.baum.filter(x => x.text.trim()).map(x => x.text.trim()),
         htp: state.htp.filter(x => x.text.trim()).map(x => x.text.trim()),
-        scores: state.scores,
-        average: Number(avg.toFixed(2)),
-        recommendation: rec.label,
+        conclusion: state.conclusion,
+        recommendation: state.recommendation,
+        recommendationLabel: recLabel,
+        relatedInterview: state.selectedInterview || null,
         ts: firebase.database.ServerValue.TIMESTAMP
       });
 
@@ -735,6 +677,10 @@
       ['Tanggal', cleanForPDF(tanggal)]
     ];
 
+    if (state.selectedInterview) {
+      infoRows.push(['Ref. Wawancara', cleanForPDF(state.selectedInterview)]);
+    }
+
     infoRows.forEach(([label, val]) => {
       doc.text(label + ' :', 18, y);
       doc.text(String(val), 65, y);
@@ -779,7 +725,7 @@
     addSection('BAUM — Tree Test', state.baum.filter(x => x.text.trim()).map(x => x.text.trim()));
     addSection('HTP — House Tree Person', state.htp.filter(x => x.text.trim()).map(x => x.text.trim()));
 
-    // KESIMPULAN
+    // KESIMPULAN MANUAL
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setDrawColor(220);
     doc.line(15, y, pageW - 15, y);
@@ -790,43 +736,22 @@
     doc.text('KESIMPULAN', 15, y);
     y += 8;
 
-    CATEGORIES.forEach((cat, idx) => {
-      const score = state.scores[idx];
-      if (!score) return;
-
-      if (y > pageH - 50) { doc.addPage(); y = 20; }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(`${idx + 1}. ${cleanForPDF(cat)}`, 18, y);
-      y += 5;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text(`SKOR: ${score}/4`, 18, y);
-      y += 5;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const txt = (NARRATIVES[idx] && NARRATIVES[idx][score]) || '-';
-      const wrapped = doc.splitTextToSize(cleanForPDF(txt), pageW - 36);
-      wrapped.forEach(line => {
-        if (y > pageH - 30) { doc.addPage(); y = 20; }
-        doc.text(line, 18, y);
-        y += 4.5;
-      });
-      y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const conclusionLines = doc.splitTextToSize(cleanForPDF(state.conclusion), pageW - 36);
+    conclusionLines.forEach(line => {
+      if (y > pageH - 30) { doc.addPage(); y = 20; }
+      doc.text(line, 18, y);
+      y += 4.5;
     });
+    y += 8;
 
-    // Rekomendasi
-    const vals = Object.values(state.scores);
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const rec = getRecommendation(avg);
+    // REKOMENDASI
+    const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
+    const recLabel = recOpt ? recOpt.label : '-';
+    const recColor = RECOMMENDATION_COLORS[state.recommendation] || [0, 0, 0];
 
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setDrawColor(200);
-    doc.line(15, y, pageW - 15, y);
-    y += 8;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -834,15 +759,10 @@
     y += 8;
 
     doc.setFontSize(13);
-    doc.setTextColor(rec.color[0], rec.color[1], rec.color[2]);
-    doc.text(cleanForPDF(rec.label), 18, y);
+    doc.setTextColor(recColor[0], recColor[1], recColor[2]);
+    doc.text(cleanForPDF(recLabel), 18, y);
     doc.setTextColor(0, 0, 0);
-    y += 10;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Rata-rata: ${avg.toFixed(2).replace('.', ',')}`, 18, y);
-    y += 14;
+    y += 16;
 
     // Tanda tangan
     if (y > pageH - 50) { doc.addPage(); y = 20; }
@@ -889,7 +809,15 @@
     const cleanName = candidateName.replace(/[^a-zA-Z0-9]/g, '-');
     const filename = `${cleanName}-Grafis-${assessor}.pdf`;
 
+    // 🆕 Ambil ID token
+    let idToken = '';
+    try {
+      const user = firebase.auth().currentUser;
+      if (user) idToken = await user.getIdToken();
+    } catch (e) {}
+
     const payload = {
+      idToken: idToken,
       action: 'upload',
       deviceId: 'grafindo_' + Date.now(),
       filename: filename,
@@ -908,6 +836,20 @@
     });
 
     await new Promise(r => setTimeout(r, 1500));
+
+    // 🆕 Kirim sinyal real-time ke admin
+    try {
+      if (typeof firebase !== 'undefined' && firebase.apps.length) {
+        firebase.database().ref('sgs_state/lastUpload').set({
+          ts: firebase.database.ServerValue.TIMESTAMP,
+          type: 'pdf',
+          name: candidateName,
+          position: candidatePosition,
+          deviceId: 'grafindo'
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
     console.log('[GRAFIS-INTERP] ✅ Uploaded to GAS');
   }
 
@@ -915,9 +857,9 @@
      SUCCESS
      ============================================================ */
   function showSuccess(assessor) {
-    const vals = Object.values(state.scores);
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const rec = getRecommendation(avg);
+    const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
+    const recLabel = recOpt ? recOpt.label : '-';
+    const recColor = RECOMMENDATION_COLORS[state.recommendation] || [0, 0, 0];
 
     document.body.innerHTML = `
       <div style="position: fixed; inset: 0; z-index: 2147483647;
@@ -941,11 +883,11 @@
             border-radius: 14px; text-align: left; font-size: 13px; color: #166534; line-height: 1.9;">
             <div><b>Assessor:</b> ${escapeHtml(assessor)}</div>
             <div><b>Kandidat:</b> ${escapeHtml(candidateName)}</div>
+            ${state.selectedInterview ? `<div><b>Ref. Wawancara:</b> ${escapeHtml(state.selectedInterview)}</div>` : ''}
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #86efac;">
-              <div><b>Rata-rata:</b> <span style="font-size: 18px; font-weight: 900;">${avg.toFixed(2).replace('.', ',')}</span></div>
-              <div style="color: rgb(${rec.color[0]}, ${rec.color[1]}, ${rec.color[2]});
-                font-weight: 900; font-size: 13px; margin-top: 4px;">
-                ${rec.emoji} ${rec.label}
+              <div style="color: rgb(${recColor[0]}, ${recColor[1]}, ${recColor[2]});
+                font-weight: 900; font-size: 14px;">
+                ${escapeHtml(recLabel)}
               </div>
             </div>
           </div>
