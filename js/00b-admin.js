@@ -1556,6 +1556,12 @@ function __renderResultPageContent() {
     cursor: pointer; font-family: inherit; white-space: nowrap;">
   🎤 Wawancara
 </button>
+<button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
+  style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
+    background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 10px; font-weight: 800;
+    cursor: pointer; font-family: inherit; white-space: nowrap;">
+  ✍ Grafis
+</button>
             </div>
             <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
               ${g.position !== '-' ? `💼 ${__adminEscape(g.position)}` : '💼 <span style="opacity:.6">Tanpa posisi</span>'}
@@ -2007,6 +2013,16 @@ if (interviewBtn) {
   const position = interviewBtn.getAttribute('data-position');
   if (name && typeof window.openInterviewLink === 'function') {
     window.openInterviewLink(name, position);
+  }
+  return;
+}
+     const grafindoBtn = e.target.closest('.js-grafindo-link');
+if (grafindoBtn) {
+  e.preventDefault(); e.stopPropagation();
+  const name = grafindoBtn.getAttribute('data-name');
+  const position = grafindoBtn.getAttribute('data-position');
+  if (name && typeof window.openGrafisInterpLink === 'function') {
+    window.openGrafisInterpLink(name, position);
   }
   return;
 }
