@@ -1,13 +1,14 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v5
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v6
    ------------------------------------------------------------
-   🔄 v5 [2026-09-23]:
+   🔄 v6 [2026-09-23]:
    - Flow 3 kotak (DAP/BAUM/HTP) → klik → detail otomatis
    - Auto-generate interpretasi dari GRAFIS_AUTO_DATA
    - LocalStorage draft (biar tidak hilang kalau refresh)
    - Kop logo formal
    - 7 kategori + kesimpulan + rekomendasi tetap manual
    - Assessor otomatis = ADMIN
+   - 🆕 NOTES GABUNGAN — auto-generate + copy button
    ============================================================ */
 
 (function () {
@@ -196,8 +197,8 @@
      STATE
      ============================================================ */
   const state = {
-    activePage: 'landing',    // 'landing' | 'dap' | 'baum' | 'htp'
-    selectedItems: {           // item terpilih per test
+    activePage: 'landing',
+    selectedItems: {
       dap:  {},
       baum: {},
       htp:  {}
@@ -209,7 +210,6 @@
     development: ''
   };
 
-  /* Load draft */
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
@@ -248,11 +248,9 @@
 
     data.groups.forEach(group => {
       const groupLines = [];
-
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
         if (!val) return;
-
         const itemIds = Array.isArray(val) ? val : [val];
         itemIds.forEach(itemId => {
           const item = (section.items || []).find(i => i.id === itemId);
@@ -260,7 +258,6 @@
           groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
         });
       });
-
       if (groupLines.length > 0) {
         lines.push(`${group.title}\n${groupLines.join('\n\n')}`);
       }
@@ -280,6 +277,162 @@
   }
 
   /* ============================================================
+     🆕 NOTES GABUNGAN — generate data
+     ============================================================ */
+  function generateCombinedNotes() {
+    const autoData = window.GRAFIS_AUTO_DATA || {};
+    const testKeys = ['dap', 'baum', 'htp'];
+    const lines = [];
+
+    testKeys.forEach(key => {
+      const data = autoData[key];
+      if (!data || !data.groups) return;
+
+      const selected = state.selectedItems[key] || {};
+      const selectedLines = [];
+
+      data.groups.forEach(group => {
+        (group.sections || []).forEach(section => {
+          const val = selected[section.id];
+          if (!val) return;
+
+          const itemIds = Array.isArray(val) ? val : [val];
+          itemIds.forEach(itemId => {
+            const item = (section.items || []).find(i => i.id === itemId);
+            if (!item) return;
+            if (selectedLines.some(l => l.text === item.interpret)) return;
+            selectedLines.push({
+              label: item.label,
+              text: item.interpret,
+              group: group.title
+            });
+          });
+        });
+      });
+
+      if (selectedLines.length > 0) {
+        lines.push({
+          key,
+          title: data.title || key.toUpperCase(),
+          icon: data.icon || '📄',
+          items: selectedLines
+        });
+      }
+    });
+
+    return lines;
+  }
+
+  /* ============================================================
+     🆕 NOTES GABUNGAN — render UI
+     ============================================================ */
+  function renderCombinedNotes() {
+    const container = document.getElementById('giCombinedNotes');
+    if (!container) return;
+
+    const notesData = generateCombinedNotes();
+
+    if (notesData.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 20px; text-align: center; color: #94a3b8;
+          font-size: 13px; border: 2px dashed #e2e8f0; border-radius: 12px;
+          background: #f8fafc;">
+          📝 Belum ada pilihan. Klik kotak DAP / BAUM / HTP di atas untuk memilih bagian.
+          <br><span style="font-size: 11.5px; opacity: .7;">Notes akan otomatis muncul di sini.</span>
+        </div>`;
+      return;
+    }
+
+    // Plain text untuk copy
+    const plainText = notesData.map(t => {
+      const header = `═══ ${t.title} ═══`;
+      const items = t.items.map(i => `• ${i.label}:\n  ${i.text}`).join('\n\n');
+      return `${header}\n\n${items}`;
+    }).join('\n\n\n');
+
+    const totalItems = notesData.reduce((sum, t) => sum + t.items.length, 0);
+
+    container.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div style="font-size: 14px; font-weight: 900; color: #1e293b;">
+            📝 Notes Gabungan
+          </div>
+          <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
+            ${totalItems} item dari ${notesData.length} tes — siap copy-paste untuk kesimpulan
+          </div>
+        </div>
+        <button type="button" id="giCopyNotesBtn"
+          style="padding: 9px 16px; border: 0; border-radius: 10px;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 800;
+            cursor: pointer; box-shadow: 0 6px 16px rgba(14,165,233,.28);
+            display: inline-flex; align-items: center; gap: 6px;">
+          📋 Copy Semua Notes
+        </button>
+      </div>
+
+      <div id="giNotesContent"
+        style="max-height: 420px; overflow-y: auto; padding: 16px 18px;
+          background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
+          font-family: 'Courier New', ui-monospace, monospace;
+          font-size: 12.5px; line-height: 1.7; color: #1e293b;
+          white-space: pre-wrap; word-break: break-word;
+          scrollbar-width: thin;">
+${notesData.map(t => `
+<span style="color: #6d28d9; font-weight: 900;">═══ ${t.icon} ${escapeHtml(t.title)} ═══</span>
+
+${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escapeHtml(i.label)}:</span>
+  ${escapeHtml(i.text)}`).join('\n\n')}
+`).join('\n\n\n')}
+      </div>
+
+      <div style="margin-top: 10px; padding: 10px 14px;
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+        font-size: 11.5px; color: #1e40af; line-height: 1.6;">
+        💡 <b>Tips:</b> Klik <b>Copy Semua Notes</b> lalu paste di kolom
+        <b>Kesimpulan Keseluruhan</b> di bawah — tinggal edit dan rapikan sesuai gaya Anda.
+      </div>
+    `;
+
+    // Wire copy button
+    const copyBtn = document.getElementById('giCopyNotesBtn');
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(plainText).then(() => {
+              const prev = copyBtn.innerHTML;
+              copyBtn.innerHTML = '✅ Tersalin!';
+              copyBtn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+              setTimeout(() => {
+                copyBtn.innerHTML = prev;
+                copyBtn.style.background = 'linear-gradient(135deg, #0ea5e9, #0284c7)';
+              }, 1800);
+            }).catch(() => fallbackCopyText(plainText));
+          } else {
+            fallbackCopyText(plainText);
+          }
+        } catch (e) {
+          fallbackCopyText(plainText);
+        }
+      };
+    }
+  }
+
+  function fallbackCopyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* ============================================================
      ROOT
      ============================================================ */
   function getRoot() {
@@ -287,7 +440,7 @@
   }
 
   /* ============================================================
-     LANDING PAGE — 3 KOTAK + FORM MANUAL
+     LANDING PAGE
      ============================================================ */
   function renderLanding() {
     const root = getRoot();
@@ -419,6 +572,13 @@
             </div>
           </div>
 
+          <!-- 🆕 NOTES GABUNGAN -->
+          <div style="margin-bottom: 28px; padding: 20px 22px;
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 2px solid #7dd3fc; border-radius: 16px;">
+            <div id="giCombinedNotes"></div>
+          </div>
+
           <!-- 7 KATEGORI -->
           <div style="margin-bottom: 24px; padding: 22px 22px 20px; background: #f8fafc;
             border: 2px solid #e2e8f0; border-radius: 16px;">
@@ -515,6 +675,9 @@
       });
     });
 
+    // 🆕 Render notes gabungan
+    renderCombinedNotes();
+
     // Render kategori
     renderCategories();
 
@@ -552,7 +715,6 @@
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected = state.selectedItems[testKey] || {};
 
-    // Bangun HTML section per section
     const sectionsHTML = (data.groups || []).map(group => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
@@ -630,7 +792,6 @@
     root.innerHTML = `
       <div style="max-width: 900px; margin: 0 auto 60px;">
 
-        <!-- HEADER DETAIL -->
         <div style="background: ${theme.bg}; border: 2px solid ${theme.border};
           border-radius: 18px; padding: 20px 26px;
           display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
@@ -658,12 +819,10 @@
           </div>
         </div>
 
-        <!-- SECTION -->
         <div style="background: #fff; padding: 22px 26px 26px;
           border-radius: 18px; box-shadow: 0 20px 50px rgba(15,23,42,.08);">
           ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
 
-          <!-- ACTION -->
           <div style="display: flex; gap: 10px; margin-top: 20px;
             padding-top: 20px; border-top: 1px solid #e2e8f0;">
             <button type="button" id="giClearBtn"
@@ -687,7 +846,6 @@
       </div>
     `;
 
-    // Bind option clicks
     root.querySelectorAll('.js-option-item').forEach(label => {
       label.addEventListener('click', (e) => {
         e.preventDefault();
@@ -706,17 +864,15 @@
           state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
         }
         saveDraft();
-        renderTestDetail(testKey); // re-render
+        renderTestDetail(testKey);
       });
     });
 
-    // Back
     document.getElementById('giBackBtn').addEventListener('click', () => {
       saveDraft();
       renderLanding();
     });
 
-    // Clear
     document.getElementById('giClearBtn').addEventListener('click', () => {
       if (!confirm('Hapus semua pilihan untuk ' + data.title + '?')) return;
       state.selectedItems[testKey] = {};
@@ -724,173 +880,12 @@
       renderTestDetail(testKey);
     });
 
-    // Save
     document.getElementById('giSaveBtn').addEventListener('click', () => {
       saveDraft();
       renderLanding();
     });
   }
 
-   /* ============================================================
-   🆕 NOTES GABUNGAN — auto-generate dari semua pilihan
-   ============================================================ */
-function generateCombinedNotes() {
-  const autoData = window.GRAFIS_AUTO_DATA || {};
-  const testKeys = ['dap', 'baum', 'htp'];
-  const lines = [];
-
-  testKeys.forEach(key => {
-    const data = autoData[key];
-    if (!data || !data.groups) return;
-
-    const selected = state.selectedItems[key] || {};
-    const selectedLines = [];
-
-    data.groups.forEach(group => {
-      (group.sections || []).forEach(section => {
-        const val = selected[section.id];
-        if (!val) return;
-
-        const itemIds = Array.isArray(val) ? val : [val];
-        itemIds.forEach(itemId => {
-          const item = (section.items || []).find(i => i.id === itemId);
-          if (!item) return;
-
-          // Cek duplikat — jika interpretasi sama, skip
-          if (selectedLines.some(l => l.text === item.interpret)) return;
-
-          selectedLines.push({
-            label: item.label,
-            text: item.interpret,
-            group: group.title
-          });
-        });
-      });
-    });
-
-    if (selectedLines.length > 0) {
-      lines.push({
-        key,
-        title: data.title || key.toUpperCase(),
-        icon: data.icon || '📄',
-        items: selectedLines
-      });
-    }
-  });
-
-  return lines;
-}
-
-function renderCombinedNotes() {
-  const container = document.getElementById('giCombinedNotes');
-  if (!container) return;
-
-  const notesData = generateCombinedNotes();
-  const hasAny = notesData.length > 0;
-
-  if (!hasAny) {
-    container.innerHTML = `
-      <div style="padding: 20px; text-align: center; color: #94a3b8;
-        font-size: 13px; border: 2px dashed #e2e8f0; border-radius: 12px;
-        background: #f8fafc;">
-        📝 Belum ada pilihan. Klik kotak DAP / BAUM / HTP di atas untuk memilih bagian.
-        <br><span style="font-size: 11.5px; opacity: .7;">Notes akan otomatis muncul di sini.</span>
-      </div>`;
-    return;
-  }
-
-  // Generate plain text version (untuk copy)
-  const plainText = notesData.map(t => {
-    const header = `═══ ${t.title} ═══`;
-    const items = t.items.map(i => `• ${i.label}:\n  ${i.text}`).join('\n\n');
-    return `${header}\n\n${items}`;
-  }).join('\n\n\n');
-
-  // Escape untuk JSON string di onclick
-  const escaped = plainText.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/'/g, "\\'").replace(/\n/g, '\\n');
-
-  const totalItems = notesData.reduce((sum, t) => sum + t.items.length, 0);
-
-  container.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-      <div>
-        <div style="font-size: 14px; font-weight: 900; color: #1e293b;">
-          📝 Notes Gabungan
-        </div>
-        <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
-          ${totalItems} item dari ${notesData.length} tes — siap copy-paste untuk kesimpulan
-        </div>
-      </div>
-      <button type="button" id="giCopyNotesBtn"
-        style="padding: 9px 16px; border: 0; border-radius: 10px;
-          background: linear-gradient(135deg, #0ea5e9, #0284c7);
-          color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 800;
-          cursor: pointer; box-shadow: 0 6px 16px rgba(14,165,233,.28);
-          display: inline-flex; align-items: center; gap: 6px;">
-        📋 Copy Semua Notes
-      </button>
-    </div>
-
-    <div id="giNotesContent"
-      style="max-height: 420px; overflow-y: auto; padding: 16px 18px;
-        background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
-        font-family: 'Courier New', ui-monospace, monospace;
-        font-size: 12.5px; line-height: 1.7; color: #1e293b;
-        white-space: pre-wrap; word-break: break-word;
-        scrollbar-width: thin;">
-${notesData.map(t => `
-<span style="color: #6d28d9; font-weight: 900;">═══ ${t.icon} ${escapeHtml(t.title)} ═══</span>
-
-${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escapeHtml(i.label)}:</span>
-  ${escapeHtml(i.text)}`).join('\n\n')}
-`).join('\n\n\n')}
-    </div>
-
-    <div style="margin-top: 10px; padding: 10px 14px;
-      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
-      font-size: 11.5px; color: #1e40af; line-height: 1.6;">
-      💡 <b>Tips:</b> Klik <b>Copy Semua Notes</b> lalu paste di kolom
-      <b>Kesimpulan Keseluruhan</b> di bawah — tinggal edit dan rapikan sesuai gaya Anda.
-    </div>
-  `;
-
-  // Wire copy button
-  const copyBtn = document.getElementById('giCopyNotesBtn');
-  if (copyBtn) {
-    copyBtn.onclick = () => {
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(plainText).then(() => {
-            const prev = copyBtn.innerHTML;
-            copyBtn.innerHTML = '✅ Tersalin!';
-            copyBtn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
-            setTimeout(() => {
-              copyBtn.innerHTML = prev;
-              copyBtn.style.background = 'linear-gradient(135deg, #0ea5e9, #0284c7)';
-            }, 1800);
-          }).catch(() => fallbackCopyText(plainText));
-        } else {
-          fallbackCopyText(plainText);
-        }
-      } catch (e) {
-        fallbackCopyText(plainText);
-      }
-    };
-  }
-}
-
-function fallbackCopyText(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch (e) {}
-  document.body.removeChild(ta);
-}
-   
   /* ============================================================
      7 KATEGORI
      ============================================================ */
@@ -960,14 +955,12 @@ function fallbackCopyText(text) {
      SUBMIT
      ============================================================ */
   async function handleSubmit() {
-    // Validasi test
     const dapCount  = countSelectedItems('dap');
     const baumCount = countSelectedItems('baum');
     const htpCount  = countSelectedItems('htp');
     const hasAnyTest = dapCount > 0 || baumCount > 0 || htpCount > 0;
     if (!hasAnyTest) { alert('Pilih minimal 1 item di DAP/BAUM/HTP.'); return; }
 
-    // Validasi kategori
     for (let i = 0; i < state.categories.length; i++) {
       const c = state.categories[i];
       if (!c.score) { alert(`Kategori ${i + 1} (${c.name}) belum diisi skor.`); return; }
@@ -1085,7 +1078,6 @@ function fallbackCopyText(text) {
     y += 3;
     doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
 
-    // Helper cetak paragraf
     function printParagraph(text, indent = 18, fontSize = 9) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(fontSize);
       const wrapped = doc.splitTextToSize(cleanForPDF(text), pageW - 36);
@@ -1096,7 +1088,6 @@ function fallbackCopyText(text) {
       });
     }
 
-    // Section per test
     ['dap', 'baum', 'htp'].forEach(key => {
       const count = countSelectedItems(key);
       if (count === 0) return;
@@ -1126,7 +1117,6 @@ function fallbackCopyText(text) {
       y += 4;
     });
 
-    // Kategori 7
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
@@ -1143,7 +1133,6 @@ function fallbackCopyText(text) {
       y += 6;
     });
 
-    // Kesimpulan keseluruhan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
@@ -1151,7 +1140,6 @@ function fallbackCopyText(text) {
     printParagraph(state.conclusion, 18, 9);
     y += 8;
 
-    // Rekomendasi
     const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
     const recLabel = recOpt ? recOpt.label : '-';
     const recColor = recOpt ? recOpt.color : [0, 0, 0];
@@ -1165,21 +1153,18 @@ function fallbackCopyText(text) {
     });
     doc.setTextColor(0, 0, 0); y += 6;
 
-    // Alasan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('ALASAN REKOMENDASI', 15, y); y += 7;
     printParagraph(state.reasons, 18, 9);
     y += 8;
 
-    // Pengembangan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('REKOMENDASI PENGEMBANGAN', 15, y); y += 7;
     printParagraph(state.development, 18, 9);
     y += 12;
 
-    // Tanda tangan
     if (y > pageH - 50) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
     doc.text('Assessor,', pageW - 60, y); y += 20;
