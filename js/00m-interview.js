@@ -5,6 +5,7 @@
    - Generate 1 link per pewawancara
    - Link include &iv=<pewawancara> → form pre-fill
    - Hasil dari 2+ pewawancara → 1 kartu (tidak menumpuk)
+   - PDF: text-only (tanpa emoji) → tidak ada karakter þ
    ============================================================ */
 
 (function () {
@@ -71,6 +72,16 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // Bersihkan text untuk PDF (hapus karakter non-ASCII)
+  function cleanForPDF(s) {
+    return String(s || '')
+      .replace(/[\u2018\u2019]/g, "'")   // smart single quotes
+      .replace(/[\u201C\u201D]/g, '"')   // smart double quotes
+      .replace(/[\u2013\u2014]/g, '-')   // en/em dash
+      .replace(/[^\x20-\x7E\n]/g, '')     // hapus semua non-ASCII (emoji, dll)
+      .trim();
+  }
+
   function detectCategory(position) {
     if (!position) return null;
     const p = String(position).toLowerCase();
@@ -104,7 +115,7 @@
   }
 
   /* ============================================================
-     🆕 MODAL PILIH PEWAWANCARA (untuk admin)
+     MODAL PILIH PEWAWANCARA (untuk admin)
      ============================================================ */
   window.openInterviewLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
@@ -228,7 +239,6 @@
       const infoEl = document.getElementById('ivPickInfo');
       const btn = document.getElementById('ivGenBtn');
 
-      // Update visual
       modal.querySelectorAll('.iv-pick-item').forEach(lbl => {
         const cb = lbl.querySelector('input');
         if (cb.checked) {
@@ -335,7 +345,6 @@
         </div>
       `;
 
-      // Copy individual
       modal.querySelectorAll('.iv-copy-link').forEach(btn => {
         btn.onclick = () => {
           const u = btn.getAttribute('data-url');
@@ -353,7 +362,6 @@
         };
       });
 
-      // Copy all
       document.getElementById('ivCopyAllBtn').onclick = () => {
         const allText = links.map(l => `${l.interviewer}: ${l.url}`).join('\n\n');
         try {
@@ -399,7 +407,7 @@
   const candidateName     = url.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = url.searchParams.get('p') || '';
   const category          = detectCategory(candidatePosition);
-  const prefilledIv       = url.searchParams.get('iv') || '';   // 🆕
+  const prefilledIv       = url.searchParams.get('iv') || '';
 
   console.log('[INTERVIEW] Mode aktif —', { candidateName, candidatePosition, category, prefilledIv });
 
@@ -442,7 +450,6 @@
 
     const criteriaList = CRITERIA[category];
 
-    /* ----- Block untuk pewawancara: readonly atau dropdown ----- */
     const interviewerBlock = prefilledIv
       ? `
         <div style="margin-bottom: 24px;">
@@ -481,7 +488,6 @@
     root.innerHTML = `
       <div style="max-width: 820px; margin: 0 auto 40px;">
 
-        <!-- HEADER -->
         <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); border-radius: 20px 20px 0 0;
           padding: 26px 30px; display: flex; align-items: center; gap: 16px;">
           <div style="width: 60px; height: 60px; flex: 0 0 60px; background: #fff; border-radius: 16px;
@@ -500,7 +506,6 @@
           </div>
         </div>
 
-        <!-- KANDIDAT -->
         <div style="background: #fff; padding: 22px 30px; border-bottom: 1px solid #e2e8f0;">
           <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1.5px; margin-bottom: 10px;">
             KANDIDAT
@@ -518,13 +523,11 @@
           </div>
         </div>
 
-        <!-- FORM -->
         <form id="interviewForm" style="background: #fff; padding: 26px 30px 30px; border-radius: 0 0 20px 20px;
           box-shadow: 0 20px 50px rgba(15,23,42,.08);">
 
           ${interviewerBlock}
 
-          <!-- INFO skala -->
           <div style="margin-bottom: 18px; padding: 14px 16px; background: #f0f9ff;
             border: 1px solid #bae6fd; border-radius: 12px; font-size: 12.5px; color: #075985; line-height: 1.6;">
             <b>📝 Cara mengisi:</b> Nilai tiap kriteria dengan angka <b>1 – 5</b>.<br>
@@ -532,7 +535,6 @@
             atau <code style="background:#fff;padding:1px 5px;border-radius:3px;">4,8</code>).
           </div>
 
-          <!-- Kriteria -->
           <div style="margin-bottom: 24px;">
             <div style="font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 1px; margin-bottom: 14px;">
               PENILAIAN <span style="color: #dc2626;">*</span>
@@ -540,7 +542,6 @@
             <div id="criteriaList"></div>
           </div>
 
-          <!-- Live Result Box -->
           <div id="liveResultBox" style="margin-bottom: 24px; padding: 18px 20px;
             background: linear-gradient(135deg, #f8fafc, #f1f5f9);
             border: 2px solid #e2e8f0; border-radius: 16px; transition: all .25s ease;">
@@ -565,7 +566,6 @@
             </div>
           </div>
 
-          <!-- Catatan -->
           <div style="margin-bottom: 24px;">
             <label style="display: block; font-size: 12px; font-weight: 800; color: #475569;
               letter-spacing: 1px; margin-bottom: 8px;">
@@ -578,7 +578,6 @@
                 box-sizing: border-box; line-height: 1.5;"></textarea>
           </div>
 
-          <!-- Submit -->
           <button type="submit" id="ivSubmitBtn"
             style="width: 100%; padding: 16px; border: 0; border-radius: 14px;
               background: linear-gradient(135deg, #1e3a8a, #3b82f6);
@@ -594,7 +593,6 @@
       </div>
     `;
 
-    // Render kriteria
     const criteriaBox = document.getElementById('criteriaList');
     criteriaBox.innerHTML = criteriaList.map((label, idx) => `
       <div style="padding: 14px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px;
@@ -619,7 +617,6 @@
       </div>
     `).join('');
 
-    // Attach events ke input
     criteriaBox.querySelectorAll('.iv-score-input').forEach(inp => {
       inp.addEventListener('input', onScoreInput);
       inp.addEventListener('blur', onScoreBlur);
@@ -876,11 +873,11 @@
     });
 
     const infoRows = [
-      ['Nama Kandidat', candidateName],
-      ['Posisi Dilamar', candidatePosition || '-'],
+      ['Nama Kandidat', cleanForPDF(candidateName)],
+      ['Posisi Dilamar', cleanForPDF(candidatePosition) || '-'],
       ['Kategori', category === 'guru' ? 'Guru' : 'Administrator'],
-      ['Pewawancara', interviewer],
-      ['Tanggal Wawancara', tanggal]
+      ['Pewawancara', cleanForPDF(interviewer)],
+      ['Tanggal Wawancara', cleanForPDF(tanggal)]
     ];
 
     infoRows.forEach(([label, value]) => {
@@ -907,7 +904,8 @@
     criteriaList.forEach((label, idx) => {
       const val = scores[label];
 
-      const labelWrapped = doc.splitTextToSize(`${idx + 1}. ${label}`, 130);
+      const cleanLabel = cleanForPDF(label);
+      const labelWrapped = doc.splitTextToSize(`${idx + 1}. ${cleanLabel}`, 130);
       const lineHeight = labelWrapped.length * 4.5;
 
       if (y + lineHeight + 8 > pageH - 40) {
@@ -942,15 +940,15 @@
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text('KESIMPULAN:', 15, y);
-    y += 6;
+    y += 7;
 
-    doc.setFontSize(12);
+    doc.setFontSize(13);
     doc.setTextColor(...conclusion.color);
-    doc.text(conclusion.emoji + '  ' + conclusion.label, 18, y);
+    doc.text(cleanForPDF(conclusion.label), 18, y);
     doc.setTextColor(0, 0, 0);
-    y += 12;
+    y += 14;
 
-    if (notes) {
+    if (notes && cleanForPDF(notes)) {
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.text('CATATAN PEWAWANCARA:', 15, y);
@@ -958,7 +956,8 @@
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      const wrappedNotes = doc.splitTextToSize(notes, pageW - 36);
+      const cleanNotes = cleanForPDF(notes);
+      const wrappedNotes = doc.splitTextToSize(cleanNotes, pageW - 36);
       wrappedNotes.forEach(line => {
         if (y > pageH - 40) { doc.addPage(); y = 20; }
         doc.text(line, 18, y);
@@ -975,7 +974,7 @@
     y += 20;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text(interviewer, pageW - 60, y);
+    doc.text(cleanForPDF(interviewer), pageW - 60, y);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.text('(Pewawancara)', pageW - 60, y + 4);
@@ -1004,7 +1003,7 @@
       action: 'upload',
       deviceId: 'interview_' + Date.now(),
       filename: filename,
-      name: candidateName,       // ← KUNCI: pakai nama kandidat agar ter-group di panel
+      name: candidateName,
       position: candidatePosition,
       email: '',
       pdfBase64: base64,
