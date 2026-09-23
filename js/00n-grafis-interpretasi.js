@@ -13,65 +13,13 @@
 (function () {
   'use strict';
 
-  const urlObj = new URL(window.location.href);
-  const isGrafisMode = urlObj.searchParams.get('grafindo') === '1';
-
-  /* 🆕 FLAG EARLY: tanda untuk script lain agar skip bootstrap berat */
-  if (isGrafisMode) {
-    window.__GRAFIS_MODE_ACTIVE = true;
-  }
-
-  if (!isGrafisMode) return;
-
   /* ============================================================
-     KONFIGURASI
+     🆕 FIX [2026-09-23]:
+     Helper & openGrafisInterpLink WAJIB didefinisikan lebih dulu
+     di top-level, karena dipakai oleh admin panel meskipun halaman
+     BUKAN di URL ?grafindo=1
      ============================================================ */
-  const ADMIN_ASSESSOR = 'ADMIN';
 
-  const KATEGORI = [
-    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
-    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
-    'STABILITAS EMOSI & KONTROL IMPULS',
-    'MOTIVATION & ACHIEVEMENT DRIVE',
-    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
-    'INTEGRITY & RULE COMPLIANCE',
-    'TEACHING CREATIVITY'
-  ];
-
-  const RECOMMENDATION_OPTIONS = [
-    { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED',                                          color: [22, 101, 52] },
-    { value: 'RECOMMENDED',        label: '✅ RECOMMENDED',                                                  color: [22, 163, 74] },
-    { value: 'FAIRLY_RECOMMENDED', label: '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan',         color: [217, 119, 6]  },
-    { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                              color: [220, 38, 38]  }
-  ];
-
-  const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
-  const candidatePosition = urlObj.searchParams.get('p') || '';
-
-  console.log('[GRAFIS-INTERP] Mode aktif (ADMIN ONLY) —', { candidateName, candidatePosition });
-
-  /* ============================================================
-     HIDE UI BAWAAN SEGERA (fix flicker)
-     ============================================================ */
-  function hideDefaultUI() {
-    const appEl = document.getElementById('app');
-    if (appEl) { appEl.style.display = 'none'; appEl.innerHTML = ''; }
-    const pwd = document.getElementById('passwordScreen');
-    if (pwd) pwd.style.display = 'none';
-    const body = document.body;
-    if (body) {
-      body.style.background = '#f5f3ff';
-      body.style.overflow = 'auto';
-    }
-  }
-  hideDefaultUI();
-  document.addEventListener('DOMContentLoaded', hideDefaultUI);
-  setTimeout(hideDefaultUI, 50);
-  setTimeout(hideDefaultUI, 300);
-
-  /* ============================================================
-     HELPERS
-     ============================================================ */
   function escapeHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -93,7 +41,7 @@
   }
 
   /* ============================================================
-     MODAL LINK UNTUK ADMIN (dari panel admin)
+     MODAL LINK UNTUK ADMIN — WAJIB SELALU TERSEDIA
      ============================================================ */
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
@@ -136,7 +84,7 @@
             border-radius: 12px; margin-bottom: 16px; font-size: 12.5px; color: #166534;
             line-height: 1.6;">
             <b>🔒 Mode Admin</b><br>
-            Form ini <b>hanya untuk admin</b>. Assessor otomatis = <b>"${ADMIN_ASSESSOR}"</b>.
+            Form ini <b>hanya untuk admin</b>. Assessor otomatis = <b>"ADMIN"</b>.
           </div>
 
           <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1px; margin-bottom: 6px;">
@@ -189,6 +137,65 @@
     };
     document.getElementById('giCloseBtn').onclick = () => modal.remove();
   };
+
+  /* ============================================================
+     CEK MODE — kalau bukan mode grafis, STOP di sini
+     ============================================================ */
+  const urlObj = new URL(window.location.href);
+  const isGrafisMode = urlObj.searchParams.get('grafindo') === '1';
+
+  if (isGrafisMode) {
+    window.__GRAFIS_MODE_ACTIVE = true;
+  }
+
+  if (!isGrafisMode) return;
+
+  /* ============================================================
+     KONFIGURASI
+     ============================================================ */
+  const ADMIN_ASSESSOR = 'ADMIN';
+
+  const KATEGORI = [
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+    'STABILITAS EMOSI & KONTROL IMPULS',
+    'MOTIVATION & ACHIEVEMENT DRIVE',
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
+    'INTEGRITY & RULE COMPLIANCE',
+    'TEACHING CREATIVITY'
+  ];
+
+  const RECOMMENDATION_OPTIONS = [
+    { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED',                                          color: [22, 101, 52] },
+    { value: 'RECOMMENDED',        label: '✅ RECOMMENDED',                                                  color: [22, 163, 74] },
+    { value: 'FAIRLY_RECOMMENDED', label: '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan',         color: [217, 119, 6]  },
+    { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                              color: [220, 38, 38]  }
+  ];
+
+  const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
+  const candidatePosition = urlObj.searchParams.get('p') || '';
+
+  console.log('[GRAFIS-INTERP] Mode aktif (ADMIN ONLY) —', { candidateName, candidatePosition });
+
+  /* ============================================================
+     HIDE UI BAWAAN SEGERA (fix flicker)
+     ============================================================ */
+  function hideDefaultUI() {
+    const appEl = document.getElementById('app');
+    if (appEl) { appEl.style.display = 'none'; appEl.innerHTML = ''; }
+    const pwd = document.getElementById('passwordScreen');
+    if (pwd) pwd.style.display = 'none';
+    const body = document.body;
+    if (body) {
+      body.style.background = '#f5f3ff';
+      body.style.overflow = 'auto';
+    }
+  }
+  hideDefaultUI();
+  document.addEventListener('DOMContentLoaded', hideDefaultUI);
+  setTimeout(hideDefaultUI, 50);
+  setTimeout(hideDefaultUI, 300);
+
 
   /* ============================================================
      STATE
