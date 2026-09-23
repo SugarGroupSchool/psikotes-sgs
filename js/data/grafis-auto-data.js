@@ -1,7 +1,7 @@
 /* ============================================================
    DATA INTERPRETASI OTOMATIS — GRAFIS (DAP, BAUM, HTP)
    ------------------------------------------------------------
-   v3 [2026-09-23]: BAUM LENGKAP + Pedoman Interpretasi 3.5
+   v4 [2026-09-23]: BAUM LENGKAP (flatten, konsisten, tanpa duplikasi)
    - Ukuran, Kesan, Penempatan, Kualitas Garis
    - Akar, Stambasis, Bentuk Batang, Dahan, Mahkota
    - Buah, Rumput/Lingkungan, Fitur Khusus, Ringkasan
@@ -26,116 +26,78 @@ window.GRAFIS_AUTO_DATA = {
     groups: [
 
       /* ======================================================
-         1. UKURAN GAMBAR
+         1. UKURAN GAMBAR  ← DIBENARKAN (di-flatten)
          ====================================================== */
-{
-  id: 'ukuran',
-  title: '3.5.1 Ukuran Gambar',
-  sections: [
-    {
-      id: 'perspektif_ukuran',
-      title: '3.5.1.1 Perspektif Ukuran Gambar',
-      type: 'group',
-      sections: [
-        {
-          id: 'ukuran_kertas',
-          title: 'Perbandingan dengan Ukuran Kertas dan Besar Gambar',
-          type: 'radio',
-          items: [
-            {
-              id: 'normal',
-              label: 'Normal (± 2/3 folio)',
-              interpret: 'Sebagian besar orang dewasa cenderung menggambar pohon sekitar 2/3 dari ukuran kertas folio. Ukuran gambar proporsional terhadap kertas. Menunjukkan perencanaan yang memadai dalam mengisi ruang, kemampuan mengukur realitas secara wajar, serta kontrol ego yang cukup.'
-            },
-            {
-              id: 'terlalu_besar',
-              label: 'Terlalu besar / sangat besar',
-              interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu besar dalam konteks kertas yang digunakan.'
-            },
-            {
-              id: 'terlalu_kecil',
-              label: 'Terlalu kecil',
-              interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu kecil dalam konteks kertas yang digunakan.'
-            }
-          ]
-        },
-        {
-          id: 'mahkota_batang',
-          title: 'Perbandingan antara Mahkota dan Batang',
-          type: 'radio',
-          items: [
-            {
-              id: 'normal_mb',
-              label: 'Normal (mahkota ≈ 2/3 batang)',
-              interpret: 'Orang dewasa umumnya menggambar mahkota sekitar 2/3 dari panjang batang pohon.'
-            },
-            {
-              id: 'mahkota_besar',
-              label: 'Mahkota lebih besar',
-              interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan mahkota yang lebih besar.'
-            },
-            {
-              id: 'batang_besar',
-              label: 'Batang lebih besar',
-              interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan batang yang lebih besar.'
-            },
-            {
-              id: 'batang_besar_seimbang',
-              label: 'Batang lebih besar atau seimbang',
-              interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan batang yang lebih besar atau seimbang.'
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'ukuran_pohon',
-      title: '3.5.1.2 Ukuran Pohon',
-      type: 'group',
-      sections: [
-        {
-          id: 'ukuran_pohon_items',
-          title: 'Ukuran Pohon',
-          type: 'radio',
-          items: [
-            {
-              id: 'rata_rata_7inci',
-              label: 'Ukuran rata-rata gambar sekitar 7 inci',
-              interpret: 'Ukuran rata-rata gambar sekitar 7 inci.'
-            },
-            {
-              id: 'sangat_besar',
-              label: 'Gambar Sangat Besar',
-              interpret: 'Agresivitas dan kecenderungan untuk bertindak secara eksternal. Sikap ekspansif, fantasi tinggi dan grandiositas (keyakinan berlebihan tentang pentingnya diri sendiri, kemampuan luar biasa, atau superioritas yang tidak realistis). Aktivitas emosional berlebihan, bahkan cenderung manik. Perasaan tidak mampu yang tidak disadari. Dugaan gangguan organik, efek alkohol, atau masalah neuropsikologis. Kesadaran moral yang lemah, potensi sifat antisosial. Kecurigaan berlebih dan kecenderungan paranoid. Jika gambar jelek atau kosong terdapat indikasi kekurangan mental. Ini bisa menandakan adanya kesulitan atau keterbatasan dalam perkembangan kognitif (gambar ini umumnya dibuat oleh anak-anak).',
-              subItems: [
-                {
-                  id: 'garis_tepi_sangat_besar',
-                  label: 'Garis tepi sangat besar',
-                  interpret: 'Ciri Manik. Terkadang, jika gambar dibuat dengan garis tepi yang sangat besar, ini menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania.'
-                }
-              ]
-            },
-            {
-              id: 'lebih_kecil',
-              label: 'Gambar Lebih Kecil dari Rata-Rata',
-              interpret: 'Rasa tidak aman, harga diri rendah, perasaan inferior. Kecemasan, depresi, atau penarikan diri. Ketergantungan berlebih dan perilaku kekanak-kanakan. Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. Hambatan dalam interaksi sosial, pemalu, atau defensif. Reaksi menarik diri saat menghadapi stres. Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah. Subjek tidak merasa terpacu untuk mengatasi hambatan-hambatan yang ada.'
-            },
-            {
-              id: 'keluar_kertas',
-              label: 'Gambar yang keluar dari kertas',
-              interpret: 'Kesulitan merencanakan sesuatu atau menata sesuatu secara terstruktur. Tendensi manik atau over-aktif di mana mereka cenderung terlalu aktif secara fisik atau mental.'
-            },
-            {
-              id: 'normal_7inci',
-              label: 'Normal (ukuran mendekati rata-rata ± 7 inci)',
-              interpret: 'Gambar dengan ukuran mendekati rata-rata (± 7 inci) tidak selalu berarti sehat secara psikologis. Ukuran "normal" tetap perlu ditelaah lebih dalam berdasarkan kualitas ekspresi, detail, dan konteks emosional subjek. Ini menunjukkan beberapa hal: Energi yang Biasa Saja. Subjek menunjukkan tingkat energi yang cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional yang kuat. Bisa mencerminkan keadaan psikologis yang datar atau stabil, tergantung konteks lainnya. Kurang Insight (Wawasan Diri Rendah). Subjek mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif, atau tidak terlalu mengenali konflik batin yang dialaminya. Optimisme Superfisial. Sikap positif yang ditampilkan bisa jadi hanya di permukaan. Ada kemungkinan subjek menyangkal atau menekan perasaan negatif, sehingga tampak optimis secara luar tapi tidak disertai pemahaman mendalam terhadap masalah yang dihadapi.'
-            }
-          ]
-        }
-      ]
-    }
-  ]
-},
+      {
+        id: 'ukuran',
+        title: '1. Ukuran Gambar',
+        sections: [
+          {
+            id: 'ukuran_kertas',
+            title: 'Perbandingan dengan Ukuran Kertas dan Besar Gambar',
+            type: 'radio',
+            items: [
+              {
+                id: 'normal',
+                label: 'Normal (± 2/3 folio)',
+                interpret: 'Sebagian besar orang dewasa cenderung menggambar pohon sekitar 2/3 dari ukuran kertas folio. Ukuran gambar proporsional terhadap kertas. Menunjukkan perencanaan yang memadai dalam mengisi ruang, kemampuan mengukur realitas secara wajar, serta kontrol ego yang cukup.'
+              },
+              {
+                id: 'terlalu_besar',
+                label: 'Terlalu besar / sangat besar',
+                interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu besar dalam konteks kertas yang digunakan. Gambar Sangat Besar menunjukkan: Agresivitas dan kecenderungan untuk bertindak secara eksternal. Sikap ekspansif, fantasi tinggi dan grandiositas (keyakinan berlebihan tentang pentingnya diri sendiri, kemampuan luar biasa, atau superioritas yang tidak realistis). Aktivitas emosional berlebihan, bahkan cenderung manik. Perasaan tidak mampu yang tidak disadari. Dugaan gangguan organik, efek alkohol, atau masalah neuropsikologis. Kesadaran moral yang lemah, potensi sifat antisosial. Kecurigaan berlebih dan kecenderungan paranoid. Jika gambar jelek atau kosong terdapat indikasi kekurangan mental. Ini bisa menandakan adanya kesulitan atau keterbatasan dalam perkembangan kognitif (gambar ini umumnya dibuat oleh anak-anak).'
+              },
+              {
+                id: 'terlalu_kecil',
+                label: 'Terlalu kecil',
+                interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu kecil dalam konteks kertas yang digunakan. Gambar Lebih Kecil dari Rata-Rata mengindikasikan: Rasa tidak aman, harga diri rendah, perasaan inferior. Kecemasan, depresi, atau penarikan diri. Ketergantungan berlebih dan perilaku kekanak-kanakan. Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. Hambatan dalam interaksi sosial, pemalu, atau defensif. Reaksi menarik diri saat menghadapi stres. Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah. Subjek tidak merasa terpacu untuk mengatasi hambatan-hambatan yang ada.'
+              },
+              {
+                id: 'garis_tepi_sangat_besar',
+                label: 'Garis tepi sangat besar (Ciri Manik)',
+                interpret: 'Terkadang, jika gambar dibuat dengan garis tepi yang sangat besar, ini menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania.'
+              },
+              {
+                id: 'keluar_kertas',
+                label: 'Gambar yang keluar dari kertas',
+                interpret: 'Kesulitan merencanakan sesuatu atau menata sesuatu secara terstruktur. Tendensi manik atau over-aktif di mana mereka cenderung terlalu aktif secara fisik atau mental.'
+              },
+              {
+                id: 'normal_7inci',
+                label: 'Normal (ukuran mendekati rata-rata ± 7 inci)',
+                interpret: 'Ukuran rata-rata gambar sekitar 7 inci. Gambar dengan ukuran mendekati rata-rata (± 7 inci) tidak selalu berarti sehat secara psikologis. Ukuran "normal" tetap perlu ditelaah lebih dalam berdasarkan kualitas ekspresi, detail, dan konteks emosional subjek. Ini menunjukkan beberapa hal: (1) Energi yang Biasa Saja — subjek menunjukkan tingkat energi yang cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional yang kuat. Bisa mencerminkan keadaan psikologis yang datar atau stabil, tergantung konteks lainnya. (2) Kurang Insight (Wawasan Diri Rendah) — subjek mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif, atau tidak terlalu mengenali konflik batin yang dialaminya. (3) Optimisme Superfisial — sikap positif yang ditampilkan bisa jadi hanya di permukaan. Ada kemungkinan subjek menyangkal atau menekan perasaan negatif, sehingga tampak optimis secara luar tapi tidak disertai pemahaman mendalam terhadap masalah yang dihadapi.'
+              }
+            ]
+          },
+          {
+            id: 'mahkota_batang',
+            title: 'Perbandingan antara Mahkota dan Batang',
+            type: 'radio',
+            items: [
+              {
+                id: 'normal_mb',
+                label: 'Normal (mahkota ≈ 2/3 batang)',
+                interpret: 'Orang dewasa umumnya menggambar mahkota sekitar 2/3 dari panjang batang pohon. Proporsi mahkota dan batang seimbang. Menunjukkan keseimbangan antara kehidupan berpikir/fantasi dengan fungsi praktis dan kemampuan mengakar pada realitas.'
+              },
+              {
+                id: 'mahkota_besar',
+                label: 'Mahkota lebih besar',
+                interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan mahkota yang lebih besar. Mengindikasikan dominasi dunia ide, fantasi, aspirasi, dan pemikiran abstrak dibanding aspek praktis dan realitas.'
+              },
+              {
+                id: 'batang_besar',
+                label: 'Batang lebih besar',
+                interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan batang yang lebih besar. Mengindikasikan dominasi fungsi praktis, dorongan primitif, atau kekakuan. Menekankan pada kekuatan dan stabilitas konkret.'
+              },
+              {
+                id: 'batang_besar_seimbang',
+                label: 'Batang lebih besar atau seimbang',
+                interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan batang yang lebih besar atau seimbang.'
+              }
+            ]
+          }
+        ]
+      },
 
       /* ======================================================
          2. KESAN GAMBAR
@@ -660,7 +622,7 @@ window.GRAFIS_AUTO_DATA = {
       },
 
       /* ======================================================
-         13. FITUR KHUSUS
+         13. FITUR KHUSUS  ← duplikasi dihapus
          ====================================================== */
       {
         id: 'fitur_khusus',
@@ -672,19 +634,14 @@ window.GRAFIS_AUTO_DATA = {
             type: 'checkbox',
             items: [
               { id: 'pagar', label: 'Ada pagar / batas', interpret: 'Menunjukkan kebutuhan mendesak seseorang akan perasaan aman dan nyaman. Gambar pohon yang dilingkari oleh pagar atau batas menunjukkan isyarat psikologis menarik tentang kebutuhan subjek.' },
-              { id: 'dilingkari', label: 'Pohon dilingkari', interpret: 'Kebutuhan mendesak akan perasaan aman dan nyaman. Adanya batas atau perlindungan yang diinginkan oleh subjek.' },
-              { id: 'pohon_berakar_cahaya', label: 'Pohon berakar dalam cahaya dan bumi', interpret: 'Menggambarkan konsep bahwa pohon memiliki hubungan erat dengan sumber cahaya (pengetahuan, spiritualitas, pencerahan) dan juga dengan koneksi ke dunia fisik (keterikatan dengan bumi, realitas fisik). Mengindikasikan polaritas, keselarasan, dan keseimbangan antara kedalaman spiritualitas dengan keterikatan pada kehidupan dunia nyata.' },
-              { id: 'pohon_organik', label: 'Pohon dengan elemen organik & tambahan yang tidak berhubungan', interpret: 'Tambahan-tambahan ini biasanya mencerminkan seseorang yang menggunakan elemen artistik untuk mengekspresikan kondisi lingkungan sekitar pada fase pra-pubertas. Subjek ingin menciptakan banyak hal dan kreativitasnya muncul secara alamiah.' },
-              { id: 'pohon_di_atas_tanah', label: 'Ada garis tanah di atas pangkal batang', interpret: 'Gambar ini menunjukkan kesulitan mengekspresikan emosi dan ketidaknyamanan dengan realitas sekitar. Subjek cenderung tidak memperdalam perasaan atau mengalami kesulitan beradaptasi dalam lingkungan yang menekan.' },
-              { id: 'pohon_di_dalam_lingkaran', label: 'Pohon berada dalam lingkaran / batas', interpret: 'Subjek ingin menyendiri atau menghindari interaksi sosial. Sulit mengelola frustrasi dalam menghadapi tantangan atau perasaan negatif.' },
-              { id: 'pohon_diatas_bukit2', label: 'Pohon di atas bukit / lingkungan khusus', interpret: 'Ada perasaan tertekan, dampak tekanan dari perkembangan. Menyembunyikan perasaan yang tidak menyenangkan dalam lingkungan sekitar atau faktor eksternal.' }
+              { id: 'dilingkari', label: 'Pohon dilingkari', interpret: 'Kebutuhan mendesak akan perasaan aman dan nyaman. Adanya batas atau perlindungan yang diinginkan oleh subjek.' }
             ]
           }
         ]
       },
 
       /* ======================================================
-         14. RINGKASAN & NUANSA
+         14. RINGKASAN & NUANSA  ← hanya observasi ekstra
          ====================================================== */
       {
         id: 'kesimpulan_baum',
@@ -695,11 +652,11 @@ window.GRAFIS_AUTO_DATA = {
             title: 'Observasi Ekstra',
             type: 'checkbox',
             items: [
-              { id: 'pohon_berakar_cahaya2', label: 'Pohon berakar dalam cahaya dan bumi', interpret: 'Menggambarkan konsep bahwa pohon memiliki hubungan erat dengan sumber cahaya (pengetahuan, spiritualitas, pencerahan) dan juga dengan koneksi ke dunia fisik (keterikatan dengan bumi, realitas fisik). Mengindikasikan polaritas, keselarasan, dan keseimbangan antara kedalaman spiritualitas dengan keterikatan pada kehidupan dunia nyata.' },
-              { id: 'pohon_organik2', label: 'Pohon dengan elemen organik & tambahan yang tidak berhubungan', interpret: 'Tambahan-tambahan ini biasanya mencerminkan seseorang yang menggunakan elemen artistik untuk mengekspresikan kondisi lingkungan sekitar pada fase pra-pubertas. Subjek ingin menciptakan banyak hal dan kreativitasnya muncul secara alamiah.' },
-              { id: 'pohon_di_atas_tanah2', label: 'Ada garis tanah di atas pangkal batang', interpret: 'Gambar ini menunjukkan kesulitan mengekspresikan emosi dan ketidaknyamanan dengan realitas sekitar. Subjek cenderung tidak memperdalam perasaan atau mengalami kesulitan beradaptasi dalam lingkungan yang menekan.' },
-              { id: 'pohon_di_dalam_lingkaran2', label: 'Pohon berada dalam lingkaran / batas', interpret: 'Subjek ingin menyendiri atau menghindari interaksi sosial. Sulit mengelola frustrasi dalam menghadapi tantangan atau perasaan negatif.' },
-              { id: 'pohon_diatas_bukit3', label: 'Pohon di atas bukit / lingkungan khusus', interpret: 'Ada perasaan tertekan, dampak tekanan dari perkembangan. Menyembunyikan perasaan yang tidak menyenangkan dalam lingkungan sekitar atau faktor eksternal.' }
+              { id: 'pohon_berakar_cahaya', label: 'Pohon berakar dalam cahaya dan bumi', interpret: 'Menggambarkan konsep bahwa pohon memiliki hubungan erat dengan sumber cahaya (pengetahuan, spiritualitas, pencerahan) dan juga dengan koneksi ke dunia fisik (keterikatan dengan bumi, realitas fisik). Mengindikasikan polaritas, keselarasan, dan keseimbangan antara kedalaman spiritualitas dengan keterikatan pada kehidupan dunia nyata.' },
+              { id: 'pohon_organik', label: 'Pohon dengan elemen organik & tambahan yang tidak berhubungan', interpret: 'Tambahan-tambahan ini biasanya mencerminkan seseorang yang menggunakan elemen artistik untuk mengekspresikan kondisi lingkungan sekitar pada fase pra-pubertas. Subjek ingin menciptakan banyak hal dan kreativitasnya muncul secara alamiah.' },
+              { id: 'pohon_di_atas_tanah', label: 'Ada garis tanah di atas pangkal batang', interpret: 'Gambar ini menunjukkan kesulitan mengekspresikan emosi dan ketidaknyamanan dengan realitas sekitar. Subjek cenderung tidak memperdalam perasaan atau mengalami kesulitan beradaptasi dalam lingkungan yang menekan.' },
+              { id: 'pohon_di_dalam_lingkaran', label: 'Pohon berada dalam lingkaran / batas', interpret: 'Subjek ingin menyendiri atau menghindari interaksi sosial. Sulit mengelola frustrasi dalam menghadapi tantangan atau perasaan negatif.' },
+              { id: 'pohon_diatas_bukit', label: 'Pohon di atas bukit / lingkungan khusus', interpret: 'Ada perasaan tertekan, dampak tekanan dari perkembangan. Menyembunyikan perasaan yang tidak menyenangkan dalam lingkungan sekitar atau faktor eksternal.' }
             ]
           }
         ]
@@ -742,4 +699,4 @@ window.GRAFIS_AUTO_DATA = {
 
 };
 
-console.log('[GRAFIS-AUTO-DATA] ✓ Loaded v3 — BAUM lengkap + Pedoman Interpretasi 3.5, DAP & HTP placeholder');
+console.log('[GRAFIS-AUTO-DATA] ✓ Loaded v4 — BAUM lengkap, flat & konsisten, DAP & HTP placeholder');
