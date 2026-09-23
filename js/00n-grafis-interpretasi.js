@@ -471,13 +471,17 @@
     // Render 7 kategori
     renderCategories();
 
-    // Attach add buttons
+    // Attach add buttons — 🆕 pakai addEventListener + preventDefault
     root.querySelectorAll('.gi-add-btn').forEach(btn => {
-      btn.onclick = () => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const target = btn.getAttribute('data-target');
+        if (!state[target]) return;
         state[target].push({ text: '' });
         renderItemList(target);
-      };
+        console.log('[GRAFIS-INTERP] + Item ditambahkan ke', target, '→ total:', state[target].length);
+      });
     });
 
     document.getElementById('giForm').onsubmit = handleSubmit;
@@ -487,7 +491,11 @@
      RENDER ITEM LIST (DAP/BAUM/HTP)
      ============================================================ */
   function renderItemList(target) {
-    const container = document.getElementById(target + '-list');
+    // 🆕 Scope ke #grafindoRoot agar tidak ambil dari DOM lama
+    const root = document.getElementById('grafindoRoot');
+    const container = root
+      ? root.querySelector('#' + target + '-list')
+      : document.getElementById(target + '-list');
     if (!container) return;
 
     const accentMap = {
@@ -1072,19 +1080,26 @@
   }
 
   /* ============================================================
-     RUN
+     RUN — 🆕 GUARD agar hanya dieksekusi SEKALI
      ============================================================ */
+  let __uiBuilt = false;
+
   function run() {
+    if (__uiBuilt) return;
+    __uiBuilt = true;
+
+    // Hapus root lama kalau ada (safety)
+    const existing = document.getElementById('grafindoRoot');
+    if (existing) existing.remove();
+
     hideDefaultUI();
     buildUI();
   }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
-  } else {
-    run();
   }
-
+  // Fallback: kalau DOMContentLoaded tidak fire dalam 200ms
   setTimeout(run, 200);
 
 })();
