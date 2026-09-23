@@ -400,9 +400,13 @@
      CEK MODE WAWANCARA
      ============================================================ */
   const url = new URL(window.location.href);
-  const isInterviewMode = url.searchParams.get('interview') === '1';
+const isInterviewMode = url.searchParams.get('interview') === '1';
 
-  if (!isInterviewMode) return;
+if (isInterviewMode) {
+  window.__GRAFIS_MODE_ACTIVE = true;  // 🆕 treat sama seperti grafis
+}
+
+if (!isInterviewMode) return;
 
   const candidateName     = url.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = url.searchParams.get('p') || '';
