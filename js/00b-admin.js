@@ -6,6 +6,15 @@
    - R2: deleteResultFile() kirim sinyal lastDelete ke admin lain
    - R3: startSignalListeners() dipanggil di renderAdminPanel()
    - R4: stopSignalListeners() dipanggil di adminLogout() + close button
+
+   🆕 GRAFIS + ZIP [2026-09-23]:
+   - G1: __detectFileKind() deteksi file 'grafis'
+   - G2: __extractAssessorGrafis() — extract nama assessor
+   - G3: __renderGrafisBox() — box hijau glowing
+   - G4: __renderWawancaraBox() — box kuning glowing
+   - G5: Tombol 📦 ZIP per kandidat
+   - G6: __candidateFilesMap — map file per kandidat
+   - G7: downloadCandidateZip() — download semua file jadi .zip
    ============================================================ */
 
 /* ============================================================
@@ -234,6 +243,13 @@ function __safeUrl(url) {
   if (/^https?:\/\//i.test(u)) return u.replace(/"/g, '%22').replace(/'/g, '%27');
   if (/^[.\/]/.test(u)) return u.replace(/"/g, '%22').replace(/'/g, '%27');
   return '#';
+}
+
+/* ============================================================
+   HELPER: Normalize candidate key untuk map ZIP
+   ============================================================ */
+function __normalizeCandidateKey(name) {
+  return String(name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
 }
 
 /* ============================================================
@@ -600,7 +616,6 @@ async function fetchResultFiles(forceRefresh = false) {
           const allFiles = data.files || [];
           const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
 
-          /* 🆕 Update cache HANYA kalau berhasil */
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
 
@@ -615,7 +630,6 @@ async function fetchResultFiles(forceRefresh = false) {
         console.warn('[PDF-LIST] Gagal:', data?.error);
       } catch (e) {
         lastErr = e;
-        /* 🆕 Log lebih tenang — jangan warn merah tiap attempt */
         if (attempt === maxRetry) {
           console.warn(`[PDF-LIST] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
         } else {
@@ -628,7 +642,6 @@ async function fetchResultFiles(forceRefresh = false) {
       }
     }
 
-    /* Semua attempt gagal → pakai cache lama (JANGAN kosongkan) */
     console.warn('[PDF-LIST] Semua retry gagal, pakai cache lama');
     return window.__resultFilesCacheData || [];
   })();
@@ -687,7 +700,6 @@ async function deleteResultFile(fileId, fileName) {
 
       const text = await res.text();
 
-      /* Guard: kalau GAS balas HTML (redirect), retry */
       if (text.trim().startsWith('<')) {
         throw new Error('Respon HTML (GAS redirect)');
       }
@@ -695,7 +707,6 @@ async function deleteResultFile(fileId, fileName) {
       const data = JSON.parse(text);
 
       if (!data || !data.success) {
-        // Server balas JSON tapi gagal → tidak perlu retry
         await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
         return;
       }
@@ -708,7 +719,6 @@ async function deleteResultFile(fileId, fileName) {
       if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
       if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-      /* 🆕 Kirim sinyal delete ke admin lain */
       try {
         firebase.database().ref('sgs_state/lastDelete').set({
           ts: firebase.database.ServerValue.TIMESTAMP,
@@ -718,7 +728,6 @@ async function deleteResultFile(fileId, fileName) {
 
       await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
 
-      /* Refresh cache setelah Drive propagation */
       setTimeout(async () => {
         __invalidateResultCache();
         try {
@@ -729,7 +738,7 @@ async function deleteResultFile(fileId, fileName) {
         } catch (err) {}
       }, DRIVE_PROPAGATION_DELAY_MS);
 
-      return; // ✅ Keluar dari fungsi setelah sukses
+      return;
 
     } catch (e) {
       lastErr = e;
@@ -742,7 +751,6 @@ async function deleteResultFile(fileId, fileName) {
     }
   }
 
-  /* Semua attempt gagal */
   console.error('[DELETE] Semua retry gagal:', lastErr?.message);
   await __alert('Gagal hapus: ' + (lastErr?.message || 'Koneksi bermasalah'), '❌ Error');
 }
@@ -769,7 +777,8 @@ function __extractCandidateInfo(file) {
 
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
-  if (/-wawancara-/.test(n))  return 'wawancara';   // 🆕 deteksi wawancara
+  if (/-wawancara-/.test(n))  return 'wawancara';
+  if (/-grafis-/.test(n))     return 'grafis';   // 🆕
   if (/\.pdf$/.test(n))       return 'pdf';
   if (/\.xlsx?$/.test(n))     return 'excel';
   if (/\.(csv|ods)$/.test(n)) return 'excel';
@@ -777,7 +786,7 @@ function __detectFileKind(file) {
 }
 
 /* ============================================================
-   🆕 Extract nama pewawancara dari nama file
+   Extract nama pewawancara dari nama file
    Format: [Nama]-Wawancara-NUG.pdf → "NUG"
    ============================================================ */
 function __extractInterviewer(file) {
@@ -786,10 +795,17 @@ function __extractInterviewer(file) {
   return m ? m[1].toUpperCase() : '?';
 }
 
+/* 🆕 Extract nama assessor dari nama file Grafis
+   Format: [Nama]-Grafis-NUG.pdf → "NUG" */
+function __extractAssessorGrafis(file) {
+  const n = String(file.name || '');
+  const m = n.match(/-Grafis-([A-Z0-9]+)\.pdf$/i);
+  return m ? m[1].toUpperCase() : '?';
+}
+
 /* ============================================================
-   🆕 Render box khusus untuk hasil wawancara
-   - Semua PDF wawancara digabung jadi 1 box
-   - Tampilkan list pewawancara di dalamnya
+   Render box khusus untuk hasil wawancara
+   🆕 GLOWING effect [2026-09-23]
    ============================================================ */
 function __renderWawancaraBox(files) {
   if (!Array.isArray(files) || files.length === 0) return '';
@@ -798,19 +814,46 @@ function __renderWawancaraBox(files) {
   const uniqueList = [...new Set(interviewers)].join(', ');
 
   return `
-    <div style="padding: 12px 14px; background: rgba(250,204,21,.08);
-      border: 1px solid rgba(250,204,21,.3); border-radius: 11px;">
+    <div style="padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(250,204,21,.12), rgba(245,158,11,.08));
+      border: 1.5px solid rgba(250,204,21,.5);
+      border-radius: 11px;
+      box-shadow:
+        0 0 0 1px rgba(250,204,21,.15),
+        0 0 20px rgba(250,204,21,.2),
+        inset 0 1px 0 rgba(255,255,255,.05);
+      animation: rfWawancaraGlow 3s ease-in-out infinite;">
+      <style>
+        @keyframes rfWawancaraGlow {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(250,204,21,.15), 0 0 18px rgba(250,204,21,.18), inset 0 1px 0 rgba(255,255,255,.05); }
+          50%      { box-shadow: 0 0 0 1px rgba(250,204,21,.3),  0 0 28px rgba(250,204,21,.35), inset 0 1px 0 rgba(255,255,255,.08); }
+        }
+        @keyframes rfWawancaraPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.15); opacity: .85; }
+        }
+      </style>
+
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
         <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-          background: rgba(250,204,21,.2); border-radius: 9px; font-size: 16px;">🎤</div>
+          background: linear-gradient(135deg, #f59e0b, #d97706);
+          border-radius: 9px; font-size: 16px;
+          box-shadow: 0 0 12px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.2);">🎤</div>
         <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 800; color: #fde047; font-size: 12px; margin-bottom: 2px;">
+          <div style="font-weight: 800; color: #fde047; font-size: 12px; margin-bottom: 2px;
+            text-shadow: 0 0 8px rgba(253,224,71,.5);">
             Hasil Wawancara (${files.length})
           </div>
           <div style="color: #94a3b8; font-size: 10.5px; line-height: 1.3;">
             Pewawancara: <b style="color: #fde047;">${__adminEscape(uniqueList)}</b>
           </div>
         </div>
+        <div style="
+          width: 8px; height: 8px; border-radius: 50%;
+          background: #f59e0b;
+          box-shadow: 0 0 8px #f59e0b, 0 0 16px #f59e0b;
+          animation: rfWawancaraPulse 1.8s ease-in-out infinite;
+        "></div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -820,10 +863,17 @@ function __renderWawancaraBox(files) {
           const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
           return `
             <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-              background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06); border-radius: 8px;">
+              background: rgba(0,0,0,.3);
+              border: 1px solid rgba(250,204,21,.25);
+              border-radius: 8px;
+              transition: all .18s ease;"
+              onmouseover="this.style.borderColor='rgba(250,204,21,.55)';this.style.background='rgba(250,204,21,.08)';"
+              onmouseout="this.style.borderColor='rgba(250,204,21,.25)';this.style.background='rgba(0,0,0,.3)';">
               <div style="width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
-                background: rgba(250,204,21,.18); border-radius: 8px;
-                font-size: 11px; font-weight: 900; color: #fde047; letter-spacing: -.3px;">
+                background: linear-gradient(135deg, #f59e0b, #d97706);
+                border-radius: 8px;
+                font-size: 11px; font-weight: 900; color: #fff; letter-spacing: -.3px;
+                box-shadow: 0 0 8px rgba(245,158,11,.4);">
                 ${__adminEscape(iv.slice(0, 3))}
               </div>
               <div style="flex: 1; min-width: 0;">
@@ -835,7 +885,8 @@ function __renderWawancaraBox(files) {
                 </div>
               </div>
               <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-                <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
+                <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary"
+                   style="background: linear-gradient(135deg,#f59e0b,#d97706);">⬇ Buka</a>
                 <button class="js-delete-file rf-btn rf-btn-danger"
                   data-file-id="${__adminEscape(f.id)}"
                   data-file-name="${__adminEscape(f.name)}">🗑</button>
@@ -849,7 +900,178 @@ function __renderWawancaraBox(files) {
 }
 
 /* ============================================================
-   RENDER — 1 kandidat = 1 kartu
+   Render box khusus Interpretasi Grafis
+   - Semua PDF grafis digabung jadi 1 box
+   - Glowing teal-emerald effect
+   ============================================================ */
+function __renderGrafisBox(files) {
+  if (!Array.isArray(files) || files.length === 0) return '';
+
+  const assessors = files.map(f => __extractAssessorGrafis(f));
+  const uniqueList = [...new Set(assessors)].join(', ');
+
+  return `
+    <div class="rf-grafis-box" style="
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(6,182,212,.08));
+      border: 1.5px solid rgba(16,185,129,.5);
+      border-radius: 12px;
+      box-shadow:
+        0 0 0 1px rgba(16,185,129,.15),
+        0 0 20px rgba(16,185,129,.2),
+        inset 0 1px 0 rgba(255,255,255,.05);
+      animation: rfGrafisGlow 3s ease-in-out infinite;
+    ">
+      <style>
+        @keyframes rfGrafisGlow {
+          0%, 100% { box-shadow: 0 0 0 1px rgba(16,185,129,.15), 0 0 18px rgba(16,185,129,.18), inset 0 1px 0 rgba(255,255,255,.05); }
+          50%      { box-shadow: 0 0 0 1px rgba(16,185,129,.3),  0 0 28px rgba(16,185,129,.35), inset 0 1px 0 rgba(255,255,255,.08); }
+        }
+        @keyframes rfGrafisPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%      { transform: scale(1.15); opacity: .85; }
+        }
+      </style>
+
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div style="
+          width: 34px; height: 34px; flex: 0 0 34px;
+          display: grid; place-items: center;
+          background: linear-gradient(135deg, #10b981, #06b6d4);
+          border-radius: 9px; font-size: 16px;
+          box-shadow: 0 0 12px rgba(16,185,129,.45), inset 0 1px 0 rgba(255,255,255,.2);
+        ">🎨</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 800; color: #6ee7b7; font-size: 12px; margin-bottom: 2px;
+            text-shadow: 0 0 8px rgba(110,231,183,.5);">
+            Interpretasi Grafis (${files.length})
+          </div>
+          <div style="color: #94a3b8; font-size: 10.5px; line-height: 1.3;">
+            Assessor: <b style="color: #6ee7b7;">${__adminEscape(uniqueList)}</b>
+          </div>
+        </div>
+        <div style="
+          width: 8px; height: 8px; border-radius: 50%;
+          background: #10b981;
+          box-shadow: 0 0 8px #10b981, 0 0 16px #10b981;
+          animation: rfGrafisPulse 1.8s ease-in-out infinite;
+        "></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        ${files.map(f => {
+          const a = __extractAssessorGrafis(f);
+          const safeUrl = __safeUrl(f.url);
+          const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+          return `
+            <div style="
+              display: flex; align-items: center; gap: 8px;
+              padding: 8px 10px;
+              background: rgba(0,0,0,.3);
+              border: 1px solid rgba(16,185,129,.25);
+              border-radius: 8px;
+              transition: all .18s ease;
+            " onmouseover="this.style.borderColor='rgba(16,185,129,.55)';this.style.background='rgba(16,185,129,.08)';"
+               onmouseout="this.style.borderColor='rgba(16,185,129,.25)';this.style.background='rgba(0,0,0,.3)';">
+              <div style="
+                width: 30px; height: 30px; flex: 0 0 30px;
+                display: grid; place-items: center;
+                background: linear-gradient(135deg, #10b981, #059669);
+                border-radius: 8px;
+                font-size: 11px; font-weight: 900; color: #fff; letter-spacing: -.3px;
+                box-shadow: 0 0 8px rgba(16,185,129,.4);
+              ">
+                ${__adminEscape(a.slice(0, 3))}
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 800; color: #6ee7b7; font-size: 11.5px; margin-bottom: 2px;">
+                  🎨 ${__adminEscape(a)}
+                </div>
+                <div style="color: #64748b; font-size: 10px; word-break: break-all; line-height: 1.3;">
+                  ${__adminEscape((f.name || '').slice(0, 42))}${(f.name || '').length > 42 ? '...' : ''} · ${sizeMB}
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px; flex: 0 0 auto;">
+                <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary"
+                   style="background: linear-gradient(135deg,#10b981,#059669);">⬇ Buka</a>
+                <button class="js-delete-file rf-btn rf-btn-danger"
+                  data-file-id="${__adminEscape(f.id)}"
+                  data-file-name="${__adminEscape(f.name)}">🗑</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   Download ZIP — semua file kandidat dalam 1 arsip
+   ============================================================ */
+window.__candidateFilesMap = window.__candidateFilesMap || {};
+
+async function downloadCandidateZip(candidateKey) {
+  const files = window.__candidateFilesMap[candidateKey] || [];
+  if (files.length === 0) {
+    await __alert('Tidak ada file untuk kandidat ini.', '⚠️ Kosong');
+    return;
+  }
+
+  if (!window.JSZip) {
+    await __alert('Library ZIP belum siap. Refresh halaman lalu coba lagi.', '⚠️ Error');
+    return;
+  }
+
+  showResultToast('📦', 'Menyiapkan ZIP…', `${files.length} file dari ${candidateKey}`);
+
+  const zip = new JSZip();
+  let okCount = 0, failCount = 0;
+
+  for (const f of files) {
+    try {
+      const res = await fetch(f.url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const safeName = String(f.name || `file_${okCount + 1}.pdf`)
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .slice(0, 100);
+      zip.file(safeName, blob);
+      okCount++;
+    } catch (e) {
+      console.warn('[ZIP] Gagal:', f.name, e.message);
+      failCount++;
+    }
+  }
+
+  if (okCount === 0) {
+    await __alert('Semua file gagal diunduh. Cek koneksi.', '❌ Gagal');
+    return;
+  }
+
+  const content = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
+
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Hasil_${candidateKey.replace(/[^a-zA-Z0-9]/g, '_')}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  const msg = failCount > 0
+    ? `✅ ${okCount} file terunduh, ${failCount} gagal`
+    : `✅ ${okCount} file berhasil diunduh`;
+  showResultToast('✅', 'ZIP Siap', msg);
+}
+
+/* ============================================================
+   RENDER — 1 kandidat = 1 kartu (untuk halaman utama admin)
    ============================================================ */
 function renderResultFilesHTML(files) {
   if (!Array.isArray(files) || files.length === 0) {
@@ -873,6 +1095,13 @@ function renderResultFilesHTML(files) {
     const la = Math.max(...a.files.map(f => f.date || 0));
     const lb = Math.max(...b.files.map(f => f.date || 0));
     return lb - la;
+  });
+
+  /* 🆕 Simpan map file per kandidat untuk fitur ZIP */
+  window.__candidateFilesMap = window.__candidateFilesMap || {};
+  groupArr.forEach(g => {
+    const k = __normalizeCandidateKey(g.name);
+    window.__candidateFilesMap[k] = g.files;
   });
 
   function renderFileRow(f, kind) {
@@ -935,6 +1164,7 @@ function renderResultFilesHTML(files) {
     const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
     const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
     const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');
+    const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
     const others   = g.files.filter(f => __detectFileKind(f) === 'other');
 
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
@@ -957,6 +1187,8 @@ function renderResultFilesHTML(files) {
         padding: 3px 9px; border-radius: 999px; border: 1px solid #cbd5e1;">📁 ${g.files.length} file</span>`;
     }
 
+    const candidateKey = __normalizeCandidateKey(g.name);
+
     return `
       <div style="padding: 12px 14px; background: linear-gradient(180deg, #ffffff, #fbfdff);
         border: 1px solid #dbeafe; border-radius: 12px; box-shadow: 0 2px 8px rgba(30,64,175,.04);">
@@ -973,7 +1205,19 @@ function renderResultFilesHTML(files) {
           ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
           ${excels.map(f => renderFileRow(f, 'excel')).join('')}
           ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
+          ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
           ${others.map(f => renderFileRow(f, 'other')).join('')}
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
+          <button class="js-download-zip" data-candidate-key="${__adminEscape(candidateKey)}"
+            style="padding: 6px 14px; border-radius: 999px;
+              border: 1.5px solid rgba(16,185,129,.55);
+              background: linear-gradient(135deg, rgba(16,185,129,.15), rgba(6,182,212,.1));
+              color: #047857; font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit; white-space: nowrap;
+              box-shadow: 0 0 12px rgba(16,185,129,.15);">
+            📦 Download ZIP (${g.files.length})
+          </button>
         </div>
       </div>`;
   }).join('');
@@ -1097,7 +1341,6 @@ async function adminLogout(skipConfirm) {
 
   if (typeof __stopAdminIdleTracking === 'function') __stopAdminIdleTracking();
 
-  /* 🆕 Stop ALL listeners */
   if (typeof stopResultsRealtimeListener === 'function') { try { stopResultsRealtimeListener(); } catch (e) {} }
   if (typeof stopSignalListeners === 'function') { try { stopSignalListeners(); } catch (e) {} }
 
@@ -1399,10 +1642,9 @@ function __renderResultPageContent() {
 
   const files = window.__resultFilesCache || [];
 
-  /* 🆕 Cegah flicker: kalau data sama, skip render */
   const signature = JSON.stringify(files.map(f => f.id).sort());
   if (window.__lastRenderedSignature === signature) {
-    return;  // Data tidak berubah → skip render
+    return;
   }
   window.__lastRenderedSignature = signature;
   const groups = new Map();
@@ -1420,6 +1662,13 @@ function __renderResultPageContent() {
     const la = Math.max(...a.files.map(f => f.date || 0));
     const lb = Math.max(...b.files.map(f => f.date || 0));
     return lb - la;
+  });
+
+  /* 🆕 Simpan map file per kandidat untuk fitur ZIP */
+  window.__candidateFilesMap = window.__candidateFilesMap || {};
+  groupArr.forEach(g => {
+    const k = __normalizeCandidateKey(g.name);
+    window.__candidateFilesMap[k] = g.files;
   });
 
   const positionSet = new Set();
@@ -1472,11 +1721,12 @@ function __renderResultPageContent() {
     return;
   }
 
- const cardsHTML = filtered.map(g => {
-  const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
-  const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
-  const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');   // 🆕
-  const others   = g.files.filter(f => __detectFileKind(f) === 'other');
+  const cardsHTML = filtered.map(g => {
+    const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
+    const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');
+    const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
+    const others   = g.files.filter(f => __detectFileKind(f) === 'other');
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -1536,6 +1786,8 @@ function __renderResultPageContent() {
         </div>`;
     }
 
+    const candidateKey = __normalizeCandidateKey(g.name);
+
     return `
       <div class="rf-card">
         <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px;
@@ -1550,18 +1802,27 @@ function __renderResultPageContent() {
               <span style="padding: 3px 10px; border-radius: 999px; background: ${badgeColor.bg};
                 border: 1px solid ${badgeColor.br}; color: ${badgeColor.text}; font-size: 10px;
                 font-weight: 800; white-space: nowrap;">${badge}</span>
-                <button class="js-interview-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-  style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(250,204,21,.4);
-    background: rgba(250,204,21,.15); color: #fde047; font-size: 10px; font-weight: 800;
-    cursor: pointer; font-family: inherit; white-space: nowrap;">
-  🎤 Wawancara
-</button>
-<button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-  style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
-    background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 10px; font-weight: 800;
-    cursor: pointer; font-family: inherit; white-space: nowrap;">
-  ✍ Grafis
-</button>
+              <button class="js-interview-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
+                style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(250,204,21,.4);
+                  background: rgba(250,204,21,.15); color: #fde047; font-size: 10px; font-weight: 800;
+                  cursor: pointer; font-family: inherit; white-space: nowrap;">
+                🎤 Wawancara
+              </button>
+              <button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
+                style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
+                  background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 10px; font-weight: 800;
+                  cursor: pointer; font-family: inherit; white-space: nowrap;">
+                ✍ Grafis
+              </button>
+              <button class="js-download-zip" data-candidate-key="${__adminEscape(candidateKey)}"
+                style="padding: 4px 10px; border-radius: 999px;
+                  border: 1px solid rgba(16,185,129,.55);
+                  background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
+                  color: #6ee7b7; font-size: 10px; font-weight: 800;
+                  cursor: pointer; font-family: inherit; white-space: nowrap;
+                  box-shadow: 0 0 12px rgba(16,185,129,.25);">
+                📦 ZIP (${g.files.length})
+              </button>
             </div>
             <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
               ${g.position !== '-' ? `💼 ${__adminEscape(g.position)}` : '💼 <span style="opacity:.6">Tanpa posisi</span>'}
@@ -1572,6 +1833,7 @@ function __renderResultPageContent() {
           ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
           ${excels.map(f => fileRow(f, 'excel')).join('')}
           ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
+          ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
           ${others.map(f => fileRow(f, 'other')).join('')}
         </div>
       </div>`;
@@ -1804,7 +2066,6 @@ function renderAdminPanel() {
     if (typeof startAdminTimerTick === 'function') startAdminTimerTick();
     if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-    /* 🆕 Auto-refresh 10 detik */
     if (window.__pdfAutoRefreshTimer) clearInterval(window.__pdfAutoRefreshTimer);
     window.__pdfAutoRefreshTimer = setInterval(() => {
       if (!document.getElementById('adminPanelOverlay')) return;
@@ -1818,7 +2079,6 @@ function renderAdminPanel() {
       }
     }, 10000);
 
-    /* 🆕 REAL-TIME SIGNAL LISTENER */
     if (typeof startSignalListeners === 'function') startSignalListeners();
 
     if (CHAT_CLEANUP_ENABLED && typeof cleanupInactiveChatRooms === 'function') {
@@ -1850,7 +2110,6 @@ function renderAdminPanel() {
       if (typeof stopAdminUnreadTracker === 'function') { try { stopAdminUnreadTracker(); } catch (e) {} }
       if (typeof stopAdminTimerTick === 'function') { try { stopAdminTimerTick(); } catch (e) {} }
       if (typeof stopResultsRealtimeListener === 'function') { try { stopResultsRealtimeListener(); } catch (e) {} }
-      /* 🆕 Stop signal listeners */
       if (typeof stopSignalListeners === 'function') { try { stopSignalListeners(); } catch (e) {} }
 
       overlay.remove();
@@ -1998,6 +2257,14 @@ async function checkAdminUrlAndRender() {
       return;
     }
 
+    const zipBtn = e.target.closest('.js-download-zip');
+    if (zipBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const key = zipBtn.getAttribute('data-candidate-key');
+      if (key && typeof downloadCandidateZip === 'function') downloadCandidateZip(key);
+      return;
+    }
+
     const testChatBtn = e.target.closest('.js-test-chat');
     if (testChatBtn) {
       e.preventDefault(); e.stopPropagation();
@@ -2006,26 +2273,28 @@ async function checkAdminUrlAndRender() {
       if (deviceId && typeof window.openChatForAdmin === 'function') window.openChatForAdmin(deviceId, name);
       return;
     }
-     const interviewBtn = e.target.closest('.js-interview-link');
-if (interviewBtn) {
-  e.preventDefault(); e.stopPropagation();
-  const name = interviewBtn.getAttribute('data-name');
-  const position = interviewBtn.getAttribute('data-position');
-  if (name && typeof window.openInterviewLink === 'function') {
-    window.openInterviewLink(name, position);
-  }
-  return;
-}
-     const grafindoBtn = e.target.closest('.js-grafindo-link');
-if (grafindoBtn) {
-  e.preventDefault(); e.stopPropagation();
-  const name = grafindoBtn.getAttribute('data-name');
-  const position = grafindoBtn.getAttribute('data-position');
-  if (name && typeof window.openGrafisInterpLink === 'function') {
-    window.openGrafisInterpLink(name, position);
-  }
-  return;
-}
+
+    const interviewBtn = e.target.closest('.js-interview-link');
+    if (interviewBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const name = interviewBtn.getAttribute('data-name');
+      const position = interviewBtn.getAttribute('data-position');
+      if (name && typeof window.openInterviewLink === 'function') {
+        window.openInterviewLink(name, position);
+      }
+      return;
+    }
+
+    const grafindoBtn = e.target.closest('.js-grafindo-link');
+    if (grafindoBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const name = grafindoBtn.getAttribute('data-name');
+      const position = grafindoBtn.getAttribute('data-position');
+      if (name && typeof window.openGrafisInterpLink === 'function') {
+        window.openGrafisInterpLink(name, position);
+      }
+      return;
+    }
   }, true);
 })();
 
@@ -2073,6 +2342,14 @@ window.stopResultsRealtimeListener = stopResultsRealtimeListener;
 window.showResultToast = showResultToast;
 window.startSignalListeners = startSignalListeners;
 window.stopSignalListeners = stopSignalListeners;
+
+/* 🆕 Export grafis & ZIP functions */
+window.__extractInterviewer = __extractInterviewer;
+window.__extractAssessorGrafis = __extractAssessorGrafis;
+window.__renderWawancaraBox = __renderWawancaraBox;
+window.__renderGrafisBox = __renderGrafisBox;
+window.downloadCandidateZip = downloadCandidateZip;
+window.__normalizeCandidateKey = __normalizeCandidateKey;
 
 /* ============================================================
    SESSION TIMEOUT
@@ -2170,4 +2447,4 @@ window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
 
-console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL');
+console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP');
