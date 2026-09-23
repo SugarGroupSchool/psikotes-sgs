@@ -769,10 +769,83 @@ function __extractCandidateInfo(file) {
 
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
+  if (/-wawancara-/.test(n))  return 'wawancara';   // 🆕 deteksi wawancara
   if (/\.pdf$/.test(n))       return 'pdf';
   if (/\.xlsx?$/.test(n))     return 'excel';
   if (/\.(csv|ods)$/.test(n)) return 'excel';
   return 'other';
+}
+
+/* ============================================================
+   🆕 Extract nama pewawancara dari nama file
+   Format: [Nama]-Wawancara-NUG.pdf → "NUG"
+   ============================================================ */
+function __extractInterviewer(file) {
+  const n = String(file.name || '');
+  const m = n.match(/-Wawancara-([A-Z0-9]+)\.pdf$/i);
+  return m ? m[1].toUpperCase() : '?';
+}
+
+/* ============================================================
+   🆕 Render box khusus untuk hasil wawancara
+   - Semua PDF wawancara digabung jadi 1 box
+   - Tampilkan list pewawancara di dalamnya
+   ============================================================ */
+function __renderWawancaraBox(files) {
+  if (!Array.isArray(files) || files.length === 0) return '';
+
+  const interviewers = files.map(f => __extractInterviewer(f));
+  const uniqueList = [...new Set(interviewers)].join(', ');
+
+  return `
+    <div style="padding: 12px 14px; background: rgba(250,204,21,.08);
+      border: 1px solid rgba(250,204,21,.3); border-radius: 11px;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
+          background: rgba(250,204,21,.2); border-radius: 9px; font-size: 16px;">🎤</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 800; color: #fde047; font-size: 12px; margin-bottom: 2px;">
+            Hasil Wawancara (${files.length})
+          </div>
+          <div style="color: #94a3b8; font-size: 10.5px; line-height: 1.3;">
+            Pewawancara: <b style="color: #fde047;">${__adminEscape(uniqueList)}</b>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        ${files.map(f => {
+          const iv = __extractInterviewer(f);
+          const safeUrl = __safeUrl(f.url);
+          const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+          return `
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+              background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.06); border-radius: 8px;">
+              <div style="width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
+                background: rgba(250,204,21,.18); border-radius: 8px;
+                font-size: 11px; font-weight: 900; color: #fde047; letter-spacing: -.3px;">
+                ${__adminEscape(iv.slice(0, 3))}
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 800; color: #fde047; font-size: 11.5px; margin-bottom: 2px;">
+                  👤 ${__adminEscape(iv)}
+                </div>
+                <div style="color: #64748b; font-size: 10px; word-break: break-all; line-height: 1.3;">
+                  ${__adminEscape((f.name || '').slice(0, 42))}${(f.name || '').length > 42 ? '...' : ''} · ${sizeMB}
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px; flex: 0 0 auto;">
+                <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
+                <button class="js-delete-file rf-btn rf-btn-danger"
+                  data-file-id="${__adminEscape(f.id)}"
+                  data-file-name="${__adminEscape(f.name)}">🗑</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
 }
 
 /* ============================================================
@@ -859,9 +932,10 @@ function renderResultFilesHTML(files) {
   }
 
   return groupArr.map(g => {
-    const pdfs   = g.files.filter(f => __detectFileKind(f) === 'pdf');
-    const excels = g.files.filter(f => __detectFileKind(f) === 'excel');
-    const others = g.files.filter(f => __detectFileKind(f) === 'other');
+    const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
+    const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');
+    const others   = g.files.filter(f => __detectFileKind(f) === 'other');
 
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
@@ -898,6 +972,7 @@ function renderResultFilesHTML(files) {
         <div style="display: flex; flex-direction: column; gap: 6px;">
           ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
           ${excels.map(f => renderFileRow(f, 'excel')).join('')}
+          ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
           ${others.map(f => renderFileRow(f, 'other')).join('')}
         </div>
       </div>`;
@@ -1397,10 +1472,11 @@ function __renderResultPageContent() {
     return;
   }
 
-  const cardsHTML = filtered.map(g => {
-    const pdfs = g.files.filter(f => __detectFileKind(f) === 'pdf');
-    const excels = g.files.filter(f => __detectFileKind(f) === 'excel');
-    const others = g.files.filter(f => __detectFileKind(f) === 'other');
+ const cardsHTML = filtered.map(g => {
+  const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
+  const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+  const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');   // 🆕
+  const others   = g.files.filter(f => __detectFileKind(f) === 'other');
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
@@ -1489,6 +1565,7 @@ function __renderResultPageContent() {
         <div style="display: flex; flex-direction: column; gap: 8px;">
           ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
           ${excels.map(f => fileRow(f, 'excel')).join('')}
+          ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
           ${others.map(f => fileRow(f, 'other')).join('')}
         </div>
       </div>`;
