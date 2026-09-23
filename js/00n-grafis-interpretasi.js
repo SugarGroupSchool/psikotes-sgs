@@ -252,11 +252,19 @@
         const val = selected[section.id];
         if (!val) return;
         const itemIds = Array.isArray(val) ? val : [val];
-        itemIds.forEach(itemId => {
-          const item = (section.items || []).find(i => i.id === itemId);
-          if (!item) return;
-          groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
-        });
+itemIds.forEach(itemId => {
+  const item = (section.items || []).find(i => i.id === itemId);
+  if (!item) return;
+  groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
+
+  // ==== Sub-items ====
+  (item.subItems || []).forEach(sub => {
+    const subKey = section.id + '::' + sub.id;
+    if (selected[subKey]) {
+      groupLines.push(`    ◦ ${sub.label}:\n      ${sub.interpret}`);
+    }
+  });
+});
       });
       if (groupLines.length > 0) {
         lines.push(`${group.title}\n${groupLines.join('\n\n')}`);
@@ -297,16 +305,16 @@
           if (!val) return;
 
           const itemIds = Array.isArray(val) ? val : [val];
-          itemIds.forEach(itemId => {
-            const item = (section.items || []).find(i => i.id === itemId);
-            if (!item) return;
-            if (selectedLines.some(l => l.text === item.interpret)) return;
-            selectedLines.push({
-              label: item.label,
-              text: item.interpret,
-              group: group.title
-            });
-          });
+itemIds.forEach(itemId => {
+  const item = (section.items || []).find(i => i.id === itemId);
+  if (!item) return;
+  if (selectedLines.some(l => l.text === item.interpret)) return;
+  selectedLines.push({
+    label: item.label,
+    text: item.interpret,
+    group: group.title
+  });
+});
         });
       });
 
@@ -719,47 +727,87 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
-        const itemsHTML = (section.items || []).map(item => {
-          let isChecked = false;
-          if (isRadio) isChecked = (val === item.id);
-          else isChecked = Array.isArray(val) && val.includes(item.id);
+const itemsHTML = (section.items || []).map(item => {
+  let isChecked = false;
+  if (isRadio) isChecked = (val === item.id);
+  else isChecked = Array.isArray(val) && val.includes(item.id);
 
-          return `
-            <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
-              style="display: flex; align-items: flex-start; gap: 12px;
-                padding: 12px 14px; margin-bottom: 8px;
-                background: ${isChecked ? '#fff' : '#fbfdff'};
-                border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
-                border-radius: 12px; cursor: pointer;
-                transition: all .18s ease;
-                user-select: none;">
-              <div style="
-                width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
-                border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
-                background: ${isChecked ? theme.primary : '#fff'};
-                ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
-                display: grid; place-items: center; position: relative;">
-                ${isChecked
-                  ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                       stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-                       <polyline points="20 6 9 17 4 12"/>
-                     </svg>`
-                  : ''}
-              </div>
-              <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 13px; font-weight: 800;
-                  color: ${isChecked ? theme.primaryDark : '#1e293b'};
-                  line-height: 1.4; margin-bottom: 4px;">
-                  ${escapeHtml(item.label)}
-                </div>
-                <div style="font-size: 11px; color: #64748b; line-height: 1.5;
-                  ${isChecked ? '' : 'opacity:.7;'}">
-                  ${escapeHtml(item.interpret)}
-                </div>
-              </div>
-            </label>
-          `;
-        }).join('');
+  // ==== RENDER SUB-ITEMS (hanya jika parent terpilih) ====
+  let subItemsHTML = '';
+  if (item.subItems && item.subItems.length && isChecked) {
+    subItemsHTML = item.subItems.map(sub => {
+      const subKey = section.id + '::' + sub.id;
+      const subChecked = !!selected[subKey];
+      return `
+        <label class="js-subitem" data-key="${subKey}"
+          style="display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 14px; margin: 6px 0 8px 32px;
+            background: ${subChecked ? '#fff' : '#f8fafc'};
+            border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
+            border-radius: 10px; cursor: pointer;
+            transition: all .18s ease; user-select: none;">
+          <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
+            border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
+            background: ${subChecked ? theme.primary : '#fff'};
+            border-radius: 5px; display: grid; place-items: center;">
+            ${subChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/></svg>` : ''}
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 12.5px; font-weight: 800;
+              color: ${subChecked ? theme.primaryDark : '#334155'};
+              line-height: 1.4; margin-bottom: 3px;">
+              ↳ ${escapeHtml(sub.label)}
+              ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional — isi kalau ada)</span>` : ''}
+            </div>
+            <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+              ${escapeHtml(sub.interpret)}
+            </div>
+          </div>
+        </label>
+      `;
+    }).join('');
+  }
+
+  return `
+    <div>
+      <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
+        style="display: flex; align-items: flex-start; gap: 12px;
+          padding: 12px 14px; margin-bottom: 8px;
+          background: ${isChecked ? '#fff' : '#fbfdff'};
+          border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+          border-radius: 12px; cursor: pointer;
+          transition: all .18s ease; user-select: none;">
+        <div style="
+          width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
+          border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
+          background: ${isChecked ? theme.primary : '#fff'};
+          ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
+          display: grid; place-items: center; position: relative;">
+          ${isChecked
+            ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                 <polyline points="20 6 9 17 4 12"/>
+               </svg>`
+            : ''}
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 13px; font-weight: 800;
+            color: ${isChecked ? theme.primaryDark : '#1e293b'};
+            line-height: 1.4; margin-bottom: 4px;">
+            ${escapeHtml(item.label)}
+          </div>
+          <div style="font-size: 11px; color: #64748b; line-height: 1.5;
+            ${isChecked ? '' : 'opacity:.7;'}">
+            ${escapeHtml(item.interpret)}
+          </div>
+        </div>
+      </label>
+      ${subItemsHTML}
+    </div>
+  `;
+}).join('');
 
         return `
           <div style="margin-bottom: 20px;">
@@ -846,27 +894,62 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </div>
     `;
 
-    root.querySelectorAll('.js-option-item').forEach(label => {
-      label.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sectionId = label.getAttribute('data-section');
-        const itemId = label.getAttribute('data-item');
-        const type = label.getAttribute('data-type');
+root.querySelectorAll('.js-option-item').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const sectionId = label.getAttribute('data-section');
+    const itemId = label.getAttribute('data-item');
+    const type = label.getAttribute('data-type');
 
-        if (type === 'radio') {
-          state.selectedItems[testKey][sectionId] = itemId;
-        } else {
-          let arr = state.selectedItems[testKey][sectionId];
-          if (!Array.isArray(arr)) arr = [];
-          const idx = arr.indexOf(itemId);
-          if (idx >= 0) arr.splice(idx, 1);
-          else arr.push(itemId);
-          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
-        }
-        saveDraft();
-        renderTestDetail(testKey);
+    // Cari section & item dari data supaya bisa hapus subItems pas deselect
+    const section = (data.groups || [])
+      .flatMap(g => g.sections || [])
+      .find(s => s.id === sectionId);
+    const itemObj = (section?.items || []).find(i => i.id === itemId);
+
+    const clearSubItems = (parentItemId) => {
+      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+      (parentItem?.subItems || []).forEach(sub => {
+        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
       });
-    });
+    };
+
+    if (type === 'radio') {
+      const oldVal = state.selectedItems[testKey][sectionId];
+      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+      state.selectedItems[testKey][sectionId] = itemId;
+    } else {
+      let arr = state.selectedItems[testKey][sectionId];
+      if (!Array.isArray(arr)) arr = [];
+      const idx = arr.indexOf(itemId);
+      if (idx >= 0) {
+        arr.splice(idx, 1);
+        clearSubItems(itemId);   // ← hapus subItems waktu uncheck
+      } else {
+        arr.push(itemId);
+      }
+      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+    }
+    saveDraft();
+    renderTestDetail(testKey);
+  });
+});
+
+// ==== HANDLER SUB-ITEM ====
+root.querySelectorAll('.js-subitem').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const key = label.getAttribute('data-key');
+    const cur = state.selectedItems[testKey][key];
+    if (cur) {
+      delete state.selectedItems[testKey][key];
+    } else {
+      state.selectedItems[testKey][key] = 'checked';
+    }
+    saveDraft();
+    renderTestDetail(testKey);
+  });
+});
 
     document.getElementById('giBackBtn').addEventListener('click', () => {
       saveDraft();
