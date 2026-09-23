@@ -26,7 +26,7 @@ window.GRAFIS_AUTO_DATA = {
     groups: [
 
       /* ======================================================
-         1. UKURAN GAMBAR  ← DIBENARKAN (di-flatten)
+         1. UKURAN GAMBAR
          ====================================================== */
       {
         id: 'ukuran',
@@ -45,17 +45,25 @@ window.GRAFIS_AUTO_DATA = {
               {
                 id: 'terlalu_besar',
                 label: 'Terlalu besar / sangat besar',
-                interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu besar dalam konteks kertas yang digunakan. Gambar Sangat Besar menunjukkan: Agresivitas dan kecenderungan untuk bertindak secara eksternal. Sikap ekspansif, fantasi tinggi dan grandiositas (keyakinan berlebihan tentang pentingnya diri sendiri, kemampuan luar biasa, atau superioritas yang tidak realistis). Aktivitas emosional berlebihan, bahkan cenderung manik. Perasaan tidak mampu yang tidak disadari. Dugaan gangguan organik, efek alkohol, atau masalah neuropsikologis. Kesadaran moral yang lemah, potensi sifat antisosial. Kecurigaan berlebih dan kecenderungan paranoid. Jika gambar jelek atau kosong terdapat indikasi kekurangan mental. Ini bisa menandakan adanya kesulitan atau keterbatasan dalam perkembangan kognitif (gambar ini umumnya dibuat oleh anak-anak).'
+                interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu besar dalam konteks kertas yang digunakan. Gambar Sangat Besar menunjukkan: Agresivitas dan kecenderungan untuk bertindak secara eksternal. Sikap ekspansif, fantasi tinggi dan grandiositas (keyakinan berlebihan tentang pentingnya diri sendiri, kemampuan luar biasa, atau superioritas yang tidak realistis). Aktivitas emosional berlebihan, bahkan cenderung manik. Perasaan tidak mampu yang tidak disadari. Dugaan gangguan organik, efek alkohol, atau masalah neuropsikologis. Kesadaran moral yang lemah, potensi sifat antisosial. Kecurigaan berlebih dan kecenderungan paranoid. Jika gambar jelek atau kosong terdapat indikasi kekurangan mental. Ini bisa menandakan adanya kesulitan atau keterbatasan dalam perkembangan kognitif (gambar ini umumnya dibuat oleh anak-anak).',
+
+                /* ---------- ITEM TURUNAN ---------- */
+                /* Muncul/aktif hanya jika terlalu_besar terpilih.
+                   Kalau kandidat tidak menggambar garis tepi, boleh dilewati. */
+                subItems: [
+                  {
+                    id: 'garis_tepi_sangat_besar',
+                    label: 'Garis tepi sangat besar (Ciri Manik)',
+                    dependsOn: 'terlalu_besar',
+                    optional: true,
+                    interpret: 'Terkadang, jika gambar dibuat dengan garis tepi yang sangat besar, ini menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania. Catatan: item ini hanya relevan bila kandidat memang menggambar garis tepi; jika tidak ada garis tepi, boleh dilewati.'
+                  }
+                ]
               },
               {
                 id: 'terlalu_kecil',
                 label: 'Terlalu kecil',
                 interpret: 'Deviasi dari ukuran ini dapat menjadi indikator tertentu, menunjukkan gambar yang terlalu kecil dalam konteks kertas yang digunakan. Gambar Lebih Kecil dari Rata-Rata mengindikasikan: Rasa tidak aman, harga diri rendah, perasaan inferior. Kecemasan, depresi, atau penarikan diri. Ketergantungan berlebih dan perilaku kekanak-kanakan. Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. Hambatan dalam interaksi sosial, pemalu, atau defensif. Reaksi menarik diri saat menghadapi stres. Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah. Subjek tidak merasa terpacu untuk mengatasi hambatan-hambatan yang ada.'
-              },
-              {
-                id: 'garis_tepi_sangat_besar',
-                label: 'Garis tepi sangat besar (Ciri Manik)',
-                interpret: 'Terkadang, jika gambar dibuat dengan garis tepi yang sangat besar, ini menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania.'
               },
               {
                 id: 'keluar_kertas',
