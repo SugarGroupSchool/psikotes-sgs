@@ -333,7 +333,8 @@
   /* ============================================================
      12. RUN BOOTSTRAP
      ============================================================ */
-  async function runInit() {
+async function runInit() {
+  /* Cek device finished — tampilkan layar request */
     /* Cek device finished — tampilkan layar request */
     if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
       // 🆕 Clear resume — device sudah selesai
