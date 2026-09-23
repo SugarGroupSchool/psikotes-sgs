@@ -731,6 +731,166 @@
     });
   }
 
+   /* ============================================================
+   🆕 NOTES GABUNGAN — auto-generate dari semua pilihan
+   ============================================================ */
+function generateCombinedNotes() {
+  const autoData = window.GRAFIS_AUTO_DATA || {};
+  const testKeys = ['dap', 'baum', 'htp'];
+  const lines = [];
+
+  testKeys.forEach(key => {
+    const data = autoData[key];
+    if (!data || !data.groups) return;
+
+    const selected = state.selectedItems[key] || {};
+    const selectedLines = [];
+
+    data.groups.forEach(group => {
+      (group.sections || []).forEach(section => {
+        const val = selected[section.id];
+        if (!val) return;
+
+        const itemIds = Array.isArray(val) ? val : [val];
+        itemIds.forEach(itemId => {
+          const item = (section.items || []).find(i => i.id === itemId);
+          if (!item) return;
+
+          // Cek duplikat — jika interpretasi sama, skip
+          if (selectedLines.some(l => l.text === item.interpret)) return;
+
+          selectedLines.push({
+            label: item.label,
+            text: item.interpret,
+            group: group.title
+          });
+        });
+      });
+    });
+
+    if (selectedLines.length > 0) {
+      lines.push({
+        key,
+        title: data.title || key.toUpperCase(),
+        icon: data.icon || '📄',
+        items: selectedLines
+      });
+    }
+  });
+
+  return lines;
+}
+
+function renderCombinedNotes() {
+  const container = document.getElementById('giCombinedNotes');
+  if (!container) return;
+
+  const notesData = generateCombinedNotes();
+  const hasAny = notesData.length > 0;
+
+  if (!hasAny) {
+    container.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: #94a3b8;
+        font-size: 13px; border: 2px dashed #e2e8f0; border-radius: 12px;
+        background: #f8fafc;">
+        📝 Belum ada pilihan. Klik kotak DAP / BAUM / HTP di atas untuk memilih bagian.
+        <br><span style="font-size: 11.5px; opacity: .7;">Notes akan otomatis muncul di sini.</span>
+      </div>`;
+    return;
+  }
+
+  // Generate plain text version (untuk copy)
+  const plainText = notesData.map(t => {
+    const header = `═══ ${t.title} ═══`;
+    const items = t.items.map(i => `• ${i.label}:\n  ${i.text}`).join('\n\n');
+    return `${header}\n\n${items}`;
+  }).join('\n\n\n');
+
+  // Escape untuk JSON string di onclick
+  const escaped = plainText.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+
+  const totalItems = notesData.reduce((sum, t) => sum + t.items.length, 0);
+
+  container.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <div style="font-size: 14px; font-weight: 900; color: #1e293b;">
+          📝 Notes Gabungan
+        </div>
+        <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
+          ${totalItems} item dari ${notesData.length} tes — siap copy-paste untuk kesimpulan
+        </div>
+      </div>
+      <button type="button" id="giCopyNotesBtn"
+        style="padding: 9px 16px; border: 0; border-radius: 10px;
+          background: linear-gradient(135deg, #0ea5e9, #0284c7);
+          color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 800;
+          cursor: pointer; box-shadow: 0 6px 16px rgba(14,165,233,.28);
+          display: inline-flex; align-items: center; gap: 6px;">
+        📋 Copy Semua Notes
+      </button>
+    </div>
+
+    <div id="giNotesContent"
+      style="max-height: 420px; overflow-y: auto; padding: 16px 18px;
+        background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
+        font-family: 'Courier New', ui-monospace, monospace;
+        font-size: 12.5px; line-height: 1.7; color: #1e293b;
+        white-space: pre-wrap; word-break: break-word;
+        scrollbar-width: thin;">
+${notesData.map(t => `
+<span style="color: #6d28d9; font-weight: 900;">═══ ${t.icon} ${escapeHtml(t.title)} ═══</span>
+
+${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escapeHtml(i.label)}:</span>
+  ${escapeHtml(i.text)}`).join('\n\n')}
+`).join('\n\n\n')}
+    </div>
+
+    <div style="margin-top: 10px; padding: 10px 14px;
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+      font-size: 11.5px; color: #1e40af; line-height: 1.6;">
+      💡 <b>Tips:</b> Klik <b>Copy Semua Notes</b> lalu paste di kolom
+      <b>Kesimpulan Keseluruhan</b> di bawah — tinggal edit dan rapikan sesuai gaya Anda.
+    </div>
+  `;
+
+  // Wire copy button
+  const copyBtn = document.getElementById('giCopyNotesBtn');
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(plainText).then(() => {
+            const prev = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ Tersalin!';
+            copyBtn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+            setTimeout(() => {
+              copyBtn.innerHTML = prev;
+              copyBtn.style.background = 'linear-gradient(135deg, #0ea5e9, #0284c7)';
+            }, 1800);
+          }).catch(() => fallbackCopyText(plainText));
+        } else {
+          fallbackCopyText(plainText);
+        }
+      } catch (e) {
+        fallbackCopyText(plainText);
+      }
+    };
+  }
+}
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+}
+   
   /* ============================================================
      7 KATEGORI
      ============================================================ */
