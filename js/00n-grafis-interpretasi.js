@@ -1,17 +1,22 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v2
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v3
    ------------------------------------------------------------
-   🔄 v2 [2026-09-23]:
-   - Dropdown hasil wawancara (fetch dari Firebase sgs_interviews)
-   - Kesimpulan MANUAL (textarea) — hapus auto-generate narrative
-   - Tingkat rekomendasi MANUAL (dropdown)
-   - PDF report: tampilkan dropdown wawancara + kesimpulan manual
+   🔄 v3 [2026-09-23]:
+   - HAPUS dropdown assessor — HANYA ADMIN yang input
+   - Assessor otomatis = "ADMIN"
+   - File name: [Nama]-Grafis-ADMIN.pdf
+   - Firebase path: sgs_grafis_interp/[slug]/ADMIN
+   - Dropdown hasil wawancara (dari sgs_interviews)
+   - Kesimpulan MANUAL (textarea) + Rekomendasi (dropdown)
    ============================================================ */
 
 (function () {
   'use strict';
 
-  const ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+  /* ============================================================
+     KONFIGURASI
+     ============================================================ */
+  const ADMIN_ASSESSOR = 'ADMIN';   // 🆕 hardcode — hanya admin yang input
 
   const RECOMMENDATION_OPTIONS = [
     { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED' },
@@ -74,7 +79,7 @@
         overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.5);">
         <div style="padding: 24px 26px; background: linear-gradient(135deg, #6d28d9, #a855f7); color: #fff;">
           <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; opacity: .85; margin-bottom: 6px;">
-            INTERPRETASI GRAFIS
+            INTERPRETASI GRAFIS · ADMIN ONLY
           </div>
           <div style="font-size: 20px; font-weight: 900;">🧠 Buka Form Interpretasi</div>
         </div>
@@ -90,9 +95,15 @@
             </div>
           </div>
 
+          <div style="padding: 12px 14px; background: #f0fdf4; border: 1px solid #bbf7d0;
+            border-radius: 12px; margin-bottom: 16px; font-size: 12.5px; color: #166534;
+            line-height: 1.6;">
+            <b>🔒 Mode Admin</b><br>
+            Form ini <b>hanya untuk admin</b>. Assessor otomatis tertulis <b>"ADMIN"</b> di PDF & laporan.
+          </div>
+
           <div style="font-size: 12px; color: #475569; line-height: 1.65; margin-bottom: 14px;">
-            Klik <b>Buka Form</b> untuk mengisi interpretasi DAP / BAUM / HTP.<br>
-            Anda juga bisa copy link di bawah untuk assessor lain.
+            Klik <b>Buka Form</b> untuk mengisi interpretasi DAP / BAUM / HTP.
           </div>
 
           <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 1px; margin-bottom: 6px;">
@@ -156,7 +167,7 @@
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] Mode aktif —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] Mode aktif (ADMIN ONLY) —', { candidateName, candidatePosition });
 
   /* ============================================================
      STATE
@@ -167,10 +178,10 @@
     htp:   [{ text: '' }],
     conclusion: '',
     recommendation: '',
-    selectedInterview: ''   // interviewer name
+    selectedInterview: ''
   };
 
-  let __availableInterviews = [];   // dari Firebase
+  let __availableInterviews = [];
 
   /* ============================================================
      FETCH HASIL WAWANCARA DARI FIREBASE
@@ -231,7 +242,7 @@
           </div>
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: rgba(255,255,255,.75); margin-bottom: 4px;">
-              SUGAR GROUP SCHOOLS
+              SUGAR GROUP SCHOOLS · ADMIN ONLY
             </div>
             <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: #fff;">
               🧠 Interpretasi Grafis (DAP / BAUM / HTP)
@@ -250,25 +261,21 @@
           <div style="font-size: 13px; color: #64748b;">
             💼 ${escapeHtml(candidatePosition || '(tanpa posisi)')}
           </div>
+
+          <!-- 🆕 BANNER ADMIN ONLY -->
+          <div style="margin-top: 14px; padding: 12px 14px;
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            border: 1px solid #bbf7d0; border-radius: 12px;
+            font-size: 12.5px; color: #166534; line-height: 1.6;">
+            <b>🔒 Admin Only</b><br>
+            Form ini hanya untuk <b>admin</b>. Assessor otomatis = <b>"${ADMIN_ASSESSOR}"</b>
+            (di PDF & Firebase).
+          </div>
         </div>
 
         <!-- FORM -->
         <form id="giForm" style="background: #fff; padding: 26px 30px 30px; border-radius: 0 0 20px 20px;
           box-shadow: 0 20px 50px rgba(15,23,42,.08);">
-
-          <!-- ASSESSOR -->
-          <div style="margin-bottom: 24px;">
-            <label style="display: block; font-size: 12px; font-weight: 800; color: #475569;
-              letter-spacing: 1px; margin-bottom: 8px;">
-              NAMA ASSESSOR <span style="color: #dc2626;">*</span>
-            </label>
-            <select id="giAssessor" required
-              style="width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 12px;
-                font-size: 15px; font-family: inherit; background: #fff; outline: none; cursor: pointer;">
-              <option value="">— Pilih Assessor —</option>
-              ${ASSESSOR_LIST.map(n => `<option value="${n}">${n}</option>`).join('')}
-            </select>
-          </div>
 
           <!-- 🆕 DROPDOWN HASIL WAWANCARA -->
           <div style="margin-bottom: 24px; padding: 16px 18px; background: #fffbeb;
@@ -349,7 +356,7 @@
               📝 KESIMPULAN & REKOMENDASI (Manual)
             </div>
             <div style="font-size: 12px; color: #0369a1; margin-bottom: 16px; line-height: 1.6;">
-              Tulis kesimpulan interpretasi grafis secara manual berdasarkan analisis Anda.
+              Tulis kesimpulan interpretasi grafis secara manual.
             </div>
 
             <div style="margin-bottom: 16px;">
@@ -550,9 +557,6 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const assessor = document.getElementById('giAssessor').value.trim();
-    if (!assessor) { alert('Pilih assessor dulu.'); return; }
-
     const conclusion = document.getElementById('giConclusion').value.trim();
     if (!conclusion) { alert('Kesimpulan wajib diisi.'); return; }
 
@@ -575,16 +579,12 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
     btn.textContent = '⏳ Mengirim...';
 
     try {
-      await saveToFirebase(assessor);
-
+      await saveToFirebase();
       btn.textContent = '📄 Membuat PDF...';
-      const pdfBlob = await generatePDF(assessor);
-
+      const pdfBlob = await generatePDF();
       btn.textContent = '📤 Mengupload...';
-      await uploadToGAS(pdfBlob, assessor);
-
-      showSuccess(assessor);
-
+      await uploadToGAS(pdfBlob);
+      showSuccess();
     } catch (err) {
       console.error('[GRAFIS-INTERP] Gagal:', err);
       alert('❌ Gagal: ' + (err.message || 'Coba lagi'));
@@ -594,20 +594,20 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
   }
 
   /* ============================================================
-     SAVE FIREBASE
+     SAVE FIREBASE — assessor = ADMIN (hardcoded)
      ============================================================ */
-  async function saveToFirebase(assessor) {
+  async function saveToFirebase() {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
     const slug = candidateSlug(candidateName);
     const recLabel = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation)?.label || '-';
 
     await firebase.database()
-      .ref('sgs_grafis_interp/' + slug + '/' + assessor)
+      .ref('sgs_grafis_interp/' + slug + '/' + ADMIN_ASSESSOR)
       .set({
         candidateName,
         candidatePosition,
-        assessor,
+        assessor: ADMIN_ASSESSOR,
         dap: state.dap.filter(x => x.text.trim()).map(x => x.text.trim()),
         baum: state.baum.filter(x => x.text.trim()).map(x => x.text.trim()),
         htp: state.htp.filter(x => x.text.trim()).map(x => x.text.trim()),
@@ -618,13 +618,13 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
         ts: firebase.database.ServerValue.TIMESTAMP
       });
 
-    console.log('[GRAFIS-INTERP] ✅ Saved');
+    console.log('[GRAFIS-INTERP] ✅ Saved — assessor:', ADMIN_ASSESSOR);
   }
 
   /* ============================================================
      GENERATE PDF
      ============================================================ */
-  async function generatePDF(assessor) {
+  async function generatePDF() {
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF belum siap');
 
     const { jsPDF } = window.jspdf;
@@ -673,7 +673,7 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
     const infoRows = [
       ['Nama Kandidat', cleanForPDF(candidateName)],
       ['Posisi Dilamar', cleanForPDF(candidatePosition) || '-'],
-      ['Assessor', cleanForPDF(assessor)],
+      ['Assessor', ADMIN_ASSESSOR],
       ['Tanggal', cleanForPDF(tanggal)]
     ];
 
@@ -695,21 +695,16 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
     // Helper section
     function addSection(title, items) {
       if (!items.length) return;
-
       if (y > pageH - 30) { doc.addPage(); y = 20; }
-
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.text(cleanForPDF(title), 15, y);
       y += 7;
-
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-
       items.forEach((txt, idx) => {
         const cleanTxt = cleanForPDF(txt);
         const wrapped = doc.splitTextToSize(`${idx + 1}. ${cleanTxt}`, pageW - 36);
-
         for (const line of wrapped) {
           if (y > pageH - 30) { doc.addPage(); y = 20; }
           doc.text(line, 18, y);
@@ -717,7 +712,6 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
         }
         y += 1.5;
       });
-
       y += 4;
     }
 
@@ -772,10 +766,10 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
     y += 20;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text(cleanForPDF(assessor), pageW - 60, y);
+    doc.text(ADMIN_ASSESSOR, pageW - 60, y);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('(Assessor)', pageW - 60, y + 4);
+    doc.text('(Admin)', pageW - 60, y + 4);
 
     return doc.output('blob');
   }
@@ -793,9 +787,9 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
   }
 
   /* ============================================================
-     UPLOAD KE GAS
+     UPLOAD KE GAS — filename: [Nama]-Grafis-ADMIN.pdf
      ============================================================ */
-  async function uploadToGAS(pdfBlob, assessor) {
+  async function uploadToGAS(pdfBlob) {
     const GAS_URL = (typeof GAS_UPLOAD_URL !== 'undefined' && GAS_UPLOAD_URL)
       || 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
 
@@ -807,9 +801,8 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
     });
 
     const cleanName = candidateName.replace(/[^a-zA-Z0-9]/g, '-');
-    const filename = `${cleanName}-Grafis-${assessor}.pdf`;
+    const filename = `${cleanName}-Grafis-${ADMIN_ASSESSOR}.pdf`;
 
-    // 🆕 Ambil ID token
     let idToken = '';
     try {
       const user = firebase.auth().currentUser;
@@ -837,7 +830,7 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
 
     await new Promise(r => setTimeout(r, 1500));
 
-    // 🆕 Kirim sinyal real-time ke admin
+    // Sinyal real-time ke admin panel
     try {
       if (typeof firebase !== 'undefined' && firebase.apps.length) {
         firebase.database().ref('sgs_state/lastUpload').set({
@@ -850,13 +843,13 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
       }
     } catch (e) {}
 
-    console.log('[GRAFIS-INTERP] ✅ Uploaded to GAS');
+    console.log('[GRAFIS-INTERP] ✅ Uploaded to GAS —', filename);
   }
 
   /* ============================================================
      SUCCESS
      ============================================================ */
-  function showSuccess(assessor) {
+  function showSuccess() {
     const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
     const recLabel = recOpt ? recOpt.label : '-';
     const recColor = RECOMMENDATION_COLORS[state.recommendation] || [0, 0, 0];
@@ -881,7 +874,7 @@ Contoh: Berdasarkan hasil DAP, BAUM, dan HTP, subjek menunjukkan..."
           </p>
           <div style="padding: 16px 18px; background: #f0fdf4; border: 1px solid #bbf7d0;
             border-radius: 14px; text-align: left; font-size: 13px; color: #166534; line-height: 1.9;">
-            <div><b>Assessor:</b> ${escapeHtml(assessor)}</div>
+            <div><b>Assessor:</b> ${escapeHtml(ADMIN_ASSESSOR)}</div>
             <div><b>Kandidat:</b> ${escapeHtml(candidateName)}</div>
             ${state.selectedInterview ? `<div><b>Ref. Wawancara:</b> ${escapeHtml(state.selectedInterview)}</div>` : ''}
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #86efac;">
