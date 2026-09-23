@@ -1,25 +1,21 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v4
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v5
    ------------------------------------------------------------
-   🔄 v4 [2026-09-23]:
-   - HAPUS dropdown wawancara
-   - 7 kategori kesimpulan (skor 1-4 + narasi MANUAL)
-   - Overall conclusion, recommendation, reasons, development (MANUAL)
-   - Kop logo formal (letterhead)
-   - Fix lag saat buka form via klik (skip heavy bootstrap)
-   - Assessor otomatis = "ADMIN"
+   🔄 v5 [2026-09-23]:
+   - Flow 3 kotak (DAP/BAUM/HTP) → klik → detail otomatis
+   - Auto-generate interpretasi dari GRAFIS_AUTO_DATA
+   - LocalStorage draft (biar tidak hilang kalau refresh)
+   - Kop logo formal
+   - 7 kategori + kesimpulan + rekomendasi tetap manual
+   - Assessor otomatis = ADMIN
    ============================================================ */
 
 (function () {
   'use strict';
 
   /* ============================================================
-     🆕 FIX [2026-09-23]:
-     Helper & openGrafisInterpLink WAJIB didefinisikan lebih dulu
-     di top-level, karena dipakai oleh admin panel meskipun halaman
-     BUKAN di URL ?grafindo=1
+     HELPERS (didefinisikan dulu — selalu tersedia)
      ============================================================ */
-
   function escapeHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -41,7 +37,7 @@
   }
 
   /* ============================================================
-     MODAL LINK UNTUK ADMIN — WAJIB SELALU TERSEDIA
+     MODAL LINK UNTUK ADMIN
      ============================================================ */
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
@@ -139,15 +135,12 @@
   };
 
   /* ============================================================
-     CEK MODE — kalau bukan mode grafis, STOP di sini
+     CEK MODE
      ============================================================ */
   const urlObj = new URL(window.location.href);
   const isGrafisMode = urlObj.searchParams.get('grafindo') === '1';
 
-  if (isGrafisMode) {
-    window.__GRAFIS_MODE_ACTIVE = true;
-  }
-
+  if (isGrafisMode) window.__GRAFIS_MODE_ACTIVE = true;
   if (!isGrafisMode) return;
 
   /* ============================================================
@@ -166,44 +159,49 @@
   ];
 
   const RECOMMENDATION_OPTIONS = [
-    { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED',                                          color: [22, 101, 52] },
-    { value: 'RECOMMENDED',        label: '✅ RECOMMENDED',                                                  color: [22, 163, 74] },
-    { value: 'FAIRLY_RECOMMENDED', label: '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan',         color: [217, 119, 6]  },
-    { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                              color: [220, 38, 38]  }
+    { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED',                                  color: [22, 101, 52] },
+    { value: 'RECOMMENDED',        label: '✅ RECOMMENDED',                                          color: [22, 163, 74] },
+    { value: 'FAIRLY_RECOMMENDED', label: '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan', color: [217, 119, 6]  },
+    { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                      color: [220, 38, 38]  }
   ];
 
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] Mode aktif (ADMIN ONLY) —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] Mode aktif —', { candidateName, candidatePosition });
 
   /* ============================================================
-     HIDE UI BAWAAN SEGERA (fix flicker)
+     HIDE UI BAWAAN
      ============================================================ */
   function hideDefaultUI() {
     const appEl = document.getElementById('app');
     if (appEl) { appEl.style.display = 'none'; appEl.innerHTML = ''; }
     const pwd = document.getElementById('passwordScreen');
     if (pwd) pwd.style.display = 'none';
-    const body = document.body;
-    if (body) {
-      body.style.background = '#f5f3ff';
-      body.style.overflow = 'auto';
+    if (document.body) {
+      document.body.style.background = '#f5f3ff';
+      document.body.style.overflow = 'auto';
     }
   }
   hideDefaultUI();
-  document.addEventListener('DOMContentLoaded', hideDefaultUI);
-  setTimeout(hideDefaultUI, 50);
-  setTimeout(hideDefaultUI, 300);
+  setTimeout(hideDefaultUI, 100);
+  setTimeout(hideDefaultUI, 500);
 
+  /* ============================================================
+     DRAFT KEY
+     ============================================================ */
+  const DRAFT_KEY = 'grafis_interp_draft_' + candidateSlug(candidateName);
 
   /* ============================================================
      STATE
      ============================================================ */
   const state = {
-    dap: [{ text: '' }],
-    baum: [{ text: '' }],
-    htp: [{ text: '' }],
+    activePage: 'landing',    // 'landing' | 'dap' | 'baum' | 'htp'
+    selectedItems: {           // item terpilih per test
+      dap:  {},
+      baum: {},
+      htp:  {}
+    },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
     recommendation: '',
@@ -211,34 +209,103 @@
     development: ''
   };
 
-  /* ============================================================
-     BUILD UI
-     ============================================================ */
-  function buildUI() {
-    hideDefaultUI();
+  /* Load draft */
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      const draft = JSON.parse(raw);
+      if (draft.selectedItems) state.selectedItems = Object.assign(state.selectedItems, draft.selectedItems);
+      if (draft.categories)    state.categories = draft.categories;
+      if (draft.conclusion)    state.conclusion = draft.conclusion;
+      if (draft.recommendation) state.recommendation = draft.recommendation;
+      if (draft.reasons)       state.reasons = draft.reasons;
+      if (draft.development)   state.development = draft.development;
+      console.log('[GRAFIS-INTERP] Draft dimuat');
+    }
+  } catch (e) {}
 
-    const root = document.createElement('div');
-    root.id = 'grafindoRoot';
-    root.style.cssText = `
-      position: fixed; inset: 0; z-index: 2147483600;
-      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-      overflow-y: auto; font-family: Inter, system-ui, -apple-system, sans-serif;
-      padding: 20px;
-    `;
-    document.body.appendChild(root);
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        selectedItems: state.selectedItems,
+        categories: state.categories,
+        conclusion: state.conclusion,
+        recommendation: state.recommendation,
+        reasons: state.reasons,
+        development: state.development
+      }));
+    } catch (e) {}
+  }
+
+  /* ============================================================
+     AUTO-GENERATE INTERPRETASI
+     ============================================================ */
+  function generateAutoText(testKey) {
+    const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
+    if (!data || !Array.isArray(data.groups)) return '';
+    const selected = state.selectedItems[testKey] || {};
+    const lines = [];
+
+    data.groups.forEach(group => {
+      const groupLines = [];
+
+      (group.sections || []).forEach(section => {
+        const val = selected[section.id];
+        if (!val) return;
+
+        const itemIds = Array.isArray(val) ? val : [val];
+        itemIds.forEach(itemId => {
+          const item = (section.items || []).find(i => i.id === itemId);
+          if (!item) return;
+          groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
+        });
+      });
+
+      if (groupLines.length > 0) {
+        lines.push(`${group.title}\n${groupLines.join('\n\n')}`);
+      }
+    });
+
+    return lines.join('\n\n');
+  }
+
+  function countSelectedItems(testKey) {
+    const selected = state.selectedItems[testKey] || {};
+    let total = 0;
+    Object.values(selected).forEach(val => {
+      if (Array.isArray(val)) total += val.length;
+      else if (val) total += 1;
+    });
+    return total;
+  }
+
+  /* ============================================================
+     ROOT
+     ============================================================ */
+  function getRoot() {
+    return document.getElementById('grafindoRoot');
+  }
+
+  /* ============================================================
+     LANDING PAGE — 3 KOTAK + FORM MANUAL
+     ============================================================ */
+  function renderLanding() {
+    const root = getRoot();
+    if (!root) return;
+    state.activePage = 'landing';
 
     const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
       || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
 
+    const autoData = window.GRAFIS_AUTO_DATA || {};
+    const testKeys = ['dap', 'baum', 'htp'];
+
     root.innerHTML = `
       <div style="max-width: 900px; margin: 0 auto 60px;">
 
-        <!-- ============================================ -->
-        <!-- KOP / LETTERHEAD                              -->
-        <!-- ============================================ -->
+        <!-- KOP -->
         <div style="background: #fff; border-radius: 18px 18px 0 0;
-          padding: 22px 30px;
-          border-bottom: 3px double #6d28d9;
+          padding: 22px 30px; border-bottom: 3px double #6d28d9;
           box-shadow: 0 4px 20px rgba(109,40,217,.08);">
           <div style="display: flex; align-items: center; gap: 18px;">
             <div style="width: 72px; height: 72px; flex: 0 0 72px;
@@ -271,9 +338,8 @@
           </div>
         </div>
 
-        <!-- KANDIDAT INFO -->
-        <div style="background: #fff; padding: 20px 30px;
-          border-bottom: 1px solid #e2e8f0;">
+        <!-- INFO KANDIDAT -->
+        <div style="background: #fff; padding: 20px 30px; border-bottom: 1px solid #e2e8f0;">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div>
               <div style="font-size: 10.5px; font-weight: 800; color: #94a3b8;
@@ -290,81 +356,70 @@
               </div>
             </div>
           </div>
-          <div style="margin-top: 12px; padding: 10px 12px;
-            background: #f0fdf4; border: 1px solid #bbf7d0;
-            border-radius: 10px; font-size: 12px; color: #166534; line-height: 1.5;">
-            🔒 <b>Admin Only</b> — Assessor otomatis = <b>"${ADMIN_ASSESSOR}"</b>
-          </div>
         </div>
 
-        <!-- FORM -->
-        <form id="giForm" style="background: #fff; padding: 26px 30px 30px;
-          border-radius: 0 0 18px 18px;
+        <!-- FORM MANUAL -->
+        <div style="background: #fff; padding: 26px 30px 30px; border-radius: 0 0 18px 18px;
           box-shadow: 0 20px 50px rgba(15,23,42,.08);">
 
-          <!-- ==================================== -->
-          <!-- DAP -->
-          <!-- ==================================== -->
-          <div style="margin-bottom: 24px; padding: 18px 20px; background: #faf5ff;
-            border: 2px solid #e9d5ff; border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-              <div style="font-size: 14px; font-weight: 900; color: #6b21a8;">
-                🎨 DAP — Draw A Person
-              </div>
-              <button type="button" class="gi-add-btn" data-target="dap"
-                style="padding: 6px 12px; border: 0; border-radius: 8px;
-                  background: #a855f7; color: #fff; font-family: inherit;
-                  font-size: 11px; font-weight: 800; cursor: pointer;">
-                + Tambah Item
-              </button>
+          <!-- 3 KOTAK -->
+          <div style="margin-bottom: 28px;">
+            <div style="font-size: 15px; font-weight: 900; color: #1e293b; margin-bottom: 6px;">
+              🖼️ Interpretasi Per Tes
             </div>
-            <div id="dap-list"></div>
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.6;">
+              Klik salah satu kotak di bawah untuk memilih bagian / karakteristik gambar.
+              Interpretasi akan otomatis disusun.
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;">
+              ${testKeys.map(key => {
+                const data = autoData[key] || {};
+                const theme = data.theme || { primary: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe' };
+                const count = countSelectedItems(key);
+                const hasData = (data.groups || []).length > 0;
+                return `
+                  <button type="button" class="js-open-test" data-test="${key}"
+                    style="text-align: left; padding: 18px 20px;
+                      background: ${hasData ? theme.bg : '#f8fafc'};
+                      border: 2px solid ${hasData ? theme.border : '#e2e8f0'};
+                      border-radius: 16px; cursor: pointer;
+                      font-family: inherit; transition: all .18s ease;
+                      position: relative; min-height: 150px;
+                      display: flex; flex-direction: column;
+                    "
+                    onmouseover="if(${hasData}){this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.08)';}"
+                    onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';"
+                    ${hasData ? '' : 'disabled'}>
+                    <div style="font-size: 34px; line-height: 1; margin-bottom: 12px;">
+                      ${data.icon || '📄'}
+                    </div>
+                    <div style="font-size: 14px; font-weight: 900; color: ${hasData ? theme.primaryDark : '#94a3b8'};
+                      margin-bottom: 4px;">
+                      ${escapeHtml(data.title || key.toUpperCase())}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; line-height: 1.4; margin-bottom: 10px;">
+                      ${escapeHtml(data.subtitle || '')}
+                    </div>
+                    <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between;">
+                      <span style="font-size: 10.5px; font-weight: 800;
+                        color: ${count > 0 ? theme.primary : '#94a3b8'};
+                        background: ${count > 0 ? '#fff' : '#f1f5f9'};
+                        padding: 4px 10px; border-radius: 999px;
+                        border: 1px solid ${count > 0 ? theme.border : '#e2e8f0'};">
+                        ${hasData
+                          ? (count > 0 ? `✓ ${count} item dipilih` : 'Belum diisi')
+                          : 'Segera hadir'}
+                      </span>
+                      ${hasData ? `<span style="font-size: 18px; color: ${theme.primary};">→</span>` : ''}
+                    </div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
           </div>
 
-          <!-- ==================================== -->
-          <!-- BAUM -->
-          <!-- ==================================== -->
-          <div style="margin-bottom: 24px; padding: 18px 20px; background: #f0fdf4;
-            border: 2px solid #bbf7d0; border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-              <div style="font-size: 14px; font-weight: 900; color: #166534;">
-                🌳 BAUM — Tree Test
-              </div>
-              <button type="button" class="gi-add-btn" data-target="baum"
-                style="padding: 6px 12px; border: 0; border-radius: 8px;
-                  background: #16a34a; color: #fff; font-family: inherit;
-                  font-size: 11px; font-weight: 800; cursor: pointer;">
-                + Tambah Item
-              </button>
-            </div>
-            <div id="baum-list"></div>
-          </div>
-
-          <!-- ==================================== -->
-          <!-- HTP -->
-          <!-- ==================================== -->
-          <div style="margin-bottom: 24px; padding: 18px 20px; background: #eff6ff;
-            border: 2px solid #bfdbfe; border-radius: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;
-              margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-              <div style="font-size: 14px; font-weight: 900; color: #1e40af;">
-                🏠 HTP — House Tree Person
-              </div>
-              <button type="button" class="gi-add-btn" data-target="htp"
-                style="padding: 6px 12px; border: 0; border-radius: 8px;
-                  background: #3b82f6; color: #fff; font-family: inherit;
-                  font-size: 11px; font-weight: 800; cursor: pointer;">
-                + Tambah Item
-              </button>
-            </div>
-            <div id="htp-list"></div>
-          </div>
-
-          <!-- ==================================== -->
-          <!-- KESIMPULAN 7 KATEGORI (MANUAL) -->
-          <!-- ==================================== -->
+          <!-- 7 KATEGORI -->
           <div style="margin-bottom: 24px; padding: 22px 22px 20px; background: #f8fafc;
             border: 2px solid #e2e8f0; border-radius: 16px;">
             <div style="font-size: 15px; font-weight: 900; color: #1e293b; margin-bottom: 6px;">
@@ -373,82 +428,70 @@
             <div style="font-size: 12px; color: #64748b; margin-bottom: 18px; line-height: 1.6;">
               Isi skor (1–4) dan tulis narasi analisis untuk setiap kategori.
             </div>
-
             <div id="category-list"></div>
           </div>
 
-          <!-- ==================================== -->
-          <!-- KESIMPULAN KESELURUHAN (MANUAL) -->
-          <!-- ==================================== -->
+          <!-- KESIMPULAN KESELURUHAN -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fffbeb;
             border: 2px solid #fde68a; border-radius: 16px;">
-            <div style="font-size: 14px; font-weight: 900; color: #92400e; margin-bottom: 6px;">
+            <div style="font-size: 14px; font-weight: 900; color: #92400e; margin-bottom: 14px;">
               📝 KESIMPULAN KESELURUHAN (Manual)
             </div>
-            <div style="font-size: 12px; color: #a16207; margin-bottom: 14px; line-height: 1.5;">
-              Rangkuman interpretasi grafis secara menyeluruh.
-            </div>
-            <textarea id="giConclusion" rows="6" required
+            <textarea id="giConclusion" rows="6"
               placeholder="Tulis kesimpulan keseluruhan..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fcd34d;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
-                line-height: 1.6; min-height: 130px;"></textarea>
+                line-height: 1.6; min-height: 130px;">${escapeHtml(state.conclusion)}</textarea>
           </div>
 
-          <!-- ==================================== -->
-          <!-- TINGKAT REKOMENDASI (MANUAL) -->
-          <!-- ==================================== -->
+          <!-- REKOMENDASI -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #f0f9ff;
             border: 2px solid #bae6fd; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #075985; margin-bottom: 14px;">
               ⭐ TINGKAT REKOMENDASI
             </div>
-            <select id="giRecommendation" required
+            <select id="giRecommendation"
               style="width: 100%; padding: 14px 16px; border: 2px solid #7dd3fc;
                 border-radius: 12px; font-size: 15px; font-family: inherit;
                 background: #fff; outline: none; cursor: pointer;">
               <option value="">— Pilih Rekomendasi —</option>
               ${RECOMMENDATION_OPTIONS.map(o =>
-                `<option value="${o.value}">${o.label}</option>`
+                `<option value="${o.value}" ${state.recommendation === o.value ? 'selected' : ''}>${o.label}</option>`
               ).join('')}
             </select>
           </div>
 
-          <!-- ==================================== -->
-          <!-- ALASAN REKOMENDASI (MANUAL) -->
-          <!-- ==================================== -->
+          <!-- ALASAN -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fef2f2;
             border: 2px solid #fecaca; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #991b1b; margin-bottom: 14px;">
               📌 ALASAN REKOMENDASI (Manual)
             </div>
-            <textarea id="giReasons" rows="5" required
+            <textarea id="giReasons" rows="5"
               placeholder="Tulis alasan mengapa tingkat rekomendasi tersebut diberikan..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fca5a5;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
-                line-height: 1.6; min-height: 110px;"></textarea>
+                line-height: 1.6; min-height: 110px;">${escapeHtml(state.reasons)}</textarea>
           </div>
 
-          <!-- ==================================== -->
-          <!-- REKOMENDASI PENGEMBANGAN (MANUAL) -->
-          <!-- ==================================== -->
+          <!-- PENGEMBANGAN -->
           <div style="margin-bottom: 26px; padding: 20px 22px; background: #f5f3ff;
             border: 2px solid #ddd6fe; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #5b21b6; margin-bottom: 14px;">
               🚀 REKOMENDASI PENGEMBANGAN (Manual)
             </div>
-            <textarea id="giDevelopment" rows="5" required
+            <textarea id="giDevelopment" rows="5"
               placeholder="Tulis saran pengembangan untuk kandidat..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #c4b5fd;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
-                line-height: 1.6; min-height: 110px;"></textarea>
+                line-height: 1.6; min-height: 110px;">${escapeHtml(state.development)}</textarea>
           </div>
 
           <!-- SUBMIT -->
-          <button type="submit" id="giSubmitBtn"
+          <button type="button" id="giSubmitBtn"
             style="width: 100%; padding: 16px; border: 0; border-radius: 14px;
               background: linear-gradient(135deg, #6d28d9, #a855f7);
               color: #fff; font-size: 16px; font-weight: 900; font-family: inherit;
@@ -459,113 +502,237 @@
           <div style="margin-top: 14px; text-align: center; font-size: 11.5px; color: #94a3b8;">
             PDF akan otomatis dibuat & terkirim ke panel admin.
           </div>
-        </form>
+        </div>
       </div>
     `;
 
-    // Render item list DAP/BAUM/HTP
-    renderItemList('dap');
-    renderItemList('baum');
-    renderItemList('htp');
-
-    // Render 7 kategori
-    renderCategories();
-
-    // Attach add buttons — 🆕 pakai addEventListener + preventDefault
-    root.querySelectorAll('.gi-add-btn').forEach(btn => {
+    // Bind 3 kotak
+    root.querySelectorAll('.js-open-test').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        const target = btn.getAttribute('data-target');
-        if (!state[target]) return;
-        state[target].push({ text: '' });
-        renderItemList(target);
-        console.log('[GRAFIS-INTERP] + Item ditambahkan ke', target, '→ total:', state[target].length);
+        const test = btn.getAttribute('data-test');
+        renderTestDetail(test);
       });
     });
 
-    document.getElementById('giForm').onsubmit = handleSubmit;
+    // Render kategori
+    renderCategories();
+
+    // Bind manual fields
+    const concl = document.getElementById('giConclusion');
+    if (concl) concl.addEventListener('input', (e) => { state.conclusion = e.target.value; saveDraft(); });
+
+    const rec = document.getElementById('giRecommendation');
+    if (rec) rec.addEventListener('change', (e) => { state.recommendation = e.target.value; saveDraft(); });
+
+    const reasons = document.getElementById('giReasons');
+    if (reasons) reasons.addEventListener('input', (e) => { state.reasons = e.target.value; saveDraft(); });
+
+    const dev = document.getElementById('giDevelopment');
+    if (dev) dev.addEventListener('input', (e) => { state.development = e.target.value; saveDraft(); });
+
+    const submit = document.getElementById('giSubmitBtn');
+    if (submit) submit.addEventListener('click', handleSubmit);
   }
 
   /* ============================================================
-     RENDER ITEM LIST (DAP/BAUM/HTP)
+     DETAIL PAGE — per test
      ============================================================ */
-  function renderItemList(target) {
-    // 🆕 Scope ke #grafindoRoot agar tidak ambil dari DOM lama
-    const root = document.getElementById('grafindoRoot');
-    const container = root
-      ? root.querySelector('#' + target + '-list')
-      : document.getElementById(target + '-list');
-    if (!container) return;
+  function renderTestDetail(testKey) {
+    const root = getRoot();
+    if (!root) return;
 
-    const accentMap = {
-      dap:  { bg: '#ede9fe', fg: '#6d28d9', border: '#a855f7' },
-      baum: { bg: '#dcfce7', fg: '#15803d', border: '#16a34a' },
-      htp:  { bg: '#dbeafe', fg: '#1e40af', border: '#3b82f6' }
-    };
-    const ac = accentMap[target] || accentMap.dap;
+    const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
+    if (!data) {
+      alert('Data untuk ' + testKey + ' belum tersedia.');
+      return;
+    }
 
-    container.innerHTML = state[target].map((item, idx) => `
-      <div class="gi-item" data-target="${target}" data-idx="${idx}"
-        style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;">
-        <div style="
-          width: 32px; height: 32px; flex: 0 0 32px; margin-top: 4px;
-          display: grid; place-items: center;
-          background: ${ac.bg}; color: ${ac.fg};
-          font-size: 12px; font-weight: 900; border-radius: 8px;
-        ">${idx + 1}</div>
-        <textarea
-          class="gi-item-input" data-target="${target}" data-idx="${idx}"
-          placeholder="Tulis interpretasi item ${idx + 1}..."
-          rows="2"
-          style="flex: 1; padding: 10px 12px;
-            border: 2px solid #e2e8f0; border-radius: 10px;
-            font-family: inherit; font-size: 13.5px; line-height: 1.5;
-            outline: none; resize: vertical; box-sizing: border-box;
-            transition: border-color .15s ease;"
-        >${escapeHtml(item.text)}</textarea>
-        <button type="button" class="gi-remove-btn" data-target="${target}" data-idx="${idx}"
-          style="width: 32px; height: 32px; flex: 0 0 32px; margin-top: 4px;
-            border: 1.5px solid #fca5a5; background: #fff; color: #dc2626;
-            border-radius: 8px; cursor: pointer; font-size: 14px;
-            font-family: inherit; font-weight: 900; padding: 0;"
-          title="Hapus item">×</button>
+    state.activePage = testKey;
+    const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
+    const selected = state.selectedItems[testKey] || {};
+
+    // Bangun HTML section per section
+    const sectionsHTML = (data.groups || []).map(group => {
+      const sectionsInner = (group.sections || []).map(section => {
+        const val = selected[section.id];
+        const isRadio = section.type === 'radio';
+        const itemsHTML = (section.items || []).map(item => {
+          let isChecked = false;
+          if (isRadio) isChecked = (val === item.id);
+          else isChecked = Array.isArray(val) && val.includes(item.id);
+
+          return `
+            <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
+              style="display: flex; align-items: flex-start; gap: 12px;
+                padding: 12px 14px; margin-bottom: 8px;
+                background: ${isChecked ? '#fff' : '#fbfdff'};
+                border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+                border-radius: 12px; cursor: pointer;
+                transition: all .18s ease;
+                user-select: none;">
+              <div style="
+                width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
+                border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
+                background: ${isChecked ? theme.primary : '#fff'};
+                ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
+                display: grid; place-items: center; position: relative;">
+                ${isChecked
+                  ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                       stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                       <polyline points="20 6 9 17 4 12"/>
+                     </svg>`
+                  : ''}
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 13px; font-weight: 800;
+                  color: ${isChecked ? theme.primaryDark : '#1e293b'};
+                  line-height: 1.4; margin-bottom: 4px;">
+                  ${escapeHtml(item.label)}
+                </div>
+                <div style="font-size: 11px; color: #64748b; line-height: 1.5;
+                  ${isChecked ? '' : 'opacity:.7;'}">
+                  ${escapeHtml(item.interpret)}
+                </div>
+              </div>
+            </label>
+          `;
+        }).join('');
+
+        return `
+          <div style="margin-bottom: 20px;">
+            <div style="font-size: 12.5px; font-weight: 900; color: #334155;
+              margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+              ${isRadio
+                ? '<span style="font-size: 10px; color: #94a3b8;">(pilih satu)</span>'
+                : '<span style="font-size: 10px; color: #94a3b8;">(bisa pilih lebih dari satu)</span>'}
+              ${escapeHtml(section.title)}
+            </div>
+            ${itemsHTML}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom: 28px; padding: 20px 22px;
+          background: ${theme.bg}; border: 2px solid ${theme.border};
+          border-radius: 16px;">
+          <div style="font-size: 15px; font-weight: 900; color: ${theme.primaryDark};
+            margin-bottom: 16px; padding-bottom: 10px;
+            border-bottom: 1px dashed ${theme.border};">
+            ${escapeHtml(group.title)}
+          </div>
+          ${sectionsInner}
+        </div>
+      `;
+    }).join('');
+
+    root.innerHTML = `
+      <div style="max-width: 900px; margin: 0 auto 60px;">
+
+        <!-- HEADER DETAIL -->
+        <div style="background: ${theme.bg}; border: 2px solid ${theme.border};
+          border-radius: 18px; padding: 20px 26px;
+          display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+          <button type="button" id="giBackBtn"
+            style="width: 44px; height: 44px; flex: 0 0 44px;
+              display: grid; place-items: center;
+              background: #fff; border: 1.5px solid ${theme.border};
+              border-radius: 12px; color: ${theme.primaryDark};
+              font-size: 20px; cursor: pointer; font-family: inherit;">
+            ←
+          </button>
+          <div style="font-size: 34px; line-height: 1;">${data.icon || '📄'}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 1.8px;
+              color: ${theme.primary}; margin-bottom: 4px;">
+              INTERPRETASI OTOMATIS
+            </div>
+            <div style="font-size: 19px; font-weight: 900; color: #1e293b;
+              letter-spacing: -.3px;">
+              ${escapeHtml(data.title)}
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+              ${escapeHtml(data.subtitle || '')}
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION -->
+        <div style="background: #fff; padding: 22px 26px 26px;
+          border-radius: 18px; box-shadow: 0 20px 50px rgba(15,23,42,.08);">
+          ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
+
+          <!-- ACTION -->
+          <div style="display: flex; gap: 10px; margin-top: 20px;
+            padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <button type="button" id="giClearBtn"
+              style="flex: 1; padding: 14px; border: 2px solid #fca5a5;
+                background: #fff; color: #dc2626; border-radius: 12px;
+                font-family: inherit; font-size: 14px; font-weight: 800;
+                cursor: pointer;">
+              🗑️ Hapus Semua Pilihan
+            </button>
+            <button type="button" id="giSaveBtn"
+              style="flex: 2; padding: 14px; border: 0;
+                background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
+                color: #fff; border-radius: 12px;
+                font-family: inherit; font-size: 15px; font-weight: 900;
+                cursor: pointer;
+                box-shadow: 0 8px 20px rgba(0,0,0,.12);">
+              💾 Simpan & Kembali
+            </button>
+          </div>
+        </div>
       </div>
-    `).join('');
+    `;
 
-    container.querySelectorAll('.gi-item-input').forEach(ta => {
-      ta.addEventListener('input', (e) => {
-        const t = e.target.getAttribute('data-target');
-        const i = Number(e.target.getAttribute('data-idx'));
-        state[t][i].text = e.target.value;
-        e.target.style.borderColor = e.target.value.trim() ? '#86efac' : '#e2e8f0';
-      });
-      ta.addEventListener('focus', (e) => {
-        e.target.style.borderColor = ac.border;
-        e.target.style.boxShadow = `0 0 0 3px ${ac.bg}`;
-      });
-      ta.addEventListener('blur', (e) => {
-        e.target.style.boxShadow = 'none';
-        e.target.style.borderColor = e.target.value.trim() ? '#86efac' : '#e2e8f0';
+    // Bind option clicks
+    root.querySelectorAll('.js-option-item').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionId = label.getAttribute('data-section');
+        const itemId = label.getAttribute('data-item');
+        const type = label.getAttribute('data-type');
+
+        if (type === 'radio') {
+          state.selectedItems[testKey][sectionId] = itemId;
+        } else {
+          let arr = state.selectedItems[testKey][sectionId];
+          if (!Array.isArray(arr)) arr = [];
+          const idx = arr.indexOf(itemId);
+          if (idx >= 0) arr.splice(idx, 1);
+          else arr.push(itemId);
+          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+        }
+        saveDraft();
+        renderTestDetail(testKey); // re-render
       });
     });
 
-    container.querySelectorAll('.gi-remove-btn').forEach(btn => {
-      btn.onclick = () => {
-        const t = btn.getAttribute('data-target');
-        const i = Number(btn.getAttribute('data-idx'));
-        if (state[t].length <= 1) {
-          state[t][0].text = '';
-        } else {
-          state[t].splice(i, 1);
-        }
-        renderItemList(t);
-      };
+    // Back
+    document.getElementById('giBackBtn').addEventListener('click', () => {
+      saveDraft();
+      renderLanding();
+    });
+
+    // Clear
+    document.getElementById('giClearBtn').addEventListener('click', () => {
+      if (!confirm('Hapus semua pilihan untuk ' + data.title + '?')) return;
+      state.selectedItems[testKey] = {};
+      saveDraft();
+      renderTestDetail(testKey);
+    });
+
+    // Save
+    document.getElementById('giSaveBtn').addEventListener('click', () => {
+      saveDraft();
+      renderLanding();
     });
   }
 
   /* ============================================================
-     RENDER 7 KATEGORI
+     7 KATEGORI
      ============================================================ */
   function renderCategories() {
     const container = document.getElementById('category-list');
@@ -577,8 +744,7 @@
           border: 1.5px solid #e2e8f0; border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 12px;
           margin-bottom: 10px; flex-wrap: wrap;">
-          <div style="
-            width: 34px; height: 34px; flex: 0 0 34px;
+          <div style="width: 34px; height: 34px; flex: 0 0 34px;
             display: grid; place-items: center;
             background: linear-gradient(135deg, #6d28d9, #a855f7);
             color: #fff; font-size: 13px; font-weight: 900; border-radius: 9px;">
@@ -607,8 +773,7 @@
           style="width: 100%; padding: 12px 14px;
             border: 2px solid #e2e8f0; border-radius: 10px;
             font-family: inherit; font-size: 13.5px; line-height: 1.6;
-            outline: none; resize: vertical; box-sizing: border-box;
-            transition: border-color .15s ease;"
+            outline: none; resize: vertical; box-sizing: border-box;"
         >${escapeHtml(cat.narrative)}</textarea>
       </div>
     `).join('');
@@ -618,7 +783,7 @@
         const i = Number(e.target.getAttribute('data-idx'));
         const v = e.target.value;
         state.categories[i].score = v ? Number(v) : '';
-        e.target.style.borderColor = v ? '#86efac' : '#e2e8f0';
+        saveDraft();
       });
     });
 
@@ -626,15 +791,7 @@
       ta.addEventListener('input', (e) => {
         const i = Number(e.target.getAttribute('data-idx'));
         state.categories[i].narrative = e.target.value;
-        e.target.style.borderColor = e.target.value.trim() ? '#86efac' : '#e2e8f0';
-      });
-      ta.addEventListener('focus', (e) => {
-        e.target.style.borderColor = '#a855f7';
-        e.target.style.boxShadow = '0 0 0 3px rgba(168,85,247,.12)';
-      });
-      ta.addEventListener('blur', (e) => {
-        e.target.style.boxShadow = 'none';
-        e.target.style.borderColor = e.target.value.trim() ? '#86efac' : '#e2e8f0';
+        saveDraft();
       });
     });
   }
@@ -642,46 +799,32 @@
   /* ============================================================
      SUBMIT
      ============================================================ */
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    const dapValid  = state.dap.filter(x => x.text.trim());
-    const baumValid = state.baum.filter(x => x.text.trim());
-    const htpValid  = state.htp.filter(x => x.text.trim());
-
-    if (!dapValid.length && !baumValid.length && !htpValid.length) {
-      alert('Isi minimal 1 item DAP/BAUM/HTP.'); return;
-    }
+  async function handleSubmit() {
+    // Validasi test
+    const dapCount  = countSelectedItems('dap');
+    const baumCount = countSelectedItems('baum');
+    const htpCount  = countSelectedItems('htp');
+    const hasAnyTest = dapCount > 0 || baumCount > 0 || htpCount > 0;
+    if (!hasAnyTest) { alert('Pilih minimal 1 item di DAP/BAUM/HTP.'); return; }
 
     // Validasi kategori
     for (let i = 0; i < state.categories.length; i++) {
       const c = state.categories[i];
-      if (!c.score) {
-        alert(`Kategori ${i + 1} (${c.name}) belum diisi skor.`);
-        return;
-      }
-      if (!c.narrative.trim()) {
-        alert(`Kategori ${i + 1} (${c.name}) belum diisi narasi.`);
-        return;
-      }
+      if (!c.score) { alert(`Kategori ${i + 1} (${c.name}) belum diisi skor.`); return; }
+      if (!c.narrative.trim()) { alert(`Kategori ${i + 1} (${c.name}) belum diisi narasi.`); return; }
     }
 
-    const conclusion = document.getElementById('giConclusion').value.trim();
-    if (!conclusion) { alert('Kesimpulan keseluruhan wajib diisi.'); return; }
+    state.conclusion = (document.getElementById('giConclusion')?.value || '').trim();
+    if (!state.conclusion) { alert('Kesimpulan keseluruhan wajib diisi.'); return; }
 
-    const recommendation = document.getElementById('giRecommendation').value;
-    if (!recommendation) { alert('Pilih tingkat rekomendasi.'); return; }
+    state.recommendation = document.getElementById('giRecommendation')?.value || '';
+    if (!state.recommendation) { alert('Pilih tingkat rekomendasi.'); return; }
 
-    const reasons = document.getElementById('giReasons').value.trim();
-    if (!reasons) { alert('Alasan rekomendasi wajib diisi.'); return; }
+    state.reasons = (document.getElementById('giReasons')?.value || '').trim();
+    if (!state.reasons) { alert('Alasan rekomendasi wajib diisi.'); return; }
 
-    const development = document.getElementById('giDevelopment').value.trim();
-    if (!development) { alert('Rekomendasi pengembangan wajib diisi.'); return; }
-
-    state.conclusion = conclusion;
-    state.recommendation = recommendation;
-    state.reasons = reasons;
-    state.development = development;
+    state.development = (document.getElementById('giDevelopment')?.value || '').trim();
+    if (!state.development) { alert('Rekomendasi pengembangan wajib diisi.'); return; }
 
     const btn = document.getElementById('giSubmitBtn');
     btn.disabled = true;
@@ -693,6 +836,7 @@
       const pdfBlob = await generatePDF();
       btn.textContent = '📤 Mengupload...';
       await uploadToGAS(pdfBlob);
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
       showSuccess();
     } catch (err) {
       console.error('[GRAFIS-INTERP] Gagal:', err);
@@ -707,7 +851,6 @@
      ============================================================ */
   async function saveToFirebase() {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-
     const slug = candidateSlug(candidateName);
     const recLabel = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation)?.label || '-';
 
@@ -717,9 +860,10 @@
         candidateName,
         candidatePosition,
         assessor: ADMIN_ASSESSOR,
-        dap: state.dap.filter(x => x.text.trim()).map(x => x.text.trim()),
-        baum: state.baum.filter(x => x.text.trim()).map(x => x.text.trim()),
-        htp: state.htp.filter(x => x.text.trim()).map(x => x.text.trim()),
+        selectedItems: state.selectedItems,
+        dapText: generateAutoText('dap'),
+        baumText: generateAutoText('baum'),
+        htpText: generateAutoText('htp'),
         categories: state.categories,
         conclusion: state.conclusion,
         recommendation: state.recommendation,
@@ -728,8 +872,7 @@
         development: state.development,
         ts: firebase.database.ServerValue.TIMESTAMP
       });
-
-    console.log('[GRAFIS-INTERP] ✅ Saved — assessor:', ADMIN_ASSESSOR);
+    console.log('[GRAFIS-INTERP] ✅ Saved');
   }
 
   /* ============================================================
@@ -737,13 +880,11 @@
      ============================================================ */
   async function generatePDF() {
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF belum siap');
-
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
-    /* KOP LOGO */
     try {
       const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
         || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
@@ -752,36 +893,19 @@
     } catch (e) {}
 
     let y = 38;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text('LAPORAN INTERPRETASI GRAFIS', pageW / 2, y, { align: 'center' });
-    y += 5.5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('SUGAR GROUP SCHOOLS', pageW / 2, y, { align: 'center' });
-    y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text('LAPORAN INTERPRETASI GRAFIS', pageW / 2, y, { align: 'center' }); y += 5.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text('SUGAR GROUP SCHOOLS', pageW / 2, y, { align: 'center' }); y += 5;
     doc.setFontSize(8);
-    doc.text('DAP (Draw A Person)  ·  BAUM (Tree Test)  ·  HTP (House Tree Person)',
-      pageW / 2, y, { align: 'center' });
-    y += 6;
+    doc.text('DAP · BAUM · HTP', pageW / 2, y, { align: 'center' }); y += 6;
+    doc.setDrawColor(109, 40, 217); doc.setLineWidth(0.6);
+    doc.line(15, y, pageW - 15, y); doc.setLineWidth(0.2); y += 1.5;
+    doc.line(15, y, pageW - 15, y); y += 8;
 
-    doc.setDrawColor(109, 40, 217);
-    doc.setLineWidth(0.6);
-    doc.line(15, y, pageW - 15, y);
-    doc.setLineWidth(0.2);
-    y += 1.5;
-    doc.line(15, y, pageW - 15, y);
-    y += 8;
-
-    /* INFO KANDIDAT */
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('INFORMASI KANDIDAT', 15, y);
-    y += 6;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text('INFORMASI KANDIDAT', 15, y); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
 
     const tanggal = new Date().toLocaleDateString('id-ID', {
       day: '2-digit', month: 'long', year: 'numeric'
@@ -793,168 +917,115 @@
       ['Assessor', ADMIN_ASSESSOR],
       ['Tanggal', cleanForPDF(tanggal)]
     ];
-
     infoRows.forEach(([label, val]) => {
       doc.text(label + ' :', 18, y);
       doc.text(String(val), 65, y);
       y += 5.5;
     });
-
     y += 3;
-    doc.setDrawColor(220);
-    doc.line(15, y, pageW - 15, y);
-    y += 8;
+    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
 
-    /* Helper section */
-    function addSection(title, items) {
-      if (!items.length) return;
-      if (y > pageH - 30) { doc.addPage(); y = 20; }
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text(cleanForPDF(title), 15, y);
-      y += 7;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      items.forEach((txt, idx) => {
-        const cleanTxt = cleanForPDF(txt);
-        const wrapped = doc.splitTextToSize(`${idx + 1}. ${cleanTxt}`, pageW - 36);
-        for (const line of wrapped) {
-          if (y > pageH - 30) { doc.addPage(); y = 20; }
-          doc.text(line, 18, y);
-          y += 4.5;
-        }
-        y += 1.5;
+    // Helper cetak paragraf
+    function printParagraph(text, indent = 18, fontSize = 9) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(fontSize);
+      const wrapped = doc.splitTextToSize(cleanForPDF(text), pageW - 36);
+      wrapped.forEach(line => {
+        if (y > pageH - 25) { doc.addPage(); y = 20; }
+        doc.text(line, indent, y);
+        y += 4.5;
       });
-      y += 4;
     }
 
-    addSection('DAP — Draw A Person', state.dap.filter(x => x.text.trim()).map(x => x.text.trim()));
-    addSection('BAUM — Tree Test', state.baum.filter(x => x.text.trim()).map(x => x.text.trim()));
-    addSection('HTP — House Tree Person', state.htp.filter(x => x.text.trim()).map(x => x.text.trim()));
+    // Section per test
+    ['dap', 'baum', 'htp'].forEach(key => {
+      const count = countSelectedItems(key);
+      if (count === 0) return;
+      const data = (window.GRAFIS_AUTO_DATA || {})[key] || {};
 
-    /* KESIMPULAN 7 KATEGORI */
+      if (y > pageH - 40) { doc.addPage(); y = 20; }
+      doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 6;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text(cleanForPDF(data.title || key.toUpperCase()), 15, y); y += 7;
+
+      const autoText = generateAutoText(key);
+      autoText.split('\n').forEach(line => {
+        if (!line.trim()) { y += 2; return; }
+        if (y > pageH - 25) { doc.addPage(); y = 20; }
+        if (line.startsWith('  •') || line.startsWith('    ')) {
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+          const wrapped = doc.splitTextToSize(cleanForPDF(line), pageW - 40);
+          wrapped.forEach(w => {
+            if (y > pageH - 25) { doc.addPage(); y = 20; }
+            doc.text(w, 22, y); y += 4.2;
+          });
+        } else {
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+          doc.text(cleanForPDF(line), 18, y); y += 5;
+        }
+      });
+      y += 4;
+    });
+
+    // Kategori 7
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setDrawColor(220);
-    doc.line(15, y, pageW - 15, y);
-    y += 8;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text('KESIMPULAN', 15, y);
-    y += 8;
+    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('KESIMPULAN', 15, y); y += 8;
 
     state.categories.forEach((cat, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
       const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} — SKOR: ${cat.score}/4`;
       const titleWrap = doc.splitTextToSize(titleLine, pageW - 36);
-      titleWrap.forEach(t => {
-        doc.text(t, 18, y);
-        y += 5;
-      });
+      titleWrap.forEach(t => { doc.text(t, 18, y); y += 5; });
       y += 1;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const narrWrap = doc.splitTextToSize(cleanForPDF(cat.narrative), pageW - 42);
-      narrWrap.forEach(line => {
-        if (y > pageH - 30) { doc.addPage(); y = 20; }
-        doc.text(line, 22, y);
-        y += 4.5;
-      });
+      printParagraph(cat.narrative, 22, 9);
       y += 6;
     });
 
-    /* KESIMPULAN KESELURUHAN */
+    // Kesimpulan keseluruhan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setDrawColor(220);
-    doc.line(15, y, pageW - 15, y);
+    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('KESIMPULAN KESELURUHAN', 15, y); y += 7;
+    printParagraph(state.conclusion, 18, 9);
     y += 8;
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('KESIMPULAN KESELURUHAN', 15, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const conclWrap = doc.splitTextToSize(cleanForPDF(state.conclusion), pageW - 36);
-    conclWrap.forEach(line => {
-      if (y > pageH - 30) { doc.addPage(); y = 20; }
-      doc.text(line, 18, y);
-      y += 4.5;
-    });
-    y += 8;
-
-    /* TINGKAT REKOMENDASI */
+    // Rekomendasi
     const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
     const recLabel = recOpt ? recOpt.label : '-';
     const recColor = recOpt ? recOpt.color : [0, 0, 0];
-
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('TINGKAT REKOMENDASI', 15, y);
-    y += 7;
-
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('TINGKAT REKOMENDASI', 15, y); y += 7;
     doc.setFontSize(12);
     doc.setTextColor(recColor[0], recColor[1], recColor[2]);
-    const recWrap = doc.splitTextToSize(cleanForPDF(recLabel), pageW - 36);
-    recWrap.forEach(line => {
-      doc.text(line, 18, y);
-      y += 6;
+    doc.splitTextToSize(cleanForPDF(recLabel), pageW - 36).forEach(line => {
+      doc.text(line, 18, y); y += 6;
     });
-    doc.setTextColor(0, 0, 0);
-    y += 6;
+    doc.setTextColor(0, 0, 0); y += 6;
 
-    /* ALASAN REKOMENDASI */
+    // Alasan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('ALASAN REKOMENDASI', 15, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const reasonsWrap = doc.splitTextToSize(cleanForPDF(state.reasons), pageW - 36);
-    reasonsWrap.forEach(line => {
-      if (y > pageH - 30) { doc.addPage(); y = 20; }
-      doc.text(line, 18, y);
-      y += 4.5;
-    });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('ALASAN REKOMENDASI', 15, y); y += 7;
+    printParagraph(state.reasons, 18, 9);
     y += 8;
 
-    /* REKOMENDASI PENGEMBANGAN */
+    // Pengembangan
     if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('REKOMENDASI PENGEMBANGAN', 15, y);
-    y += 7;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const devWrap = doc.splitTextToSize(cleanForPDF(state.development), pageW - 36);
-    devWrap.forEach(line => {
-      if (y > pageH - 30) { doc.addPage(); y = 20; }
-      doc.text(line, 18, y);
-      y += 4.5;
-    });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('REKOMENDASI PENGEMBANGAN', 15, y); y += 7;
+    printParagraph(state.development, 18, 9);
     y += 12;
 
-    /* Tanda tangan */
+    // Tanda tangan
     if (y > pageH - 50) { doc.addPage(); y = 20; }
-
-    doc.setFontSize(9);
-    doc.text('Assessor,', pageW - 60, y);
-    y += 20;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text('Assessor,', pageW - 60, y); y += 20;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
     doc.text(ADMIN_ASSESSOR, pageW - 60, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     doc.text('(Admin)', pageW - 60, y + 4);
 
     return doc.output('blob');
@@ -995,23 +1066,16 @@
       if (user) idToken = await user.getIdToken();
     } catch (e) {}
 
-    const payload = {
-      idToken: idToken,
-      action: 'upload',
-      deviceId: 'grafindo_' + Date.now(),
-      filename: filename,
-      name: candidateName,
-      position: candidatePosition,
-      email: '',
-      pdfBase64: base64,
-      pdfPassword: '-'
-    };
-
     await fetch(GAS_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        idToken, action: 'upload',
+        deviceId: 'grafindo_' + Date.now(),
+        filename, name: candidateName, position: candidatePosition,
+        email: '', pdfBase64: base64, pdfPassword: '-'
+      })
     });
 
     await new Promise(r => setTimeout(r, 1500));
@@ -1020,15 +1084,11 @@
       if (typeof firebase !== 'undefined' && firebase.apps.length) {
         firebase.database().ref('sgs_state/lastUpload').set({
           ts: firebase.database.ServerValue.TIMESTAMP,
-          type: 'pdf',
-          name: candidateName,
-          position: candidatePosition,
+          type: 'pdf', name: candidateName, position: candidatePosition,
           deviceId: 'grafindo'
         }).catch(() => {});
       }
     } catch (e) {}
-
-    console.log('[GRAFIS-INTERP] ✅ Uploaded to GAS —', filename);
   }
 
   /* ============================================================
@@ -1048,7 +1108,8 @@
           border-radius: 24px; padding: 40px 32px; text-align: center;
           box-shadow: 0 30px 90px rgba(0,0,0,.5);">
           <div style="width: 80px; height: 80px; margin: 0 auto 20px;
-            display: grid; place-items: center; background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+            display: grid; place-items: center;
+            background: linear-gradient(135deg, #d1fae5, #ecfdf5);
             border: 3px solid #86efac; border-radius: 24px; font-size: 40px;">✅</div>
           <h1 style="margin: 0 0 12px; color: #065f46; font-size: 22px; font-weight: 900;">
             Terima Kasih!
@@ -1080,26 +1141,34 @@
   }
 
   /* ============================================================
-     RUN — 🆕 GUARD agar hanya dieksekusi SEKALI
+     RUN
      ============================================================ */
   let __uiBuilt = false;
-
   function run() {
     if (__uiBuilt) return;
     __uiBuilt = true;
 
-    // Hapus root lama kalau ada (safety)
     const existing = document.getElementById('grafindoRoot');
     if (existing) existing.remove();
 
     hideDefaultUI();
-    buildUI();
+
+    const root = document.createElement('div');
+    root.id = 'grafindoRoot';
+    root.style.cssText = `
+      position: fixed; inset: 0; z-index: 2147483600;
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      overflow-y: auto; font-family: Inter, system-ui, -apple-system, sans-serif;
+      padding: 20px;
+    `;
+    document.body.appendChild(root);
+
+    renderLanding();
   }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
   }
-  // Fallback: kalau DOMContentLoaded tidak fire dalam 200ms
   setTimeout(run, 200);
 
 })();
