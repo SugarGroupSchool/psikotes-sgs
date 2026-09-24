@@ -8,39 +8,9 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   title: '6. Akar',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
-
-    /* ======================================================
-       A. MAKNA SIMBOLIS AKAR
-       ====================================================== */
     {
-      id: 'makna_simbolis_akar',
-      title: 'A. Makna Simbolis Akar (hal. 137)',
-      type: 'checkbox',
-      items: [
-        {
-          id: 'keterhubungan_ketidaksadaran',
-          label: 'Keterhubungan dengan Ketidaksadaran',
-          interpret: 'Akar dalam gambar pohon sering kali dianggap mewakili bagian yang tersembunyi dari kesadaran seseorang. Ini merujuk pada aspek bawah sadar yang tidak terlihat namun memiliki peran yang kuat dalam membentuk perilaku dan pola pikir seseorang.'
-        },
-        {
-          id: 'kestabilan_kekuatan_tak_terlihat',
-          label: 'Kestabilan dan Kekuatan yang Tidak Terlihat',
-          interpret: 'Meskipun tidak terlihat secara langsung, akar adalah fondasi yang kuat bagi pohon. Dalam kajian psikologis, akar bisa diasosiasikan dengan kestabilan, kekuatan, dan fondasi yang kokoh dari mana seseorang dapat tumbuh dan berkembang.'
-        },
-        {
-          id: 'penyembuhan_kesehatan_mental',
-          label: 'Representasi Penyembuhan dan Kesehatan Mental',
-          interpret: 'Dalam beberapa kasus, orang yang mengalami gangguan mental atau stres emosional cenderung menggambarkan akar pohon lebih besar atau lebih menonjol dalam gambar mereka. Hal ini bisa menjadi cerminan dari upaya untuk menemukan kedalaman, koneksi, atau penyembuhan dalam kehidupan mereka.'
-        }
-      ]
-    },
-
-    /* ======================================================
-       B. GARIS TANAH (hal. 139)
-       ====================================================== */
-    {
-      id: 'garis_tanah',
-      title: 'B. Garis Tanah (hal. 139)',
+      id: 'akar_items',
+      title: 'Pilih sesuai yang digambarkan oleh subjek',
       type: 'checkbox',
       items: [
         {
@@ -62,34 +32,12 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           id: 'garis_tanah_artifisial',
           label: 'Garis Tanah Artifisial (Lurus / Sengaja Dibuat)',
           interpret: 'Namun garis tanah dibuat secara sengaja dan artifisial, seolah-olah merupakan pemisahan yang nyata meskipun sebenarnya tidak demikian. Dalam hal ini, garis tanah itu lurus, artifisial, dengan sengaja dibuat, sehingga tampak seolah-olah benar-benar suatu pemisahan.'
-        }
-      ]
-    },
-
-    /* ======================================================
-       C. AKAR MENONJOL — USIA (hal. 140)
-       ====================================================== */
-    {
-      id: 'akar_usia',
-      title: 'C. Akar Menonjol — Tinjauan Usia (hal. 140)',
-      type: 'checkbox',
-      items: [
+        },
         {
-          id: 'akar_menonjol_usia',
-          label: 'Akar Menonjol (Pubertas)',
+          id: 'akar_menonjol',
+          label: 'Akar Menonjol',
           interpret: 'Anak laki-laki cenderung mengekspresikan akar yang menonjol sekitar usia 12 tahun, sementara pada anak perempuan, ekspresi ini memuncak sekitar usia 14 tahun. Ketika orang dewasa menggambarkan akar, ini mencerminkan beberapa hal. Pada tahap awal pubertas, ini bisa menandakan perjuangan dalam menemukan pegangan dalam hidup atau mungkin juga menunjukkan bahwa subjek tersebut belum sepenuhnya menerima tanggung jawab dewasa.'
-        }
-      ]
-    },
-
-    /* ======================================================
-       D. JENIS AKAR (hal. 140)
-       ====================================================== */
-    {
-      id: 'jenis_akar',
-      title: 'D. Jenis Akar (hal. 140)',
-      type: 'radio',
-      items: [
+        },
         {
           id: 'akar_satu_garis',
           label: 'Akar Satu Garis',
@@ -99,18 +47,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           id: 'akar_dua_garis',
           label: 'Akar Dua Garis (Normal)',
           interpret: 'Akar dengan dua garis dibagi menjadi dua: akar tertutup dan akar terbuka, yang masing-masing mencerminkan kemampuan subjek untuk mengatasi dorongan-dorongan dan keterbukaan terhadap pengaruh luar. Hal ini dalam gambar pohon memunculkan pertanyaan tentang penyaringan dorongan-dorongan dalam diri seseorang.'
-        }
-      ]
-    },
-
-    /* ======================================================
-       E. KONDISI AKAR DUA GARIS (hal. 141–142)
-       ====================================================== */
-    {
-      id: 'kondisi_akar',
-      title: 'E. Kondisi Akar Dua Garis (hal. 141–142)',
-      type: 'checkbox',
-      items: [
+        },
         {
           id: 'akar_tertutup',
           label: 'Akar Tertutup (Seperti Kulit Akar)',
@@ -123,10 +60,8 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
-
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-07-stambasis',
   title: '7. Pangkal Batang (Stambasis)',
