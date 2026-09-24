@@ -750,8 +750,9 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     state.activePage = testKey;
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
-    const selected = state.selectedItems[testKey] || {};
-   const currentZoom = state.candidateImageZoom[testKey] || 1;
+   const selected = state.selectedItems[testKey] || {};
+const currentImg  = state.candidateImages[testKey] || '';
+const currentZoom = state.candidateImageZoom[testKey] || 1;
 const zoomPct = Math.round(currentZoom * 100);
 
     /* ===== Konten pilihan interpretasi (per slide) ===== */
