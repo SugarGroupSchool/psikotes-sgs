@@ -242,11 +242,11 @@
      ============================================================ */
   function generateAutoText(testKey) {
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-    if (!data || !Array.isArray(data.groups)) return '';
+  if (!data || !Array.isArray(data.slides)) return '';
     const selected = state.selectedItems[testKey] || {};
     const lines = [];
 
-    data.groups.forEach(group => {
+data.slides.forEach(group => {
       const groupLines = [];
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
@@ -294,12 +294,12 @@ function generateCombinedNotes() {
 
   testKeys.forEach(key => {
     const data = autoData[key];
-    if (!data || !data.groups) return;
+    if (!data || !data.slides) return;
 
     const selected = state.selectedItems[key] || {};
     const selectedLines = [];
 
-    data.groups.forEach(group => {
+   data.slides.forEach(group => {
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
         if (!val) return;
@@ -577,7 +577,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 const data = autoData[key] || {};
                 const theme = data.theme || { primary: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe' };
                 const count = countSelectedItems(key);
-                const hasData = (data.groups || []).length > 0;
+                const hasData = (data.slides || []).length > 0;
                 return `
                   <button type="button" class="js-open-test" data-test="${key}"
                     style="text-align: left; padding: 18px 20px;
@@ -762,7 +762,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected = state.selectedItems[testKey] || {};
 
-    const sectionsHTML = (data.groups || []).map(group => {
+   const sectionsHTML = (data.slides || []).map(group => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
@@ -941,9 +941,9 @@ root.querySelectorAll('.js-option-item').forEach(label => {
     const type = label.getAttribute('data-type');
 
     // Cari section & item dari data supaya bisa hapus subItems pas deselect
-    const section = (data.groups || [])
-      .flatMap(g => g.sections || [])
-      .find(s => s.id === sectionId);
+    const section = (data.slides || [])
+  .flatMap(g => g.sections || [])
+  .find(s => s.id === sectionId);
     const itemObj = (section?.items || []).find(i => i.id === itemId);
 
     const clearSubItems = (parentItemId) => {
