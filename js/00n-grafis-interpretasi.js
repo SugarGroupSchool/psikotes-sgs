@@ -1,6 +1,10 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7.1
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7.2
    ------------------------------------------------------------
+   v7.2 [2026-09-25]:
+   - 🆕 SEMBUNYIKAN teks interpretasi di panel kanan (label saja)
+   - 🆕 ZOOM gambar kandidat (+ / − / reset + Ctrl+wheel)
+   - 🐛 FIX: currentImg tidak terdefinisi
    v7.1 [2026-09-25]:
    - 🐛 FIX: data.groups → data.slides (sesuai struktur baru)
    - 🆕 LAYOUT 2-KOLOM: gambar kandidat (kiri) + pilihan (kanan)
@@ -236,8 +240,8 @@
     activePage: 'landing',
     selectedItems: { dap: {}, baum: {}, htp: {} },
     candidateImages: { dap: '', baum: '', htp: '' },
-candidateImageZoom: { dap: 1, baum: 1, htp: 1 },   // 🆕 zoom level (1 = 100%)
-currentStep: { dap: 0, baum: 0, htp: 0 },
+    candidateImageZoom: { dap: 1, baum: 1, htp: 1 },   // 🆕 zoom level (1 = 100%)
+    currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
     recommendation: '',
@@ -265,15 +269,15 @@ currentStep: { dap: 0, baum: 0, htp: 0 },
   function saveDraft() {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        selectedItems:       state.selectedItems,
-candidateImages:     state.candidateImages,
-candidateImageZoom:  state.candidateImageZoom,
-currentStep:         state.currentStep,
-        categories:      state.categories,
-        conclusion:      state.conclusion,
-        recommendation:  state.recommendation,
-        reasons:         state.reasons,
-        development:     state.development
+        selectedItems:      state.selectedItems,
+        candidateImages:    state.candidateImages,
+        candidateImageZoom: state.candidateImageZoom,
+        currentStep:        state.currentStep,
+        categories:         state.categories,
+        conclusion:         state.conclusion,
+        recommendation:     state.recommendation,
+        reasons:            state.reasons,
+        development:        state.development
       }));
     } catch (e) {}
   }
@@ -283,11 +287,11 @@ currentStep:         state.currentStep,
      ============================================================ */
   function generateAutoText(testKey) {
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-    if (!data || !Array.isArray(data.slides)) return '';           /* ← FIX */
+    if (!data || !Array.isArray(data.slides)) return '';
     const selected = state.selectedItems[testKey] || {};
     const lines = [];
 
-    data.slides.forEach(group => {                                  /* ← FIX */
+    data.slides.forEach(group => {
       const groupLines = [];
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
@@ -333,12 +337,12 @@ currentStep:         state.currentStep,
 
     testKeys.forEach(key => {
       const data = autoData[key];
-      if (!data || !data.slides) return;                            /* ← FIX */
+      if (!data || !data.slides) return;
 
       const selected = state.selectedItems[key] || {};
       const selectedLines = [];
 
-      data.slides.forEach(group => {                                /* ← FIX */
+      data.slides.forEach(group => {
         (group.sections || []).forEach(section => {
           const val = selected[section.id];
           if (!val) return;
@@ -582,7 +586,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 const data = autoData[key] || {};
                 const theme = data.theme || { primary: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe' };
                 const count = countSelectedItems(key);
-                const hasData = (data.slides || []).length > 0;      /* ← FIX */
+                const hasData = (data.slides || []).length > 0;
                 return `
                   <button type="button" class="js-open-test" data-test="${key}"
                     style="text-align: left; padding: 18px 20px;
@@ -750,13 +754,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     state.activePage = testKey;
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
-   const selected = state.selectedItems[testKey] || {};
-const currentImg  = state.candidateImages[testKey] || '';
-const currentZoom = state.candidateImageZoom[testKey] || 1;
-const zoomPct = Math.round(currentZoom * 100);
+    const selected = state.selectedItems[testKey] || {};
+    const currentImg  = state.candidateImages[testKey] || '';
+    const currentZoom = state.candidateImageZoom[testKey] || 1;
+    const zoomPct     = Math.round(currentZoom * 100);
 
     /* ===== Konten pilihan interpretasi (per slide) ===== */
-    const sectionsHTML = (data.slides || []).map((group, stepIdx) => {    /* ← FIX */
+    const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
@@ -789,12 +793,9 @@ const zoomPct = Math.round(currentZoom * 100);
                   <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 12.5px; font-weight: 800;
                       color: ${subChecked ? theme.primaryDark : '#334155'};
-                      line-height: 1.4; margin-bottom: 3px;">
+                      line-height: 1.4;">
                       ↳ ${escapeHtml(sub.label)}
                       ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional)</span>` : ''}
-                    </div>
-                    <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
-                      ${escapeHtml(sub.interpret)}
                     </div>
                   </div>
                 </label>
@@ -827,12 +828,8 @@ const zoomPct = Math.round(currentZoom * 100);
                 <div style="flex: 1; min-width: 0;">
                   <div style="font-size: 13px; font-weight: 800;
                     color: ${isChecked ? theme.primaryDark : '#1e293b'};
-                    line-height: 1.4; margin-bottom: 4px;">
+                    line-height: 1.4;">
                     ${escapeHtml(item.label)}
-                  </div>
-                  <div style="font-size: 11px; color: #64748b; line-height: 1.5;
-                    ${isChecked ? '' : 'opacity:.7;'}">
-                    ${escapeHtml(item.interpret)}
                   </div>
                 </div>
               </label>
@@ -871,71 +868,71 @@ const zoomPct = Math.round(currentZoom * 100);
     }).join('');
 
     /* ===== Panel kiri: gambar kandidat ===== */
-  const candidatePanelHTML = currentImg
-  ? `
-    <div style="position: relative;">
-      <div id="giImageScrollWrap"
-        style="overflow: auto; max-height: 82vh; background: #f8fafc;
-          border: 1.5px solid #e2e8f0; border-radius: 12px;
-          scrollbar-width: thin;">
-        <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
-          style="display: block; width: ${zoomPct}%; max-width: none;
-            height: auto; background: #fff; margin: 0 auto;
-            transition: width .18s ease;">
-      </div>
-      <div style="position: absolute; top: 8px; right: 8px;
-        display: flex; gap: 6px; z-index: 5;">
-        <button type="button" id="giImageFullscreenBtn" title="Fullscreen"
-          style="width: 34px; height: 34px; border-radius: 8px;
-            background: rgba(15,23,42,.75); color: #fff; border: 0;
-            font-size: 16px; cursor: pointer;">🔍</button>
-        <button type="button" id="giImageReplaceBtn" title="Ganti"
-          style="width: 34px; height: 34px; border-radius: 8px;
-            background: rgba(15,23,42,.75); color: #fff; border: 0;
-            font-size: 16px; cursor: pointer;">🔄</button>
-        <button type="button" id="giImageRemoveBtn" title="Hapus"
-          style="width: 34px; height: 34px; border-radius: 8px;
-            background: rgba(220,38,38,.85); color: #fff; border: 0;
-            font-size: 16px; cursor: pointer;">🗑️</button>
-      </div>
-    </div>
+    const candidatePanelHTML = currentImg
+      ? `
+        <div style="position: relative;">
+          <div id="giImageScrollWrap"
+            style="overflow: auto; max-height: 82vh; background: #f8fafc;
+              border: 1.5px solid #e2e8f0; border-radius: 12px;
+              scrollbar-width: thin;">
+            <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
+              style="display: block; width: ${zoomPct}%; max-width: none;
+                height: auto; background: #fff; margin: 0 auto;
+                transition: width .18s ease;">
+          </div>
+          <div style="position: absolute; top: 8px; right: 8px;
+            display: flex; gap: 6px; z-index: 5;">
+            <button type="button" id="giImageFullscreenBtn" title="Fullscreen"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(15,23,42,.75); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🔍</button>
+            <button type="button" id="giImageReplaceBtn" title="Ganti"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(15,23,42,.75); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🔄</button>
+            <button type="button" id="giImageRemoveBtn" title="Hapus"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(220,38,38,.85); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🗑️</button>
+          </div>
+        </div>
 
-    <!-- 🆕 Kontrol Zoom -->
-    <div style="display: flex; align-items: center; justify-content: center;
-      gap: 8px; margin-top: 12px; padding: 8px;
-      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;">
-      <button type="button" id="giZoomOutBtn" title="Perkecil"
-        style="width: 38px; height: 38px; border-radius: 9px;
-          background: #fff; color: #334155;
-          border: 1.5px solid #cbd5e1;
-          font-size: 20px; font-weight: 900;
-          cursor: pointer; font-family: inherit; line-height: 1;">
-        −
-      </button>
-      <button type="button" id="giZoomResetBtn" title="Reset"
-        style="min-width: 70px; height: 38px; padding: 0 14px;
-          border-radius: 9px; background: #fff; color: ${theme.primaryDark};
-          border: 1.5px solid ${theme.border};
-          font-size: 13px; font-weight: 900; cursor: pointer;
-          font-family: inherit;">
-        ${zoomPct}%
-      </button>
-      <button type="button" id="giZoomInBtn" title="Perbesar"
-        style="width: 38px; height: 38px; border-radius: 9px;
-          background: ${theme.primary}; color: #fff;
-          border: 0; font-size: 20px; font-weight: 900;
-          cursor: pointer; font-family: inherit; line-height: 1;">
-        +
-      </button>
-    </div>
+        <!-- 🆕 Kontrol Zoom -->
+        <div style="display: flex; align-items: center; justify-content: center;
+          gap: 8px; margin-top: 12px; padding: 8px;
+          background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;">
+          <button type="button" id="giZoomOutBtn" title="Perkecil"
+            style="width: 38px; height: 38px; border-radius: 9px;
+              background: #fff; color: #334155;
+              border: 1.5px solid #cbd5e1;
+              font-size: 20px; font-weight: 900;
+              cursor: pointer; font-family: inherit; line-height: 1;">
+            −
+          </button>
+          <button type="button" id="giZoomResetBtn" title="Reset"
+            style="min-width: 70px; height: 38px; padding: 0 14px;
+              border-radius: 9px; background: #fff; color: ${theme.primaryDark};
+              border: 1.5px solid ${theme.border};
+              font-size: 13px; font-weight: 900; cursor: pointer;
+              font-family: inherit;">
+            ${zoomPct}%
+          </button>
+          <button type="button" id="giZoomInBtn" title="Perbesar"
+            style="width: 38px; height: 38px; border-radius: 9px;
+              background: ${theme.primary}; color: #fff;
+              border: 0; font-size: 20px; font-weight: 900;
+              cursor: pointer; font-family: inherit; line-height: 1;">
+            +
+          </button>
+        </div>
 
-    <div style="margin-top: 8px; font-size: 11px; color: #64748b;
-      text-align: center; line-height: 1.5;">
-      🔍 Fullscreen · 🔄 Ganti · 🗑️ Hapus · Ctrl+V paste<br>
-      <span style="opacity:.75;">Gunakan tombol + / − untuk zoom gambar</span>
-    </div>
-  `
-  : `
+        <div style="margin-top: 8px; font-size: 11px; color: #64748b;
+          text-align: center; line-height: 1.5;">
+          🔍 Fullscreen · 🔄 Ganti · 🗑️ Hapus · Ctrl+V paste<br>
+          <span style="opacity:.75;">Gunakan tombol + / − untuk zoom gambar</span>
+        </div>
+      `
+      : `
         <div id="giImageDropZone"
           style="padding: 26px 18px; text-align: center;
             background: #f8fafc; border: 2px dashed #cbd5e1;
@@ -978,12 +975,12 @@ const zoomPct = Math.round(currentZoom * 100);
     /* ===== Render halaman ===== */
     root.innerHTML = `
       <style>
-       .gi-detail-layout {
-  display: grid;
-  grid-template-columns: minmax(420px, 1.6fr) minmax(300px, 1fr);
-  gap: 20px;
-  align-items: start;
-}
+        .gi-detail-layout {
+          display: grid;
+          grid-template-columns: minmax(420px, 1.6fr) minmax(300px, 1fr);
+          gap: 20px;
+          align-items: start;
+        }
         .gi-detail-left-sticky {
           position: sticky;
           top: 20px;
@@ -1149,7 +1146,7 @@ const zoomPct = Math.round(currentZoom * 100);
         const itemId = label.getAttribute('data-item');
         const type = label.getAttribute('data-type');
 
-        const section = (data.slides || [])                            /* ← FIX */
+        const section = (data.slides || [])
           .flatMap(g => g.sections || [])
           .find(s => s.id === sectionId);
 
@@ -1281,49 +1278,49 @@ const zoomPct = Math.round(currentZoom * 100);
       });
     }
 
- const fullscreenBtn = document.getElementById('giImageFullscreenBtn');
-const replaceBtn    = document.getElementById('giImageReplaceBtn');
-const removeBtn     = document.getElementById('giImageRemoveBtn');
-const img           = document.getElementById('giCandidateImg');
+    const fullscreenBtn = document.getElementById('giImageFullscreenBtn');
+    const replaceBtn    = document.getElementById('giImageReplaceBtn');
+    const removeBtn     = document.getElementById('giImageRemoveBtn');
+    const img           = document.getElementById('giCandidateImg');
 
-// 🆕 Zoom controls
-function setZoom(newZoom) {
-  newZoom = Math.max(0.4, Math.min(4, Number(newZoom.toFixed(2))));
-  state.candidateImageZoom[testKey] = newZoom;
-  saveDraft();
-  renderTestDetail(testKey);
-}
+    // 🆕 Zoom controls
+    function setZoom(newZoom) {
+      newZoom = Math.max(0.4, Math.min(4, Number(newZoom.toFixed(2))));
+      state.candidateImageZoom[testKey] = newZoom;
+      saveDraft();
+      renderTestDetail(testKey);
+    }
 
-const zoomInBtn    = document.getElementById('giZoomInBtn');
-const zoomOutBtn   = document.getElementById('giZoomOutBtn');
-const zoomResetBtn = document.getElementById('giZoomResetBtn');
+    const zoomInBtn    = document.getElementById('giZoomInBtn');
+    const zoomOutBtn   = document.getElementById('giZoomOutBtn');
+    const zoomResetBtn = document.getElementById('giZoomResetBtn');
 
-if (zoomInBtn)  zoomInBtn.addEventListener('click',  () => setZoom((state.candidateImageZoom[testKey] || 1) + 0.2));
-if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom((state.candidateImageZoom[testKey] || 1) - 0.2));
-if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setZoom(1));
+    if (zoomInBtn)  zoomInBtn.addEventListener('click',  () => setZoom((state.candidateImageZoom[testKey] || 1) + 0.2));
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom((state.candidateImageZoom[testKey] || 1) - 0.2));
+    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setZoom(1));
 
-// 🆕 Scroll-zoom pakai Ctrl + wheel
-const scrollWrap = document.getElementById('giImageScrollWrap');
-if (scrollWrap && img) {
-  scrollWrap.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return;
-    e.preventDefault();
-    const dir = e.deltaY < 0 ? 0.15 : -0.15;
-    setZoom((state.candidateImageZoom[testKey] || 1) + dir);
-  }, { passive: false });
-}
+    // 🆕 Scroll-zoom pakai Ctrl + wheel
+    const scrollWrap = document.getElementById('giImageScrollWrap');
+    if (scrollWrap && img) {
+      scrollWrap.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const dir = e.deltaY < 0 ? 0.15 : -0.15;
+        setZoom((state.candidateImageZoom[testKey] || 1) + dir);
+      }, { passive: false });
+    }
 
-if (fullscreenBtn && img) {
-  fullscreenBtn.addEventListener('click', () => {
-    const old = document.getElementById('giLightbox');
-    if (old) old.remove();
-    const lb = document.createElement('div');
-    lb.id = 'giLightbox';
-    lb.innerHTML = `<img src="${img.src}" alt="Preview">`;
-    lb.onclick = () => lb.remove();
-    document.body.appendChild(lb);
-  });
-}
+    if (fullscreenBtn && img) {
+      fullscreenBtn.addEventListener('click', () => {
+        const old = document.getElementById('giLightbox');
+        if (old) old.remove();
+        const lb = document.createElement('div');
+        lb.id = 'giLightbox';
+        lb.innerHTML = `<img src="${img.src}" alt="Preview">`;
+        lb.onclick = () => lb.remove();
+        document.body.appendChild(lb);
+      });
+    }
 
     if (replaceBtn) {
       replaceBtn.addEventListener('click', () => {
