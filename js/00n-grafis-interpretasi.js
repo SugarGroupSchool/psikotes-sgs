@@ -1,22 +1,19 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v6
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7
    ------------------------------------------------------------
-   🔄 v6 [2026-09-23]:
-   - Flow 3 kotak (DAP/BAUM/HTP) → klik → detail otomatis
-   - Auto-generate interpretasi dari GRAFIS_AUTO_DATA
-   - LocalStorage draft (biar tidak hilang kalau refresh)
-   - Kop logo formal
-   - 7 kategori + kesimpulan + rekomendasi tetap manual
-   - Assessor otomatis = ADMIN
-   - 🆕 NOTES GABUNGAN — auto-generate + copy button
-   - 🆕 STEPPER — 1 slide per layar + tombol Next/Prev
+   v7 [2026-09-25]:
+   - 🆕 LAYOUT 2-KOLOM: gambar kandidat (kiri) + pilihan (kanan)
+   - 🆕 PANEL GAMBAR: upload / drag / paste / URL + zoom / ganti / hapus
+   - 🆕 AUTO-LOAD gambar dari Firebase (sgs_grafis_images)
+   - 🆕 STEPPER: 1 slide per layar
+   - 🆕 NOTES GABUNGAN
    ============================================================ */
 
 (function () {
   'use strict';
 
   /* ============================================================
-     HELPERS (didefinisikan dulu — selalu tersedia)
+     HELPERS
      ============================================================ */
   function escapeHtml(s) {
     return String(s || '')
@@ -39,7 +36,7 @@
   }
 
   /* ============================================================
-     MODAL LINK UNTUK ADMIN
+     MODAL LINK UNTUK ADMIN (dari panel kandidat)
      ============================================================ */
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
@@ -172,48 +169,46 @@
 
   console.log('[GRAFIS-INTERP] Mode aktif —', { candidateName, candidatePosition });
 
-   /* ============================================================
-   🆕 Auto-load gambar kandidat dari Firebase
-   ============================================================ */
-async function loadCandidateImagesFromFirebase(retryCount) {
-  retryCount = retryCount || 0;
+  /* ============================================================
+     AUTO-LOAD GAMBAR DARI FIREBASE
+     ============================================================ */
+  async function loadCandidateImagesFromFirebase(retryCount) {
+    retryCount = retryCount || 0;
 
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    if (retryCount < 6) {
-      await new Promise(r => setTimeout(r, 500));
-      return loadCandidateImagesFromFirebase(retryCount + 1);
-    }
-    console.warn('[GRAFIS-INTERP] Firebase belum siap, skip auto-load');
-    return;
-  }
-
-  const slug = candidateSlug(candidateName);
-  if (!slug) return;
-
-  try {
-    const snap = await firebase.database()
-      .ref('sgs_grafis_images/' + slug)
-      .once('value');
-
-    const data = snap.val();
-    if (!data || !data.images) {
-      console.log('[GRAFIS-INTERP] Tidak ada gambar tersimpan untuk:', slug);
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      if (retryCount < 6) {
+        await new Promise(r => setTimeout(r, 500));
+        return loadCandidateImagesFromFirebase(retryCount + 1);
+      }
+      console.warn('[GRAFIS-INTERP] Firebase belum siap, skip auto-load');
       return;
     }
 
-    const imgs = data.images;
+    const slug = candidateSlug(candidateName);
+    if (!slug) return;
 
-    // Jangan overwrite kalau admin sudah upload manual
-    if (imgs.dap  && imgs.dap.dataUrl  && !state.candidateImages.dap)  state.candidateImages.dap  = imgs.dap.dataUrl;
-    if (imgs.baum && imgs.baum.dataUrl && !state.candidateImages.baum) state.candidateImages.baum = imgs.baum.dataUrl;
-    if (imgs.htp  && imgs.htp.dataUrl  && !state.candidateImages.htp)  state.candidateImages.htp  = imgs.htp.dataUrl;
+    try {
+      const snap = await firebase.database()
+        .ref('sgs_grafis_images/' + slug)
+        .once('value');
 
-    console.log('[GRAFIS-INTERP] ✅ Gambar kandidat berhasil dimuat dari Firebase');
-  } catch (e) {
-    console.warn('[GRAFIS-INTERP] Gagal load gambar:', e.message);
+      const data = snap.val();
+      if (!data || !data.images) {
+        console.log('[GRAFIS-INTERP] Tidak ada gambar tersimpan untuk:', slug);
+        return;
+      }
+
+      const imgs = data.images;
+      if (imgs.dap  && imgs.dap.dataUrl  && !state.candidateImages.dap)  state.candidateImages.dap  = imgs.dap.dataUrl;
+      if (imgs.baum && imgs.baum.dataUrl && !state.candidateImages.baum) state.candidateImages.baum = imgs.baum.dataUrl;
+      if (imgs.htp  && imgs.htp.dataUrl  && !state.candidateImages.htp)  state.candidateImages.htp  = imgs.htp.dataUrl;
+
+      console.log('[GRAFIS-INTERP] ✅ Gambar kandidat berhasil dimuat dari Firebase');
+    } catch (e) {
+      console.warn('[GRAFIS-INTERP] Gagal load gambar:', e.message);
+    }
   }
-}
-   
+
   /* ============================================================
      HIDE UI BAWAAN
      ============================================================ */
@@ -232,22 +227,14 @@ async function loadCandidateImagesFromFirebase(retryCount) {
   setTimeout(hideDefaultUI, 500);
 
   /* ============================================================
-     DRAFT KEY
+     DRAFT KEY & STATE
      ============================================================ */
   const DRAFT_KEY = 'grafis_interp_draft_' + candidateSlug(candidateName);
 
-  /* ============================================================
-     STATE
-     ============================================================ */
-const state = {
-  activePage: 'landing',
-  selectedItems: { dap: {}, baum: {}, htp: {} },
-  candidateImages: {          // ← TAMBAHKAN
-    dap:  '',
-    baum: '',
-    htp:  ''
-  },
-    // 🆕 STEPPER — posisi slide aktif per tes (biar tidak reset tiap klik opsi)
+  const state = {
+    activePage: 'landing',
+    selectedItems: { dap: {}, baum: {}, htp: {} },
+    candidateImages: { dap: '', baum: '', htp: '' },
     currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
@@ -260,42 +247,43 @@ const state = {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
-     if (draft.selectedItems) state.selectedItems = Object.assign(state.selectedItems, draft.selectedItems);
-if (draft.candidateImages) state.candidateImages = Object.assign(state.candidateImages, draft.candidateImages);  // ← TAMBAHKAN
-if (draft.currentStep)   state.currentStep = Object.assign(state.currentStep, draft.currentStep);
-      if (draft.categories)    state.categories = draft.categories;
-      if (draft.conclusion)    state.conclusion = draft.conclusion;
-      if (draft.recommendation) state.recommendation = draft.recommendation;
-      if (draft.reasons)       state.reasons = draft.reasons;
-      if (draft.development)   state.development = draft.development;
+      if (draft.selectedItems)   state.selectedItems   = Object.assign(state.selectedItems, draft.selectedItems);
+      if (draft.candidateImages) state.candidateImages = Object.assign(state.candidateImages, draft.candidateImages);
+      if (draft.currentStep)     state.currentStep     = Object.assign(state.currentStep, draft.currentStep);
+      if (draft.categories)      state.categories      = draft.categories;
+      if (draft.conclusion)      state.conclusion      = draft.conclusion;
+      if (draft.recommendation)  state.recommendation  = draft.recommendation;
+      if (draft.reasons)         state.reasons         = draft.reasons;
+      if (draft.development)     state.development     = draft.development;
       console.log('[GRAFIS-INTERP] Draft dimuat');
     }
   } catch (e) {}
 
-function saveDraft() {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      selectedItems: state.selectedItems,
-      candidateImages: state.candidateImages,   // ← TAMBAHKAN
-      currentStep: state.currentStep,
-      categories: state.categories,
-      conclusion: state.conclusion,
-      recommendation: state.recommendation,
-      reasons: state.reasons,
-      development: state.development
-    }));
-  } catch (e) {}
-}
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        selectedItems:   state.selectedItems,
+        candidateImages: state.candidateImages,
+        currentStep:     state.currentStep,
+        categories:      state.categories,
+        conclusion:      state.conclusion,
+        recommendation:  state.recommendation,
+        reasons:         state.reasons,
+        development:     state.development
+      }));
+    } catch (e) {}
+  }
+
   /* ============================================================
      AUTO-GENERATE INTERPRETASI
      ============================================================ */
   function generateAutoText(testKey) {
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-    if (!data || !Array.isArray(data.slides)) return '';
+    if (!data || !Array.isArray(data.groups)) return '';
     const selected = state.selectedItems[testKey] || {};
     const lines = [];
 
-    data.slides.forEach(group => {
+    data.groups.forEach(group => {
       const groupLines = [];
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
@@ -305,8 +293,6 @@ function saveDraft() {
           const item = (section.items || []).find(i => i.id === itemId);
           if (!item) return;
           groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
-
-          // ==== Sub-items ====
           (item.subItems || []).forEach(sub => {
             const subKey = section.id + '::' + sub.id;
             if (selected[subKey]) {
@@ -334,7 +320,7 @@ function saveDraft() {
   }
 
   /* ============================================================
-     🆕 NOTES GABUNGAN — generate data
+     NOTES GABUNGAN
      ============================================================ */
   function generateCombinedNotes() {
     const autoData = window.GRAFIS_AUTO_DATA || {};
@@ -343,12 +329,12 @@ function saveDraft() {
 
     testKeys.forEach(key => {
       const data = autoData[key];
-      if (!data || !data.slides) return;
+      if (!data || !data.groups) return;
 
       const selected = state.selectedItems[key] || {};
       const selectedLines = [];
 
-      data.slides.forEach(group => {
+      data.groups.forEach(group => {
         (group.sections || []).forEach(section => {
           const val = selected[section.id];
           if (!val) return;
@@ -358,30 +344,19 @@ function saveDraft() {
             const item = (section.items || []).find(i => i.id === itemId);
             if (!item) return;
 
-            // ==== Item utama ====
             if (!selectedLines.some(l => l.text === item.interpret)) {
-              selectedLines.push({
-                label: item.label,
-                text: item.interpret,
-                group: group.title
-              });
+              selectedLines.push({ label: item.label, text: item.interpret, group: group.title });
             }
 
-            // ==== Sub-items (dependsOn) ====
             (item.subItems || []).forEach(sub => {
               const subKey = section.id + '::' + sub.id;
               if (selected[subKey] && !selectedLines.some(l => l.text === sub.interpret)) {
-                selectedLines.push({
-                  label: '↳ ' + sub.label,
-                  text: sub.interpret,
-                  group: group.title
-                });
+                selectedLines.push({ label: '↳ ' + sub.label, text: sub.interpret, group: group.title });
               }
             });
           });
         });
 
-        // ==== Safety net: sub-item yatim ====
         (group.sections || []).forEach(section => {
           Object.keys(selected).forEach(k => {
             if (!k.startsWith(section.id + '::')) return;
@@ -391,11 +366,7 @@ function saveDraft() {
               (parent.subItems || []).forEach(sub => {
                 if (sub.id !== subId) return;
                 if (selectedLines.some(l => l.text === sub.interpret)) return;
-                selectedLines.push({
-                  label: '↳ ' + sub.label,
-                  text: sub.interpret,
-                  group: group.title
-                });
+                selectedLines.push({ label: '↳ ' + sub.label, text: sub.interpret, group: group.title });
               });
             });
           });
@@ -415,9 +386,6 @@ function saveDraft() {
     return lines;
   }
 
-  /* ============================================================
-     🆕 NOTES GABUNGAN — render UI
-     ============================================================ */
   function renderCombinedNotes() {
     const container = document.getElementById('giCombinedNotes');
     if (!container) return;
@@ -447,9 +415,7 @@ function saveDraft() {
       <div style="display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
         <div>
-          <div style="font-size: 14px; font-weight: 900; color: #1e293b;">
-            📝 Notes Gabungan
-          </div>
+          <div style="font-size: 14px; font-weight: 900; color: #1e293b;">📝 Notes Gabungan</div>
           <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">
             ${totalItems} item dari ${notesData.length} tes — siap copy-paste untuk kesimpulan
           </div>
@@ -469,8 +435,7 @@ function saveDraft() {
           background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;
           font-family: 'Courier New', ui-monospace, monospace;
           font-size: 12.5px; line-height: 1.7; color: #1e293b;
-          white-space: pre-wrap; word-break: break-word;
-          scrollbar-width: thin;">
+          white-space: pre-wrap; word-break: break-word; scrollbar-width: thin;">
 ${notesData.map(t => `
 <span style="color: #6d28d9; font-weight: 900;">═══ ${t.icon} ${escapeHtml(t.title)} ═══</span>
 
@@ -483,7 +448,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
         font-size: 11.5px; color: #1e40af; line-height: 1.6;">
         💡 <b>Tips:</b> Klik <b>Copy Semua Notes</b> lalu paste di kolom
-        <b>Kesimpulan Keseluruhan</b> di bawah — tinggal edit dan rapikan sesuai gaya Anda.
+        <b>Kesimpulan Keseluruhan</b> di bawah.
       </div>
     `;
 
@@ -504,9 +469,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           } else {
             fallbackCopyText(plainText);
           }
-        } catch (e) {
-          fallbackCopyText(plainText);
-        }
+        } catch (e) { fallbackCopyText(plainText); }
       };
     }
   }
@@ -546,7 +509,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     root.innerHTML = `
       <div style="max-width: 900px; margin: 0 auto 60px;">
 
-        <!-- KOP -->
         <div style="background: #fff; border-radius: 18px 18px 0 0;
           padding: 22px 30px; border-bottom: 3px double #6d28d9;
           box-shadow: 0 4px 20px rgba(109,40,217,.08);">
@@ -581,7 +543,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
         </div>
 
-        <!-- INFO KANDIDAT -->
         <div style="background: #fff; padding: 20px 30px; border-bottom: 1px solid #e2e8f0;">
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
             <div>
@@ -601,18 +562,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
         </div>
 
-        <!-- FORM MANUAL -->
         <div style="background: #fff; padding: 26px 30px 30px; border-radius: 0 0 18px 18px;
           box-shadow: 0 20px 50px rgba(15,23,42,.08);">
 
-          <!-- 3 KOTAK -->
           <div style="margin-bottom: 28px;">
             <div style="font-size: 15px; font-weight: 900; color: #1e293b; margin-bottom: 6px;">
               🖼️ Interpretasi Per Tes
             </div>
             <div style="font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.6;">
               Klik salah satu kotak di bawah untuk memilih bagian / karakteristik gambar.
-              Interpretasi akan otomatis disusun.
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;">
@@ -620,7 +578,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 const data = autoData[key] || {};
                 const theme = data.theme || { primary: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe' };
                 const count = countSelectedItems(key);
-                const hasData = (data.slides || []).length > 0;
+                const hasData = (data.groups || []).length > 0;
                 return `
                   <button type="button" class="js-open-test" data-test="${key}"
                     style="text-align: left; padding: 18px 20px;
@@ -629,8 +587,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                       border-radius: 16px; cursor: pointer;
                       font-family: inherit; transition: all .18s ease;
                       position: relative; min-height: 150px;
-                      display: flex; flex-direction: column;
-                    "
+                      display: flex; flex-direction: column;"
                     onmouseover="if(${hasData}){this.style.transform='translateY(-3px)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.08)';}"
                     onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';"
                     ${hasData ? '' : 'disabled'}>
@@ -650,9 +607,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                         background: ${count > 0 ? '#fff' : '#f1f5f9'};
                         padding: 4px 10px; border-radius: 999px;
                         border: 1px solid ${count > 0 ? theme.border : '#e2e8f0'};">
-                        ${hasData
-                          ? (count > 0 ? `✓ ${count} item dipilih` : 'Belum diisi')
-                          : 'Segera hadir'}
+                        ${hasData ? (count > 0 ? `✓ ${count} item dipilih` : 'Belum diisi') : 'Segera hadir'}
                       </span>
                       ${hasData ? `<span style="font-size: 18px; color: ${theme.primary};">→</span>` : ''}
                     </div>
@@ -662,14 +617,12 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             </div>
           </div>
 
-          <!-- 🆕 NOTES GABUNGAN -->
           <div style="margin-bottom: 28px; padding: 20px 22px;
             background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
             border: 2px solid #7dd3fc; border-radius: 16px;">
             <div id="giCombinedNotes"></div>
           </div>
 
-          <!-- 7 KATEGORI -->
           <div style="margin-bottom: 24px; padding: 22px 22px 20px; background: #f8fafc;
             border: 2px solid #e2e8f0; border-radius: 16px;">
             <div style="font-size: 15px; font-weight: 900; color: #1e293b; margin-bottom: 6px;">
@@ -681,7 +634,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             <div id="category-list"></div>
           </div>
 
-          <!-- KESIMPULAN KESELURUHAN -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fffbeb;
             border: 2px solid #fde68a; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #92400e; margin-bottom: 14px;">
@@ -695,7 +647,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 line-height: 1.6; min-height: 130px;">${escapeHtml(state.conclusion)}</textarea>
           </div>
 
-          <!-- REKOMENDASI -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #f0f9ff;
             border: 2px solid #bae6fd; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #075985; margin-bottom: 14px;">
@@ -712,7 +663,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             </select>
           </div>
 
-          <!-- ALASAN -->
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fef2f2;
             border: 2px solid #fecaca; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #991b1b; margin-bottom: 14px;">
@@ -726,7 +676,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 line-height: 1.6; min-height: 110px;">${escapeHtml(state.reasons)}</textarea>
           </div>
 
-          <!-- PENGEMBANGAN -->
           <div style="margin-bottom: 26px; padding: 20px 22px; background: #f5f3ff;
             border: 2px solid #ddd6fe; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #5b21b6; margin-bottom: 14px;">
@@ -740,7 +689,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 line-height: 1.6; min-height: 110px;">${escapeHtml(state.development)}</textarea>
           </div>
 
-          <!-- SUBMIT -->
           <button type="button" id="giSubmitBtn"
             style="width: 100%; padding: 16px; border: 0; border-radius: 14px;
               background: linear-gradient(135deg, #6d28d9, #a855f7);
@@ -756,7 +704,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </div>
     `;
 
-    // Bind 3 kotak
     root.querySelectorAll('.js-open-test').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -765,13 +712,9 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       });
     });
 
-    // 🆕 Render notes gabungan
     renderCombinedNotes();
-
-    // Render kategori
     renderCategories();
 
-    // Bind manual fields
     const concl = document.getElementById('giConclusion');
     if (concl) concl.addEventListener('input', (e) => { state.conclusion = e.target.value; saveDraft(); });
 
@@ -789,7 +732,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     DETAIL PAGE — per test (dengan STEPPER)
+     DETAIL PAGE — 2-KOLOM + STEPPER + PANEL GAMBAR
      ============================================================ */
   function renderTestDetail(testKey) {
     const root = getRoot();
@@ -804,9 +747,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     state.activePage = testKey;
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected = state.selectedItems[testKey] || {};
+    const currentImg = state.candidateImages[testKey] || '';
 
-    // 🆕 Bungkus tiap slide jadi .gi-step
-    const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
+    /* ===== Konten pilihan interpretasi (per slide) ===== */
+    const sectionsHTML = (data.groups || []).map((group, stepIdx) => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
@@ -815,7 +759,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           if (isRadio) isChecked = (val === item.id);
           else isChecked = Array.isArray(val) && val.includes(item.id);
 
-          // ==== RENDER SUB-ITEMS (hanya jika parent terpilih) ====
           let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
             subItemsHTML = item.subItems.map(sub => {
@@ -842,7 +785,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                       color: ${subChecked ? theme.primaryDark : '#334155'};
                       line-height: 1.4; margin-bottom: 3px;">
                       ↳ ${escapeHtml(sub.label)}
-                      ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional — isi kalau ada)</span>` : ''}
+                      ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional)</span>` : ''}
                     </div>
                     <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
                       ${escapeHtml(sub.interpret)}
@@ -867,7 +810,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                   border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
                   background: ${isChecked ? theme.primary : '#fff'};
                   ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
-                  display: grid; place-items: center; position: relative;">
+                  display: grid; place-items: center;">
                   ${isChecked
                     ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                          stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
@@ -906,7 +849,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         `;
       }).join('');
 
-      // 🆕 class="gi-step" + data-step
       return `
         <div class="gi-step" data-step="${stepIdx}"
           style="margin-bottom: 28px; padding: 20px 22px;
@@ -922,8 +864,123 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       `;
     }).join('');
 
+    /* ===== Panel kiri: gambar kandidat ===== */
+    const candidatePanelHTML = currentImg
+      ? `
+        <div style="position: relative; background: #f8fafc;
+          border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
+            style="display: block; width: 100%; height: auto; max-height: 72vh;
+              object-fit: contain; background: #fff;">
+          <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 6px;">
+            <button type="button" id="giImageZoomBtn" title="Perbesar"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(15,23,42,.75); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🔍</button>
+            <button type="button" id="giImageReplaceBtn" title="Ganti"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(15,23,42,.75); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🔄</button>
+            <button type="button" id="giImageRemoveBtn" title="Hapus"
+              style="width: 34px; height: 34px; border-radius: 8px;
+                background: rgba(220,38,38,.85); color: #fff; border: 0;
+                font-size: 16px; cursor: pointer;">🗑️</button>
+          </div>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #64748b; text-align: center;">
+          🔍 Zoom · 🔄 Ganti · 🗑️ Hapus · Ctrl+V paste
+        </div>
+      `
+      : `
+        <div id="giImageDropZone"
+          style="padding: 26px 18px; text-align: center;
+            background: #f8fafc; border: 2px dashed #cbd5e1;
+            border-radius: 12px; cursor: pointer; transition: all .18s ease;">
+          <div style="font-size: 40px; line-height: 1; margin-bottom: 10px; opacity: .55;">📷</div>
+          <div style="font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 6px;">
+            Upload Gambar Kandidat
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; line-height: 1.5; margin-bottom: 14px;">
+            Klik / drag ke sini.<br>Bisa juga paste screenshot (Ctrl+V).
+          </div>
+          <button type="button" id="giImagePickBtn"
+            style="padding: 9px 18px;
+              background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
+              color: #fff; border: 0; border-radius: 9px;
+              font-family: inherit; font-size: 12px; font-weight: 800;
+              cursor: pointer;">
+            📁 Pilih File
+          </button>
+          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #94a3b8; margin-bottom: 6px;">
+              ATAU PASTE URL GAMBAR
+            </div>
+            <input type="text" id="giImageUrlInput" placeholder="https://..."
+              style="width: 100%; padding: 9px 12px; border: 1.5px solid #e2e8f0;
+                border-radius: 8px; font-family: inherit; font-size: 11.5px;
+                outline: none; box-sizing: border-box; background: #fff;">
+            <button type="button" id="giImageUrlBtn"
+              style="margin-top: 6px; width: 100%; padding: 8px;
+                background: #f1f5f9; color: #475569; border: 0;
+                border-radius: 8px; font-family: inherit; font-size: 11px;
+                font-weight: 800; cursor: pointer;">
+              Terapkan URL
+            </button>
+          </div>
+        </div>
+        <input type="file" id="giImageFileInput" accept="image/*" style="display: none;">
+      `;
+
+    /* ===== Render halaman ===== */
     root.innerHTML = `
-      <div style="max-width: 900px; margin: 0 auto 60px;">
+      <style>
+        .gi-detail-layout {
+          display: grid;
+          grid-template-columns: minmax(260px, 420px) 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .gi-detail-left-sticky {
+          position: sticky;
+          top: 20px;
+        }
+        .gi-drop-active {
+          background: ${theme.bg} !important;
+          border-color: ${theme.primary} !important;
+        }
+        .gi-step { display: none; }
+        .gi-step.is-active { display: block; }
+        .gi-nav {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; margin-top: 24px; padding-top: 20px;
+          border-top: 1.5px dashed #e2e8f0;
+        }
+        .gi-nav button {
+          padding: 11px 22px; border-radius: 10px; font-family: inherit;
+          font-size: 13px; font-weight: 800; cursor: pointer;
+          transition: opacity .15s ease;
+        }
+        .gi-prev { border: 1.5px solid #cbd5e1; background: #fff; color: #334155; }
+        .gi-next { border: 0; background: ${theme.primary}; color: #fff; }
+        .gi-nav button:disabled { opacity: .35; cursor: not-allowed; }
+        @media (max-width: 900px) {
+          .gi-detail-layout { grid-template-columns: 1fr; }
+          .gi-detail-left-sticky { position: relative; top: auto; }
+        }
+        #giLightbox {
+          position: fixed; inset: 0; z-index: 2147483647;
+          background: rgba(0,0,0,.92);
+          display: flex; align-items: center; justify-content: center;
+          padding: 30px; cursor: zoom-out;
+        }
+        #giLightbox img {
+          max-width: 100%; max-height: 100%;
+          border-radius: 8px;
+          box-shadow: 0 30px 90px rgba(0,0,0,.7);
+        }
+      </style>
+
+      <div style="max-width: 1400px; margin: 0 auto 60px;">
 
         <div style="background: ${theme.bg}; border: 2px solid ${theme.border};
           border-radius: 18px; padding: 20px 26px;
@@ -942,8 +999,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               color: ${theme.primary}; margin-bottom: 4px;">
               INTERPRETASI OTOMATIS
             </div>
-            <div style="font-size: 19px; font-weight: 900; color: #1e293b;
-              letter-spacing: -.3px;">
+            <div style="font-size: 19px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
             </div>
             <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
@@ -952,74 +1008,70 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
         </div>
 
-        <div style="background: #fff; padding: 22px 26px 26px;
-          border-radius: 18px; box-shadow: 0 20px 50px rgba(15,23,42,.08);">
-          ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
+        <div class="gi-detail-layout">
 
-          <!-- 🆕 STEPPER NAV -->
-          <div class="gi-nav">
-            <button type="button" class="gi-prev">← Sebelumnya</button>
-            <div class="gi-step-info"
-              style="font-size: 12px; font-weight: 800; color: #64748b;"></div>
-            <button type="button" class="gi-next">Selanjutnya →</button>
+          <div class="gi-detail-left-sticky">
+            <div style="background: #fff; border-radius: 18px; padding: 16px;
+              box-shadow: 0 10px 30px rgba(15,23,42,.08);">
+              <div style="display: flex; align-items: center; justify-content: space-between;
+                margin-bottom: 12px;">
+                <div style="font-size: 13px; font-weight: 900; color: #1e293b;">
+                  📷 Gambar Kandidat
+                </div>
+                <div style="font-size: 10px; font-weight: 800; color: #94a3b8;
+                  letter-spacing: 1px;">
+                  ${escapeHtml(testKey.toUpperCase())}
+                </div>
+              </div>
+              ${candidatePanelHTML}
+            </div>
           </div>
 
-          <div style="display: flex; gap: 10px; margin-top: 20px;
-            padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <button type="button" id="giClearBtn"
-              style="flex: 1; padding: 14px; border: 2px solid #fca5a5;
-                background: #fff; color: #dc2626; border-radius: 12px;
-                font-family: inherit; font-size: 14px; font-weight: 800;
-                cursor: pointer;">
-              🗑️ Hapus Semua Pilihan
-            </button>
-            <button type="button" id="giSaveBtn"
-              style="flex: 2; padding: 14px; border: 0;
-                background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
-                color: #fff; border-radius: 12px;
-                font-family: inherit; font-size: 15px; font-weight: 900;
-                cursor: pointer;
-                box-shadow: 0 8px 20px rgba(0,0,0,.12);">
-              💾 Simpan & Kembali
-            </button>
+          <div>
+            <div style="background: #fff; padding: 22px 26px 26px;
+              border-radius: 18px; box-shadow: 0 20px 50px rgba(15,23,42,.08);">
+              ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
+
+              <div class="gi-nav">
+                <button type="button" class="gi-prev">← Sebelumnya</button>
+                <div class="gi-step-info"
+                  style="font-size: 12px; font-weight: 800; color: #64748b;"></div>
+                <button type="button" class="gi-next">Selanjutnya →</button>
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 20px;
+                padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                <button type="button" id="giClearBtn"
+                  style="flex: 1; padding: 14px; border: 2px solid #fca5a5;
+                    background: #fff; color: #dc2626; border-radius: 12px;
+                    font-family: inherit; font-size: 14px; font-weight: 800;
+                    cursor: pointer;">
+                  🗑️ Hapus Semua Pilihan
+                </button>
+                <button type="button" id="giSaveBtn"
+                  style="flex: 2; padding: 14px; border: 0;
+                    background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
+                    color: #fff; border-radius: 12px;
+                    font-family: inherit; font-size: 15px; font-weight: 900;
+                    cursor: pointer;
+                    box-shadow: 0 8px 20px rgba(0,0,0,.12);">
+                  💾 Simpan & Kembali
+                </button>
+              </div>
+            </div>
           </div>
+
         </div>
       </div>
     `;
 
-    /* ============================================================
-       🆕 STEPPER — CSS + HANDLER
-       ============================================================ */
-    if (!document.getElementById('gi-step-style')) {
-      const st = document.createElement('style');
-      st.id = 'gi-step-style';
-      st.textContent = `
-        .gi-step { display: none; }
-        .gi-step.is-active { display: block; }
-        .gi-nav {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 12px; margin-top: 24px; padding-top: 20px;
-          border-top: 1.5px dashed #e2e8f0;
-        }
-        .gi-nav button {
-          padding: 11px 22px; border-radius: 10px; font-family: inherit;
-          font-size: 13px; font-weight: 800; cursor: pointer;
-          transition: opacity .15s ease;
-        }
-        .gi-prev { border: 1.5px solid #cbd5e1; background: #fff; color: #334155; }
-        .gi-next { border: 0; background: ${theme.primary}; color: #fff; }
-        .gi-nav button:disabled { opacity: .35; cursor: not-allowed; }
-      `;
-      document.head.appendChild(st);
-    }
+    /* ===== Stepper ===== */
+    const steps   = root.querySelectorAll('.gi-step');
+    const navInfo = root.querySelector('.gi-step-info');
+    const btnPrev = root.querySelector('.gi-prev');
+    const btnNext = root.querySelector('.gi-next');
+    const TOTAL   = steps.length;
 
-    const steps    = root.querySelectorAll('.gi-step');
-    const navInfo  = root.querySelector('.gi-step-info');
-    const btnPrev  = root.querySelector('.gi-prev');
-    const btnNext  = root.querySelector('.gi-next');
-    const TOTAL    = steps.length;
-
-    // Baca posisi terakhir dari state (biar tidak reset tiap klik opsi)
     if (typeof state.currentStep[testKey] !== 'number') state.currentStep[testKey] = 0;
     let currentStep = Math.min(state.currentStep[testKey], Math.max(0, TOTAL - 1));
 
@@ -1034,33 +1086,18 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       state.currentStep[testKey] = currentStep;
     }
 
-    if (btnPrev) {
-      btnPrev.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (currentStep > 0) { currentStep--; renderStep(); root.scrollTop = 0; }
-      });
-    }
-
-    if (btnNext) {
-      btnNext.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (currentStep < TOTAL - 1) { currentStep++; renderStep(); root.scrollTop = 0; }
-      });
-    }
-
-    // Keyboard ←/→
-    document.addEventListener('keydown', (e) => {
-      if (e.target.matches('input, textarea, select')) return;
-      if (!document.body.contains(root)) return;
-      if (e.key === 'ArrowRight' && btnNext && !btnNext.disabled) btnNext.click();
-      if (e.key === 'ArrowLeft'  && btnPrev && !btnPrev.disabled) btnPrev.click();
+    if (btnPrev) btnPrev.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentStep > 0) { currentStep--; renderStep(); }
+    });
+    if (btnNext) btnNext.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (currentStep < TOTAL - 1) { currentStep++; renderStep(); }
     });
 
     renderStep();
-    /* ============================================================
-       AKHIR STEPPER
-       ============================================================ */
 
+    /* ===== Option & Subitem click ===== */
     root.querySelectorAll('.js-option-item').forEach(label => {
       label.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1068,8 +1105,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         const itemId = label.getAttribute('data-item');
         const type = label.getAttribute('data-type');
 
-        // Cari section & item dari data supaya bisa hapus subItems pas deselect
-        const section = (data.slides || [])
+        const section = (data.groups || [])
           .flatMap(g => g.sections || [])
           .find(s => s.id === sectionId);
 
@@ -1088,12 +1124,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           let arr = state.selectedItems[testKey][sectionId];
           if (!Array.isArray(arr)) arr = [];
           const idx = arr.indexOf(itemId);
-          if (idx >= 0) {
-            arr.splice(idx, 1);
-            clearSubItems(itemId);
-          } else {
-            arr.push(itemId);
-          }
+          if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
+          else arr.push(itemId);
           state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
         }
         saveDraft();
@@ -1101,39 +1133,162 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       });
     });
 
-    // ==== HANDLER SUB-ITEM ====
     root.querySelectorAll('.js-subitem').forEach(label => {
       label.addEventListener('click', (e) => {
         e.preventDefault();
         const key = label.getAttribute('data-key');
         const cur = state.selectedItems[testKey][key];
-        if (cur) {
-          delete state.selectedItems[testKey][key];
-        } else {
-          state.selectedItems[testKey][key] = 'checked';
-        }
+        if (cur) delete state.selectedItems[testKey][key];
+        else state.selectedItems[testKey][key] = 'checked';
         saveDraft();
         renderTestDetail(testKey);
       });
     });
 
+    /* ===== Tombol bawah ===== */
     document.getElementById('giBackBtn').addEventListener('click', () => {
-      saveDraft();
-      renderLanding();
+      saveDraft(); renderLanding();
     });
-
     document.getElementById('giClearBtn').addEventListener('click', () => {
       if (!confirm('Hapus semua pilihan untuk ' + data.title + '?')) return;
       state.selectedItems[testKey] = {};
-      state.currentStep[testKey] = 0;   // 🆕 reset step ke awal
+      state.currentStep[testKey] = 0;
       saveDraft();
       renderTestDetail(testKey);
     });
-
     document.getElementById('giSaveBtn').addEventListener('click', () => {
-      saveDraft();
-      renderLanding();
+      saveDraft(); renderLanding();
     });
+
+    /* ===== Handler gambar ===== */
+    __attachCandidateImageHandlers(testKey, theme);
+  }
+
+  /* ============================================================
+     Handler gambar kandidat
+     ============================================================ */
+  function __attachCandidateImageHandlers(testKey, theme) {
+
+    function setImage(src) {
+      state.candidateImages[testKey] = src || '';
+      saveDraft();
+      renderTestDetail(testKey);
+    }
+
+    function readFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert('File harus gambar (JPG / PNG / WEBP).');
+        return;
+      }
+      if (file.size > 8 * 1024 * 1024) {
+        alert('Ukuran maksimal 8 MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => setImage(ev.target.result);
+      reader.onerror = () => alert('Gagal membaca file.');
+      reader.readAsDataURL(file);
+    }
+
+    const dropZone  = document.getElementById('giImageDropZone');
+    const pickBtn   = document.getElementById('giImagePickBtn');
+    const fileInput = document.getElementById('giImageFileInput');
+    const urlInput  = document.getElementById('giImageUrlInput');
+    const urlBtn    = document.getElementById('giImageUrlBtn');
+
+    if (dropZone) {
+      dropZone.addEventListener('click', (e) => {
+        if (e.target.closest('#giImagePickBtn') ||
+            e.target.closest('#giImageUrlInput') ||
+            e.target.closest('#giImageUrlBtn')) return;
+        fileInput.click();
+      });
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('gi-drop-active');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('gi-drop-active'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('gi-drop-active');
+        const f = e.dataTransfer.files?.[0];
+        if (f) readFile(f);
+      });
+    }
+
+    if (pickBtn && fileInput) pickBtn.addEventListener('click', () => fileInput.click());
+    if (fileInput) fileInput.addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (f) readFile(f);
+    });
+
+    if (urlBtn && urlInput) {
+      urlBtn.addEventListener('click', () => {
+        const url = (urlInput.value || '').trim();
+        if (!url) { alert('URL kosong.'); return; }
+        if (!/^https?:\/\//i.test(url) && !url.startsWith('data:')) {
+          alert('URL harus diawali http:// atau https://');
+          return;
+        }
+        setImage(url);
+      });
+      urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); urlBtn.click(); }
+      });
+    }
+
+    const zoomBtn    = document.getElementById('giImageZoomBtn');
+    const replaceBtn = document.getElementById('giImageReplaceBtn');
+    const removeBtn  = document.getElementById('giImageRemoveBtn');
+    const img        = document.getElementById('giCandidateImg');
+
+    if (zoomBtn && img) {
+      zoomBtn.addEventListener('click', () => {
+        const old = document.getElementById('giLightbox');
+        if (old) old.remove();
+        const lb = document.createElement('div');
+        lb.id = 'giLightbox';
+        lb.innerHTML = `<img src="${img.src}" alt="Preview">`;
+        lb.onclick = () => lb.remove();
+        document.body.appendChild(lb);
+      });
+    }
+
+    if (replaceBtn) {
+      replaceBtn.addEventListener('click', () => {
+        const tmp = document.createElement('input');
+        tmp.type = 'file';
+        tmp.accept = 'image/*';
+        tmp.onchange = (e) => {
+          const f = e.target.files?.[0];
+          if (f) readFile(f);
+        };
+        tmp.click();
+      });
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        if (!confirm('Hapus gambar kandidat?')) return;
+        setImage('');
+      });
+    }
+
+    const pasteHandler = (e) => {
+      if (state.activePage !== testKey) {
+        document.removeEventListener('paste', pasteHandler);
+        return;
+      }
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.type?.startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) { e.preventDefault(); readFile(f); return; }
+        }
+      }
+    };
+    document.addEventListener('paste', pasteHandler);
   }
 
   /* ============================================================
@@ -1539,7 +1694,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
      RUN
      ============================================================ */
   let __uiBuilt = false;
- async function run() {
+
+  async function run() {
     if (__uiBuilt) return;
     __uiBuilt = true;
 
@@ -1558,15 +1714,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     `;
     document.body.appendChild(root);
 
-   await loadCandidateImagesFromFirebase();  // ← TAMBAHKAN
+    await loadCandidateImagesFromFirebase();
 
-  renderLanding();
-}
+    renderLanding();
+  }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', function () { run(); });
-} else {
-  setTimeout(run, 200);
-}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { run(); });
+  } else {
+    setTimeout(run, 200);
+  }
 
-})();     // ← tutup IIFE dengan benar (ada baris kosong di atas)
+})();
