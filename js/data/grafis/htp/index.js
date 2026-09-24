@@ -1,7 +1,7 @@
 window.GRAFIS_AUTO_DATA_HTP = {
   title: 'HTP — House Tree Person',
   subtitle: 'Interpretasi otomatis (data sedang dilengkapi)',
-  icon: '🏠',
+  icon: '🏠 🌳 👤',
   theme: {
     primary: '#3b82f6', primaryDark: '#1e40af',
     bg: '#eff6ff', border: '#bfdbfe'
