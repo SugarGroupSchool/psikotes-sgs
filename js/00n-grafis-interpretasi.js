@@ -1,7 +1,8 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7.1
    ------------------------------------------------------------
-   v7 [2026-09-25]:
+   v7.1 [2026-09-25]:
+   - 🐛 FIX: data.groups → data.slides (sesuai struktur baru)
    - 🆕 LAYOUT 2-KOLOM: gambar kandidat (kiri) + pilihan (kanan)
    - 🆕 PANEL GAMBAR: upload / drag / paste / URL + zoom / ganti / hapus
    - 🆕 AUTO-LOAD gambar dari Firebase (sgs_grafis_images)
@@ -36,7 +37,7 @@
   }
 
   /* ============================================================
-     MODAL LINK UNTUK ADMIN (dari panel kandidat)
+     MODAL LINK UNTUK ADMIN
      ============================================================ */
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
@@ -279,11 +280,11 @@
      ============================================================ */
   function generateAutoText(testKey) {
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-    if (!data || !Array.isArray(data.groups)) return '';
+    if (!data || !Array.isArray(data.slides)) return '';           /* ← FIX */
     const selected = state.selectedItems[testKey] || {};
     const lines = [];
 
-    data.groups.forEach(group => {
+    data.slides.forEach(group => {                                  /* ← FIX */
       const groupLines = [];
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
@@ -329,12 +330,12 @@
 
     testKeys.forEach(key => {
       const data = autoData[key];
-      if (!data || !data.groups) return;
+      if (!data || !data.slides) return;                            /* ← FIX */
 
       const selected = state.selectedItems[key] || {};
       const selectedLines = [];
 
-      data.groups.forEach(group => {
+      data.slides.forEach(group => {                                /* ← FIX */
         (group.sections || []).forEach(section => {
           const val = selected[section.id];
           if (!val) return;
@@ -578,7 +579,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 const data = autoData[key] || {};
                 const theme = data.theme || { primary: '#6d28d9', bg: '#f5f3ff', border: '#ddd6fe' };
                 const count = countSelectedItems(key);
-                const hasData = (data.groups || []).length > 0;
+                const hasData = (data.slides || []).length > 0;      /* ← FIX */
                 return `
                   <button type="button" class="js-open-test" data-test="${key}"
                     style="text-align: left; padding: 18px 20px;
@@ -750,7 +751,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const currentImg = state.candidateImages[testKey] || '';
 
     /* ===== Konten pilihan interpretasi (per slide) ===== */
-    const sectionsHTML = (data.groups || []).map((group, stepIdx) => {
+    const sectionsHTML = (data.slides || []).map((group, stepIdx) => {    /* ← FIX */
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
@@ -1105,7 +1106,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         const itemId = label.getAttribute('data-item');
         const type = label.getAttribute('data-type');
 
-        const section = (data.groups || [])
+        const section = (data.slides || [])                            /* ← FIX */
           .flatMap(g => g.sections || [])
           .find(s => s.id === sectionId);
 
