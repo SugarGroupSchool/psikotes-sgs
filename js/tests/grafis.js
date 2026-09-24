@@ -357,10 +357,22 @@ function renderUploadSlide() {
     </div>
   `;
 
-  document.getElementById("btnFinishGrafis").onclick = function () {
-    renderGrafisThankYou();
-    setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 150);
-  };
+document.getElementById("btnFinishGrafis").onclick = async function () {
+  const btn = document.getElementById("btnFinishGrafis");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Menyimpan gambar...';
+  }
+
+  try {
+    await __uploadGrafisImagesToFirebase();
+  } catch (e) {
+    console.warn('[GRAFIS] Upload error:', e);
+  }
+
+  renderGrafisThankYou();
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 150);
+};
 }
 
 /* ============================================================
