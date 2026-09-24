@@ -9,6 +9,7 @@
    - 7 kategori + kesimpulan + rekomendasi tetap manual
    - Assessor otomatis = ADMIN
    - 🆕 NOTES GABUNGAN — auto-generate + copy button
+   - 🆕 STEPPER — 1 slide per layar + tombol Next/Prev
    ============================================================ */
 
 (function () {
@@ -203,6 +204,8 @@
       baum: {},
       htp:  {}
     },
+    // 🆕 STEPPER — posisi slide aktif per tes (biar tidak reset tiap klik opsi)
+    currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
     recommendation: '',
@@ -215,6 +218,7 @@
     if (raw) {
       const draft = JSON.parse(raw);
       if (draft.selectedItems) state.selectedItems = Object.assign(state.selectedItems, draft.selectedItems);
+      if (draft.currentStep)   state.currentStep = Object.assign(state.currentStep, draft.currentStep);
       if (draft.categories)    state.categories = draft.categories;
       if (draft.conclusion)    state.conclusion = draft.conclusion;
       if (draft.recommendation) state.recommendation = draft.recommendation;
@@ -228,6 +232,7 @@
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         selectedItems: state.selectedItems,
+        currentStep: state.currentStep,
         categories: state.categories,
         conclusion: state.conclusion,
         recommendation: state.recommendation,
@@ -242,29 +247,29 @@
      ============================================================ */
   function generateAutoText(testKey) {
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-  if (!data || !Array.isArray(data.slides)) return '';
+    if (!data || !Array.isArray(data.slides)) return '';
     const selected = state.selectedItems[testKey] || {};
     const lines = [];
 
-data.slides.forEach(group => {
+    data.slides.forEach(group => {
       const groupLines = [];
       (group.sections || []).forEach(section => {
         const val = selected[section.id];
         if (!val) return;
         const itemIds = Array.isArray(val) ? val : [val];
-itemIds.forEach(itemId => {
-  const item = (section.items || []).find(i => i.id === itemId);
-  if (!item) return;
-  groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
+        itemIds.forEach(itemId => {
+          const item = (section.items || []).find(i => i.id === itemId);
+          if (!item) return;
+          groupLines.push(`  • ${item.label}:\n    ${item.interpret}`);
 
-  // ==== Sub-items ====
-  (item.subItems || []).forEach(sub => {
-    const subKey = section.id + '::' + sub.id;
-    if (selected[subKey]) {
-      groupLines.push(`    ◦ ${sub.label}:\n      ${sub.interpret}`);
-    }
-  });
-});
+          // ==== Sub-items ====
+          (item.subItems || []).forEach(sub => {
+            const subKey = section.id + '::' + sub.id;
+            if (selected[subKey]) {
+              groupLines.push(`    ◦ ${sub.label}:\n      ${sub.interpret}`);
+            }
+          });
+        });
       });
       if (groupLines.length > 0) {
         lines.push(`${group.title}\n${groupLines.join('\n\n')}`);
@@ -287,88 +292,84 @@ itemIds.forEach(itemId => {
   /* ============================================================
      🆕 NOTES GABUNGAN — generate data
      ============================================================ */
-function generateCombinedNotes() {
-  const autoData = window.GRAFIS_AUTO_DATA || {};
-  const testKeys = ['dap', 'baum', 'htp'];
-  const lines = [];
+  function generateCombinedNotes() {
+    const autoData = window.GRAFIS_AUTO_DATA || {};
+    const testKeys = ['dap', 'baum', 'htp'];
+    const lines = [];
 
-  testKeys.forEach(key => {
-    const data = autoData[key];
-    if (!data || !data.slides) return;
+    testKeys.forEach(key => {
+      const data = autoData[key];
+      if (!data || !data.slides) return;
 
-    const selected = state.selectedItems[key] || {};
-    const selectedLines = [];
+      const selected = state.selectedItems[key] || {};
+      const selectedLines = [];
 
-   data.slides.forEach(group => {
-      (group.sections || []).forEach(section => {
-        const val = selected[section.id];
-        if (!val) return;
+      data.slides.forEach(group => {
+        (group.sections || []).forEach(section => {
+          const val = selected[section.id];
+          if (!val) return;
 
-        const itemIds = Array.isArray(val) ? val : [val];
-        itemIds.forEach(itemId => {
-          const item = (section.items || []).find(i => i.id === itemId);
-          if (!item) return;
+          const itemIds = Array.isArray(val) ? val : [val];
+          itemIds.forEach(itemId => {
+            const item = (section.items || []).find(i => i.id === itemId);
+            if (!item) return;
 
-          // ==== Item utama ====
-          if (!selectedLines.some(l => l.text === item.interpret)) {
-            selectedLines.push({
-              label: item.label,
-              text: item.interpret,
-              group: group.title
-            });
-          }
-
-          // ==== Sub-items (dependsOn) ====
-          // Key subItem = `${section.id}::${sub.id}`
-          (item.subItems || []).forEach(sub => {
-            const subKey = section.id + '::' + sub.id;
-            if (selected[subKey] && !selectedLines.some(l => l.text === sub.interpret)) {
+            // ==== Item utama ====
+            if (!selectedLines.some(l => l.text === item.interpret)) {
               selectedLines.push({
-                label: '↳ ' + sub.label,
-                text: sub.interpret,
+                label: item.label,
+                text: item.interpret,
                 group: group.title
               });
             }
+
+            // ==== Sub-items (dependsOn) ====
+            (item.subItems || []).forEach(sub => {
+              const subKey = section.id + '::' + sub.id;
+              if (selected[subKey] && !selectedLines.some(l => l.text === sub.interpret)) {
+                selectedLines.push({
+                  label: '↳ ' + sub.label,
+                  text: sub.interpret,
+                  group: group.title
+                });
+              }
+            });
           });
         });
-      });
 
-      // ==== Opsional: handle sub-items yang parentnya TIDAK terpilih ====
-      // (kasus langka: subItem nyangkut setelah parent di-uncheck.
-      //  Ini safety net biar subItem tetap kebaca kalau ada sisa)
-      (group.sections || []).forEach(section => {
-        Object.keys(selected).forEach(k => {
-          if (!k.startsWith(section.id + '::')) return;
-          const subId = k.slice(section.id.length + 2);
-          if (!selected[k]) return;
-          // Cari subItem di section mana pun
-          (section.items || []).forEach(parent => {
-            (parent.subItems || []).forEach(sub => {
-              if (sub.id !== subId) return;
-              if (selectedLines.some(l => l.text === sub.interpret)) return;
-              selectedLines.push({
-                label: '↳ ' + sub.label,
-                text: sub.interpret,
-                group: group.title
+        // ==== Safety net: sub-item yatim ====
+        (group.sections || []).forEach(section => {
+          Object.keys(selected).forEach(k => {
+            if (!k.startsWith(section.id + '::')) return;
+            const subId = k.slice(section.id.length + 2);
+            if (!selected[k]) return;
+            (section.items || []).forEach(parent => {
+              (parent.subItems || []).forEach(sub => {
+                if (sub.id !== subId) return;
+                if (selectedLines.some(l => l.text === sub.interpret)) return;
+                selectedLines.push({
+                  label: '↳ ' + sub.label,
+                  text: sub.interpret,
+                  group: group.title
+                });
               });
             });
           });
         });
       });
+
+      if (selectedLines.length > 0) {
+        lines.push({
+          key,
+          title: data.title || key.toUpperCase(),
+          icon: data.icon || '📄',
+          items: selectedLines
+        });
+      }
     });
 
-    if (selectedLines.length > 0) {
-      lines.push({
-        key,
-        title: data.title || key.toUpperCase(),
-        icon: data.icon || '📄',
-        items: selectedLines
-      });
-    }
-  });
-
-  return lines;
-}
+    return lines;
+  }
 
   /* ============================================================
      🆕 NOTES GABUNGAN — render UI
@@ -390,7 +391,6 @@ function generateCombinedNotes() {
       return;
     }
 
-    // Plain text untuk copy
     const plainText = notesData.map(t => {
       const header = `═══ ${t.title} ═══`;
       const items = t.items.map(i => `• ${i.label}:\n  ${i.text}`).join('\n\n');
@@ -443,7 +443,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </div>
     `;
 
-    // Wire copy button
     const copyBtn = document.getElementById('giCopyNotesBtn');
     if (copyBtn) {
       copyBtn.onclick = () => {
@@ -746,7 +745,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     DETAIL PAGE — per test
+     DETAIL PAGE — per test (dengan STEPPER)
      ============================================================ */
   function renderTestDetail(testKey) {
     const root = getRoot();
@@ -762,91 +761,92 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected = state.selectedItems[testKey] || {};
 
-   const sectionsHTML = (data.slides || []).map(group => {
+    // 🆕 Bungkus tiap slide jadi .gi-step
+    const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
-const itemsHTML = (section.items || []).map(item => {
-  let isChecked = false;
-  if (isRadio) isChecked = (val === item.id);
-  else isChecked = Array.isArray(val) && val.includes(item.id);
+        const itemsHTML = (section.items || []).map(item => {
+          let isChecked = false;
+          if (isRadio) isChecked = (val === item.id);
+          else isChecked = Array.isArray(val) && val.includes(item.id);
 
-  // ==== RENDER SUB-ITEMS (hanya jika parent terpilih) ====
-  let subItemsHTML = '';
-  if (item.subItems && item.subItems.length && isChecked) {
-    subItemsHTML = item.subItems.map(sub => {
-      const subKey = section.id + '::' + sub.id;
-      const subChecked = !!selected[subKey];
-      return `
-        <label class="js-subitem" data-key="${subKey}"
-          style="display: flex; align-items: flex-start; gap: 12px;
-            padding: 10px 14px; margin: 6px 0 8px 32px;
-            background: ${subChecked ? '#fff' : '#f8fafc'};
-            border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
-            border-radius: 10px; cursor: pointer;
-            transition: all .18s ease; user-select: none;">
-          <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
-            border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
-            background: ${subChecked ? theme.primary : '#fff'};
-            border-radius: 5px; display: grid; place-items: center;">
-            ${subChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-              stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/></svg>` : ''}
-          </div>
-          <div style="flex: 1; min-width: 0;">
-            <div style="font-size: 12.5px; font-weight: 800;
-              color: ${subChecked ? theme.primaryDark : '#334155'};
-              line-height: 1.4; margin-bottom: 3px;">
-              ↳ ${escapeHtml(sub.label)}
-              ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional — isi kalau ada)</span>` : ''}
-            </div>
-            <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
-              ${escapeHtml(sub.interpret)}
-            </div>
-          </div>
-        </label>
-      `;
-    }).join('');
-  }
+          // ==== RENDER SUB-ITEMS (hanya jika parent terpilih) ====
+          let subItemsHTML = '';
+          if (item.subItems && item.subItems.length && isChecked) {
+            subItemsHTML = item.subItems.map(sub => {
+              const subKey = section.id + '::' + sub.id;
+              const subChecked = !!selected[subKey];
+              return `
+                <label class="js-subitem" data-key="${subKey}"
+                  style="display: flex; align-items: flex-start; gap: 12px;
+                    padding: 10px 14px; margin: 6px 0 8px 32px;
+                    background: ${subChecked ? '#fff' : '#f8fafc'};
+                    border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
+                    border-radius: 10px; cursor: pointer;
+                    transition: all .18s ease; user-select: none;">
+                  <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
+                    border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
+                    background: ${subChecked ? theme.primary : '#fff'};
+                    border-radius: 5px; display: grid; place-items: center;">
+                    ${subChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                      stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/></svg>` : ''}
+                  </div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12.5px; font-weight: 800;
+                      color: ${subChecked ? theme.primaryDark : '#334155'};
+                      line-height: 1.4; margin-bottom: 3px;">
+                      ↳ ${escapeHtml(sub.label)}
+                      ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional — isi kalau ada)</span>` : ''}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+                      ${escapeHtml(sub.interpret)}
+                    </div>
+                  </div>
+                </label>
+              `;
+            }).join('');
+          }
 
-  return `
-    <div>
-      <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
-        style="display: flex; align-items: flex-start; gap: 12px;
-          padding: 12px 14px; margin-bottom: 8px;
-          background: ${isChecked ? '#fff' : '#fbfdff'};
-          border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
-          border-radius: 12px; cursor: pointer;
-          transition: all .18s ease; user-select: none;">
-        <div style="
-          width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
-          border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
-          background: ${isChecked ? theme.primary : '#fff'};
-          ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
-          display: grid; place-items: center; position: relative;">
-          ${isChecked
-            ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                 stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-                 <polyline points="20 6 9 17 4 12"/>
-               </svg>`
-            : ''}
-        </div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-size: 13px; font-weight: 800;
-            color: ${isChecked ? theme.primaryDark : '#1e293b'};
-            line-height: 1.4; margin-bottom: 4px;">
-            ${escapeHtml(item.label)}
-          </div>
-          <div style="font-size: 11px; color: #64748b; line-height: 1.5;
-            ${isChecked ? '' : 'opacity:.7;'}">
-            ${escapeHtml(item.interpret)}
-          </div>
-        </div>
-      </label>
-      ${subItemsHTML}
-    </div>
-  `;
-}).join('');
+          return `
+            <div>
+              <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
+                style="display: flex; align-items: flex-start; gap: 12px;
+                  padding: 12px 14px; margin-bottom: 8px;
+                  background: ${isChecked ? '#fff' : '#fbfdff'};
+                  border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+                  border-radius: 12px; cursor: pointer;
+                  transition: all .18s ease; user-select: none;">
+                <div style="
+                  width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
+                  border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
+                  background: ${isChecked ? theme.primary : '#fff'};
+                  ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
+                  display: grid; place-items: center; position: relative;">
+                  ${isChecked
+                    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                         stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                         <polyline points="20 6 9 17 4 12"/>
+                       </svg>`
+                    : ''}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 13px; font-weight: 800;
+                    color: ${isChecked ? theme.primaryDark : '#1e293b'};
+                    line-height: 1.4; margin-bottom: 4px;">
+                    ${escapeHtml(item.label)}
+                  </div>
+                  <div style="font-size: 11px; color: #64748b; line-height: 1.5;
+                    ${isChecked ? '' : 'opacity:.7;'}">
+                    ${escapeHtml(item.interpret)}
+                  </div>
+                </div>
+              </label>
+              ${subItemsHTML}
+            </div>
+          `;
+        }).join('');
 
         return `
           <div style="margin-bottom: 20px;">
@@ -862,8 +862,10 @@ const itemsHTML = (section.items || []).map(item => {
         `;
       }).join('');
 
+      // 🆕 class="gi-step" + data-step
       return `
-        <div style="margin-bottom: 28px; padding: 20px 22px;
+        <div class="gi-step" data-step="${stepIdx}"
+          style="margin-bottom: 28px; padding: 20px 22px;
           background: ${theme.bg}; border: 2px solid ${theme.border};
           border-radius: 16px;">
           <div style="font-size: 15px; font-weight: 900; color: ${theme.primaryDark};
@@ -910,6 +912,14 @@ const itemsHTML = (section.items || []).map(item => {
           border-radius: 18px; box-shadow: 0 20px 50px rgba(15,23,42,.08);">
           ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
 
+          <!-- 🆕 STEPPER NAV -->
+          <div class="gi-nav">
+            <button type="button" class="gi-prev">← Sebelumnya</button>
+            <div class="gi-step-info"
+              style="font-size: 12px; font-weight: 800; color: #64748b;"></div>
+            <button type="button" class="gi-next">Selanjutnya →</button>
+          </div>
+
           <div style="display: flex; gap: 10px; margin-top: 20px;
             padding-top: 20px; border-top: 1px solid #e2e8f0;">
             <button type="button" id="giClearBtn"
@@ -933,62 +943,135 @@ const itemsHTML = (section.items || []).map(item => {
       </div>
     `;
 
-root.querySelectorAll('.js-option-item').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const sectionId = label.getAttribute('data-section');
-    const itemId = label.getAttribute('data-item');
-    const type = label.getAttribute('data-type');
+    /* ============================================================
+       🆕 STEPPER — CSS + HANDLER
+       ============================================================ */
+    if (!document.getElementById('gi-step-style')) {
+      const st = document.createElement('style');
+      st.id = 'gi-step-style';
+      st.textContent = `
+        .gi-step { display: none; }
+        .gi-step.is-active { display: block; }
+        .gi-nav {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; margin-top: 24px; padding-top: 20px;
+          border-top: 1.5px dashed #e2e8f0;
+        }
+        .gi-nav button {
+          padding: 11px 22px; border-radius: 10px; font-family: inherit;
+          font-size: 13px; font-weight: 800; cursor: pointer;
+          transition: opacity .15s ease;
+        }
+        .gi-prev { border: 1.5px solid #cbd5e1; background: #fff; color: #334155; }
+        .gi-next { border: 0; background: ${theme.primary}; color: #fff; }
+        .gi-nav button:disabled { opacity: .35; cursor: not-allowed; }
+      `;
+      document.head.appendChild(st);
+    }
 
-    // Cari section & item dari data supaya bisa hapus subItems pas deselect
-    const section = (data.slides || [])
-  .flatMap(g => g.sections || [])
-  .find(s => s.id === sectionId);
-    const itemObj = (section?.items || []).find(i => i.id === itemId);
+    const steps    = root.querySelectorAll('.gi-step');
+    const navInfo  = root.querySelector('.gi-step-info');
+    const btnPrev  = root.querySelector('.gi-prev');
+    const btnNext  = root.querySelector('.gi-next');
+    const TOTAL    = steps.length;
 
-    const clearSubItems = (parentItemId) => {
-      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
-      (parentItem?.subItems || []).forEach(sub => {
-        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
-      });
-    };
+    // Baca posisi terakhir dari state (biar tidak reset tiap klik opsi)
+    if (typeof state.currentStep[testKey] !== 'number') state.currentStep[testKey] = 0;
+    let currentStep = Math.min(state.currentStep[testKey], Math.max(0, TOTAL - 1));
 
-    if (type === 'radio') {
-      const oldVal = state.selectedItems[testKey][sectionId];
-      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
-      state.selectedItems[testKey][sectionId] = itemId;
-    } else {
-      let arr = state.selectedItems[testKey][sectionId];
-      if (!Array.isArray(arr)) arr = [];
-      const idx = arr.indexOf(itemId);
-      if (idx >= 0) {
-        arr.splice(idx, 1);
-        clearSubItems(itemId);   // ← hapus subItems waktu uncheck
-      } else {
-        arr.push(itemId);
+    function renderStep() {
+      steps.forEach((el, i) => el.classList.toggle('is-active', i === currentStep));
+      if (navInfo) navInfo.textContent = `${currentStep + 1} / ${TOTAL}`;
+      if (btnPrev) btnPrev.disabled = currentStep === 0;
+      if (btnNext) {
+        btnNext.disabled = currentStep === TOTAL - 1;
+        btnNext.textContent = currentStep === TOTAL - 1 ? 'Selesai ✓' : 'Selanjutnya →';
       }
-      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+      state.currentStep[testKey] = currentStep;
     }
-    saveDraft();
-    renderTestDetail(testKey);
-  });
-});
 
-// ==== HANDLER SUB-ITEM ====
-root.querySelectorAll('.js-subitem').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const key = label.getAttribute('data-key');
-    const cur = state.selectedItems[testKey][key];
-    if (cur) {
-      delete state.selectedItems[testKey][key];
-    } else {
-      state.selectedItems[testKey][key] = 'checked';
+    if (btnPrev) {
+      btnPrev.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentStep > 0) { currentStep--; renderStep(); root.scrollTop = 0; }
+      });
     }
-    saveDraft();
-    renderTestDetail(testKey);
-  });
-});
+
+    if (btnNext) {
+      btnNext.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (currentStep < TOTAL - 1) { currentStep++; renderStep(); root.scrollTop = 0; }
+      });
+    }
+
+    // Keyboard ←/→
+    document.addEventListener('keydown', (e) => {
+      if (e.target.matches('input, textarea, select')) return;
+      if (!document.body.contains(root)) return;
+      if (e.key === 'ArrowRight' && btnNext && !btnNext.disabled) btnNext.click();
+      if (e.key === 'ArrowLeft'  && btnPrev && !btnPrev.disabled) btnPrev.click();
+    });
+
+    renderStep();
+    /* ============================================================
+       AKHIR STEPPER
+       ============================================================ */
+
+    root.querySelectorAll('.js-option-item').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionId = label.getAttribute('data-section');
+        const itemId = label.getAttribute('data-item');
+        const type = label.getAttribute('data-type');
+
+        // Cari section & item dari data supaya bisa hapus subItems pas deselect
+        const section = (data.slides || [])
+          .flatMap(g => g.sections || [])
+          .find(s => s.id === sectionId);
+
+        const clearSubItems = (parentItemId) => {
+          const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+          (parentItem?.subItems || []).forEach(sub => {
+            delete state.selectedItems[testKey][sectionId + '::' + sub.id];
+          });
+        };
+
+        if (type === 'radio') {
+          const oldVal = state.selectedItems[testKey][sectionId];
+          if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+          state.selectedItems[testKey][sectionId] = itemId;
+        } else {
+          let arr = state.selectedItems[testKey][sectionId];
+          if (!Array.isArray(arr)) arr = [];
+          const idx = arr.indexOf(itemId);
+          if (idx >= 0) {
+            arr.splice(idx, 1);
+            clearSubItems(itemId);
+          } else {
+            arr.push(itemId);
+          }
+          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+        }
+        saveDraft();
+        renderTestDetail(testKey);
+      });
+    });
+
+    // ==== HANDLER SUB-ITEM ====
+    root.querySelectorAll('.js-subitem').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const key = label.getAttribute('data-key');
+        const cur = state.selectedItems[testKey][key];
+        if (cur) {
+          delete state.selectedItems[testKey][key];
+        } else {
+          state.selectedItems[testKey][key] = 'checked';
+        }
+        saveDraft();
+        renderTestDetail(testKey);
+      });
+    });
 
     document.getElementById('giBackBtn').addEventListener('click', () => {
       saveDraft();
@@ -998,6 +1081,7 @@ root.querySelectorAll('.js-subitem').forEach(label => {
     document.getElementById('giClearBtn').addEventListener('click', () => {
       if (!confirm('Hapus semua pilihan untuk ' + data.title + '?')) return;
       state.selectedItems[testKey] = {};
+      state.currentStep[testKey] = 0;   // 🆕 reset step ke awal
       saveDraft();
       renderTestDetail(testKey);
     });
