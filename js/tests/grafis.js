@@ -363,6 +363,77 @@ function renderUploadSlide() {
   };
 }
 
+/* ============================================================
+   🆕 Upload gambar grafis ke Firebase (auto-load untuk admin)
+   ============================================================ */
+async function __uploadGrafisImagesToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+  const identity = (window.appState && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[GRAFIS] Skip upload — nama kosong');
+    return;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+  if (!slug) return;
+
+  // Mapping: key internal → testKey
+  const map = {
+    orang: 'dap',
+    rumah: 'htp',
+    pohon: 'baum'
+  };
+
+  const images = {};
+  let hasAny = false;
+
+  for (const [key, testKey] of Object.entries(map)) {
+    const dataUrl = appState.grafis && appState.grafis[key];
+    if (!dataUrl) continue;
+
+    try {
+      const compressed = (typeof __compressImageForPDF === 'function')
+        ? await __compressImageForPDF(dataUrl, 1200, 0.6)
+        : dataUrl;
+
+      images[testKey] = {
+        dataUrl: compressed,
+        label: key,
+        uploadedAt: Date.now()
+      };
+      hasAny = true;
+    } catch (e) {
+      console.warn('[GRAFIS] Compress gagal (' + key + '):', e.message);
+    }
+  }
+
+  if (!hasAny) {
+    console.log('[GRAFIS] Tidak ada gambar untuk di-upload');
+    return;
+  }
+
+  try {
+    await firebase.database()
+      .ref('sgs_grafis_images/' + slug)
+      .set({
+        meta: {
+          name: identity.name,
+          position: identity.position || '',
+          ts: firebase.database.ServerValue.TIMESTAMP
+        },
+        images: images
+      });
+
+    console.log('[GRAFIS] ✅ Gambar tersimpan di Firebase untuk admin');
+  } catch (e) {
+    console.warn('[GRAFIS] Gagal simpan ke Firebase:', e.message);
+  }
+}
+
 /* =========================================================
    THANK YOU
    ========================================================= */
