@@ -172,6 +172,48 @@
 
   console.log('[GRAFIS-INTERP] Mode aktif —', { candidateName, candidatePosition });
 
+   /* ============================================================
+   🆕 Auto-load gambar kandidat dari Firebase
+   ============================================================ */
+async function loadCandidateImagesFromFirebase(retryCount) {
+  retryCount = retryCount || 0;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    if (retryCount < 6) {
+      await new Promise(r => setTimeout(r, 500));
+      return loadCandidateImagesFromFirebase(retryCount + 1);
+    }
+    console.warn('[GRAFIS-INTERP] Firebase belum siap, skip auto-load');
+    return;
+  }
+
+  const slug = candidateSlug(candidateName);
+  if (!slug) return;
+
+  try {
+    const snap = await firebase.database()
+      .ref('sgs_grafis_images/' + slug)
+      .once('value');
+
+    const data = snap.val();
+    if (!data || !data.images) {
+      console.log('[GRAFIS-INTERP] Tidak ada gambar tersimpan untuk:', slug);
+      return;
+    }
+
+    const imgs = data.images;
+
+    // Jangan overwrite kalau admin sudah upload manual
+    if (imgs.dap  && imgs.dap.dataUrl  && !state.candidateImages.dap)  state.candidateImages.dap  = imgs.dap.dataUrl;
+    if (imgs.baum && imgs.baum.dataUrl && !state.candidateImages.baum) state.candidateImages.baum = imgs.baum.dataUrl;
+    if (imgs.htp  && imgs.htp.dataUrl  && !state.candidateImages.htp)  state.candidateImages.htp  = imgs.htp.dataUrl;
+
+    console.log('[GRAFIS-INTERP] ✅ Gambar kandidat berhasil dimuat dari Firebase');
+  } catch (e) {
+    console.warn('[GRAFIS-INTERP] Gagal load gambar:', e.message);
+  }
+}
+   
   /* ============================================================
      HIDE UI BAWAAN
      ============================================================ */
@@ -197,13 +239,14 @@
   /* ============================================================
      STATE
      ============================================================ */
-  const state = {
-    activePage: 'landing',
-    selectedItems: {
-      dap:  {},
-      baum: {},
-      htp:  {}
-    },
+const state = {
+  activePage: 'landing',
+  selectedItems: { dap: {}, baum: {}, htp: {} },
+  candidateImages: {          // ← TAMBAHKAN
+    dap:  '',
+    baum: '',
+    htp:  ''
+  },
     // 🆕 STEPPER — posisi slide aktif per tes (biar tidak reset tiap klik opsi)
     currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
@@ -217,8 +260,9 @@
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
-      if (draft.selectedItems) state.selectedItems = Object.assign(state.selectedItems, draft.selectedItems);
-      if (draft.currentStep)   state.currentStep = Object.assign(state.currentStep, draft.currentStep);
+     if (draft.selectedItems) state.selectedItems = Object.assign(state.selectedItems, draft.selectedItems);
+if (draft.candidateImages) state.candidateImages = Object.assign(state.candidateImages, draft.candidateImages);  // ← TAMBAHKAN
+if (draft.currentStep)   state.currentStep = Object.assign(state.currentStep, draft.currentStep);
       if (draft.categories)    state.categories = draft.categories;
       if (draft.conclusion)    state.conclusion = draft.conclusion;
       if (draft.recommendation) state.recommendation = draft.recommendation;
@@ -228,20 +272,20 @@
     }
   } catch (e) {}
 
-  function saveDraft() {
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        selectedItems: state.selectedItems,
-        currentStep: state.currentStep,
-        categories: state.categories,
-        conclusion: state.conclusion,
-        recommendation: state.recommendation,
-        reasons: state.reasons,
-        development: state.development
-      }));
-    } catch (e) {}
-  }
-
+function saveDraft() {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      selectedItems: state.selectedItems,
+      candidateImages: state.candidateImages,   // ← TAMBAHKAN
+      currentStep: state.currentStep,
+      categories: state.categories,
+      conclusion: state.conclusion,
+      recommendation: state.recommendation,
+      reasons: state.reasons,
+      development: state.development
+    }));
+  } catch (e) {}
+}
   /* ============================================================
      AUTO-GENERATE INTERPRETASI
      ============================================================ */
@@ -1495,7 +1539,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
      RUN
      ============================================================ */
   let __uiBuilt = false;
-  function run() {
+ async function run() {
     if (__uiBuilt) return;
     __uiBuilt = true;
 
@@ -1514,12 +1558,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     `;
     document.body.appendChild(root);
 
-    renderLanding();
-  }
+   await loadCandidateImagesFromFirebase();  // ← TAMBAHKAN
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run);
-  }
+  renderLanding();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () { run(); });
+} else {
   setTimeout(run, 200);
+}
 
-})();
+})();     // ← tutup IIFE dengan benar (ada baris kosong di atas)
