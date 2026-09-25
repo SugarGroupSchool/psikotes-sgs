@@ -1208,12 +1208,26 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
-        const itemsHTML = (section.items || []).map(item => {
-          let isChecked = false;
-          if (isRadio) isChecked = (val === item.id);
-          else isChecked = Array.isArray(val) && val.includes(item.id);
+       const itemsHTML = (section.items || []).map(item => {
+  let isChecked = false;
+  if (isRadio) isChecked = (val === item.id);
+  else isChecked = Array.isArray(val) && val.includes(item.id);
 
-          let subItemsHTML = '';
+  /* 🆕 Gambar item — muncul saat dicentang */
+  let itemImageHTML = '';
+  if (item.image && isChecked) {
+    itemImageHTML = `
+      <div style="margin: 6px 0 10px 28px; padding: 8px;
+        background: #fff; border: 1.5px solid ${theme.border};
+        border-radius: 10px; text-align: center;">
+        <img src="${item.image}" alt="${escapeHtml(item.label)}"
+          style="max-width: 100%; max-height: 220px; border-radius: 6px; display: block; margin: 0 auto;"
+          onerror="this.parentElement.style.display='none';">
+      </div>
+    `;
+  }
+
+  let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
             subItemsHTML = item.subItems.map(sub => {
               const subKey = section.id + '::' + sub.id;
