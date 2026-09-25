@@ -1272,15 +1272,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           `;
         }).join('');
 
-        return `
-          <div style="margin-bottom: 16px;">
-          <div style="font-size: 11.5px; font-weight: 900; color: #334155;
-  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-  ${escapeHtml(section.title)}
-</div>
-            ${itemsHTML}
-          </div>
-        `;
+return `
+  <div style="margin-bottom: 16px;">
+    <div style="font-size: 11.5px; font-weight: 900; color: #334155;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+      ${escapeHtml(section.title)}
+    </div>
+    ${itemsHTML}
+  </div>
+`;
       }).join('');
 
       return `
@@ -1358,6 +1358,56 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   top: 0; bottom: 0; left: 50%; width: 2px;
   background: rgba(239,68,68,.75); transform: translateX(-1px); }
 
+/* ===== Hint shortcut di dalam gambar ===== */
+.gi-img-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 6px 12px;
+  background: rgba(15,23,42,.72);
+  border-radius: 999px;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+  pointer-events: none;
+  z-index: 4;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  max-width: calc(100% - 20px);
+  white-space: nowrap;
+}
+.gi-img-hint .gi-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-family: monospace;
+  font-size: 10px;
+  background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 800;
+}
+.gi-img-hint .gi-hint-dot {
+  opacity: .45;
+  font-weight: 900;
+}
+
+/* Sembunyikan hint kalau layar terlalu kecil */
+@media (max-width: 600px) {
+  .gi-img-hint {
+    font-size: 9.5px;
+    padding: 5px 10px;
+    gap: 4px;
+  }
+}
         .gi-toolbar { flex-shrink: 0; display: flex; flex-direction: column;
           gap: 4px; padding: 6px 8px; background: #f8fafc;
           border: 1.5px solid #e2e8f0; border-radius: 10px; }
@@ -1470,11 +1520,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               ${escapeHtml(data.title)}
             </div>
           </div>
-          <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
-            text-align: right; line-height: 1.4;">
-            <div><span class="gi-kbd">Wheel</span> zoom · <span class="gi-kbd">Drag</span> geser</div>
-            <div><span class="gi-kbd">R</span> rotate · <span class="gi-kbd">F</span> fit · <span class="gi-kbd">0</span> reset</div>
-          </div>
+<div style="font-size: 10px; color: #94a3b8; font-weight: 700;
+  text-align: right; line-height: 1.4;">
+  <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.0</div>
+</div>
         </div>
 
         <div class="gi-detail-layout">
@@ -1490,14 +1539,27 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
             <div class="gi-detail-left-viewport">
               ${currentImg ? `
-                <div class="gi-img-viewport" id="giViewport">
-                  <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
-                 <div class="gi-grid-overlay" id="giGridOverlay">
-  <div class="gi-grid-thirds"></div>
-  <div class="gi-grid-center-h"></div>
-  <div class="gi-grid-center-v"></div>
+<div class="gi-img-viewport" id="giViewport">
+  <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
+  <div class="gi-grid-overlay" id="giGridOverlay">
+    <div class="gi-grid-thirds"></div>
+    <div class="gi-grid-center-h"></div>
+    <div class="gi-grid-center-v"></div>
+  </div>
+
+  <!-- 🆕 Hint shortcut di dalam gambar -->
+  <div class="gi-img-hint">
+    <span class="gi-kbd">Wheel</span> zoom
+    <span class="gi-hint-dot">·</span>
+    <span class="gi-kbd">Drag</span> geser
+    <span class="gi-hint-dot">·</span>
+    <span class="gi-kbd">R</span> rotate
+    <span class="gi-hint-dot">·</span>
+    <span class="gi-kbd">F</span> fit
+    <span class="gi-hint-dot">·</span>
+    <span class="gi-kbd">0</span> reset
+  </div>
 </div>
-                </div>
               ` : `
                 <div id="giImageDropZone"
                   style="position: absolute; inset: 0; display: flex;
