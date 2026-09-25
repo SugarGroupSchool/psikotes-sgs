@@ -9,7 +9,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
     {
       id: 'ukuran_kertas',
       title: 'Perbandingan dengan Ukuran Kertas dan Besar Gambar',
-      type: 'radio',
+      type: 'checkbox',                    // ← DIUBAH dari 'radio'
       items: [
         {
           id: 'normal',
@@ -57,7 +57,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
     {
       id: 'mahkota_batang',
       title: 'Perbandingan antara Mahkota dan Batang',
-      type: 'radio',
+      type: 'checkbox',                    // ← DIUBAH dari 'radio'
       items: [
         { id: 'normal_mb', label: 'Normal (mahkota ≈ 2/3 batang)', interpret: 'Orang dewasa umumnya menggambar mahkota sekitar 2/3 dari panjang batang pohon. Proporsi mahkota dan batang seimbang. Menunjukkan keseimbangan antara kehidupan berpikir/fantasi dengan fungsi praktis dan kemampuan mengakar pada realitas.' },
         { id: 'mahkota_besar', label: 'Mahkota lebih besar', interpret: 'Dalam perbandingan ini dapat mengungkapkan berbagai hal, seperti gambar dengan mahkota yang lebih besar. Mengindikasikan dominasi dunia ide, fantasi, aspirasi, dan pemikiran abstrak dibanding aspek praktis dan realitas.' },
