@@ -298,6 +298,98 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           id: 'beringgit_seperti_tangan',
           label: 'Mahkota Beringgit-inggit (Seperti Tangan)',
           interpret: 'Mencerminkan: (1) Lebih mengutamakan penampilan diri (performance) — memprioritaskan penampilan dan citra diri yang terlihat oleh orang lain, fokus pada tampilan eksternal. (2) Sulit beradaptasi — kesulitan beradaptasi secara sosial, mempertimbangkan tata cara dan aturan sosial yang dapat menjadi beban atau menghambat penyesuaian. (3) Selalu memperhatikan tata cara pergaulan — kesadaran terhadap etika dan tata cara sosial, memperhatikan norma-norma sosial dan mempertimbangkan bagaimana tindakan atau penampilan dapat diterima oleh orang lain.'
+      },
+
+    /* ==========================================================
+       5. BENTUK LANJUTAN MAHKOTA
+       ========================================================== */
+    {
+      id: 'bentuk_lanjutan_mahkota',
+      title: '5. Bentuk Lanjutan Mahkota',
+      type: 'checkbox',
+      items: [
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota dengan tanda silang
+          id: 'tanda_silang',
+          label: 'Mahkota dengan Tanda Silang di Dalamnya',
+          interpret: 'Mencerminkan: (1) Pribadi yang tertutup — cenderung menjaga privasi, tidak selalu mudah membuka diri atau berbagi dengan orang lain. (2) Cenderung oposisi — menunjukkan ketidaksetujuan atau sikap menentang terhadap pandangan, norma, atau otoritas tertentu, yang muncul sebagai respons terhadap ide atau situasi yang dianggap tidak sesuai dengan nilai atau keyakinan. (3) Sukar di dalam menyesuaikan diri — kesulitan beradaptasi dengan perubahan dalam berbagai aspek kehidupan (hubungan interpersonal, pekerjaan, situasi), keengganan mengubah cara pandang atau tindakan.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota centripetal
+          id: 'centripetal',
+          label: 'Centripetal (Banyak Lingkaran di Dalamnya)',
+          interpret: 'Mencerminkan: (1) Tendensi konsentrasi baik — mampu fokus pada tujuan atau tugas tanpa terlalu terpengaruh distraksi. (2) Cepat dalam mengambil keputusan, mempunyai satu tujuan yang pasti — kemampuan mengambil keputusan tegas dan memiliki tujuan hidup yang jelas. (3) Keadaan diri yang tertutup — cenderung menjaga perasaan atau pemikiran sendiri dan tidak selalu mudah membagikannya. (4) Tabah dan ulet — ketahanan tinggi terhadap tantangan, terus berusaha dengan tekad kuat. (5) Sukar kontak atau cenderung menolak — fokus pada diri sendiri, kesulitan berinteraksi atau kecenderungan menolak kontak sosial. (6) Sukar dipengaruhi — keyakinan dan prinsip kuat, sulit dipengaruhi opini atau pandangan orang lain. (7) Kemampuan berdiri sendiri — merasa nyaman dan kompeten mengatasi tantangan tanpa bergantung pada dukungan eksternal.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota centrifugal
+          id: 'centrifugal',
+          label: 'Centrifugal (Garis-garis Menjauh dari Pusat)',
+          interpret: 'Mencerminkan: (1) Agresif — banyak elemen/cabang menjauh dari titik pusat mencerminkan sifat agresif, tingkat energi tinggi, dorongan mencapai tujuan dengan cara dominan, keinginan menantang norma atau otoritas. Karakter kuat, ekspresif, bersedia mengambil risiko. (2) Usaha kuat atau besar dorongan untuk bekerja — tingkat usaha dan dorongan tinggi, didorong motivasi internal dan tekad kuat. (3) Kurangnya penyaluran dengan baik sehingga kurang memiliki tujuan — dorongan kuat tetapi kesulitan mengarahkan energi dengan tujuan jelas, ketidakjelasan arah atau tujuan hidup. (4) Cenderung inisiatif banyak tapi tidak tetap dalam bekerja — inisiatif dalam berbagai hal tetapi kesulitan mempertahankan konsistensi.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota tanpa batang
+          id: 'tanpa_batang',
+          label: 'Mahkota Tanpa Batang',
+          interpret: 'Mencerminkan: (1) Mudah mengendalikan diri — kontrol baik terhadap emosi, impuls, dan perilaku, dapat menjaga keseimbangan dalam situasi menantang. (2) Narsisme — fokus pada diri sendiri, mencari pengakuan, menganggap diri sebagai pusat perhatian. (3) Banyak aktivitas yang ke dalam — preferensi terhadap aktivitas internal dan refleksi pribadi, fokus pada eksplorasi pikiran, pemikiran mendalam, dan kegiatan yang memperkaya dimensi batin. Lebih suka merenung, mempertimbangkan ide-ide kompleks, menjalani kehidupan pikiran yang kaya. Membangun kekayaan internal melalui pemahaman diri dan pertumbuhan pribadi. (4) Introvert — energi terisi ulang melalui waktu sendiri, preferensi untuk interaksi sosial lebih kecil dan mendalam.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota hanya garis-garis
+          id: 'hanya_garis_garis',
+          label: 'Mahkota Hanya Terdiri dari Gambar Garis-garis',
+          interpret: 'Mencerminkan: (1) Cenderung represi dan dangkal — simbol penyembunyian aspek emosional dan intelektual, potensi ketidakpahaman terhadap kompleksitas inner-self. (2) Kurang cerdas — cenderung tidak memproses informasi secara mendalam, kurang kecerdasan dalam pengamatan serta pemahaman. Kesederhanaan mahkota menjadi tanda potensial keterbatasan intelektual. (3) Tingkah lakunya seperti anak dalam masa Trotz — resistensi atau penolakan terhadap tuntutan sosial dan otoritas, bentuk protes atau ketidakpatuhan terhadap aturan dan norma. (4) Tidak ada ketenangan — ketidakmampuan mencapai ketenangan batin atau keseimbangan emosional, rentan terhadap kecemasan atau ketidakstabilan emosional. (5) Tidak ada tujuan yang pasti — kesulitan menetapkan rencana atau arah hidup, kebingungan dan ketidakpastian. (6) Menentang dan mudah keras kepala — kesulitan beradaptasi atau menerima pandangan serta petunjuk orang lain, resistensi terhadap ide atau arahan eksternal. (7) Agresif — ekspresi ketidakpuasan atau frustrasi melalui perilaku menantang, tercermin dalam bentuk garis-garis tidak teratur.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota keriting/melengkung
+          id: 'keriting_melengkung',
+          label: 'Mahkota dengan Keriting atau Bentuk Melengkung',
+          interpret: 'Mencerminkan: (1) Vitalitas yang cukup — energi melimpah dan ketangguhan hidup, tercermin dalam bentuk mahkota yang dinamis dan penuh semangat. (2) Dorongan yang cukup — didorong motivasi internal kuat untuk mencapai tujuan. (3) Cepat menyesuaikan diri — simbol visual dari fleksibilitas dan ketangkasan menghadapi berbagai kondisi hidup. (4) Cenderung suka humor, tetapi kadang kurang realistis — terlalu optimis atau kurang mempertimbangkan konsekuensi, keceriaan menciptakan atmosfer positif namun perlu diwaspadai dampak optimisme berlebihan. (5) Lebih mengutamakan hal-hal yang lahiriah — nilai atau perhatian utama fokus pada hal yang termanifestasi jelas dan konkret. (6) Sering menonjolkan diri — keinginan mendapatkan perhatian atau pengakuan dari orang lain. (7) Mudah untuk improvisasi — cepat merespon situasi tanpa perlu rencana terlalu rinci, fleksibilitas dan kemampuan beradaptasi dengan perubahan secara spontan.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota seperti benang ruwet
+          id: 'benang_ruwet',
+          label: 'Mahkota Seperti Benang Ruwet',
+          interpret: 'Mencerminkan: (1) Fleksibel dalam hidup — kemampuan menyesuaikan diri dengan perubahan situasi, sikap terbuka terhadap dinamika kehidupan. (2) Dorongan kuat tapi tak diimbangi kemauan — dorongan atau ambisi yang kuat (bentuk penuh kelokan dan kekacauan), energi dan tekad tinggi, namun kurang koordinasi atau keseimbangan antara dorongan dan kemauan mencapai tujuan. (3) Ada keinginan untuk berproduksi banyak — keinginan menciptakan banyak hal atau berproduksi dalam berbagai aspek kehidupan. Ambisi dan hasrat mencapai banyak hal dalam hidup. (4) Dalam orientasi kurang baik, sehingga mudah menimbulkan kesalahpahaman dalam penyesuaian — orientasi kurang terarah atau kurang terorganisir. (5) Konsentrasi lemah — kurangnya kemampuan memusatkan perhatian secara mendalam pada satu hal.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota tersebar
+          id: 'tersebar',
+          label: 'Mahkota yang Tersebar',
+          interpret: 'Mencerminkan: (1) Cukup dapat memisahkan antara rasio dan emosi — keseimbangan antara pikiran logis dan respons emosional, tingkat kecerdasan emosional yang cukup. (2) Takut akan realitas masa yang akan datang — kegelisahan dan kekhawatiran terhadap kemungkinan situasi yang belum terjadi, cemas terkait ketidakpastian dan peristiwa yang belum jelas di masa depan. (3) Kurang prinsip — tidak memiliki kerangka nilai yang kuat atau konsisten. (4) Pendirian mudah berubah (bunglon) — kecenderungan berubah-ubah dalam pendirian atau sikap, fleksibilitas dan adaptabilitas terhadap perubahan situasi atau tuntutan lingkungan. (5) Selalu menyembunyikan sesuatu — keinginan membatasi pengungkapan diri atau kurang jujur dalam interaksi sosial. (6) Kurang dapat bertindak agresif pada saat tertentu — preferensi pendekatan lebih tenang atau tidak konfrontatif, mengelola konflik dengan cara damai.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: mahkota gepeng
+          id: 'gepeng',
+          label: 'Mahkota yang Gepeng',
+          interpret: 'Catatan tambahan: vlek atau bagian kosong pada mahkota mencerminkan perasaan rendah diri atau ketidakpuasan subjek karena sesuatu yang belum tercapai dalam hidup — simbol visual dari kekosongan atau kekurangan yang dirasakan (prestasi pribadi, hubungan, atau pencapaian tujuan hidup yang belum memuaskan). Mencerminkan: (1) Merasa dirinya tertekan dari luar — terpengaruh tekanan eksternal (ekspektasi sosial, tuntutan pekerjaan, faktor luar lainnya). (2) Penurut — kesulitan mengekspresikan diri secara bebas atau mengambil keputusan yang tidak selaras dengan harapan orang lain. (3) Rasa diri tidak bebas — keterbatasan dalam ruang gerak untuk mengejar keinginan. (4) Perkembangan tertekan — dampak tekanan dari lingkungan, pengalaman hidup, atau faktor eksternal yang membatasi ruang gerak untuk tumbuh dan berkembang. (5) Merasa diri dirugikan — persepsi terhadap dampak negatif atau ketidakadilan yang dialami.'
+        }
+      ]
+    },
+
+    /* ==========================================================
+       6. ARAH STREEP (GARIS LURUS) PADA MAHKOTA
+       ========================================================== */
+    {
+      id: 'arah_streep',
+      title: '6. Arah Streep (Garis Lurus) pada Mahkota',
+      type: 'checkbox',
+      items: [
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: streep ke kanan
+          id: 'streep_ke_kanan',
+          label: 'Arah Streep (Garis Lurus) ke Kanan',
+          interpret: 'Mencerminkan: (1) Tendensi sebagai pengikut — cenderung mengikuti arah atau panduan yang telah ditentukan oleh orang lain, karena rasa kenyamanan atau kepercayaan pada otoritas eksternal. (2) Sugestibel — tingkat sugestibilitas tinggi, terbuka terhadap pengaruh dan ide-ide dari lingkungan, mudah menerima saran atau pendapat orang lain. (3) Suka bekerja — menikmati tugas-tugas, motivasi tinggi mencapai hasil baik, energi positif dan semangat dalam menjalani aktivitas. (4) Pandai menyesuaikan diri — kemampuan adaptasi baik terhadap perubahan lingkungan atau situasi, keterampilan sosial, fleksibilitas berpikir, kemampuan mengatasi tantangan. (5) Rasa sosial yang baik — dapat berinteraksi dengan orang lain dengan mudah, menciptakan koneksi positif, membangun hubungan interpersonal yang sehat.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: streep ke kiri
+          id: 'streep_ke_kiri',
+          label: 'Arah Streep (Garis Lurus) ke Kiri',
+          interpret: 'Mencerminkan: (1) Introvert — lebih suka menghabiskan waktu sendiri atau dalam kelompok kecil, dalam situasi sosial kecil dapat lebih intim. (2) Meditasi — kecenderungan menuju introspeksi atau meditasi, refleksi pribadi atau mencari makna dalam kehidupan, fokus pada pemahaman diri dan pencarian makna hidup. (3) Kurang ikatan — tidak terlalu aktif dalam membentuk hubungan dekat atau terikat secara emosional. (4) Mudah tersinggung — cenderung mudah tersinggung atau rentan terhadap pengaruh luar, sensitivitas tinggi terhadap perubahan emosional atau lingkungan sekitar.'
+        },
+        {
+          image: IMG_MAHKOTA,   // ← GANTI: streep seperti tertiup angin ke kanan
+          id: 'streep_tertiup_angin_kanan',
+          label: 'Streep Seperti Tertiup Angin ke Kanan',
+          interpret: 'Mencerminkan: (1) Merasa dikejar waktu — mengalami tekanan untuk mencapai atau menyelesaikan sesuatu dengan cepat. (2) Tidak punya pegangan — kesulitan menciptakan dasar yang kokoh atau merumuskan rencana yang jelas.'
         }
       ]
     }
