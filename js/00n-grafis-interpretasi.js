@@ -1249,7 +1249,7 @@ const candidatePanelHTML = currentImg
   /* ============================================================
      Handler gambar kandidat
      ============================================================ */
-  function __attachCandidateImageHandlers(testKey, theme) {
+   function __attachCandidateImageHandlers(testKey, theme) {
 
     function setImage(src) {
       state.candidateImages[testKey] = src || '';
@@ -1298,11 +1298,15 @@ const candidatePanelHTML = currentImg
       });
     }
 
-    if (pickBtn && fileInput) pickBtn.addEventListener('click', () => fileInput.click());
-    if (fileInput) fileInput.addEventListener('change', (e) => {
-      const f = e.target.files?.[0];
-      if (f) readFile(f);
-    });
+    if (pickBtn && fileInput) {
+      pickBtn.addEventListener('click', () => fileInput.click());
+    }
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if (f) readFile(f);
+      });
+    }
 
     if (urlBtn && urlInput) {
       urlBtn.addEventListener('click', () => {
@@ -1319,12 +1323,13 @@ const candidatePanelHTML = currentImg
       });
     }
 
-    const fullscreenBtn = document.getElementById('giImageFullscreenBtn');
-    const replaceBtn    = document.getElementById('giImageReplaceBtn');
-    const removeBtn     = document.getElementById('giImageRemoveBtn');
-    const img           = document.getElementById('giCandidateImg');
+    /* ============================================================
+       ZOOM CONTROLS
+       ============================================================ */
+    const zoomInBtn    = document.getElementById('giZoomInBtn');
+    const zoomOutBtn   = document.getElementById('giZoomOutBtn');
+    const zoomResetBtn = document.getElementById('giZoomResetBtn');
 
-    // 🆕 Zoom controls
     function setZoom(newZoom) {
       newZoom = Math.max(0.4, Math.min(4, Number(newZoom.toFixed(2))));
       state.candidateImageZoom[testKey] = newZoom;
@@ -1332,34 +1337,52 @@ const candidatePanelHTML = currentImg
       renderTestDetail(testKey);
     }
 
-    const zoomInBtn    = document.getElementById('giZoomInBtn');
-    const zoomOutBtn   = document.getElementById('giZoomOutBtn');
-    const zoomResetBtn = document.getElementById('giZoomResetBtn');
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        setZoom((state.candidateImageZoom[testKey] || 1) + 0.2);
+      });
+    }
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        setZoom((state.candidateImageZoom[testKey] || 1) - 0.2);
+      });
+    }
+    if (zoomResetBtn) {
+      zoomResetBtn.addEventListener('click', () => setZoom(1));
+    }
 
-    if (zoomInBtn)  zoomInBtn.addEventListener('click',  () => setZoom((state.candidateImageZoom[testKey] || 1) + 0.2));
-    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom((state.candidateImageZoom[testKey] || 1) - 0.2));
-    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setZoom(1));
+    /* ============================================================
+       ROTATE CONTROLS
+       ============================================================ */
+    const rotateLeftBtn  = document.getElementById('giRotateLeftBtn');
+    const rotateRightBtn = document.getElementById('giRotateRightBtn');
+    const rotateResetBtn = document.getElementById('giRotateResetBtn');
 
-         // 🆕 Rotate controls
     function setRotate(newRotate) {
-      // Normalisasi ke 0/90/180/270
       newRotate = ((newRotate % 360) + 360) % 360;
       state.candidateImageRotate[testKey] = newRotate;
       saveDraft();
       renderTestDetail(testKey);
     }
 
-    const rotateLeftBtn  = document.getElementById('giRotateLeftBtn');
-    const rotateRightBtn = document.getElementById('giRotateRightBtn');
-    const rotateResetBtn = document.getElementById('giRotateResetBtn');
+    if (rotateLeftBtn) {
+      rotateLeftBtn.addEventListener('click', () => {
+        setRotate((state.candidateImageRotate[testKey] || 0) - 90);
+      });
+    }
+    if (rotateRightBtn) {
+      rotateRightBtn.addEventListener('click', () => {
+        setRotate((state.candidateImageRotate[testKey] || 0) + 90);
+      });
+    }
+    if (rotateResetBtn) {
+      rotateResetBtn.addEventListener('click', () => setRotate(0));
+    }
 
-    if (rotateLeftBtn)  rotateLeftBtn.addEventListener('click',  () =>
-      setRotate((state.candidateImageRotate[testKey] || 0) - 90));
-    if (rotateRightBtn) rotateRightBtn.addEventListener('click', () =>
-      setRotate((state.candidateImageRotate[testKey] || 0) + 90));
-    if (rotateResetBtn) rotateResetBtn.addEventListener('click', () => setRotate(0));
-     
-    // 🆕 Scroll-zoom pakai Ctrl + wheel
+    /* ============================================================
+       SCROLL-ZOOM (Ctrl + wheel)
+       ============================================================ */
+    const img = document.getElementById('giCandidateImg');
     const scrollWrap = document.getElementById('giImageScrollWrap');
     if (scrollWrap && img) {
       scrollWrap.addEventListener('wheel', (e) => {
@@ -1370,7 +1393,14 @@ const candidatePanelHTML = currentImg
       }, { passive: false });
     }
 
-       if (fullscreenBtn && img) {
+    /* ============================================================
+       FULLSCREEN / REPLACE / REMOVE
+       ============================================================ */
+    const fullscreenBtn = document.getElementById('giImageFullscreenBtn');
+    const replaceBtn    = document.getElementById('giImageReplaceBtn');
+    const removeBtn     = document.getElementById('giImageRemoveBtn');
+
+    if (fullscreenBtn && img) {
       fullscreenBtn.addEventListener('click', () => {
         const old = document.getElementById('giLightbox');
         if (old) old.remove();
@@ -1382,7 +1412,6 @@ const candidatePanelHTML = currentImg
         lb.onclick = () => lb.remove();
         document.body.appendChild(lb);
       });
-    }
     }
 
     if (replaceBtn) {
@@ -1405,6 +1434,9 @@ const candidatePanelHTML = currentImg
       });
     }
 
+    /* ============================================================
+       PASTE HANDLER (Ctrl+V)
+       ============================================================ */
     const pasteHandler = (e) => {
       if (state.activePage !== testKey) {
         document.removeEventListener('paste', pasteHandler);
