@@ -1,27 +1,8 @@
 /* ============================================================
    js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.0
    ------------------------------------------------------------
-   v8.0 [2026-09-25] — ULTIMATE EDITION
-   🎨 IMAGE VIEWER:
-   - Unified Pointer Events (mouse + touch + pen)
-   - Pinch-to-zoom (2 jari)
-   - Wheel zoom tanpa Ctrl
-   - Momentum / inertia scroll
-   - Auto-fit & auto-center saat load
-   - Flip horizontal + vertical
-   - Filters: brightness / contrast / invert / grayscale
-   - Undo / Redo (10 langkah)
-   - Keyboard shortcuts lengkap
-   - Grid overlay (rule of thirds)
-   - Rotation snap 90° + free rotate
-   - Toast feedback
-
-   🖥️ UI:
-   - Search items dalam panel
-   - Compact / dense mode
-   - Progress bar
-   - Sticky toolbar
-   - Auto-save debounced
+   v8.1 [2026-09-25]
+   🎨 Gambar referensi per item & sub-item — selalu tampil di kiri
    ============================================================ */
 
 (function () {
@@ -193,7 +174,7 @@
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] v8.0 —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] v8.1 —', { candidateName, candidatePosition });
 
   /* ============================================================
      TOAST SYSTEM
@@ -335,7 +316,6 @@
        'conclusion','recommendation','reasons','development'].forEach(k => {
         if (draft[k] !== undefined) state[k] = Object.assign(state[k], draft[k]);
       });
-      // Kompatibilitas dengan draft versi lama (zoom / rotate / pan flat)
       const legacyMap = { dap: 'dap', baum: 'baum', htp: 'htp' };
       Object.keys(legacyMap).forEach(k => {
         if (draft.candidateImageZoom   && draft.candidateImageZoom[k])   state.imageState[k].zoom   = draft.candidateImageZoom[k];
@@ -571,7 +551,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     IMAGE VIEWER — Unified Pointer Events + Pinch + Wheel + Filters
+     IMAGE VIEWER
      ============================================================ */
   function createImageViewer(opts) {
     const { viewport, img, testKey } = opts;
@@ -603,7 +583,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     }
 
     function pushHistory() {
-      // Snapshot hanya field yang di-track
       const snapshot = JSON.stringify({
         zoom: imgState.zoom, rotate: imgState.rotate,
         panX: imgState.panX, panY: imgState.panY,
@@ -611,7 +590,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         brightness: imgState.brightness, contrast: imgState.contrast,
         invert: imgState.invert, grayscale: imgState.grayscale
       });
-      // Buang redo future
       history.stack = history.stack.slice(0, history.index + 1);
       if (history.stack[history.stack.length - 1] === snapshot) return;
       history.stack.push(snapshot);
@@ -646,7 +624,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       if (rr) rr.textContent = imgState.rotate + '°';
     }
 
-    /* ===== Auto-fit & center ===== */
     function autoFit() {
       imgState.zoom = 1;
       imgState.panX = 0;
@@ -656,7 +633,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       saveDraft();
     }
 
-    /* ===== Zoom ===== */
     function setZoom(z, fromWheel) {
       z = clamp(z, 0.15, 8);
       imgState.zoom = Number(z.toFixed(3));
@@ -666,7 +642,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       saveDraft();
     }
 
-    /* ===== Rotate ===== */
     function setRotate(deg) {
       imgState.rotate = ((deg % 360) + 360) % 360;
       applyTransform();
@@ -675,7 +650,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       saveDraft();
     }
 
-    /* ===== Flip ===== */
     function toggleFlipH() {
       imgState.flipH = !imgState.flipH;
       applyTransform();
@@ -691,13 +665,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       toast(imgState.flipV ? 'Flip vertikal aktif' : 'Flip vertikal nonaktif', 'info');
     }
 
-    /* ===== Filters ===== */
     function setBrightness(v) { imgState.brightness = clamp(v, 20, 250); applyTransform(); saveDraft(); }
     function setContrast(v)   { imgState.contrast   = clamp(v, 20, 250); applyTransform(); saveDraft(); }
     function toggleInvert()   { imgState.invert = !imgState.invert; applyTransform(); pushHistory(); saveDraft(); }
     function toggleGray()     { imgState.grayscale = !imgState.grayscale; applyTransform(); pushHistory(); saveDraft(); }
 
-    /* ===== Pointer Events (unified) ===== */
     const pointers = new Map();
 
     function onPointerDown(e) {
@@ -726,11 +698,9 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     function onPointerMove(e) {
       if (!pointers.has(e.pointerId)) return;
-      const prev = pointers.get(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (pointers.size === 2) {
-        // Pinch
         const pts = [...pointers.values()];
         const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         if (pinchStartDist > 0) {
@@ -771,7 +741,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       img.style.transition = 'transform .18s ease';
       pushHistory();
       saveDraft();
-      // Momentum
       if (Math.abs(velocityX) > 1 || Math.abs(velocityY) > 1) {
         rafId = requestAnimationFrame(momentum);
       }
@@ -782,7 +751,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     viewport.addEventListener('pointerup', onPointerUp);
     viewport.addEventListener('pointercancel', onPointerUp);
 
-    /* ===== Wheel zoom (tanpa Ctrl) ===== */
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.12 : 0.89;
@@ -791,7 +759,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       viewport._zoomCommit = setTimeout(() => pushHistory(), 300);
     }, { passive: false });
 
-    /* ===== Keyboard shortcuts ===== */
     function onKey(e) {
       if (state.activePage !== testKey) return;
       const tag = (e.target.tagName || '').toLowerCase();
@@ -822,7 +789,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     }
     document.addEventListener('keydown', onKey);
 
-    /* ===== Grid overlay ===== */
     function toggleGrid() {
       state.gridOverlay = !state.gridOverlay;
       const g = document.getElementById('giGridOverlay');
@@ -831,7 +797,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       toast(state.gridOverlay ? 'Grid aktif' : 'Grid nonaktif', 'info');
     }
 
-    /* ===== Binding tombol toolbar ===== */
     function bind(id, fn) {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', fn);
@@ -883,7 +848,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       toast('Gambar dihapus', 'warn');
     });
 
-    // Filter sliders (brightness & contrast)
     const brightnessSlider = document.getElementById('giBrightness');
     if (brightnessSlider) {
       brightnessSlider.value = imgState.brightness;
@@ -895,12 +859,9 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       contrastSlider.addEventListener('input', (e) => setContrast(Number(e.target.value)));
     }
 
-    // Push initial state
     pushHistory();
     applyTransform();
     updateToolbarUI();
-
-    // Auto-fit on first load if image exists
     img.onload = () => { applyTransform(); };
 
     return { applyTransform, pushHistory };
@@ -1208,39 +1169,56 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
         const isRadio = section.type === 'radio';
-       const itemsHTML = (section.items || []).map(item => {
-  let isChecked = false;
-  if (isRadio) isChecked = (val === item.id);
-  else isChecked = Array.isArray(val) && val.includes(item.id);
 
-  /* 🆕 Gambar item — muncul saat dicentang */
-  let itemImageHTML = '';
-  if (item.image && isChecked) {
-    itemImageHTML = `
-      <div style="margin: 6px 0 10px 28px; padding: 8px;
-        background: #fff; border: 1.5px solid ${theme.border};
-        border-radius: 10px; text-align: center;">
-        <img src="${item.image}" alt="${escapeHtml(item.label)}"
-          style="max-width: 100%; max-height: 220px; border-radius: 6px; display: block; margin: 0 auto;"
-          onerror="this.parentElement.style.display='none';">
-      </div>
-    `;
-  }
+        const itemsHTML = (section.items || []).map(item => {
+          let isChecked = false;
+          if (isRadio) isChecked = (val === item.id);
+          else isChecked = Array.isArray(val) && val.includes(item.id);
 
-  let subItemsHTML = '';
+          /* 🖼️ Gambar item — SELALU tampil di kiri jika ada */
+          let itemImageHTML = '';
+          if (item.image) {
+            itemImageHTML = `
+              <img src="${item.image}" alt="${escapeHtml(item.label)}"
+                style="width: 80px; height: 80px; object-fit: contain;
+                  flex: 0 0 80px; border-radius: 8px;
+                  border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+                  background: #fff; padding: 3px;
+                  transition: border-color .15s ease;"
+                onerror="this.style.display='none';">
+            `;
+          }
+
+          let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
             subItemsHTML = item.subItems.map(sub => {
               const subKey = section.id + '::' + sub.id;
               const subChecked = !!selected[subKey];
+
+              /* 🖼️ Gambar sub-item — SELALU tampil di kiri jika ada */
+              let subImageHTML = '';
+              if (sub.image) {
+                subImageHTML = `
+                  <img src="${sub.image}" alt="${escapeHtml(sub.label)}"
+                    style="width: 60px; height: 60px; object-fit: contain;
+                      flex: 0 0 60px; border-radius: 7px;
+                      border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
+                      background: #fff; padding: 3px;
+                      transition: border-color .15s ease;"
+                    onerror="this.style.display='none';">
+                `;
+              }
+
               return `
                 <label class="js-subitem" data-key="${subKey}"
-                  style="display: flex; align-items: flex-start; gap: 10px;
+                  style="display: flex; align-items: center; gap: 10px;
                     padding: 8px 12px; margin: 4px 0 6px 28px;
                     background: ${subChecked ? '#fff' : '#f8fafc'};
                     border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
                     border-radius: 10px; cursor: pointer;
                     transition: all .15s ease; user-select: none;">
-                  <div style="width: 16px; height: 16px; flex: 0 0 16px; margin-top: 1px;
+                  ${subImageHTML}
+                  <div style="width: 16px; height: 16px; flex: 0 0 16px;
                     border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
                     background: ${subChecked ? theme.primary : '#fff'};
                     border-radius: 4px; display: grid; place-items: center;">
@@ -1250,7 +1228,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                   </div>
                   <div style="flex: 1; min-width: 0; font-size: 12px; font-weight: 800;
                     color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
-                    ↳ ${escapeHtml(sub.label)}
+                    ${escapeHtml(sub.label)}
                     ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
                   </div>
                 </label>
@@ -1261,13 +1239,14 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           return `
             <div>
               <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
-                style="display: flex; align-items: flex-start; gap: 10px;
-                  padding: 9px 12px; margin-bottom: 6px;
+                style="display: flex; align-items: center; gap: 12px;
+                  padding: 10px 12px; margin-bottom: 6px;
                   background: ${isChecked ? '#fff' : '#fbfdff'};
                   border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
                   border-radius: 10px; cursor: pointer;
                   transition: all .15s ease; user-select: none;">
-                <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
+                ${itemImageHTML}
+                <div style="width: 18px; height: 18px; flex: 0 0 18px;
                   border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
                   background: ${isChecked ? theme.primary : '#fff'};
                   ${isRadio ? 'border-radius: 50%;' : 'border-radius: 4px;'}
@@ -1286,15 +1265,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           `;
         }).join('');
 
-return `
-  <div style="margin-bottom: 16px;">
-    <div style="font-size: 11.5px; font-weight: 900; color: #334155;
-      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-      ${escapeHtml(section.title)}
-    </div>
-    ${itemsHTML}
-  </div>
-`;
+        return `
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 11.5px; font-weight: 900; color: #334155;
+              margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              ${escapeHtml(section.title)}
+            </div>
+            ${itemsHTML}
+          </div>
+        `;
       }).join('');
 
       return `
@@ -1354,74 +1333,73 @@ return `
           box-shadow: 0 4px 12px rgba(0,0,0,.08);
           transition: transform .15s ease; }
 
-  .gi-grid-overlay { position: absolute; inset: 0;
-  pointer-events: none; display: ${gridVisible}; z-index: 3;
-  background-image:
-    linear-gradient(to right, rgba(59,130,246,.22) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(59,130,246,.22) 1px, transparent 1px);
-  background-size: 10% 10%; }
-.gi-grid-overlay .gi-grid-thirds { position: absolute; inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(234,179,8,.65) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, rgba(234,179,8,.65) 1.5px, transparent 1.5px);
-  background-size: 33.333% 33.333%; }
-.gi-grid-overlay .gi-grid-center-h { position: absolute;
-  left: 0; right: 0; top: 50%; height: 2px;
-  background: rgba(239,68,68,.75); transform: translateY(-1px); }
-.gi-grid-overlay .gi-grid-center-v { position: absolute;
-  top: 0; bottom: 0; left: 50%; width: 2px;
-  background: rgba(239,68,68,.75); transform: translateX(-1px); }
+        .gi-grid-overlay { position: absolute; inset: 0;
+          pointer-events: none; display: ${gridVisible}; z-index: 3;
+          background-image:
+            linear-gradient(to right, rgba(59,130,246,.22) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(59,130,246,.22) 1px, transparent 1px);
+          background-size: 10% 10%; }
+        .gi-grid-overlay .gi-grid-thirds { position: absolute; inset: 0;
+          background-image:
+            linear-gradient(to right, rgba(234,179,8,.65) 1.5px, transparent 1.5px),
+            linear-gradient(to bottom, rgba(234,179,8,.65) 1.5px, transparent 1.5px);
+          background-size: 33.333% 33.333%; }
+        .gi-grid-overlay .gi-grid-center-h { position: absolute;
+          left: 0; right: 0; top: 50%; height: 2px;
+          background: rgba(239,68,68,.75); transform: translateY(-1px); }
+        .gi-grid-overlay .gi-grid-center-v { position: absolute;
+          top: 0; bottom: 0; left: 50%; width: 2px;
+          background: rgba(239,68,68,.75); transform: translateX(-1px); }
 
-/* ===== Hint shortcut di dalam gambar ===== */
-.gi-img-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
-  padding: 6px 12px;
-  background: rgba(15,23,42,.72);
-  border-radius: 999px;
-  font-family: Inter, system-ui, sans-serif;
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #e2e8f0;
-  pointer-events: none;
-  z-index: 4;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  box-shadow: 0 6px 18px rgba(0,0,0,.35);
-  max-width: calc(100% - 20px);
-  white-space: nowrap;
-}
-.gi-img-hint .gi-kbd {
-  display: inline-block;
-  padding: 1px 6px;
-  font-family: monospace;
-  font-size: 10px;
-  background: rgba(255,255,255,.14);
-  border: 1px solid rgba(255,255,255,.22);
-  border-radius: 4px;
-  color: #fff;
-  font-weight: 800;
-}
-.gi-img-hint .gi-hint-dot {
-  opacity: .45;
-  font-weight: 900;
-}
+        .gi-img-hint {
+          position: absolute;
+          left: 50%;
+          bottom: 8px;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: center;
+          padding: 6px 12px;
+          background: rgba(15,23,42,.72);
+          border-radius: 999px;
+          font-family: Inter, system-ui, sans-serif;
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #e2e8f0;
+          pointer-events: none;
+          z-index: 4;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          box-shadow: 0 6px 18px rgba(0,0,0,.35);
+          max-width: calc(100% - 20px);
+          white-space: nowrap;
+        }
+        .gi-img-hint .gi-kbd {
+          display: inline-block;
+          padding: 1px 6px;
+          font-family: monospace;
+          font-size: 10px;
+          background: rgba(255,255,255,.14);
+          border: 1px solid rgba(255,255,255,.22);
+          border-radius: 4px;
+          color: #fff;
+          font-weight: 800;
+        }
+        .gi-img-hint .gi-hint-dot {
+          opacity: .45;
+          font-weight: 900;
+        }
 
-/* Sembunyikan hint kalau layar terlalu kecil */
-@media (max-width: 600px) {
-  .gi-img-hint {
-    font-size: 9.5px;
-    padding: 5px 10px;
-    gap: 4px;
-  }
-}
+        @media (max-width: 600px) {
+          .gi-img-hint {
+            font-size: 9.5px;
+            padding: 5px 10px;
+            gap: 4px;
+          }
+        }
+
         .gi-toolbar { flex-shrink: 0; display: flex; flex-direction: column;
           gap: 4px; padding: 6px 8px; background: #f8fafc;
           border: 1.5px solid #e2e8f0; border-radius: 10px; }
@@ -1470,31 +1448,31 @@ return `
           font-family: inherit; font-size: 12.5px; outline: none;
           box-sizing: border-box; }
         .gi-search-box input:focus { border-color: ${theme.primary}; }
-       .gi-search-box::before { content: '🔍'; position: absolute;
-  left: 10px; top: 50%; transform: translateY(-50%);
-  font-size: 13px; pointer-events: none; }
+        .gi-search-box::before { content: '🔍'; position: absolute;
+          left: 10px; top: 50%; transform: translateY(-50%);
+          font-size: 13px; pointer-events: none; }
 
-/* ===== Justified text ===== */
-.gi-detail-right .js-option-item > div:last-child,
-.gi-detail-right .js-subitem > div:last-child,
-.gi-notes-content,
-.gi-cat-narrative,
-#giConclusion,
-#giReasons,
-#giDevelopment {
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  -webkit-hyphens: auto;
-  word-break: break-word;
-}
+        /* ===== Justified text ===== */
+        .gi-detail-right .js-option-item > div:last-child,
+        .gi-detail-right .js-subitem > div:last-child,
+        .gi-notes-content,
+        .gi-cat-narrative,
+        #giConclusion,
+        #giReasons,
+        #giDevelopment {
+          text-align: justify;
+          text-justify: inter-word;
+          hyphens: auto;
+          -webkit-hyphens: auto;
+          word-break: break-word;
+        }
 
-/* Jangan justify di tombol & label pendek */
-.gi-tbtn,
-.gi-nav button,
-.gi-detail-right .gi-search-box input {
-  text-align: center;
-}
+        .gi-tbtn,
+        .gi-nav button,
+        .gi-detail-right .gi-search-box input {
+          text-align: center;
+        }
+
         .gi-kbd { display: inline-block; padding: 1px 5px; font-family: monospace;
           font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1;
           border-radius: 4px; color: #475569; font-weight: 700; }
@@ -1528,16 +1506,16 @@ return `
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px;
               color: ${theme.primary}; margin-bottom: 2px;">
-              INTERPRETASI OTOMATIS · v8.0
+              INTERPRETASI OTOMATIS · v8.1
             </div>
             <div style="font-size: 15px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
             </div>
           </div>
-<div style="font-size: 10px; color: #94a3b8; font-weight: 700;
-  text-align: right; line-height: 1.4;">
-  <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.0</div>
-</div>
+          <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
+            text-align: right; line-height: 1.4;">
+            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.1</div>
+          </div>
         </div>
 
         <div class="gi-detail-layout">
@@ -1553,27 +1531,26 @@ return `
 
             <div class="gi-detail-left-viewport">
               ${currentImg ? `
-<div class="gi-img-viewport" id="giViewport">
-  <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
-  <div class="gi-grid-overlay" id="giGridOverlay">
-    <div class="gi-grid-thirds"></div>
-    <div class="gi-grid-center-h"></div>
-    <div class="gi-grid-center-v"></div>
-  </div>
+                <div class="gi-img-viewport" id="giViewport">
+                  <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
+                  <div class="gi-grid-overlay" id="giGridOverlay">
+                    <div class="gi-grid-thirds"></div>
+                    <div class="gi-grid-center-h"></div>
+                    <div class="gi-grid-center-v"></div>
+                  </div>
 
-  <!-- 🆕 Hint shortcut di dalam gambar -->
-  <div class="gi-img-hint">
-    <span class="gi-kbd">Wheel</span> zoom
-    <span class="gi-hint-dot">·</span>
-    <span class="gi-kbd">Drag</span> geser
-    <span class="gi-hint-dot">·</span>
-    <span class="gi-kbd">R</span> rotate
-    <span class="gi-hint-dot">·</span>
-    <span class="gi-kbd">F</span> fit
-    <span class="gi-hint-dot">·</span>
-    <span class="gi-kbd">0</span> reset
-  </div>
-</div>
+                  <div class="gi-img-hint">
+                    <span class="gi-kbd">Wheel</span> zoom
+                    <span class="gi-hint-dot">·</span>
+                    <span class="gi-kbd">Drag</span> geser
+                    <span class="gi-hint-dot">·</span>
+                    <span class="gi-kbd">R</span> rotate
+                    <span class="gi-hint-dot">·</span>
+                    <span class="gi-kbd">F</span> fit
+                    <span class="gi-hint-dot">·</span>
+                    <span class="gi-kbd">0</span> reset
+                  </div>
+                </div>
               ` : `
                 <div id="giImageDropZone"
                   style="position: absolute; inset: 0; display: flex;
@@ -1618,9 +1595,7 @@ return `
             </div>
 
             ${currentImg ? `
-            <!-- Toolbar canggih -->
             <div class="gi-toolbar">
-              <!-- Baris 1: Zoom + Rotate + Flip -->
               <div class="gi-toolbar-row">
                 <button type="button" class="gi-tbtn" id="giZoomOutBtn" title="Perkecil (−)">−</button>
                 <button type="button" class="gi-tbtn small" id="giZoomResetBtn" title="Reset zoom">100%</button>
@@ -1634,7 +1609,6 @@ return `
                 <button type="button" class="gi-tbtn" id="giFlipVBtn" title="Flip vertikal (V)">⇅</button>
               </div>
 
-              <!-- Baris 2: Filters + Undo/Redo + Tools -->
               <div class="gi-toolbar-row">
                 <button type="button" class="gi-tbtn small" id="giUndoBtn" title="Undo (Ctrl+Z)">↶</button>
                 <button type="button" class="gi-tbtn small" id="giRedoBtn" title="Redo (Ctrl+Y)">↷</button>
@@ -1651,7 +1625,6 @@ return `
                 <button type="button" class="gi-tbtn small" id="giRemoveBtn" title="Hapus gambar">🗑️</button>
               </div>
 
-              <!-- Baris 3: Brightness + Contrast -->
               <div class="gi-filter-row">
                 <span class="gi-filter-label">☀️ Terang</span>
                 <input type="range" id="giBrightness" min="20" max="200" value="100">
@@ -1731,75 +1704,73 @@ return `
     });
     renderStep();
 
-/* ============================================================
-   Helper: re-render sambil menjaga posisi scroll
-   ============================================================ */
-function __rerenderPreserveScroll(testKey) {
-  const root = getRoot();
-  const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
+    /* ============================================================
+       Helper: re-render sambil menjaga posisi scroll
+       ============================================================ */
+    function __rerenderPreserveScroll(testKey) {
+      const root = getRoot();
+      const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
 
-  // Simpan posisi scroll SEBELUM re-render
-  const savedRootScroll  = root ? root.scrollTop : 0;
-  const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
+      const savedRootScroll  = root ? root.scrollTop : 0;
+      const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
 
-  renderTestDetail(testKey);
+      renderTestDetail(testKey);
 
-  // Restore posisi scroll SETELAH re-render
-  const newRoot = getRoot();
-  const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
-  if (newRoot)       newRoot.scrollTop = savedRootScroll;
-  if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
-}
-
-/* ============================================================
-   Item click — pakai helper preserve scroll
-   ============================================================ */
-root.querySelectorAll('.js-option-item').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const sectionId = label.getAttribute('data-section');
-    const itemId = label.getAttribute('data-item');
-    const type = label.getAttribute('data-type');
-
-    const section = (data.slides || [])
-      .flatMap(g => g.sections || [])
-      .find(s => s.id === sectionId);
-
-    const clearSubItems = (parentItemId) => {
-      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
-      (parentItem?.subItems || []).forEach(sub => {
-        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
-      });
-    };
-
-    if (type === 'radio') {
-      const oldVal = state.selectedItems[testKey][sectionId];
-      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
-      state.selectedItems[testKey][sectionId] = itemId;
-    } else {
-      let arr = state.selectedItems[testKey][sectionId];
-      if (!Array.isArray(arr)) arr = [];
-      const idx = arr.indexOf(itemId);
-      if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
-      else arr.push(itemId);
-      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+      const newRoot = getRoot();
+      const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
+      if (newRoot)       newRoot.scrollTop = savedRootScroll;
+      if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
     }
-    saveDraft();
-    __rerenderPreserveScroll(testKey);   // ← ganti dari renderTestDetail(testKey)
-  });
-});
 
-root.querySelectorAll('.js-subitem').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const key = label.getAttribute('data-key');
-    const cur = state.selectedItems[testKey][key];
-    if (cur) delete state.selectedItems[testKey][key];
-    else state.selectedItems[testKey][key] = 'checked';
-    saveDraft();
-    __rerenderPreserveScroll(testKey);   // ← pakai helper
-  });
-});
+    /* ============================================================
+       Item click — pakai helper preserve scroll
+       ============================================================ */
+    root.querySelectorAll('.js-option-item').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionId = label.getAttribute('data-section');
+        const itemId = label.getAttribute('data-item');
+        const type = label.getAttribute('data-type');
+
+        const section = (data.slides || [])
+          .flatMap(g => g.sections || [])
+          .find(s => s.id === sectionId);
+
+        const clearSubItems = (parentItemId) => {
+          const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+          (parentItem?.subItems || []).forEach(sub => {
+            delete state.selectedItems[testKey][sectionId + '::' + sub.id];
+          });
+        };
+
+        if (type === 'radio') {
+          const oldVal = state.selectedItems[testKey][sectionId];
+          if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+          state.selectedItems[testKey][sectionId] = itemId;
+        } else {
+          let arr = state.selectedItems[testKey][sectionId];
+          if (!Array.isArray(arr)) arr = [];
+          const idx = arr.indexOf(itemId);
+          if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
+          else arr.push(itemId);
+          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+        }
+        saveDraft();
+        __rerenderPreserveScroll(testKey);
+      });
+    });
+
+    root.querySelectorAll('.js-subitem').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const key = label.getAttribute('data-key');
+        const cur = state.selectedItems[testKey][key];
+        if (cur) delete state.selectedItems[testKey][key];
+        else state.selectedItems[testKey][key] = 'checked';
+        saveDraft();
+        __rerenderPreserveScroll(testKey);
+      });
+    });
 
     /* ===== Search ===== */
     const searchInput = document.getElementById('giSearchInput');
