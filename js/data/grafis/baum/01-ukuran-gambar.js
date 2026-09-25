@@ -27,6 +27,13 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
               dependsOn: 'terlalu_besar',
               optional: true,
               interpret: 'Terkadang, jika gambar dibuat dengan garis tepi yang sangat besar, ini menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania. Catatan: item ini hanya relevan bila kandidat memang menggambar garis tepi; jika tidak ada garis tepi, boleh dilewati.'
+            },
+            {
+              id: 'gambar_jelek_kosong',
+              label: 'Gambar jelek / kosong (Indikasi Kekurangan Mental)',
+              dependsOn: 'terlalu_besar',
+              optional: true,
+              interpret: 'Ketika gambar terlihat jelek atau kosong — misalnya tidak ada detail, tampak seperti coretan tanpa bentuk, atau elemen-elemennya tidak dapat dikenali — hal ini dapat mengindikasikan adanya kekurangan mental. Gambar seperti ini menunjukkan kesulitan atau keterbatasan dalam perkembangan kognitif, dan umumnya dibuat oleh anak-anak. Catatan: item ini hanya relevan bila gambar memang terlihat jelek atau kosong; jika gambar tetap jelas dan berkualitas baik, boleh dilewati.'
             }
           ]
         },
