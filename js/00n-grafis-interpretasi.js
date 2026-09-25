@@ -1340,12 +1340,23 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           box-shadow: 0 4px 12px rgba(0,0,0,.08);
           transition: transform .15s ease; }
 
-        .gi-grid-overlay { position: absolute; inset: 0;
-          pointer-events: none; display: ${gridVisible}; z-index: 3;
-          background-image:
-            linear-gradient(to right, rgba(239,68,68,.35) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(239,68,68,.35) 1px, transparent 1px);
-          background-size: 33.333% 33.333%; }
+  .gi-grid-overlay { position: absolute; inset: 0;
+  pointer-events: none; display: ${gridVisible}; z-index: 3;
+  background-image:
+    linear-gradient(to right, rgba(59,130,246,.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59,130,246,.22) 1px, transparent 1px);
+  background-size: 10% 10%; }
+.gi-grid-overlay .gi-grid-thirds { position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(234,179,8,.65) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, rgba(234,179,8,.65) 1.5px, transparent 1.5px);
+  background-size: 33.333% 33.333%; }
+.gi-grid-overlay .gi-grid-center-h { position: absolute;
+  left: 0; right: 0; top: 50%; height: 2px;
+  background: rgba(239,68,68,.75); transform: translateY(-1px); }
+.gi-grid-overlay .gi-grid-center-v { position: absolute;
+  top: 0; bottom: 0; left: 50%; width: 2px;
+  background: rgba(239,68,68,.75); transform: translateX(-1px); }
 
         .gi-toolbar { flex-shrink: 0; display: flex; flex-direction: column;
           gap: 4px; padding: 6px 8px; background: #f8fafc;
@@ -1395,10 +1406,31 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           font-family: inherit; font-size: 12.5px; outline: none;
           box-sizing: border-box; }
         .gi-search-box input:focus { border-color: ${theme.primary}; }
-        .gi-search-box::before { content: '🔍'; position: absolute;
-          left: 10px; top: 50%; transform: translateY(-50%);
-          font-size: 13px; pointer-events: none; }
+       .gi-search-box::before { content: '🔍'; position: absolute;
+  left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; pointer-events: none; }
 
+/* ===== Justified text ===== */
+.gi-detail-right .js-option-item > div:last-child,
+.gi-detail-right .js-subitem > div:last-child,
+.gi-notes-content,
+.gi-cat-narrative,
+#giConclusion,
+#giReasons,
+#giDevelopment {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  word-break: break-word;
+}
+
+/* Jangan justify di tombol & label pendek */
+.gi-tbtn,
+.gi-nav button,
+.gi-detail-right .gi-search-box input {
+  text-align: center;
+}
         .gi-kbd { display: inline-block; padding: 1px 5px; font-family: monospace;
           font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1;
           border-radius: 4px; color: #475569; font-weight: 700; }
@@ -1460,7 +1492,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               ${currentImg ? `
                 <div class="gi-img-viewport" id="giViewport">
                   <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
-                  <div class="gi-grid-overlay" id="giGridOverlay"></div>
+                 <div class="gi-grid-overlay" id="giGridOverlay">
+  <div class="gi-grid-thirds"></div>
+  <div class="gi-grid-center-h"></div>
+  <div class="gi-grid-center-v"></div>
+</div>
                 </div>
               ` : `
                 <div id="giImageDropZone"
@@ -1677,17 +1713,17 @@ root.querySelectorAll('.js-option-item').forEach(label => {
   });
 });
 
-    root.querySelectorAll('.js-subitem').forEach(label => {
-      label.addEventListener('click', (e) => {
-        e.preventDefault();
-        const key = label.getAttribute('data-key');
-        const cur = state.selectedItems[testKey][key];
-        if (cur) delete state.selectedItems[testKey][key];
-        else state.selectedItems[testKey][key] = 'checked';
-        saveDraft();
-        renderTestDetail(testKey);
-      });
-    });
+root.querySelectorAll('.js-subitem').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const key = label.getAttribute('data-key');
+    const cur = state.selectedItems[testKey][key];
+    if (cur) delete state.selectedItems[testKey][key];
+    else state.selectedItems[testKey][key] = 'checked';
+    saveDraft();
+    __rerenderPreserveScroll(testKey);   // ← pakai helper
+  });
+});
 
     /* ===== Search ===== */
     const searchInput = document.getElementById('giSearchInput');
