@@ -876,20 +876,20 @@ const isRot90       = (currentRotate % 180) !== 0;   // true di 90° / 270°
 const candidatePanelHTML = currentImg
   ? `
     <div style="position: relative;">
-      <div id="giImageScrollWrap"
+           <div id="giImageScrollWrap"
         style="overflow: auto; max-height: 82vh; background: #f8fafc;
           border: 1.5px solid #e2e8f0; border-radius: 12px;
           scrollbar-width: thin;
-          display: flex; align-items: center; justify-content: center;
-          ${isRot90 ? `min-height: 82vh; padding: 10px;` : ''}">
+          display: flex;">
         <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
           style="display: block;
             transform: rotate(${currentRotate}deg);
             transform-origin: center center;
             ${isRot90
-              ? `height: ${zoomPct}%; width: auto; max-height: none; max-width: none;`
-              : `width: ${zoomPct}%; height: auto; max-width: none;`}
-            background: #fff; margin: 0 auto;
+              ? `height: calc(${currentZoom} * 82vh); width: auto; max-height: none; max-width: none;`
+              : `width: calc(${currentZoom} * 100%); height: auto; max-height: none; max-width: none;`}
+            background: #fff;
+            margin: auto;
             transition: transform .22s ease, width .18s ease, height .18s ease;">
       </div>
       <div style="position: absolute; top: 8px; right: 8px;
