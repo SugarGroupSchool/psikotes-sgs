@@ -53,25 +53,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Jika pangkal batang lebar di kedua sisi, ini mencerminkan adanya hambatan emosional terhadap masa lalu dan masa depan, yang menandakan rasa terhambat secara menyeluruh. Anak dengan gambaran seperti ini cenderung terjebak dalam situasi diam, enggan untuk melangkah maju atau mundur, serta mengalami kesulitan belajar akibat rasa takut akan kegagalan. Dampak perilaku: terlihat dari kesulitan belajar yang mereka alami, di mana rasa takut gagal membuat mereka enggan maju. Kinerja sekolah menjadi kurang optimal. Kondisi ini tidak selalu mencerminkan kurangnya kecerdasan, melainkan adanya hambatan emosional yang memengaruhi kemampuan mereka.'
         }
       ]
-    },
-    {
-      id: 'bentuk_batang_tambahan',
-      title: 'Bentuk Batang (Tambahan — 3.5.6.3)',
-      type: 'checkbox',
-      items: [
-        {
-          image: IMG_STAMBASIS,   // ← GANTI: batang dua garis sejajar (normal)
-          id: 'batang_dua_garis',
-          label: 'Batang Dua Garis Sejajar (Umum / Normal)',
-          interpret: 'Pada umumnya, batang pohon diilustrasikan dengan dua garis sejajar yang mencerminkan keselarasan dan bentuk yang umum.'
-        },
-        {
-          image: IMG_STAMBASIS,   // ← GANTI: batang satu garis (anak-anak)
-          id: 'batang_satu_garis',
-          label: 'Batang Satu Garis (Umum pada Anak-anak)',
-          interpret: 'Anak-anak seringkali menggambarkan batang pohon hanya dengan satu garis. Hal ini sejalan dengan gambaran akar satu garis yang umum ditemukan pada anak usia dini — menunjukkan aspek primitif, dunia magis, serta tahap perkembangan intelektual yang masih sederhana.'
-        }
-      ]
     }
+    // Bagian "Bentuk Batang (Tambahan — 3.5.6.3)" telah dihapus sepenuhnya dari sini
   ]
 });
