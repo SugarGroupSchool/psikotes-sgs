@@ -240,7 +240,8 @@
     activePage: 'landing',
     selectedItems: { dap: {}, baum: {}, htp: {} },
     candidateImages: { dap: '', baum: '', htp: '' },
-    candidateImageZoom: { dap: 1, baum: 1, htp: 1 },   // 🆕 zoom level (1 = 100%)
+   candidateImageZoom:   { dap: 1, baum: 1, htp: 1 },
+candidateImageRotate: { dap: 0, baum: 0, htp: 0 },   // 🆕 rotasi derajat (0/90/180/270)
     currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
@@ -256,6 +257,7 @@
       if (draft.selectedItems)   state.selectedItems   = Object.assign(state.selectedItems, draft.selectedItems);
       if (draft.candidateImages) state.candidateImages = Object.assign(state.candidateImages, draft.candidateImages);
       if (draft.candidateImageZoom) state.candidateImageZoom = Object.assign(state.candidateImageZoom, draft.candidateImageZoom);
+       if (draft.candidateImageRotate) state.candidateImageRotate = Object.assign(state.candidateImageRotate, draft.candidateImageRotate);
       if (draft.currentStep)     state.currentStep     = Object.assign(state.currentStep, draft.currentStep);
       if (draft.categories)      state.categories      = draft.categories;
       if (draft.conclusion)      state.conclusion      = draft.conclusion;
@@ -272,6 +274,7 @@
         selectedItems:      state.selectedItems,
         candidateImages:    state.candidateImages,
         candidateImageZoom: state.candidateImageZoom,
+         candidateImageRotate: state.candidateImageRotate,
         currentStep:        state.currentStep,
         categories:         state.categories,
         conclusion:         state.conclusion,
@@ -755,9 +758,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     state.activePage = testKey;
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected = state.selectedItems[testKey] || {};
-    const currentImg  = state.candidateImages[testKey] || '';
-    const currentZoom = state.candidateImageZoom[testKey] || 1;
-    const zoomPct     = Math.round(currentZoom * 100);
+   const currentImg    = state.candidateImages[testKey] || '';
+const currentZoom   = state.candidateImageZoom[testKey] || 1;
+const currentRotate = state.candidateImageRotate[testKey] || 0;
+const zoomPct       = Math.round(currentZoom * 100);
+const isRot90       = (currentRotate % 180) !== 0;   // true di 90° / 270°
 
     /* ===== Konten pilihan interpretasi (per slide) ===== */
     const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
@@ -868,71 +873,107 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     }).join('');
 
     /* ===== Panel kiri: gambar kandidat ===== */
-    const candidatePanelHTML = currentImg
-      ? `
-        <div style="position: relative;">
-          <div id="giImageScrollWrap"
-            style="overflow: auto; max-height: 82vh; background: #f8fafc;
-              border: 1.5px solid #e2e8f0; border-radius: 12px;
-              scrollbar-width: thin;">
-            <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
-              style="display: block; width: ${zoomPct}%; max-width: none;
-                height: auto; background: #fff; margin: 0 auto;
-                transition: width .18s ease;">
-          </div>
-          <div style="position: absolute; top: 8px; right: 8px;
-            display: flex; gap: 6px; z-index: 5;">
-            <button type="button" id="giImageFullscreenBtn" title="Fullscreen"
-              style="width: 34px; height: 34px; border-radius: 8px;
-                background: rgba(15,23,42,.75); color: #fff; border: 0;
-                font-size: 16px; cursor: pointer;">🔍</button>
-            <button type="button" id="giImageReplaceBtn" title="Ganti"
-              style="width: 34px; height: 34px; border-radius: 8px;
-                background: rgba(15,23,42,.75); color: #fff; border: 0;
-                font-size: 16px; cursor: pointer;">🔄</button>
-            <button type="button" id="giImageRemoveBtn" title="Hapus"
-              style="width: 34px; height: 34px; border-radius: 8px;
-                background: rgba(220,38,38,.85); color: #fff; border: 0;
-                font-size: 16px; cursor: pointer;">🗑️</button>
-          </div>
-        </div>
+const candidatePanelHTML = currentImg
+  ? `
+    <div style="position: relative;">
+      <div id="giImageScrollWrap"
+        style="overflow: auto; max-height: 82vh; background: #f8fafc;
+          border: 1.5px solid #e2e8f0; border-radius: 12px;
+          scrollbar-width: thin;
+          display: flex; align-items: center; justify-content: center;
+          ${isRot90 ? `min-height: 82vh; padding: 10px;` : ''}">
+        <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
+          style="display: block;
+            transform: rotate(${currentRotate}deg);
+            transform-origin: center center;
+            ${isRot90
+              ? `height: ${zoomPct}%; width: auto; max-height: none; max-width: none;`
+              : `width: ${zoomPct}%; height: auto; max-width: none;`}
+            background: #fff; margin: 0 auto;
+            transition: transform .22s ease, width .18s ease, height .18s ease;">
+      </div>
+      <div style="position: absolute; top: 8px; right: 8px;
+        display: flex; gap: 6px; z-index: 5;">
+        <button type="button" id="giImageFullscreenBtn" title="Fullscreen"
+          style="width: 34px; height: 34px; border-radius: 8px;
+            background: rgba(15,23,42,.75); color: #fff; border: 0;
+            font-size: 16px; cursor: pointer;">🔍</button>
+        <button type="button" id="giImageReplaceBtn" title="Ganti"
+          style="width: 34px; height: 34px; border-radius: 8px;
+            background: rgba(15,23,42,.75); color: #fff; border: 0;
+            font-size: 16px; cursor: pointer;">🔄</button>
+        <button type="button" id="giImageRemoveBtn" title="Hapus"
+          style="width: 34px; height: 34px; border-radius: 8px;
+            background: rgba(220,38,38,.85); color: #fff; border: 0;
+            font-size: 16px; cursor: pointer;">🗑️</button>
+      </div>
+    </div>
 
-        <!-- 🆕 Kontrol Zoom -->
-        <div style="display: flex; align-items: center; justify-content: center;
-          gap: 8px; margin-top: 12px; padding: 8px;
-          background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;">
-          <button type="button" id="giZoomOutBtn" title="Perkecil"
-            style="width: 38px; height: 38px; border-radius: 9px;
-              background: #fff; color: #334155;
-              border: 1.5px solid #cbd5e1;
-              font-size: 20px; font-weight: 900;
-              cursor: pointer; font-family: inherit; line-height: 1;">
-            −
-          </button>
-          <button type="button" id="giZoomResetBtn" title="Reset"
-            style="min-width: 70px; height: 38px; padding: 0 14px;
-              border-radius: 9px; background: #fff; color: ${theme.primaryDark};
-              border: 1.5px solid ${theme.border};
-              font-size: 13px; font-weight: 900; cursor: pointer;
-              font-family: inherit;">
-            ${zoomPct}%
-          </button>
-          <button type="button" id="giZoomInBtn" title="Perbesar"
-            style="width: 38px; height: 38px; border-radius: 9px;
-              background: ${theme.primary}; color: #fff;
-              border: 0; font-size: 20px; font-weight: 900;
-              cursor: pointer; font-family: inherit; line-height: 1;">
-            +
-          </button>
-        </div>
+    <!-- 🆕 Kontrol Zoom -->
+    <div style="display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-top: 12px; padding: 8px;
+      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;">
+      <button type="button" id="giZoomOutBtn" title="Perkecil"
+        style="width: 38px; height: 38px; border-radius: 9px;
+          background: #fff; color: #334155;
+          border: 1.5px solid #cbd5e1;
+          font-size: 20px; font-weight: 900;
+          cursor: pointer; font-family: inherit; line-height: 1;">
+        −
+      </button>
+      <button type="button" id="giZoomResetBtn" title="Reset"
+        style="min-width: 70px; height: 38px; padding: 0 14px;
+          border-radius: 9px; background: #fff; color: ${theme.primaryDark};
+          border: 1.5px solid ${theme.border};
+          font-size: 13px; font-weight: 900; cursor: pointer;
+          font-family: inherit;">
+        ${zoomPct}%
+      </button>
+      <button type="button" id="giZoomInBtn" title="Perbesar"
+        style="width: 38px; height: 38px; border-radius: 9px;
+          background: ${theme.primary}; color: #fff;
+          border: 0; font-size: 20px; font-weight: 900;
+          cursor: pointer; font-family: inherit; line-height: 1;">
+        +
+      </button>
+    </div>
 
-        <div style="margin-top: 8px; font-size: 11px; color: #64748b;
-          text-align: center; line-height: 1.5;">
-          🔍 Fullscreen · 🔄 Ganti · 🗑️ Hapus · Ctrl+V paste<br>
-          <span style="opacity:.75;">Gunakan tombol + / − untuk zoom gambar</span>
-        </div>
-      `
-      : `
+    <!-- 🆕 Kontrol Rotate -->
+    <div style="display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-top: 8px; padding: 8px;
+      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px;">
+      <button type="button" id="giRotateLeftBtn" title="Putar kiri (−90°)"
+        style="width: 38px; height: 38px; border-radius: 9px;
+          background: #fff; color: #334155;
+          border: 1.5px solid #cbd5e1;
+          font-size: 18px; font-weight: 900;
+          cursor: pointer; font-family: inherit; line-height: 1;">
+        ⟲
+      </button>
+      <button type="button" id="giRotateResetBtn" title="Reset rotasi"
+        style="min-width: 70px; height: 38px; padding: 0 14px;
+          border-radius: 9px; background: #fff; color: ${theme.primaryDark};
+          border: 1.5px solid ${theme.border};
+          font-size: 13px; font-weight: 900; cursor: pointer;
+          font-family: inherit;">
+        ${currentRotate}°
+      </button>
+      <button type="button" id="giRotateRightBtn" title="Putar kanan (+90°)"
+        style="width: 38px; height: 38px; border-radius: 9px;
+          background: ${theme.primary}; color: #fff;
+          border: 0; font-size: 18px; font-weight: 900;
+          cursor: pointer; font-family: inherit; line-height: 1;">
+        ⟳
+      </button>
+    </div>
+
+    <div style="margin-top: 8px; font-size: 11px; color: #64748b;
+      text-align: center; line-height: 1.5;">
+      🔍 Fullscreen · 🔄 Ganti · 🗑️ Hapus · Ctrl+V paste<br>
+      <span style="opacity:.75;">+ / − untuk zoom · ⟲ ⟳ untuk memutar gambar</span>
+    </div>
+  `
+  : `
         <div id="giImageDropZone"
           style="padding: 26px 18px; text-align: center;
             background: #f8fafc; border: 2px dashed #cbd5e1;
@@ -1299,6 +1340,25 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom((state.candidateImageZoom[testKey] || 1) - 0.2));
     if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setZoom(1));
 
+         // 🆕 Rotate controls
+    function setRotate(newRotate) {
+      // Normalisasi ke 0/90/180/270
+      newRotate = ((newRotate % 360) + 360) % 360;
+      state.candidateImageRotate[testKey] = newRotate;
+      saveDraft();
+      renderTestDetail(testKey);
+    }
+
+    const rotateLeftBtn  = document.getElementById('giRotateLeftBtn');
+    const rotateRightBtn = document.getElementById('giRotateRightBtn');
+    const rotateResetBtn = document.getElementById('giRotateResetBtn');
+
+    if (rotateLeftBtn)  rotateLeftBtn.addEventListener('click',  () =>
+      setRotate((state.candidateImageRotate[testKey] || 0) - 90));
+    if (rotateRightBtn) rotateRightBtn.addEventListener('click', () =>
+      setRotate((state.candidateImageRotate[testKey] || 0) + 90));
+    if (rotateResetBtn) rotateResetBtn.addEventListener('click', () => setRotate(0));
+     
     // 🆕 Scroll-zoom pakai Ctrl + wheel
     const scrollWrap = document.getElementById('giImageScrollWrap');
     if (scrollWrap && img) {
@@ -1310,16 +1370,19 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       }, { passive: false });
     }
 
-    if (fullscreenBtn && img) {
+       if (fullscreenBtn && img) {
       fullscreenBtn.addEventListener('click', () => {
         const old = document.getElementById('giLightbox');
         if (old) old.remove();
+        const rot = state.candidateImageRotate[testKey] || 0;
         const lb = document.createElement('div');
         lb.id = 'giLightbox';
-        lb.innerHTML = `<img src="${img.src}" alt="Preview">`;
+        lb.innerHTML = `<img src="${img.src}" alt="Preview"
+          style="transform: rotate(${rot}deg); transition: transform .22s ease;">`;
         lb.onclick = () => lb.remove();
         document.body.appendChild(lb);
       });
+    }
     }
 
     if (replaceBtn) {
