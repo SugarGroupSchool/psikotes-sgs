@@ -297,8 +297,10 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           image: IMG_MAHKOTA,   // ← GANTI: mahkota beringgit seperti tangan
           id: 'beringgit_seperti_tangan',
           label: 'Mahkota Beringgit-inggit (Seperti Tangan)',
-          interpret: 'Mencerminkan: (1) Lebih mengutamakan penampilan diri (performance) — memprioritaskan penampilan dan citra diri yang terlihat oleh orang lain, fokus pada tampilan eksternal. (2) Sulit beradaptasi — kesulitan beradaptasi secara sosial, mempertimbangkan tata cara dan aturan sosial yang dapat menjadi beban atau menghambat penyesuaian. (3) Selalu memperhatikan tata cara pergaulan — kesadaran terhadap etika dan tata cara sosial, memperhatikan norma-norma sosial dan mempertimbangkan bagaimana tindakan atau penampilan dapat diterima oleh orang lain.'
-      },
+          interpret: 'Mencerminkan: (1) Lebih mengutamakan penampilan diri (performance) — ...'
+        }
+      ]                        // ← 🆕 tutup array items
+    },                         // ← 🆕 tutup object section 4
 
     /* ==========================================================
        5. BENTUK LANJUTAN MAHKOTA
