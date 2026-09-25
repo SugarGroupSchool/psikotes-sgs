@@ -1274,9 +1274,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
         return `
           <div style="margin-bottom: 16px;">
-           <div style="font-size: 11.5px; font-weight: 900; color: #334155;
+          <div style="font-size: 11.5px; font-weight: 900; color: #334155;
   margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-  ${isRadio ? '<span style="font-size: 10px; color: #94a3b8;">(pilih satu)</span>' : ''}
   ${escapeHtml(section.title)}
 </div>
             ${itemsHTML}
