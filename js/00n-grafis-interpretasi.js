@@ -1465,16 +1465,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                   <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
                   <div class="gi-grid-overlay" id="giGridOverlay"></div>
                 </div>
-                <!-- Overlay hint -->
-                <div style="position: absolute; bottom: 10px; left: 50%;
-                  transform: translateX(-50%);
-                  padding: 3px 10px; border-radius: 999px;
-                  background: rgba(15,23,42,.75); color: #fff;
-                  font-size: 10px; font-weight: 700;
-                  pointer-events: none; opacity: .85; z-index: 4;
-                  white-space: nowrap;">
-                  ✋ Drag · 🔍 Wheel · 📌 Klik untuk pin
-                </div>
               ` : `
                 <div id="giImageDropZone"
                   style="position: absolute; inset: 0; display: flex;
