@@ -14,7 +14,46 @@ let __grafisTimer = null;
 let __grafisTimeLeft = 0;
 let __grafisCurrentIdx = 0;
 
-function ensureGrafisStyles() {}
+function ensureGrafisStyles() {
+  if (document.getElementById('grafisStylesInjected')) return;
+
+  const s = document.createElement('style');
+  s.id = 'grafisStylesInjected';
+  s.textContent = `
+    /* ==== Justified text — Tes Grafis ==== */
+    .grafis-page p,
+    .grafis-page li,
+    .grafis-page .grafis-detail-list li,
+    .grafis-page .grafis-instruction,
+    .grafis-page .grafis-instruction li,
+    .grafis-page .grafis-notice,
+    .grafis-page .grafis-modal-text,
+    .grafis-page .grafis-modal-highlight,
+    .grafis-page .grafis-example-note,
+    .grafis-page .grafis-upload-info li,
+    .grafis-page .grafis-final p,
+    .grafis-thank p,
+    .gi-cat-narrative,
+    .gi-step .js-option-item > div:last-child,
+    .gi-step .js-subitem > div:last-child {
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+      word-break: break-word;
+    }
+
+    /* Jangan justify untuk tombol / label pendek */
+    .grafis-btn,
+    .grafis-timer-chip,
+    .grafis-modal-actions button,
+    .gi-tbtn,
+    .gi-nav button {
+      text-align: center;
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 // ── 🔒 I1 FIX: Hapus fungsi formatTime lokal ──
 // Alasan: sudah ada window.formatTime di 02-utils.js dengan format konsisten "05:30"
