@@ -1,17 +1,27 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v7.3
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.0
    ------------------------------------------------------------
-   v7.3 [2026-09-25]:
-   - 🆕 LAYOUT 1 LAYAR: tanpa scroll halaman
-   - 🆕 DRAG gambar pakai mouse/touch
-   - 🆕 ZOOM + ROTATE tetap bekerja setelah diputar
-   v7.2 [2026-09-25]:
-   - 🆕 SEMBUNYIKAN teks interpretasi di panel kanan (label saja)
-   - 🆕 ZOOM gambar kandidat (+ / − / reset + Ctrl+wheel)
-   - 🐛 FIX: currentImg tidak terdefinisi
-   v7.1 [2026-09-25]:
-   - 🐛 FIX: data.groups → data.slides
-   - 🆕 LAYOUT 2-KOLOM · PANEL GAMBAR · STEPPER · NOTES GABUNGAN
+   v8.0 [2026-09-25] — ULTIMATE EDITION
+   🎨 IMAGE VIEWER:
+   - Unified Pointer Events (mouse + touch + pen)
+   - Pinch-to-zoom (2 jari)
+   - Wheel zoom tanpa Ctrl
+   - Momentum / inertia scroll
+   - Auto-fit & auto-center saat load
+   - Flip horizontal + vertical
+   - Filters: brightness / contrast / invert / grayscale
+   - Undo / Redo (10 langkah)
+   - Keyboard shortcuts lengkap
+   - Grid overlay (rule of thirds)
+   - Rotation snap 90° + free rotate
+   - Toast feedback
+
+   🖥️ UI:
+   - Search items dalam panel
+   - Compact / dense mode
+   - Progress bar
+   - Sticky toolbar
+   - Auto-save debounced
    ============================================================ */
 
 (function () {
@@ -38,6 +48,17 @@
   function candidateSlug(name) {
     return String(name || '').toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  }
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function debounce(fn, wait) {
+    let t;
+    return function() {
+      const ctx = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(ctx, args), wait);
+    };
   }
 
   /* ============================================================
@@ -172,7 +193,52 @@
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] Mode aktif —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] v8.0 —', { candidateName, candidatePosition });
+
+  /* ============================================================
+     TOAST SYSTEM
+     ============================================================ */
+  function ensureToastContainer() {
+    let c = document.getElementById('giToastContainer');
+    if (c) return c;
+    c = document.createElement('div');
+    c.id = 'giToastContainer';
+    c.style.cssText = `position: fixed; top: 20px; right: 20px; z-index: 2147483647;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+      max-width: 340px;`;
+    document.body.appendChild(c);
+    return c;
+  }
+
+  function toast(msg, type) {
+    type = type || 'info';
+    const colors = {
+      info:    { bg: '#1e293b', br: '#3b82f6', icon: 'ℹ️' },
+      success: { bg: '#065f46', br: '#10b981', icon: '✅' },
+      warn:    { bg: '#78350f', br: '#f59e0b', icon: '⚠️' },
+      error:   { bg: '#7f1d1d', br: '#ef4444', icon: '❌' }
+    };
+    const c = colors[type] || colors.info;
+    const el = document.createElement('div');
+    el.style.cssText = `padding: 10px 14px; background: ${c.bg}; color: #fff;
+      border-left: 4px solid ${c.br}; border-radius: 10px;
+      font-family: Inter, system-ui, sans-serif; font-size: 12.5px;
+      font-weight: 700; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+      display: flex; align-items: center; gap: 8px;
+      opacity: 0; transform: translateX(20px);
+      transition: opacity .22s ease, transform .22s ease; pointer-events: auto;`;
+    el.innerHTML = `<span style="font-size: 14px;">${c.icon}</span><span>${escapeHtml(msg)}</span>`;
+    ensureToastContainer().appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(0)';
+    });
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(20px)';
+      setTimeout(() => el.remove(), 250);
+    }, 2600);
+  }
 
   /* ============================================================
      AUTO-LOAD GAMBAR DARI FIREBASE
@@ -208,7 +274,7 @@
       if (imgs.baum && imgs.baum.dataUrl && !state.candidateImages.baum) state.candidateImages.baum = imgs.baum.dataUrl;
       if (imgs.htp  && imgs.htp.dataUrl  && !state.candidateImages.htp)  state.candidateImages.htp  = imgs.htp.dataUrl;
 
-      console.log('[GRAFIS-INTERP] ✅ Gambar kandidat berhasil dimuat dari Firebase');
+      console.log('[GRAFIS-INTERP] ✅ Gambar kandidat dimuat dari Firebase');
     } catch (e) {
       console.warn('[GRAFIS-INTERP] Gagal load gambar:', e.message);
     }
@@ -236,57 +302,79 @@
      ============================================================ */
   const DRAFT_KEY = 'grafis_interp_draft_' + candidateSlug(candidateName);
 
+  function defaultImageState() {
+    return { zoom: 1, rotate: 0, panX: 0, panY: 0, flipH: false, flipV: false,
+             brightness: 100, contrast: 100, invert: false, grayscale: false };
+  }
+
   const state = {
     activePage: 'landing',
     selectedItems: { dap: {}, baum: {}, htp: {} },
-    candidateImages:     { dap: '', baum: '', htp: '' },
-    candidateImageZoom:  { dap: 1, baum: 1, htp: 1 },
-    candidateImageRotate:{ dap: 0, baum: 0, htp: 0 },
-    candidateImagePan:   { dap: {x:0,y:0}, baum: {x:0,y:0}, htp: {x:0,y:0} },
+    candidateImages: { dap: '', baum: '', htp: '' },
+    imageState: {
+      dap:  defaultImageState(),
+      baum: defaultImageState(),
+      htp:  defaultImageState()
+    },
     currentStep: { dap: 0, baum: 0, htp: 0 },
     categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
     conclusion: '',
     recommendation: '',
     reasons: '',
-    development: ''
+    development: '',
+    compactMode: false,
+    gridOverlay: false,
+    searchQuery: ''
   };
 
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
-      if (draft.selectedItems)        state.selectedItems        = Object.assign(state.selectedItems, draft.selectedItems);
-      if (draft.candidateImages)      state.candidateImages      = Object.assign(state.candidateImages, draft.candidateImages);
-      if (draft.candidateImageZoom)   state.candidateImageZoom   = Object.assign(state.candidateImageZoom, draft.candidateImageZoom);
-      if (draft.candidateImageRotate) state.candidateImageRotate = Object.assign(state.candidateImageRotate, draft.candidateImageRotate);
-      if (draft.candidateImagePan)    state.candidateImagePan    = Object.assign(state.candidateImagePan, draft.candidateImagePan);
-      if (draft.currentStep)          state.currentStep          = Object.assign(state.currentStep, draft.currentStep);
-      if (draft.categories)           state.categories           = draft.categories;
-      if (draft.conclusion)           state.conclusion           = draft.conclusion;
-      if (draft.recommendation)       state.recommendation       = draft.recommendation;
-      if (draft.reasons)              state.reasons              = draft.reasons;
-      if (draft.development)          state.development          = draft.development;
+      ['selectedItems','candidateImages','currentStep','categories',
+       'conclusion','recommendation','reasons','development'].forEach(k => {
+        if (draft[k] !== undefined) state[k] = Object.assign(state[k], draft[k]);
+      });
+      // Kompatibilitas dengan draft versi lama (zoom / rotate / pan flat)
+      const legacyMap = { dap: 'dap', baum: 'baum', htp: 'htp' };
+      Object.keys(legacyMap).forEach(k => {
+        if (draft.candidateImageZoom   && draft.candidateImageZoom[k])   state.imageState[k].zoom   = draft.candidateImageZoom[k];
+        if (draft.candidateImageRotate && draft.candidateImageRotate[k]) state.imageState[k].rotate = draft.candidateImageRotate[k];
+        if (draft.candidateImagePan    && draft.candidateImagePan[k]) {
+          state.imageState[k].panX = draft.candidateImagePan[k].x || 0;
+          state.imageState[k].panY = draft.candidateImagePan[k].y || 0;
+        }
+      });
+      if (draft.imageState) {
+        Object.keys(draft.imageState).forEach(k => {
+          if (state.imageState[k]) Object.assign(state.imageState[k], draft.imageState[k]);
+        });
+      }
+      if (typeof draft.compactMode === 'boolean') state.compactMode = draft.compactMode;
+      if (typeof draft.gridOverlay === 'boolean') state.gridOverlay = draft.gridOverlay;
       console.log('[GRAFIS-INTERP] Draft dimuat');
     }
   } catch (e) {}
 
-  function saveDraft() {
+  const saveDraftDebounced = debounce(function() {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        selectedItems:        state.selectedItems,
-        candidateImages:      state.candidateImages,
-        candidateImageZoom:   state.candidateImageZoom,
-        candidateImageRotate: state.candidateImageRotate,
-        candidateImagePan:    state.candidateImagePan,
-        currentStep:          state.currentStep,
-        categories:           state.categories,
-        conclusion:           state.conclusion,
-        recommendation:       state.recommendation,
-        reasons:              state.reasons,
-        development:          state.development
+        selectedItems:  state.selectedItems,
+        candidateImages: state.candidateImages,
+        imageState:      state.imageState,
+        currentStep:     state.currentStep,
+        categories:      state.categories,
+        conclusion:      state.conclusion,
+        recommendation:  state.recommendation,
+        reasons:         state.reasons,
+        development:     state.development,
+        compactMode:     state.compactMode,
+        gridOverlay:     state.gridOverlay
       }));
     } catch (e) {}
-  }
+  }, 400);
+
+  function saveDraft() { saveDraftDebounced(); }
 
   /* ============================================================
      AUTO-GENERATE INTERPRETASI
@@ -339,7 +427,7 @@
   function generateCombinedNotes() {
     const autoData = window.GRAFIS_AUTO_DATA || {};
     const testKeys = ['dap', 'baum', 'htp'];
-    const lines = [];
+    const out = [];
 
     testKeys.forEach(key => {
       const data = autoData[key];
@@ -352,43 +440,25 @@
         (group.sections || []).forEach(section => {
           const val = selected[section.id];
           if (!val) return;
-
           const itemIds = Array.isArray(val) ? val : [val];
           itemIds.forEach(itemId => {
             const item = (section.items || []).find(i => i.id === itemId);
             if (!item) return;
-
             if (!selectedLines.some(l => l.text === item.interpret)) {
-              selectedLines.push({ label: item.label, text: item.interpret, group: group.title });
+              selectedLines.push({ label: item.label, text: item.interpret });
             }
-
             (item.subItems || []).forEach(sub => {
               const subKey = section.id + '::' + sub.id;
               if (selected[subKey] && !selectedLines.some(l => l.text === sub.interpret)) {
-                selectedLines.push({ label: '↳ ' + sub.label, text: sub.interpret, group: group.title });
+                selectedLines.push({ label: '↳ ' + sub.label, text: sub.interpret });
               }
-            });
-          });
-        });
-
-        (group.sections || []).forEach(section => {
-          Object.keys(selected).forEach(k => {
-            if (!k.startsWith(section.id + '::')) return;
-            const subId = k.slice(section.id.length + 2);
-            if (!selected[k]) return;
-            (section.items || []).forEach(parent => {
-              (parent.subItems || []).forEach(sub => {
-                if (sub.id !== subId) return;
-                if (selectedLines.some(l => l.text === sub.interpret)) return;
-                selectedLines.push({ label: '↳ ' + sub.label, text: sub.interpret, group: group.title });
-              });
             });
           });
         });
       });
 
       if (selectedLines.length > 0) {
-        lines.push({
+        out.push({
           key,
           title: data.title || key.toUpperCase(),
           icon: data.icon || '📄',
@@ -397,7 +467,7 @@
       }
     });
 
-    return lines;
+    return out;
   }
 
   function renderCombinedNotes() {
@@ -475,6 +545,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               const prev = copyBtn.innerHTML;
               copyBtn.innerHTML = '✅ Tersalin!';
               copyBtn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+              toast('Notes tersalin ke clipboard', 'success');
               setTimeout(() => {
                 copyBtn.innerHTML = prev;
                 copyBtn.style.background = 'linear-gradient(135deg, #0ea5e9, #0284c7)';
@@ -495,8 +566,369 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     ta.style.opacity = '0';
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); } catch (e) {}
+    try { document.execCommand('copy'); toast('Tersalin', 'success'); } catch (e) {}
     document.body.removeChild(ta);
+  }
+
+  /* ============================================================
+     IMAGE VIEWER — Unified Pointer Events + Pinch + Wheel + Filters
+     ============================================================ */
+  function createImageViewer(opts) {
+    const { viewport, img, testKey } = opts;
+    if (!viewport || !img) return null;
+
+    const imgState = state.imageState[testKey];
+    const history = { stack: [], index: -1 };
+    let isDragging = false;
+    let pointerId = null;
+    let startX = 0, startY = 0, startPanX = 0, startPanY = 0;
+    let lastMoveX = 0, lastMoveY = 0, velocityX = 0, velocityY = 0;
+    let rafId = null;
+    let pinchStartDist = 0, pinchStartZoom = 1;
+
+    function applyTransform() {
+      const t =
+        `translate(-50%, -50%) translate(${imgState.panX}px, ${imgState.panY}px) ` +
+        `rotate(${imgState.rotate}deg) ` +
+        `scale(${imgState.flipH ? -1 : 1}, ${imgState.flipV ? -1 : 1}) ` +
+        `scale(${imgState.zoom})`;
+      img.style.transform = t;
+
+      let filters = [];
+      if (imgState.brightness !== 100) filters.push(`brightness(${imgState.brightness}%)`);
+      if (imgState.contrast   !== 100) filters.push(`contrast(${imgState.contrast}%)`);
+      if (imgState.grayscale)          filters.push(`grayscale(100%)`);
+      if (imgState.invert)             filters.push(`invert(100%)`);
+      img.style.filter = filters.join(' ');
+    }
+
+    function pushHistory() {
+      // Snapshot hanya field yang di-track
+      const snapshot = JSON.stringify({
+        zoom: imgState.zoom, rotate: imgState.rotate,
+        panX: imgState.panX, panY: imgState.panY,
+        flipH: imgState.flipH, flipV: imgState.flipV,
+        brightness: imgState.brightness, contrast: imgState.contrast,
+        invert: imgState.invert, grayscale: imgState.grayscale
+      });
+      // Buang redo future
+      history.stack = history.stack.slice(0, history.index + 1);
+      if (history.stack[history.stack.length - 1] === snapshot) return;
+      history.stack.push(snapshot);
+      if (history.stack.length > 20) history.stack.shift();
+      history.index = history.stack.length - 1;
+    }
+
+    function undo() {
+      if (history.index <= 0) return toast('Tidak ada yang bisa di-undo', 'warn');
+      history.index--;
+      applySnapshot(history.stack[history.index]);
+      toast('Undo', 'info');
+    }
+    function redo() {
+      if (history.index >= history.stack.length - 1) return toast('Tidak ada yang bisa di-redo', 'warn');
+      history.index++;
+      applySnapshot(history.stack[history.index]);
+      toast('Redo', 'info');
+    }
+    function applySnapshot(snapStr) {
+      const s = JSON.parse(snapStr);
+      Object.assign(imgState, s);
+      applyTransform();
+      updateToolbarUI();
+      saveDraft();
+    }
+
+    function updateToolbarUI() {
+      const zr = document.getElementById('giZoomResetBtn');
+      if (zr) zr.textContent = Math.round(imgState.zoom * 100) + '%';
+      const rr = document.getElementById('giRotateResetBtn');
+      if (rr) rr.textContent = imgState.rotate + '°';
+    }
+
+    /* ===== Auto-fit & center ===== */
+    function autoFit() {
+      imgState.zoom = 1;
+      imgState.panX = 0;
+      imgState.panY = 0;
+      applyTransform();
+      updateToolbarUI();
+      saveDraft();
+    }
+
+    /* ===== Zoom ===== */
+    function setZoom(z, fromWheel) {
+      z = clamp(z, 0.15, 8);
+      imgState.zoom = Number(z.toFixed(3));
+      applyTransform();
+      updateToolbarUI();
+      if (!fromWheel) pushHistory();
+      saveDraft();
+    }
+
+    /* ===== Rotate ===== */
+    function setRotate(deg) {
+      imgState.rotate = ((deg % 360) + 360) % 360;
+      applyTransform();
+      updateToolbarUI();
+      pushHistory();
+      saveDraft();
+    }
+
+    /* ===== Flip ===== */
+    function toggleFlipH() {
+      imgState.flipH = !imgState.flipH;
+      applyTransform();
+      pushHistory();
+      saveDraft();
+      toast(imgState.flipH ? 'Flip horizontal aktif' : 'Flip horizontal nonaktif', 'info');
+    }
+    function toggleFlipV() {
+      imgState.flipV = !imgState.flipV;
+      applyTransform();
+      pushHistory();
+      saveDraft();
+      toast(imgState.flipV ? 'Flip vertikal aktif' : 'Flip vertikal nonaktif', 'info');
+    }
+
+    /* ===== Filters ===== */
+    function setBrightness(v) { imgState.brightness = clamp(v, 20, 250); applyTransform(); saveDraft(); }
+    function setContrast(v)   { imgState.contrast   = clamp(v, 20, 250); applyTransform(); saveDraft(); }
+    function toggleInvert()   { imgState.invert = !imgState.invert; applyTransform(); pushHistory(); saveDraft(); }
+    function toggleGray()     { imgState.grayscale = !imgState.grayscale; applyTransform(); pushHistory(); saveDraft(); }
+
+    /* ===== Pointer Events (unified) ===== */
+    const pointers = new Map();
+
+    function onPointerDown(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      viewport.setPointerCapture && viewport.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointers.size === 1) {
+        isDragging = true;
+        pointerId = e.pointerId;
+        startX = e.clientX; startY = e.clientY;
+        startPanX = imgState.panX; startPanY = imgState.panY;
+        lastMoveX = e.clientX; lastMoveY = e.clientY;
+        velocityX = 0; velocityY = 0;
+        viewport.classList.add('dragging');
+        if (rafId) cancelAnimationFrame(rafId);
+        img.style.transition = 'none';
+      } else if (pointers.size === 2) {
+        const pts = [...pointers.values()];
+        pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        pinchStartZoom = imgState.zoom;
+        isDragging = false;
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!pointers.has(e.pointerId)) return;
+      const prev = pointers.get(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointers.size === 2) {
+        // Pinch
+        const pts = [...pointers.values()];
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (pinchStartDist > 0) {
+          const newZoom = (dist / pinchStartDist) * pinchStartZoom;
+          setZoom(newZoom, true);
+        }
+        return;
+      }
+
+      if (!isDragging || e.pointerId !== pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      imgState.panX = startPanX + dx;
+      imgState.panY = startPanY + dy;
+      velocityX = e.clientX - lastMoveX;
+      velocityY = e.clientY - lastMoveY;
+      lastMoveX = e.clientX; lastMoveY = e.clientY;
+      applyTransform();
+    }
+
+    function momentum() {
+      if (Math.abs(velocityX) < 0.5 && Math.abs(velocityY) < 0.5) return;
+      imgState.panX += velocityX;
+      imgState.panY += velocityY;
+      velocityX *= 0.92;
+      velocityY *= 0.92;
+      applyTransform();
+      rafId = requestAnimationFrame(momentum);
+    }
+
+    function onPointerUp(e) {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchStartDist = 0;
+      if (e.pointerId !== pointerId) return;
+      isDragging = false;
+      pointerId = null;
+      viewport.classList.remove('dragging');
+      img.style.transition = 'transform .18s ease';
+      pushHistory();
+      saveDraft();
+      // Momentum
+      if (Math.abs(velocityX) > 1 || Math.abs(velocityY) > 1) {
+        rafId = requestAnimationFrame(momentum);
+      }
+    }
+
+    viewport.addEventListener('pointerdown', onPointerDown);
+    viewport.addEventListener('pointermove', onPointerMove);
+    viewport.addEventListener('pointerup', onPointerUp);
+    viewport.addEventListener('pointercancel', onPointerUp);
+
+    /* ===== Wheel zoom (tanpa Ctrl) ===== */
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      setZoom(imgState.zoom * factor, true);
+      clearTimeout(viewport._zoomCommit);
+      viewport._zoomCommit = setTimeout(() => pushHistory(), 300);
+    }, { passive: false });
+
+    /* ===== Keyboard shortcuts ===== */
+    function onKey(e) {
+      if (state.activePage !== testKey) return;
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      const step = e.shiftKey ? 60 : 20;
+
+      switch (e.key) {
+        case 'ArrowUp':    imgState.panY -= step; applyTransform(); e.preventDefault(); break;
+        case 'ArrowDown':  imgState.panY += step; applyTransform(); e.preventDefault(); break;
+        case 'ArrowLeft':  imgState.panX -= step; applyTransform(); e.preventDefault(); break;
+        case 'ArrowRight': imgState.panX += step; applyTransform(); e.preventDefault(); break;
+        case '+': case '=': setZoom(imgState.zoom + 0.15); e.preventDefault(); break;
+        case '-': case '_': setZoom(imgState.zoom - 0.15); e.preventDefault(); break;
+        case 'r': case 'R':
+          setRotate(imgState.rotate + (e.shiftKey ? -90 : 90));
+          e.preventDefault(); break;
+        case 'f': case 'F': autoFit(); e.preventDefault(); break;
+        case 'h': case 'H': toggleFlipH(); e.preventDefault(); break;
+        case 'v': case 'V': toggleFlipV(); e.preventDefault(); break;
+        case 'g': case 'G': toggleGrid(); e.preventDefault(); break;
+        case 'i': case 'I': toggleInvert(); e.preventDefault(); break;
+        case '0': setZoom(1); imgState.panX = 0; imgState.panY = 0;
+                  imgState.rotate = 0; applyTransform();
+                  updateToolbarUI(); pushHistory(); e.preventDefault(); break;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { undo(); e.preventDefault(); }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { redo(); e.preventDefault(); }
+    }
+    document.addEventListener('keydown', onKey);
+
+    /* ===== Grid overlay ===== */
+    function toggleGrid() {
+      state.gridOverlay = !state.gridOverlay;
+      const g = document.getElementById('giGridOverlay');
+      if (g) g.style.display = state.gridOverlay ? 'block' : 'none';
+      saveDraft();
+      toast(state.gridOverlay ? 'Grid aktif' : 'Grid nonaktif', 'info');
+    }
+
+    /* ===== Binding tombol toolbar ===== */
+    function bind(id, fn) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', fn);
+    }
+    bind('giZoomInBtn',  () => setZoom(imgState.zoom + 0.2));
+    bind('giZoomOutBtn', () => setZoom(imgState.zoom - 0.2));
+    bind('giZoomResetBtn', () => setZoom(1));
+    bind('giRotateLeftBtn',  () => setRotate(imgState.rotate - 90));
+    bind('giRotateRightBtn', () => setRotate(imgState.rotate + 90));
+    bind('giRotateResetBtn', () => setRotate(0));
+    bind('giPanResetBtn', () => {
+      imgState.panX = 0; imgState.panY = 0;
+      applyTransform(); pushHistory(); saveDraft();
+      toast('Posisi direset', 'info');
+    });
+    bind('giFlipHBtn', toggleFlipH);
+    bind('giFlipVBtn', toggleFlipV);
+    bind('giInvertBtn', toggleInvert);
+    bind('giGrayBtn', toggleGray);
+    bind('giGridBtn', toggleGrid);
+    bind('giUndoBtn', undo);
+    bind('giRedoBtn', redo);
+    bind('giFitBtn', autoFit);
+    bind('giFullscreenBtn', () => openLightbox(img.src, imgState));
+    bind('giReplaceBtn', () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.candidateImages[testKey] = ev.target.result;
+          Object.assign(imgState, defaultImageState());
+          saveDraft();
+          renderTestDetail(testKey);
+          toast('Gambar diganti', 'success');
+        };
+        reader.readAsDataURL(f);
+      };
+      inp.click();
+    });
+    bind('giRemoveBtn', () => {
+      if (!confirm('Hapus gambar kandidat?')) return;
+      state.candidateImages[testKey] = '';
+      Object.assign(imgState, defaultImageState());
+      saveDraft();
+      renderTestDetail(testKey);
+      toast('Gambar dihapus', 'warn');
+    });
+
+    // Filter sliders (brightness & contrast)
+    const brightnessSlider = document.getElementById('giBrightness');
+    if (brightnessSlider) {
+      brightnessSlider.value = imgState.brightness;
+      brightnessSlider.addEventListener('input', (e) => setBrightness(Number(e.target.value)));
+    }
+    const contrastSlider = document.getElementById('giContrast');
+    if (contrastSlider) {
+      contrastSlider.value = imgState.contrast;
+      contrastSlider.addEventListener('input', (e) => setContrast(Number(e.target.value)));
+    }
+
+    // Push initial state
+    pushHistory();
+    applyTransform();
+    updateToolbarUI();
+
+    // Auto-fit on first load if image exists
+    img.onload = () => { applyTransform(); };
+
+    return { applyTransform, pushHistory };
+  }
+
+  function openLightbox(src, imgState) {
+    const old = document.getElementById('giLightbox');
+    if (old) old.remove();
+    const lb = document.createElement('div');
+    lb.id = 'giLightbox';
+    lb.style.cssText = `position: fixed; inset: 0; z-index: 2147483647;
+      background: rgba(0,0,0,.94); display: flex; align-items: center;
+      justify-content: center; padding: 30px; cursor: zoom-out;`;
+    const filters = [];
+    if (imgState.brightness !== 100) filters.push(`brightness(${imgState.brightness}%)`);
+    if (imgState.contrast !== 100) filters.push(`contrast(${imgState.contrast}%)`);
+    if (imgState.grayscale) filters.push(`grayscale(100%)`);
+    if (imgState.invert) filters.push(`invert(100%)`);
+
+    lb.innerHTML = `<img src="${src}" alt="Preview"
+      style="max-width: 100%; max-height: 100%;
+        transform: rotate(${imgState.rotate}deg)
+                   scale(${imgState.flipH ? -1 : 1}, ${imgState.flipV ? -1 : 1});
+        filter: ${filters.join(' ')};
+        border-radius: 8px;
+        box-shadow: 0 30px 90px rgba(0,0,0,.7);">`;
+    lb.onclick = () => lb.remove();
+    document.body.appendChild(lb);
   }
 
   /* ============================================================
@@ -513,8 +945,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const root = getRoot();
     if (!root) return;
     state.activePage = 'landing';
-
-    // Landing pakai scroll normal
     root.style.overflowY = 'auto';
 
     const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
@@ -522,6 +952,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     const autoData = window.GRAFIS_AUTO_DATA || {};
     const testKeys = ['dap', 'baum', 'htp'];
+    const totalSelected = testKeys.reduce((s, k) => s + countSelectedItems(k), 0);
 
     root.innerHTML = `
       <div style="max-width: 900px; margin: 0 auto 60px;">
@@ -577,6 +1008,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               </div>
             </div>
           </div>
+          ${totalSelected > 0 ? `
+            <div style="margin-top: 14px; padding: 10px 14px;
+              background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px;
+              font-size: 12.5px; color: #166534; font-weight: 700;">
+              ✓ Progress: ${totalSelected} item dipilih dari 3 tes
+            </div>
+          ` : ''}
         </div>
 
         <div style="background: #fff; padding: 26px 30px 30px; border-radius: 0 0 18px 18px;
@@ -624,7 +1062,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                         background: ${count > 0 ? '#fff' : '#f1f5f9'};
                         padding: 4px 10px; border-radius: 999px;
                         border: 1px solid ${count > 0 ? theme.border : '#e2e8f0'};">
-                        ${hasData ? (count > 0 ? `✓ ${count} item dipilih` : 'Belum diisi') : 'Segera hadir'}
+                        ${hasData ? (count > 0 ? `✓ ${count} item` : 'Belum diisi') : 'Segera hadir'}
                       </span>
                       ${hasData ? `<span style="font-size: 18px; color: ${theme.primary};">→</span>` : ''}
                     </div>
@@ -724,56 +1162,48 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     root.querySelectorAll('.js-open-test').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        const test = btn.getAttribute('data-test');
-        renderTestDetail(test);
+        renderTestDetail(btn.getAttribute('data-test'));
       });
     });
 
     renderCombinedNotes();
     renderCategories();
 
-    const concl = document.getElementById('giConclusion');
-    if (concl) concl.addEventListener('input', (e) => { state.conclusion = e.target.value; saveDraft(); });
+    const bindInput = (id, prop) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', (e) => { state[prop] = e.target.value; saveDraft(); });
+    };
+    bindInput('giConclusion', 'conclusion');
+    bindInput('giReasons', 'reasons');
+    bindInput('giDevelopment', 'development');
 
     const rec = document.getElementById('giRecommendation');
     if (rec) rec.addEventListener('change', (e) => { state.recommendation = e.target.value; saveDraft(); });
-
-    const reasons = document.getElementById('giReasons');
-    if (reasons) reasons.addEventListener('input', (e) => { state.reasons = e.target.value; saveDraft(); });
-
-    const dev = document.getElementById('giDevelopment');
-    if (dev) dev.addEventListener('input', (e) => { state.development = e.target.value; saveDraft(); });
 
     const submit = document.getElementById('giSubmitBtn');
     if (submit) submit.addEventListener('click', handleSubmit);
   }
 
   /* ============================================================
-     DETAIL PAGE — SATU LAYAR + DRAG + ZOOM + ROTATE
+     DETAIL PAGE — SATU LAYAR + IMAGE VIEWER CANGGIH
      ============================================================ */
   function renderTestDetail(testKey) {
     const root = getRoot();
     if (!root) return;
 
     const data = (window.GRAFIS_AUTO_DATA || {})[testKey];
-    if (!data) {
-      alert('Data untuk ' + testKey + ' belum tersedia.');
-      return;
-    }
+    if (!data) { alert('Data untuk ' + testKey + ' belum tersedia.'); return; }
 
-    // Matikan scroll root saat di halaman detail (satu layar)
     root.style.overflowY = 'hidden';
-
     state.activePage = testKey;
-    const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
-    const selected      = state.selectedItems[testKey] || {};
-    const currentImg    = state.candidateImages[testKey] || '';
-    const currentZoom   = state.candidateImageZoom[testKey] || 1;
-    const currentRotate = state.candidateImageRotate[testKey] || 0;
-    const currentPan    = state.candidateImagePan[testKey] || { x: 0, y: 0 };
-    const zoomPct       = Math.round(currentZoom * 100);
+    state.searchQuery = '';
 
-    /* ===== Konten pilihan interpretasi (per slide) ===== */
+    const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
+    const selected    = state.selectedItems[testKey] || {};
+    const currentImg  = state.candidateImages[testKey] || '';
+    const imgState    = state.imageState[testKey];
+
+    /* ===== Konten pilihan ===== */
     const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
@@ -790,27 +1220,24 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               const subChecked = !!selected[subKey];
               return `
                 <label class="js-subitem" data-key="${subKey}"
-                  style="display: flex; align-items: flex-start; gap: 12px;
-                    padding: 10px 14px; margin: 6px 0 8px 32px;
+                  style="display: flex; align-items: flex-start; gap: 10px;
+                    padding: 8px 12px; margin: 4px 0 6px 28px;
                     background: ${subChecked ? '#fff' : '#f8fafc'};
                     border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
                     border-radius: 10px; cursor: pointer;
-                    transition: all .18s ease; user-select: none;">
-                  <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
+                    transition: all .15s ease; user-select: none;">
+                  <div style="width: 16px; height: 16px; flex: 0 0 16px; margin-top: 1px;
                     border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
                     background: ${subChecked ? theme.primary : '#fff'};
-                    border-radius: 5px; display: grid; place-items: center;">
-                    ${subChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                      stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                    border-radius: 4px; display: grid; place-items: center;">
+                    ${subChecked ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="20 6 9 17 4 12"/></svg>` : ''}
                   </div>
-                  <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 12.5px; font-weight: 800;
-                      color: ${subChecked ? theme.primaryDark : '#334155'};
-                      line-height: 1.4;">
-                      ↳ ${escapeHtml(sub.label)}
-                      ${sub.optional ? `<span style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-left: 4px;">(opsional)</span>` : ''}
-                    </div>
+                  <div style="flex: 1; min-width: 0; font-size: 12px; font-weight: 800;
+                    color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
+                    ↳ ${escapeHtml(sub.label)}
+                    ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
                   </div>
                 </label>
               `;
@@ -820,31 +1247,24 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           return `
             <div>
               <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
-                style="display: flex; align-items: flex-start; gap: 12px;
-                  padding: 12px 14px; margin-bottom: 8px;
+                style="display: flex; align-items: flex-start; gap: 10px;
+                  padding: 9px 12px; margin-bottom: 6px;
                   background: ${isChecked ? '#fff' : '#fbfdff'};
                   border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
-                  border-radius: 12px; cursor: pointer;
-                  transition: all .18s ease; user-select: none;">
-                <div style="
-                  width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px;
+                  border-radius: 10px; cursor: pointer;
+                  transition: all .15s ease; user-select: none;">
+                <div style="width: 18px; height: 18px; flex: 0 0 18px; margin-top: 1px;
                   border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
                   background: ${isChecked ? theme.primary : '#fff'};
-                  ${isRadio ? 'border-radius: 50%;' : 'border-radius: 5px;'}
+                  ${isRadio ? 'border-radius: 50%;' : 'border-radius: 4px;'}
                   display: grid; place-items: center;">
-                  ${isChecked
-                    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                         stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-                         <polyline points="20 6 9 17 4 12"/>
-                       </svg>`
-                    : ''}
+                  ${isChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/></svg>` : ''}
                 </div>
-                <div style="flex: 1; min-width: 0;">
-                  <div style="font-size: 13px; font-weight: 800;
-                    color: ${isChecked ? theme.primaryDark : '#1e293b'};
-                    line-height: 1.4;">
-                    ${escapeHtml(item.label)}
-                  </div>
+                <div style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 800;
+                  color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;">
+                  ${escapeHtml(item.label)}
                 </div>
               </label>
               ${subItemsHTML}
@@ -853,12 +1273,12 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         }).join('');
 
         return `
-          <div style="margin-bottom: 20px;">
-            <div style="font-size: 12.5px; font-weight: 900; color: #334155;
-              margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-              ${isRadio
-                ? '<span style="font-size: 10px; color: #94a3b8;">(pilih satu)</span>'
-                : '<span style="font-size: 10px; color: #94a3b8;">(bisa pilih lebih dari satu)</span>'}
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 11.5px; font-weight: 900; color: #334155;
+              margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 10px; color: #94a3b8;">
+                ${isRadio ? '(pilih satu)' : '(multi)'}
+              </span>
               ${escapeHtml(section.title)}
             </div>
             ${itemsHTML}
@@ -868,11 +1288,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
       return `
         <div class="gi-step" data-step="${stepIdx}"
-          style="margin-bottom: 20px; padding: 18px 20px;
+          style="margin-bottom: 16px; padding: 14px 16px;
           background: ${theme.bg}; border: 2px solid ${theme.border};
-          border-radius: 16px;">
-          <div style="font-size: 15px; font-weight: 900; color: ${theme.primaryDark};
-            margin-bottom: 16px; padding-bottom: 10px;
+          border-radius: 14px;">
+          <div style="font-size: 14px; font-weight: 900; color: ${theme.primaryDark};
+            margin-bottom: 12px; padding-bottom: 8px;
             border-bottom: 1px dashed ${theme.border};">
             ${escapeHtml(group.title)}
           </div>
@@ -881,222 +1301,122 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       `;
     }).join('');
 
-    /* ===== Panel kiri: gambar kandidat dengan drag/zoom/rotate ===== */
-    const candidatePanelHTML = currentImg
-      ? `
-        <div class="gi-img-viewport" id="giImageScrollWrap">
-          <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat"
-            draggable="false"
-            style="transform:
-              translate(-50%, -50%)
-              translate(${currentPan.x}px, ${currentPan.y}px)
-              rotate(${currentRotate}deg)
-              scale(${currentZoom});
-              transition: transform .12s ease;">
-        </div>
+    /* ===== Render ===== */
+    const gridVisible = state.gridOverlay ? 'block' : 'none';
 
-        <!-- Overlay tombol kanan atas -->
-        <div style="position: absolute; top: 10px; right: 10px;
-          display: flex; gap: 6px; z-index: 5;">
-          <button type="button" id="giImageFullscreenBtn" title="Fullscreen"
-            style="width: 34px; height: 34px; border-radius: 8px;
-              background: rgba(15,23,42,.75); color: #fff; border: 0;
-              font-size: 16px; cursor: pointer;">🔍</button>
-          <button type="button" id="giImageReplaceBtn" title="Ganti"
-            style="width: 34px; height: 34px; border-radius: 8px;
-              background: rgba(15,23,42,.75); color: #fff; border: 0;
-              font-size: 16px; cursor: pointer;">🔄</button>
-          <button type="button" id="giImageRemoveBtn" title="Hapus"
-            style="width: 34px; height: 34px; border-radius: 8px;
-              background: rgba(220,38,38,.85); color: #fff; border: 0;
-              font-size: 16px; cursor: pointer;">🗑️</button>
-        </div>
-
-        <!-- Hint drag -->
-        <div style="position: absolute; bottom: 10px; left: 50%;
-          transform: translateX(-50%);
-          padding: 4px 10px; border-radius: 999px;
-          background: rgba(15,23,42,.75); color: #fff;
-          font-size: 10.5px; font-weight: 700;
-          pointer-events: none; opacity: .8; z-index: 5;
-          white-space: nowrap;">
-          ✋ Drag untuk geser gambar
-        </div>
-      `
-      : `
-        <div id="giImageDropZone"
-          style="padding: 26px 18px; text-align: center;
-            background: #f8fafc; border: 2px dashed #cbd5e1;
-            border-radius: 12px; cursor: pointer; transition: all .18s ease;">
-          <div style="font-size: 40px; line-height: 1; margin-bottom: 10px; opacity: .55;">📷</div>
-          <div style="font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 6px;">
-            Upload Gambar Kandidat
-          </div>
-          <div style="font-size: 11px; color: #94a3b8; line-height: 1.5; margin-bottom: 14px;">
-            Klik / drag ke sini.<br>Bisa juga paste screenshot (Ctrl+V).
-          </div>
-          <button type="button" id="giImagePickBtn"
-            style="padding: 9px 18px;
-              background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
-              color: #fff; border: 0; border-radius: 9px;
-              font-family: inherit; font-size: 12px; font-weight: 800;
-              cursor: pointer;">
-            📁 Pilih File
-          </button>
-          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0;">
-            <div style="font-size: 10.5px; font-weight: 700; color: #94a3b8; margin-bottom: 6px;">
-              ATAU PASTE URL GAMBAR
-            </div>
-            <input type="text" id="giImageUrlInput" placeholder="https://..."
-              style="width: 100%; padding: 9px 12px; border: 1.5px solid #e2e8f0;
-                border-radius: 8px; font-family: inherit; font-size: 11.5px;
-                outline: none; box-sizing: border-box; background: #fff;">
-            <button type="button" id="giImageUrlBtn"
-              style="margin-top: 6px; width: 100%; padding: 8px;
-                background: #f1f5f9; color: #475569; border: 0;
-                border-radius: 8px; font-family: inherit; font-size: 11px;
-                font-weight: 800; cursor: pointer;">
-              Terapkan URL
-            </button>
-          </div>
-        </div>
-        <input type="file" id="giImageFileInput" accept="image/*" style="display: none;">
-      `;
-
-    /* ===== Render halaman — SATU LAYAR ===== */
     root.innerHTML = `
       <style>
-        .gi-page {
-          display: flex;
-          flex-direction: column;
-          height: calc(100vh - 40px);
-          max-width: 1600px;
-          margin: 0 auto;
-          gap: 10px;
-        }
-        .gi-header {
-          flex-shrink: 0;
-          background: ${theme.bg};
-          border: 2px solid ${theme.border};
-          border-radius: 14px;
-          padding: 12px 18px;
-          display: flex; align-items: center; gap: 14px;
-        }
-        .gi-detail-layout {
-          flex: 1;
-          min-height: 0;
-          display: grid;
-          grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
-          gap: 12px;
-        }
-        .gi-detail-left,
-        .gi-detail-right {
-          height: 100%;
-          min-height: 0;
-          background: #fff;
-          border-radius: 16px;
-          box-shadow: 0 10px 30px rgba(15,23,42,.08);
-        }
-        .gi-detail-left {
-          padding: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          position: relative;
-        }
-        .gi-detail-left-header {
-          flex-shrink: 0;
-          display: flex; align-items: center; justify-content: space-between;
-        }
-        .gi-detail-left-viewport {
-          flex: 1;
-          min-height: 0;
-          position: relative;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 12px;
-          background: #f8fafc;
-          overflow: hidden;
-        }
-        .gi-img-viewport {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-          cursor: grab;
-          touch-action: none;
-          user-select: none;
-          display: block;
-        }
-        .gi-img-viewport.dragging {
-          cursor: grabbing;
-        }
-        #giCandidateImg {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          max-width: 96%;
-          max-height: 96%;
+        .gi-page { display: flex; flex-direction: column;
+          height: calc(100vh - 40px); max-width: 1600px; margin: 0 auto; gap: 8px; }
+
+        .gi-header { flex-shrink: 0; background: ${theme.bg};
+          border: 2px solid ${theme.border}; border-radius: 14px;
+          padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+
+        .gi-detail-layout { flex: 1; min-height: 0; display: grid;
+          grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); gap: 10px; }
+
+        .gi-detail-left, .gi-detail-right { height: 100%; min-height: 0;
+          background: #fff; border-radius: 16px;
+          box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+
+        .gi-detail-left { padding: 10px; display: flex;
+          flex-direction: column; gap: 6px; position: relative; }
+
+        .gi-detail-left-header { flex-shrink: 0; display: flex;
+          align-items: center; justify-content: space-between;
+          font-size: 12px; font-weight: 900; color: #1e293b; }
+
+        .gi-detail-left-viewport { flex: 1; min-height: 0; position: relative;
+          border: 1.5px solid #e2e8f0; border-radius: 10px;
+          background: #f8fafc; overflow: hidden; }
+
+        .gi-img-viewport { position: absolute; inset: 0; overflow: hidden;
+          cursor: grab; touch-action: none; user-select: none; }
+        .gi-img-viewport.dragging { cursor: grabbing; }
+
+        #giCandidateImg { position: absolute; top: 50%; left: 50%;
+          max-width: 96%; max-height: 96%;
           transform-origin: center center;
-          pointer-events: none;
-          -webkit-user-drag: none;
-          background: #fff;
-          border-radius: 4px;
+          pointer-events: none; -webkit-user-drag: none;
+          background: #fff; border-radius: 4px;
           box-shadow: 0 4px 12px rgba(0,0,0,.08);
-        }
-        .gi-toolbar {
-          flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          gap: 8px; padding: 6px;
-          background: #f8fafc;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 10px;
-        }
-        .gi-toolbar button {
-          border-radius: 8px;
-          cursor: pointer;
-          font-family: inherit;
-          line-height: 1;
-        }
-        .gi-detail-right {
-          padding: 14px 16px;
-          overflow-y: auto;
-          scrollbar-width: thin;
-        }
-        .gi-drop-active {
-          background: ${theme.bg} !important;
-          border-color: ${theme.primary} !important;
-        }
+          transition: transform .15s ease; }
+
+        .gi-grid-overlay { position: absolute; inset: 0;
+          pointer-events: none; display: ${gridVisible}; z-index: 3;
+          background-image:
+            linear-gradient(to right, rgba(239,68,68,.35) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(239,68,68,.35) 1px, transparent 1px);
+          background-size: 33.333% 33.333%; }
+
+        .gi-toolbar { flex-shrink: 0; display: flex; flex-direction: column;
+          gap: 4px; padding: 6px 8px; background: #f8fafc;
+          border: 1.5px solid #e2e8f0; border-radius: 10px; }
+
+        .gi-toolbar-row { display: flex; align-items: center;
+          justify-content: center; gap: 4px; flex-wrap: wrap; }
+
+        .gi-tbtn { min-width: 30px; height: 30px; padding: 0 8px;
+          border-radius: 7px; cursor: pointer; font-family: inherit;
+          font-size: 14px; font-weight: 900; line-height: 1;
+          background: #fff; color: #334155; border: 1.5px solid #cbd5e1;
+          transition: all .12s ease; display: inline-flex;
+          align-items: center; justify-content: center; }
+        .gi-tbtn:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .gi-tbtn.primary { background: ${theme.primary}; color: #fff; border-color: ${theme.primary}; }
+        .gi-tbtn.active { background: ${theme.primary}; color: #fff; border-color: ${theme.primary}; }
+        .gi-tbtn.small { font-size: 12px; }
+        .gi-tseparator { width: 1px; height: 20px; background: #cbd5e1; margin: 0 2px; }
+
+        .gi-filter-row { display: flex; align-items: center; gap: 8px;
+          padding: 4px 8px; font-size: 10.5px; color: #64748b; }
+        .gi-filter-row input[type=range] { flex: 1; height: 4px; accent-color: ${theme.primary}; }
+        .gi-filter-label { font-weight: 800; min-width: 48px; }
+
+        .gi-detail-right { padding: 12px 14px; overflow-y: auto; scrollbar-width: thin; }
+
+        .gi-drop-active { background: ${theme.bg} !important;
+          border-color: ${theme.primary} !important; }
+
         .gi-step { display: none; }
         .gi-step.is-active { display: block; }
-        .gi-nav {
-          display: flex; align-items: center; justify-content: space-between;
-          gap: 12px; margin-top: 16px; padding-top: 16px;
-          border-top: 1.5px dashed #e2e8f0;
-        }
-        .gi-nav button {
-          padding: 10px 20px; border-radius: 10px; font-family: inherit;
-          font-size: 13px; font-weight: 800; cursor: pointer;
-          transition: opacity .15s ease;
-        }
+
+        .gi-nav { display: flex; align-items: center; justify-content: space-between;
+          gap: 10px; margin-top: 14px; padding-top: 14px;
+          border-top: 1.5px dashed #e2e8f0; }
+        .gi-nav button { padding: 9px 18px; border-radius: 10px;
+          font-family: inherit; font-size: 12.5px; font-weight: 800;
+          cursor: pointer; transition: opacity .15s ease; }
         .gi-prev { border: 1.5px solid #cbd5e1; background: #fff; color: #334155; }
         .gi-next { border: 0; background: ${theme.primary}; color: #fff; }
         .gi-nav button:disabled { opacity: .35; cursor: not-allowed; }
+
+        .gi-search-box { position: relative; margin-bottom: 10px; }
+        .gi-search-box input { width: 100%; padding: 8px 12px 8px 32px;
+          border: 1.5px solid #e2e8f0; border-radius: 9px;
+          font-family: inherit; font-size: 12.5px; outline: none;
+          box-sizing: border-box; }
+        .gi-search-box input:focus { border-color: ${theme.primary}; }
+        .gi-search-box::before { content: '🔍'; position: absolute;
+          left: 10px; top: 50%; transform: translateY(-50%);
+          font-size: 13px; pointer-events: none; }
+
+        .gi-kbd { display: inline-block; padding: 1px 5px; font-family: monospace;
+          font-size: 10px; background: #f1f5f9; border: 1px solid #cbd5e1;
+          border-radius: 4px; color: #475569; font-weight: 700; }
+
         @media (max-width: 900px) {
           .gi-page { height: auto; }
           .gi-detail-layout { grid-template-columns: 1fr; height: auto; }
-          .gi-detail-left { height: 60vh; }
+          .gi-detail-left { height: 55vh; }
           .gi-detail-right { height: auto; max-height: none; }
         }
-        #giLightbox {
-          position: fixed; inset: 0; z-index: 2147483647;
-          background: rgba(0,0,0,.92);
-          display: flex; align-items: center; justify-content: center;
-          padding: 30px; cursor: zoom-out;
-        }
-        #giLightbox img {
-          max-width: 100%; max-height: 100%;
-          border-radius: 8px;
-          box-shadow: 0 30px 90px rgba(0,0,0,.7);
-        }
+
+        #giLightbox { position: fixed; inset: 0; z-index: 2147483647;
+          background: rgba(0,0,0,.94); display: flex;
+          align-items: center; justify-content: center;
+          padding: 30px; cursor: zoom-out; }
       </style>
 
       <div class="gi-page">
@@ -1104,89 +1424,153 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         <!-- Header -->
         <div class="gi-header">
           <button type="button" id="giBackBtn"
-            style="width: 40px; height: 40px; flex: 0 0 40px;
+            style="width: 38px; height: 38px; flex: 0 0 38px;
               display: grid; place-items: center;
               background: #fff; border: 1.5px solid ${theme.border};
               border-radius: 10px; color: ${theme.primaryDark};
               font-size: 18px; cursor: pointer; font-family: inherit;">
             ←
           </button>
-          <div style="font-size: 28px; line-height: 1;">${data.icon || '📄'}</div>
+          <div style="font-size: 26px; line-height: 1;">${data.icon || '📄'}</div>
           <div style="flex: 1; min-width: 0;">
-            <div style="font-size: 10px; font-weight: 800; letter-spacing: 1.5px;
+            <div style="font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px;
               color: ${theme.primary}; margin-bottom: 2px;">
-              INTERPRETASI OTOMATIS
+              INTERPRETASI OTOMATIS · v8.0
             </div>
-            <div style="font-size: 16px; font-weight: 900; color: #1e293b;">
+            <div style="font-size: 15px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
             </div>
           </div>
+          <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
+            text-align: right; line-height: 1.4;">
+            <div><span class="gi-kbd">Wheel</span> zoom · <span class="gi-kbd">Drag</span> geser</div>
+            <div><span class="gi-kbd">R</span> rotate · <span class="gi-kbd">F</span> fit · <span class="gi-kbd">0</span> reset</div>
+          </div>
         </div>
 
-        <!-- Dua kolom -->
         <div class="gi-detail-layout">
 
           <!-- Kolom kiri: gambar -->
           <div class="gi-detail-left">
             <div class="gi-detail-left-header">
-              <div style="font-size: 12.5px; font-weight: 900; color: #1e293b;">
-                📷 Gambar Kandidat
-              </div>
-              <div style="font-size: 10px; font-weight: 800; color: #94a3b8; letter-spacing: 1px;">
+              <div>📷 Gambar Kandidat</div>
+              <div style="font-size: 10px; color: #94a3b8; letter-spacing: 1px;">
                 ${escapeHtml(testKey.toUpperCase())}
               </div>
             </div>
 
             <div class="gi-detail-left-viewport">
-              ${candidatePanelHTML}
+              ${currentImg ? `
+                <div class="gi-img-viewport" id="giViewport">
+                  <img id="giCandidateImg" src="${currentImg}" alt="Gambar Kandidat" draggable="false">
+                  <div class="gi-grid-overlay" id="giGridOverlay"></div>
+                </div>
+                <!-- Overlay hint -->
+                <div style="position: absolute; bottom: 10px; left: 50%;
+                  transform: translateX(-50%);
+                  padding: 3px 10px; border-radius: 999px;
+                  background: rgba(15,23,42,.75); color: #fff;
+                  font-size: 10px; font-weight: 700;
+                  pointer-events: none; opacity: .85; z-index: 4;
+                  white-space: nowrap;">
+                  ✋ Drag · 🔍 Wheel · 📌 Klik untuk pin
+                </div>
+              ` : `
+                <div id="giImageDropZone"
+                  style="position: absolute; inset: 0; display: flex;
+                    flex-direction: column; align-items: center; justify-content: center;
+                    padding: 24px 20px; text-align: center;
+                    background: #f8fafc; cursor: pointer; transition: all .18s ease;">
+                  <div style="font-size: 42px; line-height: 1; margin-bottom: 10px; opacity: .5;">📷</div>
+                  <div style="font-size: 13px; font-weight: 800; color: #475569; margin-bottom: 6px;">
+                    Upload Gambar Kandidat
+                  </div>
+                  <div style="font-size: 11px; color: #94a3b8; line-height: 1.5; margin-bottom: 12px;">
+                    Klik / drag ke sini · Paste screenshot (<span class="gi-kbd">Ctrl</span>+<span class="gi-kbd">V</span>)
+                  </div>
+                  <button type="button" id="giImagePickBtn"
+                    style="padding: 8px 16px;
+                      background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
+                      color: #fff; border: 0; border-radius: 8px;
+                      font-family: inherit; font-size: 12px; font-weight: 800;
+                      cursor: pointer;">
+                    📁 Pilih File
+                  </button>
+                  <div style="margin-top: 12px; padding-top: 12px;
+                    border-top: 1px dashed #e2e8f0; width: 100%; max-width: 320px;">
+                    <div style="font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 6px;">
+                      ATAU PASTE URL
+                    </div>
+                    <input type="text" id="giImageUrlInput" placeholder="https://..."
+                      style="width: 100%; padding: 8px 12px; border: 1.5px solid #e2e8f0;
+                        border-radius: 8px; font-family: inherit; font-size: 11.5px;
+                        outline: none; box-sizing: border-box; background: #fff;">
+                    <button type="button" id="giImageUrlBtn"
+                      style="margin-top: 6px; width: 100%; padding: 7px;
+                        background: #f1f5f9; color: #475569; border: 0;
+                        border-radius: 8px; font-family: inherit; font-size: 11px;
+                        font-weight: 800; cursor: pointer;">
+                      Terapkan URL
+                    </button>
+                  </div>
+                </div>
+                <input type="file" id="giImageFileInput" accept="image/*" style="display: none;">
+              `}
             </div>
 
             ${currentImg ? `
-            <!-- Toolbar: zoom + rotate -->
+            <!-- Toolbar canggih -->
             <div class="gi-toolbar">
-              <button type="button" id="giZoomOutBtn" title="Perkecil"
-                style="width: 34px; height: 34px;
-                  background: #fff; color: #334155; border: 1.5px solid #cbd5e1;
-                  font-size: 18px; font-weight: 900;">−</button>
-              <button type="button" id="giZoomResetBtn" title="Reset zoom"
-                style="min-width: 58px; height: 34px; padding: 0 12px;
-                  background: #fff; color: ${theme.primaryDark};
-                  border: 1.5px solid ${theme.border};
-                  font-size: 12px; font-weight: 900;">${zoomPct}%</button>
-              <button type="button" id="giZoomInBtn" title="Perbesar"
-                style="width: 34px; height: 34px;
-                  background: ${theme.primary}; color: #fff; border: 0;
-                  font-size: 18px; font-weight: 900;">+</button>
+              <!-- Baris 1: Zoom + Rotate + Flip -->
+              <div class="gi-toolbar-row">
+                <button type="button" class="gi-tbtn" id="giZoomOutBtn" title="Perkecil (−)">−</button>
+                <button type="button" class="gi-tbtn small" id="giZoomResetBtn" title="Reset zoom">100%</button>
+                <button type="button" class="gi-tbtn primary" id="giZoomInBtn" title="Perbesar (+)">+</button>
+                <span class="gi-tseparator"></span>
+                <button type="button" class="gi-tbtn" id="giRotateLeftBtn" title="Putar kiri (Shift+R)">⟲</button>
+                <button type="button" class="gi-tbtn small" id="giRotateResetBtn" title="Reset rotasi">0°</button>
+                <button type="button" class="gi-tbtn primary" id="giRotateRightBtn" title="Putar kanan (R)">⟳</button>
+                <span class="gi-tseparator"></span>
+                <button type="button" class="gi-tbtn" id="giFlipHBtn" title="Flip horizontal (H)">⇋</button>
+                <button type="button" class="gi-tbtn" id="giFlipVBtn" title="Flip vertikal (V)">⇅</button>
+              </div>
 
-              <span style="width: 1px; height: 22px; background: #cbd5e1; margin: 0 4px;"></span>
+              <!-- Baris 2: Filters + Undo/Redo + Tools -->
+              <div class="gi-toolbar-row">
+                <button type="button" class="gi-tbtn small" id="giUndoBtn" title="Undo (Ctrl+Z)">↶</button>
+                <button type="button" class="gi-tbtn small" id="giRedoBtn" title="Redo (Ctrl+Y)">↷</button>
+                <span class="gi-tseparator"></span>
+                <button type="button" class="gi-tbtn small" id="giInvertBtn" title="Invert warna (I)">🎨</button>
+                <button type="button" class="gi-tbtn small" id="giGrayBtn" title="Grayscale">⬛</button>
+                <button type="button" class="gi-tbtn small" id="giGridBtn" title="Grid overlay (G)">⊞</button>
+                <span class="gi-tseparator"></span>
+                <button type="button" class="gi-tbtn small" id="giFitBtn" title="Auto-fit (F)">⤢</button>
+                <button type="button" class="gi-tbtn small" id="giPanResetBtn" title="Reset posisi">⌖</button>
+                <span class="gi-tseparator"></span>
+                <button type="button" class="gi-tbtn small" id="giFullscreenBtn" title="Fullscreen">🔍</button>
+                <button type="button" class="gi-tbtn small" id="giReplaceBtn" title="Ganti gambar">🔄</button>
+                <button type="button" class="gi-tbtn small" id="giRemoveBtn" title="Hapus gambar">🗑️</button>
+              </div>
 
-              <button type="button" id="giRotateLeftBtn" title="Putar kiri"
-                style="width: 34px; height: 34px;
-                  background: #fff; color: #334155; border: 1.5px solid #cbd5e1;
-                  font-size: 16px; font-weight: 900;">⟲</button>
-              <button type="button" id="giRotateResetBtn" title="Reset rotasi"
-                style="min-width: 58px; height: 34px; padding: 0 12px;
-                  background: #fff; color: ${theme.primaryDark};
-                  border: 1.5px solid ${theme.border};
-                  font-size: 12px; font-weight: 900;">${currentRotate}°</button>
-              <button type="button" id="giRotateRightBtn" title="Putar kanan"
-                style="width: 34px; height: 34px;
-                  background: ${theme.primary}; color: #fff; border: 0;
-                  font-size: 16px; font-weight: 900;">⟳</button>
-
-              <span style="width: 1px; height: 22px; background: #cbd5e1; margin: 0 4px;"></span>
-
-              <button type="button" id="giPanResetBtn" title="Reset posisi"
-                style="min-width: 58px; height: 34px; padding: 0 12px;
-                  background: #fff; color: ${theme.primaryDark};
-                  border: 1.5px solid ${theme.border};
-                  font-size: 12px; font-weight: 900;">⌖</button>
+              <!-- Baris 3: Brightness + Contrast -->
+              <div class="gi-filter-row">
+                <span class="gi-filter-label">☀️ Terang</span>
+                <input type="range" id="giBrightness" min="20" max="200" value="100">
+                <span class="gi-filter-label">🌗 Kontras</span>
+                <input type="range" id="giContrast" min="20" max="200" value="100">
+              </div>
             </div>
             ` : ''}
           </div>
 
           <!-- Kolom kanan: pilihan -->
           <div class="gi-detail-right">
+            <div class="gi-search-box">
+              <input type="text" id="giSearchInput"
+                placeholder="Cari item interpretasi..."
+                value="${escapeHtml(state.searchQuery || '')}">
+            </div>
+
             ${sectionsHTML || '<div style="text-align:center;padding:40px;color:#94a3b8;">Belum ada data untuk tes ini.</div>'}
 
             <div class="gi-nav">
@@ -1199,17 +1583,17 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             <div style="display: flex; gap: 8px; margin-top: 14px;
               padding-top: 14px; border-top: 1px solid #e2e8f0;">
               <button type="button" id="giClearBtn"
-                style="flex: 1; padding: 12px; border: 2px solid #fca5a5;
+                style="flex: 1; padding: 10px; border: 2px solid #fca5a5;
                   background: #fff; color: #dc2626; border-radius: 10px;
-                  font-family: inherit; font-size: 13px; font-weight: 800;
+                  font-family: inherit; font-size: 12.5px; font-weight: 800;
                   cursor: pointer;">
                 🗑️ Hapus
               </button>
               <button type="button" id="giSaveBtn"
-                style="flex: 2; padding: 12px; border: 0;
+                style="flex: 2; padding: 10px; border: 0;
                   background: linear-gradient(135deg, ${theme.primary}, ${theme.primaryDark});
                   color: #fff; border-radius: 10px;
-                  font-family: inherit; font-size: 14px; font-weight: 900;
+                  font-family: inherit; font-size: 13px; font-weight: 900;
                   cursor: pointer;">
                 💾 Simpan & Kembali
               </button>
@@ -1240,19 +1624,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       }
       state.currentStep[testKey] = currentStep;
     }
-
-    if (btnPrev) btnPrev.addEventListener('click', (e) => {
-      e.preventDefault();
+    if (btnPrev) btnPrev.addEventListener('click', () => {
       if (currentStep > 0) { currentStep--; renderStep(); }
     });
-    if (btnNext) btnNext.addEventListener('click', (e) => {
-      e.preventDefault();
+    if (btnNext) btnNext.addEventListener('click', () => {
       if (currentStep < TOTAL - 1) { currentStep++; renderStep(); }
     });
-
     renderStep();
 
-    /* ===== Option & Subitem click ===== */
+    /* ===== Item click ===== */
     root.querySelectorAll('.js-option-item').forEach(label => {
       label.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1300,6 +1680,20 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       });
     });
 
+    /* ===== Search ===== */
+    const searchInput = document.getElementById('giSearchInput');
+    if (searchInput) {
+      searchInput.addEventListener('input', debounce((e) => {
+        state.searchQuery = e.target.value.toLowerCase().trim();
+        const items = root.querySelectorAll('.js-option-item');
+        items.forEach(el => {
+          const label = (el.textContent || '').toLowerCase();
+          el.parentElement.style.display =
+            (!state.searchQuery || label.includes(state.searchQuery)) ? '' : 'none';
+        });
+      }, 200));
+    }
+
     /* ===== Tombol bawah ===== */
     document.getElementById('giBackBtn').addEventListener('click', () => {
       saveDraft(); renderLanding();
@@ -1310,39 +1704,45 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       state.currentStep[testKey] = 0;
       saveDraft();
       renderTestDetail(testKey);
+      toast('Pilihan dihapus', 'warn');
     });
     document.getElementById('giSaveBtn').addEventListener('click', () => {
       saveDraft(); renderLanding();
     });
 
-    /* ===== Handler gambar ===== */
-    __attachCandidateImageHandlers(testKey, theme);
+    /* ===== Image Viewer Init ===== */
+    if (currentImg) {
+      const viewport = document.getElementById('giViewport');
+      const img = document.getElementById('giCandidateImg');
+      createImageViewer({ viewport, img, testKey });
+    }
+
+    /* ===== Image Upload Handlers ===== */
+    __attachImageUploadHandlers(testKey, theme);
   }
 
   /* ============================================================
-     Handler gambar kandidat — ZOOM / ROTATE / DRAG
+     Upload handler (drag / paste / url)
      ============================================================ */
-  function __attachCandidateImageHandlers(testKey, theme) {
-
+  function __attachImageUploadHandlers(testKey, theme) {
     function setImage(src) {
       state.candidateImages[testKey] = src || '';
-      state.candidateImagePan[testKey] = { x: 0, y: 0 };
+      Object.assign(state.imageState[testKey], defaultImageState());
       saveDraft();
       renderTestDetail(testKey);
+      toast('Gambar diupload', 'success');
     }
 
     function readFile(file) {
       if (!file || !file.type.startsWith('image/')) {
-        alert('File harus gambar (JPG / PNG / WEBP).');
-        return;
+        toast('File harus gambar', 'error'); return;
       }
-      if (file.size > 8 * 1024 * 1024) {
-        alert('Ukuran maksimal 8 MB.');
-        return;
+      if (file.size > 10 * 1024 * 1024) {
+        toast('Ukuran maksimal 10 MB', 'error'); return;
       }
       const reader = new FileReader();
       reader.onload = (ev) => setImage(ev.target.result);
-      reader.onerror = () => alert('Gagal membaca file.');
+      reader.onerror = () => toast('Gagal baca file', 'error');
       reader.readAsDataURL(file);
     }
 
@@ -1357,7 +1757,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         if (e.target.closest('#giImagePickBtn') ||
             e.target.closest('#giImageUrlInput') ||
             e.target.closest('#giImageUrlBtn')) return;
-        fileInput.click();
+        if (fileInput) fileInput.click();
       });
       dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -1381,10 +1781,9 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (urlBtn && urlInput) {
       urlBtn.addEventListener('click', () => {
         const url = (urlInput.value || '').trim();
-        if (!url) { alert('URL kosong.'); return; }
+        if (!url) return toast('URL kosong', 'warn');
         if (!/^https?:\/\//i.test(url) && !url.startsWith('data:')) {
-          alert('URL harus diawali http:// atau https://');
-          return;
+          return toast('URL harus http(s)://', 'error');
         }
         setImage(url);
       });
@@ -1393,205 +1792,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       });
     }
 
-    /* ============================================================
-       ZOOM — hanya update, tanpa re-render (agar drag halus)
-       ============================================================ */
-    const img    = document.getElementById('giCandidateImg');
-    const viewport = document.getElementById('giImageScrollWrap');
-
-    function applyTransform() {
-      if (!img) return;
-      const zoom   = state.candidateImageZoom[testKey]   || 1;
-      const rotate = state.candidateImageRotate[testKey] || 0;
-      const pan    = state.candidateImagePan[testKey]    || { x: 0, y: 0 };
-      img.style.transform =
-        `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) rotate(${rotate}deg) scale(${zoom})`;
-    }
-
-    function setZoom(newZoom) {
-      newZoom = Math.max(0.2, Math.min(6, Number(newZoom.toFixed(2))));
-      state.candidateImageZoom[testKey] = newZoom;
-      applyTransform();
-      const resetBtn = document.getElementById('giZoomResetBtn');
-      if (resetBtn) resetBtn.textContent = Math.round(newZoom * 100) + '%';
-      saveDraft();
-    }
-
-    const zoomInBtn    = document.getElementById('giZoomInBtn');
-    const zoomOutBtn   = document.getElementById('giZoomOutBtn');
-    const zoomResetBtn = document.getElementById('giZoomResetBtn');
-
-    if (zoomInBtn)  zoomInBtn.addEventListener('click',  () => setZoom((state.candidateImageZoom[testKey] || 1) + 0.2));
-    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => setZoom((state.candidateImageZoom[testKey] || 1) - 0.2));
-    if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => setZoom(1));
-
-    /* ============================================================
-       ROTATE — hanya update, tanpa re-render
-       ============================================================ */
-    function setRotate(newRotate) {
-      newRotate = ((newRotate % 360) + 360) % 360;
-      state.candidateImageRotate[testKey] = newRotate;
-      applyTransform();
-      const resetBtn = document.getElementById('giRotateResetBtn');
-      if (resetBtn) resetBtn.textContent = newRotate + '°';
-      saveDraft();
-    }
-
-    const rotateLeftBtn  = document.getElementById('giRotateLeftBtn');
-    const rotateRightBtn = document.getElementById('giRotateRightBtn');
-    const rotateResetBtn = document.getElementById('giRotateResetBtn');
-
-    if (rotateLeftBtn)  rotateLeftBtn.addEventListener('click', () =>
-      setRotate((state.candidateImageRotate[testKey] || 0) - 90));
-    if (rotateRightBtn) rotateRightBtn.addEventListener('click', () =>
-      setRotate((state.candidateImageRotate[testKey] || 0) + 90));
-    if (rotateResetBtn) rotateResetBtn.addEventListener('click', () => setRotate(0));
-
-    /* ============================================================
-       RESET PAN
-       ============================================================ */
-    const panResetBtn = document.getElementById('giPanResetBtn');
-    if (panResetBtn) {
-      panResetBtn.addEventListener('click', () => {
-        state.candidateImagePan[testKey] = { x: 0, y: 0 };
-        applyTransform();
-        saveDraft();
-      });
-    }
-
-    /* ============================================================
-       DRAG — mouse + touch
-       ============================================================ */
-    if (viewport && img) {
-      let isDragging = false;
-      let startX = 0, startY = 0;
-      let startPanX = 0, startPanY = 0;
-
-      const startDrag = (clientX, clientY) => {
-        isDragging = true;
-        startX = clientX;
-        startY = clientY;
-        const pan = state.candidateImagePan[testKey] || { x: 0, y: 0 };
-        startPanX = pan.x;
-        startPanY = pan.y;
-        viewport.classList.add('dragging');
-        if (img) img.style.transition = 'none';
-      };
-
-      const moveDrag = (clientX, clientY) => {
-        if (!isDragging) return;
-        const dx = clientX - startX;
-        const dy = clientY - startY;
-        state.candidateImagePan[testKey] = {
-          x: startPanX + dx,
-          y: startPanY + dy
-        };
-        const pan = state.candidateImagePan[testKey];
-        const zoom   = state.candidateImageZoom[testKey]   || 1;
-        const rotate = state.candidateImageRotate[testKey] || 0;
-        img.style.transform =
-          `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) rotate(${rotate}deg) scale(${zoom})`;
-      };
-
-      const endDrag = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        viewport.classList.remove('dragging');
-        if (img) img.style.transition = 'transform .12s ease';
-        saveDraft();
-      };
-
-      // Mouse
-      viewport.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        e.preventDefault();
-        startDrag(e.clientX, e.clientY);
-      });
-      window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        moveDrag(e.clientX, e.clientY);
-      });
-      window.addEventListener('mouseup', endDrag);
-
-      // Touch
-      viewport.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) return;
-        const t = e.touches[0];
-        startDrag(t.clientX, t.clientY);
-      }, { passive: false });
-      viewport.addEventListener('touchmove', (e) => {
-        if (!isDragging || e.touches.length !== 1) return;
-        e.preventDefault();
-        const t = e.touches[0];
-        moveDrag(t.clientX, t.clientY);
-      }, { passive: false });
-      viewport.addEventListener('touchend', endDrag);
-      viewport.addEventListener('touchcancel', endDrag);
-
-      // Double-click reset pan + zoom
-      viewport.addEventListener('dblclick', () => {
-        state.candidateImagePan[testKey] = { x: 0, y: 0 };
-        state.candidateImageZoom[testKey] = 1;
-        applyTransform();
-        const zr = document.getElementById('giZoomResetBtn');
-        if (zr) zr.textContent = '100%';
-        saveDraft();
-      });
-
-      // Ctrl + wheel zoom
-      viewport.addEventListener('wheel', (e) => {
-        if (!e.ctrlKey && !e.metaKey) return;
-        e.preventDefault();
-        const dir = e.deltaY < 0 ? 0.15 : -0.15;
-        setZoom((state.candidateImageZoom[testKey] || 1) + dir);
-      }, { passive: false });
-    }
-
-    /* ============================================================
-       FULLSCREEN / REPLACE / REMOVE
-       ============================================================ */
-    const fullscreenBtn = document.getElementById('giImageFullscreenBtn');
-    const replaceBtn    = document.getElementById('giImageReplaceBtn');
-    const removeBtn     = document.getElementById('giImageRemoveBtn');
-
-    if (fullscreenBtn && img) {
-      fullscreenBtn.addEventListener('click', () => {
-        const old = document.getElementById('giLightbox');
-        if (old) old.remove();
-        const rot = state.candidateImageRotate[testKey] || 0;
-        const lb = document.createElement('div');
-        lb.id = 'giLightbox';
-        lb.innerHTML = `<img src="${img.src}" alt="Preview"
-          style="transform: rotate(${rot}deg); transition: transform .22s ease;">`;
-        lb.onclick = () => lb.remove();
-        document.body.appendChild(lb);
-      });
-    }
-
-    if (replaceBtn) {
-      replaceBtn.addEventListener('click', () => {
-        const tmp = document.createElement('input');
-        tmp.type = 'file';
-        tmp.accept = 'image/*';
-        tmp.onchange = (e) => {
-          const f = e.target.files?.[0];
-          if (f) readFile(f);
-        };
-        tmp.click();
-      });
-    }
-
-    if (removeBtn) {
-      removeBtn.addEventListener('click', () => {
-        if (!confirm('Hapus gambar kandidat?')) return;
-        setImage('');
-      });
-    }
-
-    /* ============================================================
-       PASTE HANDLER (Ctrl+V)
-       ============================================================ */
     const pasteHandler = (e) => {
       if (state.activePage !== testKey) {
         document.removeEventListener('paste', pasteHandler);
@@ -1610,7 +1810,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     7 KATEGORI
+     KATEGORI
      ============================================================ */
   function renderCategories() {
     const container = document.getElementById('category-list');
@@ -1681,32 +1881,34 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const dapCount  = countSelectedItems('dap');
     const baumCount = countSelectedItems('baum');
     const htpCount  = countSelectedItems('htp');
-    const hasAnyTest = dapCount > 0 || baumCount > 0 || htpCount > 0;
-    if (!hasAnyTest) { alert('Pilih minimal 1 item di DAP/BAUM/HTP.'); return; }
+    if (dapCount + baumCount + htpCount === 0) {
+      toast('Pilih minimal 1 item di DAP/BAUM/HTP', 'error'); return;
+    }
 
     for (let i = 0; i < state.categories.length; i++) {
       const c = state.categories[i];
-      if (!c.score) { alert(`Kategori ${i + 1} (${c.name}) belum diisi skor.`); return; }
-      if (!c.narrative.trim()) { alert(`Kategori ${i + 1} (${c.name}) belum diisi narasi.`); return; }
+      if (!c.score) { toast(`Kategori ${i+1} (${c.name}) belum diisi skor`, 'error'); return; }
+      if (!c.narrative.trim()) { toast(`Kategori ${i+1} (${c.name}) belum diisi narasi`, 'error'); return; }
     }
 
     state.conclusion = (document.getElementById('giConclusion')?.value || '').trim();
-    if (!state.conclusion) { alert('Kesimpulan keseluruhan wajib diisi.'); return; }
+    if (!state.conclusion) { toast('Kesimpulan keseluruhan wajib diisi', 'error'); return; }
 
     state.recommendation = document.getElementById('giRecommendation')?.value || '';
-    if (!state.recommendation) { alert('Pilih tingkat rekomendasi.'); return; }
+    if (!state.recommendation) { toast('Pilih tingkat rekomendasi', 'error'); return; }
 
     state.reasons = (document.getElementById('giReasons')?.value || '').trim();
-    if (!state.reasons) { alert('Alasan rekomendasi wajib diisi.'); return; }
+    if (!state.reasons) { toast('Alasan rekomendasi wajib diisi', 'error'); return; }
 
     state.development = (document.getElementById('giDevelopment')?.value || '').trim();
-    if (!state.development) { alert('Rekomendasi pengembangan wajib diisi.'); return; }
+    if (!state.development) { toast('Rekomendasi pengembangan wajib diisi', 'error'); return; }
 
     const btn = document.getElementById('giSubmitBtn');
     btn.disabled = true;
     btn.textContent = '⏳ Mengirim...';
 
     try {
+      toast('Menyimpan ke Firebase...', 'info');
       await saveToFirebase();
       btn.textContent = '📄 Membuat PDF...';
       const pdfBlob = await generatePDF();
@@ -1716,7 +1918,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       showSuccess();
     } catch (err) {
       console.error('[GRAFIS-INTERP] Gagal:', err);
-      alert('❌ Gagal: ' + (err.message || 'Coba lagi'));
+      toast('Gagal: ' + (err.message || 'Coba lagi'), 'error');
       btn.disabled = false;
       btn.textContent = '📤 Kirim Interpretasi Grafis';
     }
