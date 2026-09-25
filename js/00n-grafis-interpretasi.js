@@ -1619,41 +1619,63 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     });
     renderStep();
 
-    /* ===== Item click ===== */
-    root.querySelectorAll('.js-option-item').forEach(label => {
-      label.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sectionId = label.getAttribute('data-section');
-        const itemId = label.getAttribute('data-item');
-        const type = label.getAttribute('data-type');
+/* ============================================================
+   Helper: re-render sambil menjaga posisi scroll
+   ============================================================ */
+function __rerenderPreserveScroll(testKey) {
+  const root = getRoot();
+  const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
 
-        const section = (data.slides || [])
-          .flatMap(g => g.sections || [])
-          .find(s => s.id === sectionId);
+  // Simpan posisi scroll SEBELUM re-render
+  const savedRootScroll  = root ? root.scrollTop : 0;
+  const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
 
-        const clearSubItems = (parentItemId) => {
-          const parentItem = (section?.items || []).find(i => i.id === parentItemId);
-          (parentItem?.subItems || []).forEach(sub => {
-            delete state.selectedItems[testKey][sectionId + '::' + sub.id];
-          });
-        };
+  renderTestDetail(testKey);
 
-        if (type === 'radio') {
-          const oldVal = state.selectedItems[testKey][sectionId];
-          if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
-          state.selectedItems[testKey][sectionId] = itemId;
-        } else {
-          let arr = state.selectedItems[testKey][sectionId];
-          if (!Array.isArray(arr)) arr = [];
-          const idx = arr.indexOf(itemId);
-          if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
-          else arr.push(itemId);
-          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
-        }
-        saveDraft();
-        renderTestDetail(testKey);
+  // Restore posisi scroll SETELAH re-render
+  const newRoot = getRoot();
+  const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
+  if (newRoot)       newRoot.scrollTop = savedRootScroll;
+  if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
+}
+
+/* ============================================================
+   Item click — pakai helper preserve scroll
+   ============================================================ */
+root.querySelectorAll('.js-option-item').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const sectionId = label.getAttribute('data-section');
+    const itemId = label.getAttribute('data-item');
+    const type = label.getAttribute('data-type');
+
+    const section = (data.slides || [])
+      .flatMap(g => g.sections || [])
+      .find(s => s.id === sectionId);
+
+    const clearSubItems = (parentItemId) => {
+      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+      (parentItem?.subItems || []).forEach(sub => {
+        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
       });
-    });
+    };
+
+    if (type === 'radio') {
+      const oldVal = state.selectedItems[testKey][sectionId];
+      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+      state.selectedItems[testKey][sectionId] = itemId;
+    } else {
+      let arr = state.selectedItems[testKey][sectionId];
+      if (!Array.isArray(arr)) arr = [];
+      const idx = arr.indexOf(itemId);
+      if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
+      else arr.push(itemId);
+      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+    }
+    saveDraft();
+    __rerenderPreserveScroll(testKey);   // ← ganti dari renderTestDetail(testKey)
+  });
+});
 
     root.querySelectorAll('.js-subitem').forEach(label => {
       label.addEventListener('click', (e) => {
