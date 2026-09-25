@@ -17,7 +17,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       type: 'checkbox',
       items: [
         {
-          image: IMG_STAMBASIS,   // ← GANTI: gambar pangkal batang di batas kertas
+          image: 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/1-pangkal%20nempel.png'
           id: 'pangkal_batas_kertas',
           label: 'Posisi Pangkal Batang di Batas Kertas (Garis Tanah)',
           interpret: 'Menggambar pangkal batang tepat di batas bawah kertas (yang dianggap sebagai tanah) memiliki arti berbeda tergantung usia subjek. Pada anak-anak (usia 10–12 tahun): hal ini wajar — menandakan tahap perkembangan kreativitas dan imajinasi mereka. Secara simbolis, anak merespons ruang sosial yang terwakili oleh kertas itu sendiri. Pada orang dewasa: jika pangkal batang digambar berada di bagian bawah kertas, ini mengindikasikan sikap yang regresif (kembali ke perilaku masa kanak-kanak) dan menunjukkan adanya keterhambatan dalam perkembangan intelektual serta kematangan emosional.',
