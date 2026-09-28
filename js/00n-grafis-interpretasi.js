@@ -1228,11 +1228,22 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                       stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="20 6 9 17 4 12"/></svg>` : ''}
                   </div>
-                  <div style="flex: 1; min-width: 0; font-size: 12px; font-weight: 800;
-                    color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
-                    ${escapeHtml(sub.label)}
-                    ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
-                  </div>
+                 <div style="flex: 1; min-width: 0;">
+  <div style="font-size: 12px; font-weight: 800;
+    color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
+    ${escapeHtml(sub.label)}
+    ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
+  </div>
+  ${sub.ciri ? `
+    <div style="margin-top: 4px; padding: 5px 8px;
+      background: #fef3c7; border-left: 3px solid #f59e0b;
+      border-radius: 4px; font-size: 10px; font-weight: 600;
+      color: #78350f; line-height: 1.45; font-style: italic;
+      text-align: left;">
+      🔍 <b>Ciri visual:</b> ${escapeHtml(sub.ciri)}
+    </div>
+  ` : ''}
+</div>
                 </label>
               `;
             }).join('');
