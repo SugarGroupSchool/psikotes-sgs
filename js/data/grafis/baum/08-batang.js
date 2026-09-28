@@ -230,11 +230,13 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
     /* ==========================================================
        6. PERMUKAAN & TEKSTUR BATANG
        ========================================================== */
-    {
-      id: 'permukaan_tekstur',
-      title: '6. Permukaan & Tekstur Batang',
-      type: 'checkbox',
-      items: [
+   {
+  id: 'permukaan_tekstur',
+  title: '6. Permukaan & Tekstur Batang',
+  type: 'checkbox',
+  imagePosition: 'top',
+  imageSize: 300,   // 🆕 ukuran maksimal gambar (px)
+  items: [
         {
           image: BASE_BATANG + '32tekstur%20kasar.png',
           id: 'tekstur_kasar',
