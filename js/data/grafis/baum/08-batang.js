@@ -202,12 +202,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       type: 'checkbox',
       items: [
         {
-          image: BASE_BATANG + '4-batang%20t.png',   // ← GANTI nanti: permukaan umum
-          id: 'permukaan_umum',
-          label: 'Permukaan Batang (Makna Umum)',
-          interpret: 'Permukaan batang pada gambar pohon secara fisiognomis memiliki makna yang terkait dengan hubungan subjek dengan lingkungannya dari segi emosional dan afektif. Meliputi: (1) Penyesuaian diri — seberapa baik seseorang dapat menyesuaikan diri dengan lingkungan sekitarnya, termasuk pengalaman masa lalu dan cara menangani peristiwa dan tekanan emosional. (2) Keadaan masa lalu — gambaran pengalaman masa lalu subjek yang memengaruhi cara menanggapi situasi saat ini. (3) Kehidupan emosional — bagaimana subjek merespons perasaan atau afeksi terhadap lingkungannya. (4) Mekanisme pertahanan diri — ciri-ciri yang muncul dapat mengindikasikan mekanisme pertahanan diri yang dimiliki seseorang.'
-        },
-        {
           image: BASE_BATANG + '4-batang%20t.png',   // ← GANTI nanti: tekstur kasar
           id: 'tekstur_kasar',
           label: 'Tekstur Kasar / Berparut / Bersisik / Berbintik',
