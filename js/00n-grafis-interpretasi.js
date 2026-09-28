@@ -1179,16 +1179,16 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           let itemImageHTML = '';
           if (item.image) {
             itemImageHTML = `
-itemImageHTML = `
-  <img src="${item.image}" alt="${escapeHtml(item.label)}"
-    style="width: 160px; height: 160px; object-fit: contain;
-      flex: 0 0 160px; border-radius: 8px;
-      border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
-      background: #fff; padding: 3px;
-      transition: border-color .15s ease;"
-    onerror="this.style.display='none';">
-`;
+              <img src="${item.image}" alt="${escapeHtml(item.label)}"
+                style="width: 160px; height: 160px; object-fit: contain;
+                  flex: 0 0 160px; border-radius: 8px;
+                  border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+                  background: #fff; padding: 3px;
+                  transition: border-color .15s ease;"
+                onerror="this.style.display='none';">
+            `;
           }
+
 
           let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
@@ -1196,20 +1196,20 @@ itemImageHTML = `
               const subKey = section.id + '::' + sub.id;
               const subChecked = !!selected[subKey];
 
-              /* 🖼️ Gambar sub-item — SELALU tampil di kiri jika ada */
+ 
               let subImageHTML = '';
               if (sub.image) {
                 subImageHTML = `
-subImageHTML = `
-  <img src="${sub.image}" alt="${escapeHtml(sub.label)}"
-    style="width: 60px; height: 60px; object-fit: contain;
-      flex: 0 0 60px; border-radius: 7px;
-      border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
-      background: #fff; padding: 3px;
-      transition: border-color .15s ease;"
-    onerror="this.style.display='none';">
-`;
+                  <img src="${sub.image}" alt="${escapeHtml(sub.label)}"
+                    style="width: 120px; height: 120px; object-fit: contain;
+                      flex: 0 0 120px; border-radius: 7px;
+                      border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
+                      background: #fff; padding: 3px;
+                      transition: border-color .15s ease;"
+                    onerror="this.style.display='none';">
+                `;
               }
+
 
               return `
                 <label class="js-subitem" data-key="${subKey}"
