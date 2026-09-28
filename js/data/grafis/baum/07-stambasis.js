@@ -9,7 +9,7 @@ const BASE_STAMBASIS = 'https://raw.githubusercontent.com/SugarGroupSchool/psiko
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-06-stambasis',
   title: '6. Pangkal Batang (Stambasis)',
-  image: BASE_STAMBASIS + '1-pangkal%20nempel.png',
+  image: BASE_STAMBASIS + '5pangkal%20nempel%20kertas.png',
   sections: [
     {
       id: 'stambasis_items',
@@ -17,14 +17,14 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       type: 'checkbox',
       items: [
         {
-          image: BASE_STAMBASIS + '1-pangkal%20nempel.png',
+          image: BASE_STAMBASIS + '5pangkal%20nempel%20kertas.png',
           id: 'pangkal_batas_kertas',
           label: 'Posisi Pangkal Batang di Batas Kertas (Garis Tanah)',
           ciri: 'Pangkal batang tepat menyentuh tepi bawah kertas · batang "tumbuh" langsung dari garis kertas · tidak ada ruang antara pangkal & tepi bawah · dasar pohon = tepi kertas',
           interpret: 'Menggambar pangkal batang tepat di batas bawah kertas (yang dianggap sebagai tanah) memiliki arti berbeda tergantung usia subjek. Pada anak-anak (usia 10–12 tahun): hal ini wajar — menandakan tahap perkembangan kreativitas dan imajinasi mereka. Secara simbolis, anak merespons ruang sosial yang terwakili oleh kertas itu sendiri. Pada orang dewasa: jika pangkal batang digambar berada di bagian bawah kertas, ini mengindikasikan sikap yang regresif (kembali ke perilaku masa kanak-kanak) dan menunjukkan adanya keterhambatan dalam perkembangan intelektual serta kematangan emosional.',
           subItems: [
             {
-              image: BASE_STAMBASIS + '1-pangkal%20nempel.png',
+              image: BASE_STAMBASIS + '5pangkal%20nempel%20kertas.png',
               id: 'anak_wajar',
               label: 'Pada Anak-anak (usia 10–12 tahun) — Wajar',
               dependsOn: 'pangkal_batas_kertas',
@@ -33,7 +33,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
               interpret: 'Menggambar pangkal batang tepat di batas bawah kertas (yang dianggap sebagai tanah) adalah hal yang wajar pada anak usia 10–12 tahun. Ini menandakan tahap perkembangan kreativitas dan imajinasi mereka. Secara simbolis, anak merespons ruang sosial yang terwakili oleh kertas itu sendiri.'
             },
             {
-              image: BASE_STAMBASIS + '1-pangkal%20nempel.png',
+              image: BASE_STAMBASIS + '5pangkal%20nempel%20kertas.png',
               id: 'dewasa_regresif',
               label: 'Pada Orang Dewasa — Indikasi Regresif',
               dependsOn: 'pangkal_batas_kertas',
@@ -44,14 +44,14 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           ]
         },
         {
-          image: BASE_STAMBASIS + '2-lebar%20kiri.png',
+          image: BASE_STAMBASIS + '6pangkal%20kiri.png',
           id: 'lebar_kiri',
           label: 'Lebar Pangkal Batang di Sisi Kiri',
           ciri: 'Pangkal batang lebih lebar di sisi kiri · sisi kanan pangkal lebih sempit / tipis · bentuk asimetris · kesan "miring" ke kiri di bagian dasar',
           interpret: 'Jika pangkal batang lebih lebar di sisi kiri, ini mengindikasikan adanya hambatan atau perasaan terhambat pada subjek. Sisi kiri melambangkan masa lampau dan penekanan pada hal-hal yang telah terjadi sebelumnya. Hal ini menunjukkan upaya subjek untuk memperkuat diri dari pengalaman negatif di masa lalu. Perlu diperhatikan lebih lanjut terkait konteks ikatan emosional dengan ibu atau figur yang menggantikan peran ibu — subjek masih terikat secara emosional pada peristiwa yang melibatkan figur tersebut di masa lalu. Mengapa ibu? Sejak awal kehidupan, hubungan bayi dan ibu sangat kuat karena ketergantungan fisik, emosional, dan psikologis. Ibu adalah sumber utama kasih sayang dan perawatan di tahun-tahun formatif pertama (sesuai teori Freud). Peran ayah baru mulai menonjol saat anak berusia 3–4 tahun pada fase phallus.'
         },
         {
-          image: BASE_STAMBASIS + '3-lebar%20dua.png',
+          image: BASE_STAMBASIS + '7pangkal%20keduanya.png',
           id: 'lebar_kedua_sisi',
           label: 'Lebar Pangkal Batang di Kedua Sisi (Kanan & Kiri)',
           ciri: 'Pangkal batang melebar di kedua sisi · kiri & kanan sama-sama lebar · dasar pohon tampak "menggembung" · seperti bentuk trapesium terbalik · simetris atau hampir simetris',
