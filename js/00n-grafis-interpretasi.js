@@ -1175,18 +1175,35 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           if (isRadio) isChecked = (val === item.id);
           else isChecked = Array.isArray(val) && val.includes(item.id);
 
-          /* 🖼️ Gambar item — SELALU tampil di kiri jika ada */
+                    /* 🖼️ Gambar item — posisi fleksibel: left / top / bottom */
+          const imgPos = section.imagePosition || 'left';
+          const imgSize = section.imageSize || 160;
+
           let itemImageHTML = '';
           if (item.image) {
-            itemImageHTML = `
-              <img src="${item.image}" alt="${escapeHtml(item.label)}"
-                style="width: 160px; height: 160px; object-fit: contain;
-                  flex: 0 0 160px; border-radius: 8px;
-                  border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
-                  background: #fff; padding: 3px;
-                  transition: border-color .15s ease;"
-                onerror="this.style.display='none';">
-            `;
+            const commonStyle = `
+              object-fit: contain;
+              border-radius: 8px;
+              border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
+              background: #fff; padding: 3px;
+              transition: border-color .15s ease;`;
+
+            if (imgPos === 'left') {
+              itemImageHTML = `
+                <img src="${item.image}" alt="${escapeHtml(item.label)}"
+                  style="width: ${imgSize}px; height: ${imgSize}px;
+                    flex: 0 0 ${imgSize}px; ${commonStyle}"
+                  onerror="this.style.display='none';">
+              `;
+            } else {
+              // top / bottom → layout column, gambar full width
+              itemImageHTML = `
+                <img src="${item.image}" alt="${escapeHtml(item.label)}"
+                  style="max-width: 100%; max-height: 320px; width: auto;
+                    align-self: center; ${commonStyle}"
+                  onerror="this.style.display='none';">
+              `;
+            }
           }
 
 
@@ -1211,78 +1228,55 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               }
 
 
-              return `
-                <label class="js-subitem" data-key="${subKey}"
-                  style="display: flex; align-items: center; gap: 10px;
-                    padding: 8px 12px; margin: 4px 0 6px 28px;
-                    background: ${subChecked ? '#fff' : '#f8fafc'};
-                    border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
-                    border-radius: 10px; cursor: pointer;
-                    transition: all .15s ease; user-select: none;">
-                  ${subImageHTML}
-                  <div style="width: 16px; height: 16px; flex: 0 0 16px;
-                    border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
-                    background: ${subChecked ? theme.primary : '#fff'};
-                    border-radius: 4px; display: grid; place-items: center;">
-                    ${subChecked ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                      stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20 6 9 17 4 12"/></svg>` : ''}
+          /* ===== Layout fleksibel: left / top / bottom ===== */
+          const isVertical = (imgPos === 'top' || imgPos === 'bottom');
+          const labelFlexStyle = isVertical
+            ? 'display: flex; flex-direction: column; align-items: stretch; gap: 10px;'
+            : 'display: flex; align-items: center; gap: 12px;';
+
+          const checkboxAndLabelHTML = `
+            <div style="display: flex; align-items: flex-start; gap: 12px; width: 100%; box-sizing: border-box;">
+              <div style="width: 18px; height: 18px; flex: 0 0 18px;
+                border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
+                background: ${isChecked ? theme.primary : '#fff'};
+                ${isRadio ? 'border-radius: 50%;' : 'border-radius: 4px;'}
+                display: grid; place-items: center; margin-top: 1px;">
+                ${isChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                  stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/></svg>` : ''}
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 12.5px; font-weight: 800;
+                  color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;
+                  text-align: left;">
+                  ${escapeHtml(item.label)}
+                </div>
+                ${item.ciri ? `
+                  <div style="margin-top: 5px; padding: 6px 9px;
+                    background: #fffbeb; border-left: 3px solid #f59e0b;
+                    border-radius: 4px; font-size: 10.5px; font-weight: 600;
+                    color: #78350f; line-height: 1.45; font-style: italic;
+                    text-align: left;">
+                    🔍 <b>Ciri visual:</b> ${escapeHtml(item.ciri)}
                   </div>
-                 <div style="flex: 1; min-width: 0;">
-  <div style="font-size: 12px; font-weight: 800;
-    color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
-    ${escapeHtml(sub.label)}
-    ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
-  </div>
-  ${sub.ciri ? `
-    <div style="margin-top: 4px; padding: 5px 8px;
-      background: #fef3c7; border-left: 3px solid #f59e0b;
-      border-radius: 4px; font-size: 10px; font-weight: 600;
-      color: #78350f; line-height: 1.45; font-style: italic;
-      text-align: left;">
-      🔍 <b>Ciri visual:</b> ${escapeHtml(sub.ciri)}
-    </div>
-  ` : ''}
-</div>
-                </label>
-              `;
-            }).join('');
-          }
+                ` : ''}
+              </div>
+            </div>
+          `;
 
           return `
             <div>
               <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
-                style="display: flex; align-items: center; gap: 12px;
-                  padding: 10px 12px; margin-bottom: 6px;
+                style="${labelFlexStyle}
+                  padding: 12px; margin-bottom: 6px;
                   background: ${isChecked ? '#fff' : '#fbfdff'};
                   border: 2px solid ${isChecked ? theme.primary : '#e2e8f0'};
                   border-radius: 10px; cursor: pointer;
-                  transition: all .15s ease; user-select: none;">
-                ${itemImageHTML}
-                <div style="width: 18px; height: 18px; flex: 0 0 18px;
-                  border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
-                  background: ${isChecked ? theme.primary : '#fff'};
-                  ${isRadio ? 'border-radius: 50%;' : 'border-radius: 4px;'}
-                  display: grid; place-items: center;">
-                  ${isChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                    stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/></svg>` : ''}
-                </div>
-               <div style="flex: 1; min-width: 0;">
-  <div style="font-size: 12.5px; font-weight: 800;
-    color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;">
-    ${escapeHtml(item.label)}
-  </div>
-  ${item.ciri ? `
-    <div style="margin-top: 5px; padding: 6px 9px;
-      background: #fffbeb; border-left: 3px solid #f59e0b;
-      border-radius: 4px; font-size: 10.5px; font-weight: 600;
-      color: #78350f; line-height: 1.45; font-style: italic;
-      text-align: left;">
-      🔍 <b>Ciri visual:</b> ${escapeHtml(item.ciri)}
-    </div>
-  ` : ''}
-</div>
+                  transition: all .15s ease; user-select: none;
+                  box-sizing: border-box;">
+                ${imgPos === 'top' ? itemImageHTML : ''}
+                ${checkboxAndLabelHTML}
+                ${imgPos === 'bottom' ? itemImageHTML : ''}
               </label>
               ${subItemsHTML}
             </div>
