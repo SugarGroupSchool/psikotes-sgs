@@ -1207,13 +1207,12 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           }
 
 
-          let subItemsHTML = '';
+             let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
             subItemsHTML = item.subItems.map(sub => {
               const subKey = section.id + '::' + sub.id;
               const subChecked = !!selected[subKey];
 
- 
               let subImageHTML = '';
               if (sub.image) {
                 subImageHTML = `
@@ -1227,6 +1226,43 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 `;
               }
 
+              return `
+                <label class="js-subitem" data-key="${subKey}"
+                  style="display: flex; align-items: center; gap: 10px;
+                    padding: 8px 12px; margin: 4px 0 6px 28px;
+                    background: ${subChecked ? '#fff' : '#f8fafc'};
+                    border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
+                    border-radius: 10px; cursor: pointer;
+                    transition: all .15s ease; user-select: none;">
+                  ${subImageHTML}
+                  <div style="width: 16px; height: 16px; flex: 0 0 16px;
+                    border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
+                    background: ${subChecked ? theme.primary : '#fff'};
+                    border-radius: 4px; display: grid; place-items: center;">
+                    ${subChecked ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/></svg>` : ''}
+                  </div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 800;
+                      color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
+                      ${escapeHtml(sub.label)}
+                      ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
+                    </div>
+                    ${sub.ciri ? `
+                      <div style="margin-top: 4px; padding: 5px 8px;
+                        background: #fef3c7; border-left: 3px solid #f59e0b;
+                        border-radius: 4px; font-size: 10px; font-weight: 600;
+                        color: #78350f; line-height: 1.45; font-style: italic;
+                        text-align: left;">
+                        🔍 <b>Ciri visual:</b> ${escapeHtml(sub.ciri)}
+                      </div>
+                    ` : ''}
+                  </div>
+                </label>
+              `;
+            }).join('');
+          }
 
           /* ===== Layout fleksibel: left / top / bottom ===== */
           const isVertical = (imgPos === 'top' || imgPos === 'bottom');
