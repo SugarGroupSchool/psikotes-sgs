@@ -1,51 +1,54 @@
-/* BAUM — Bagian 4: Kualitas Garis */
+/* ============================================================
+   BAUM — 5. Akar
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
+/* 🖼️ Base URL folder gambar */
+const BASE_AKAR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/';
+
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-04',
-  title: '4. Kualitas Garis',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  id: 'baum-05-akar',
+  title: '5. Akar',
+  image: BASE_AKAR + '11-akar%20single.png',
   sections: [
     {
-      id: 'kualitas_garis',
-      title: 'Karakteristik Garis',
+      id: 'akar_items',
+      title: 'Pilih sesuai yang digambarkan oleh subjek',
       type: 'checkbox',
       items: [
         {
-          id: 'tekanan_kuat',
-          label: 'Tekanan kuat',
-          ciri: 'Garis tampak tebal & gelap · bekas pensil jelas / tembus ke belakang kertas · kontras tajam dengan latar · tidak ada keraguan dalam goresan',
-          interpret: 'Menyiratkan dorongan, kebutuhan, atau hasrat personal yang kuat. Ini mencerminkan kekuatan subjek dalam mencapai tujuan atau mengatasi ketegangan. Tekanan kuat pada gambar besar dapat mengindikasikan ambisi yang tinggi.'
+          image: BASE_AKAR + '11-akar%20single.png',
+          id: 'akar_satu_garis',
+          label: 'Akar dengan Satu Garis',
+          ciri: 'Hanya 1 garis tunggal sebagai akar · tidak ada pembatas / dua sisi · garis lurus sederhana di bawah batang · tanpa detail · umum pada anak kecil',
+          interpret: 'Karakteristik: hanya terdiri dari satu garis tunggal. Umumnya ditemukan pada anak-anak usia dini (hingga kelas 2 SD). Menunjukkan aspek primitif, serta adanya dunia magis atau hal-hal tak terlihat yang masih ada dalam pikiran mereka. Pada orang dewasa, ini bisa ditemukan pada mereka dengan kecenderungan kekurangan intelektual atau taraf primitivitas serta kehidupan magis yang masih terpapar secara tidak sadar.'
         },
         {
-          id: 'tebal_tidak_teratur',
-          label: 'Garis tebal dan tidak teratur',
-          ciri: 'Garis tebal tapi arahnya tidak konsisten · tumpang tindih tanpa pola · tampak tergesa-gesa · kadang ada bagian yang "bocor" keluar garis utama',
-          interpret: 'Indikasi impulsivitas, reaksi cepat, kurang terkontrol, dan sifat agresif. Garis yang tebal menunjukkan intensitas emosional yang tinggi.'
-        },
-        {
-          id: 'tekanan_lemah',
-          label: 'Tekanan lemah',
-          ciri: 'Garis tipis & pucat · hampir tidak terlihat · perlu diperhatikan untuk bisa dilihat · bekas pensil ringan saja · garis seperti "mengambang"',
-          interpret: 'Menunjukkan rasa enggan atau kurang semangat, terutama pada gambar kecil dan terletak di bawah. Garis lemah dan tidak terarah mencerminkan ketidakpastian atau kurangnya motivasi.'
-        },
-        {
-          id: 'lemah_tidak_terarah',
-          label: 'Garis lemah dan tidak terarah',
-          ciri: 'Garis tipis & arahnya berubah-ubah · tidak ada konsistensi arah · seperti goresan ragu-ragu · kadang berhenti lalu mulai lagi · tidak menyambung rapi',
-          interpret: 'Menunjukkan sikap ragu-ragu, ketidakpastian, atau kurangnya fokus dan tujuan yang jelas.'
-        },
-        {
-          id: 'terputus',
-          label: 'Garis terputus-putus dan tidak konstruktif',
-          ciri: 'Garis tidak menyambung (ada jeda) · goresan kecil berulang · garis seperti "ditebalkan bertahap" · tampak tidak selesai dalam satu tarikan',
-          interpret: 'Mengindikasikan sikap ragu-ragu atau tidak konsisten. Garis terputus dengan tekanan lemah bisa menunjukkan keinginan aktivitas yang tidak terkendali atau kurangnya kendali diri.'
-        },
-        {
-          id: 'shading',
-          label: 'Ada shading',
-          ciri: 'Ada area gelap / bayangan · coretan berulang di area tertentu · seperti dihitamkan dengan pensil · tidak ada batas jelas antara terang & gelap',
-          interpret: 'Shading dapat mencerminkan kecemasan dan mungkin menghasilkan kecenderungan neurotik sebagai manifestasi dari rasa tidak aman. Gambar shading yang normal pada anak dianggap sebagai respon kreatif yang wajar terhadap seni dan ekspresi diri.'
+          image: BASE_AKAR + '14-gabungan.png',
+          id: 'akar_dua_garis',
+          label: 'Akar dengan Dua Garis (Normal)',
+          ciri: 'Ada 2 garis yang membentuk area akar (kiri & kanan) · bukan garis tunggal · ada "ruang" di antara dua garis · bisa tertutup atau terbuka di ujungnya',
+          interpret: 'Jenis ini dibagi lagi menjadi dua berdasarkan bentuknya: akar tertutup dan akar terbuka. Masing-masing mencerminkan cara subjek mengelola dorongan-dorongan internalnya — apakah melalui proses seleksi (tertutup) atau tanpa filter (terbuka).',
+          subItems: [
+            {
+              image: BASE_AKAR + '13-akar%20tutup.png',
+              id: 'akar_tertutup',
+              label: 'Akar Tertutup',
+              dependsOn: 'akar_dua_garis',
+              optional: true,
+              ciri: 'Ujung akar tertutup rapat · garis bawah melengkung & menyatu · seperti kulit akar · tidak ada celah terbuka di ujung',
+              interpret: 'Karakteristik: ujung akar tertutup, seperti kulit akar yang bertindak sebagai filter. Interpretasi: subjek masih mampu menyelesaikan dan mengelola dorongan-dorongan yang muncul. Menggambarkan kemampuan untuk menyeleksi dan memproses dorongan secara hati-hati sebelum bertindak. Individu memiliki kontrol diri yang baik dan tidak impulsif.'
+            },
+            {
+              image: BASE_AKAR + '12-akar%20buka.png',
+              id: 'akar_terbuka',
+              label: 'Akar Terbuka',
+              dependsOn: 'akar_dua_garis',
+              optional: true,
+              ciri: 'Ujung akar terbuka · dua garis tidak menyatu di bawah · ada celah di ujung bawah · seperti corong terbuka',
+              interpret: 'Karakteristik: ujung akar terbuka, menerima segala sesuatu tanpa proses seleksi atau penyaringan. Interpretasi: segala sesuatu diterima tanpa proses evaluasi, seolah-olah ada kebutuhan mendesak untuk menerima sebanyak mungkin tanpa mempertimbangkan dampak atau konsekuensinya. Menandakan impulsivitas, kelemahan struktur kepribadian, dan ambisi besar yang tidak diimbangi oleh rasa mampu. Struktur dorongan tidak selektif: impuls langsung menjadi sikap/tindakan. Struktur kepribadian sangat lemah (neurastenik): rentan terhadap tekanan, kelelahan emosional, toleransi rendah terhadap stres, kecemasan berlebihan, dan sulit menyesuaikan diri dengan perubahan. Kesenjangan idealisme vs realitas: merasa diri kurang mampu tetapi memiliki ambisi/aspirasi yang tinggi. Individu bermimpi besar, namun merasa tidak memiliki kapasitas untuk mencapainya.'
+            }
+          ]
         }
       ]
     }
