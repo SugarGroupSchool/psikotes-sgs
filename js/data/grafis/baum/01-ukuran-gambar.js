@@ -14,6 +14,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         {
           id: 'terlalu_besar',
           label: 'Gambar sangat besar',
+          ciri: 'Mengisi >75% area kertas · pohon mendominasi seluruh halaman · batang & mahkota jauh lebih besar dari proporsi wajar · garis tepi hampir menyentuh pinggir kertas',
           interpret: 'Agresivitas dan kecenderungan untuk bertindak secara eksternal. Sikap ekspansif, fantasi tinggi dan grandiositas (keyakinan berlebihan tentang pentingnya diri sendiri, kemampuan luar biasa, atau superioritas yang tidak realistis). Aktivitas emosional berlebihan, bahkan cenderung manik. Perasaan tidak mampu yang tidak disadari. Dugaan gangguan organik, efek alkohol, atau masalah neuropsikologis. Kesadaran moral yang lemah, potensi sifat antisosial. Kecurigaan berlebih dan kecenderungan paranoid.',
           subItems: [
             {
@@ -21,6 +22,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
               label: 'Digambar jelek atau kosong',
               dependsOn: 'terlalu_besar',
               optional: true,
+              ciri: 'Garis tidak teratur · banyak area kosong tanpa detail · coretan sembarangan · tidak ada usaha memperindah · bentuk tidak dikenali',
               interpret: 'Terdapat indikasi kekurangan mental. Bisa menandakan adanya kesulitan atau keterbatasan dalam perkembangan kognitif (umumnya dibuat oleh anak-anak).'
             },
             {
@@ -28,6 +30,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
               label: 'Dibuat dengan garis tepi yang sangat besar',
               dependsOn: 'terlalu_besar',
               optional: true,
+              ciri: 'Garis luar pohon sangat tebal & menonjol · mengelilingi seluruh gambar · seperti bingkai besar · kontras dengan isi gambar',
               interpret: 'Menunjukkan ciri-ciri manik, yaitu periode emosi yang tinggi, energik, dan terkadang terlampau euforik yang dapat mengindikasikan gangguan bipolar atau episode mania.'
             }
           ]
@@ -35,16 +38,19 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         {
           id: 'lebih_kecil',
           label: 'Lebih kecil dari rata-rata',
+          ciri: 'Mengisi <25% area kertas · pohon kecil di tengah atau sudut kertas · banyak ruang kosong di sekeliling · proporsi mini',
           interpret: 'Rasa tidak aman, harga diri rendah, perasaan inferior. Kecemasan, depresi, atau penarikan diri. Ketergantungan berlebih dan perilaku kekanak-kanakan. Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. Hambatan dalam interaksi sosial, pemalu atau defensif. Reaksi menarik diri saat menghadapi stres. Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah. Subjek tidak merasa terpacu untuk mengatasi hambatan yang ada.'
         },
         {
           id: 'keluar_kertas',
           label: 'Keluar dari kertas',
+          ciri: 'Ada bagian gambar terpotong tepi kertas · mahkota / dahan / akar melewati batas halaman · tidak bisa dilihat utuh dalam satu lembar',
           interpret: 'Kesulitan merencanakan sesuatu atau menata sesuatu secara terstruktur. Tendensi manik atau overaktif di mana mereka cenderung terlalu aktif secara fisik atau mental.'
         },
         {
           id: 'normal',
           label: 'Normal',
+          ciri: 'Mengisi ±30–70% area kertas · proporsi seimbang antara batang, dahan, mahkota · posisi wajar (tidak terlalu ke tepi) · seluruh bagian pohon terlihat utuh',
           interpret: 'Tidak selalu berarti sehat secara psikologis, dapat ditelaah lebih dalam berdasarkan kualitas ekspresi, detail, dan konteks emosional. Menunjukkan tingkat energi yang cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional yang kuat. Bisa mencerminkan keadaan psikologis yang datar atau stabil, tergantung konteks lainnya. Mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif, atau tidak terlalu mengenali konflik batin yang dialaminya. Sikap optimis yang ditampilkan bisa jadi hanya di permukaan. Ada kemungkinan subjek menyangkal atau menekan perasaan negatif, sehingga tampak optimis secara luar, tapi tidak disertai pemahaman mendalam terhadap masalah yang dihadapi.'
         }
       ]
