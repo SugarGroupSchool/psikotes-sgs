@@ -1270,8 +1270,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             ? 'display: flex; flex-direction: column; align-items: stretch; gap: 10px;'
             : 'display: flex; align-items: center; gap: 12px;';
 
-          const checkboxAndLabelHTML = `
-            <div style="display: flex; align-items: flex-start; gap: 12px; width: 100%; box-sizing: border-box;">
+                   const checkboxAndLabelHTML = `
+            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; box-sizing: border-box;">
               <div style="width: 18px; height: 18px; flex: 0 0 18px;
                 border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
                 background: ${isChecked ? theme.primary : '#fff'};
@@ -1300,7 +1300,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             </div>
           `;
 
-          return `
+                   return `
             <div>
               <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
                 style="${labelFlexStyle}
@@ -1310,7 +1310,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                   border-radius: 10px; cursor: pointer;
                   transition: all .15s ease; user-select: none;
                   box-sizing: border-box;">
-                ${imgPos === 'top' ? itemImageHTML : ''}
+                ${(imgPos === 'left' || imgPos === 'top') ? itemImageHTML : ''}
                 ${checkboxAndLabelHTML}
                 ${imgPos === 'bottom' ? itemImageHTML : ''}
               </label>
