@@ -1257,10 +1257,21 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                     stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"/></svg>` : ''}
                 </div>
-                <div style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 800;
-                  color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;">
-                  ${escapeHtml(item.label)}
-                </div>
+               <div style="flex: 1; min-width: 0;">
+  <div style="font-size: 12.5px; font-weight: 800;
+    color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;">
+    ${escapeHtml(item.label)}
+  </div>
+  ${item.ciri ? `
+    <div style="margin-top: 5px; padding: 6px 9px;
+      background: #fffbeb; border-left: 3px solid #f59e0b;
+      border-radius: 4px; font-size: 10.5px; font-weight: 600;
+      color: #78350f; line-height: 1.45; font-style: italic;
+      text-align: left;">
+      🔍 <b>Ciri visual:</b> ${escapeHtml(item.ciri)}
+    </div>
+  ` : ''}
+</div>
               </label>
               ${subItemsHTML}
             </div>
