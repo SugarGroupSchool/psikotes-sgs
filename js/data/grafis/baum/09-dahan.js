@@ -21,20 +21,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       type: 'checkbox',
       items: [
         {
-          image: BASE_DAHAN + '1horizontal.png',   // ← GANTI nanti: dahan satu garis
-          id: 'satu_garis',
-          label: 'Dahan Satu Garis',
-          ciri: 'Dahan digambar dengan 1 garis saja · tidak ada lebar / tebal · seperti ranting tipis · tidak ada 2 sisi',
-          interpret: 'Penggambaran dahan bisa dilukiskan dengan satu atau dua garis. Anak-anak hingga usia 10 tahun umumnya menggunakan satu garis, terutama anak perempuan. Anak-anak dengan keterbatasan intelektual juga cenderung melakukannya hingga usia 14 tahun — menandakan tahap primitif dalam perkembangan afektif. Jika orang dewasa kembali menggunakan satu garis, itu bisa menunjukkan regresi atau kemunduran, mencerminkan hambatan massif dalam perkembangan primitif.'
-        },
-        {
-          image: BASE_DAHAN + '1horizontal.png',   // ← GANTI nanti: dahan dua garis
-          id: 'dua_garis',
-          label: 'Dahan Dua Garis',
-          ciri: 'Dahan dibentuk oleh 2 garis paralel · ada lebar / ketebalan · seperti pipa · dua sisi terlihat',
-          interpret: 'Penggambaran dahan dengan dua garis menunjukkan perbedaan mendasar antara subjek normal dan yang memiliki karakteristik abnormal. Jika seorang anak mulai menggunakan dua garis, ini menandakan kedewasaan emosional.'
-        },
-        {
           image: BASE_DAHAN + '1horizontal.png',
           id: 'horizontal_lurus',
           label: 'Dahan Horizontal Lurus',
@@ -306,13 +292,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           label: 'Dahan Seperti Cacing Saling Menelungkup',
           ciri: 'Dahan melengkung seperti cacing · saling menelungkup / memeluk · berbentuk bulat memanjang · tidak seperti dahan normal',
           interpret: 'Mengindikasikan psikopat. Psikopati mencakup sifat antisosial, kurangnya empati, dan perilaku manipulatif. Subjek memiliki kecenderungan untuk bertindak tanpa perasaan bersalah dan kurangnya empati terhadap perasaan orang lain.'
-        },
-        {
-          image: BASE_DAHAN + '9tersebar.png',   // ← GANTI nanti: dahan 3D diarsir
-          id: 'tiga_dimensi_diarsir',
-          label: 'Dahan 3 Dimensi + Dahan Diarsir',
-          ciri: 'Dahan punya kedalaman 3D · ada shading untuk efek volume · seperti ranting bulat · ada sisi terang & gelap',
-          interpret: 'Mencerminkan: (1) Kecerdasannya tinggi — kemampuan melihat situasi dari berbagai sudut pandang atau dimensi, mencerminkan kecerdasan kognitif yang lebih baik. (2) Originalitas — pikiran yang orisinal dan kreatif, cenderung berpikir di luar kebiasaan dan mampu menciptakan ide-ide baru.'
         }
       ]
     }
