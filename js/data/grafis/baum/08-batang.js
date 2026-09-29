@@ -151,7 +151,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Keraguan dan masalah dalam interaksi sosial di masa lalu. Sisi kiri melambangkan masa lalu dan pengalaman internal, sehingga ketidakteraturan di sini menunjukkan adanya luka atau konflik lama yang masih memengaruhi cara subjek berinteraksi dengan lingkungannya.'
         },
         {
-          image: BASE_BATANG + '23kanan%20tak%20teratur.png',
+          image: BASE_BATANG + '23kanan%20tidak%20teratur.png',
           id: 'kanan_tidak_teratur',
           label: 'Bagian Kanan Batang Tidak Teratur',
           ciri: 'Garis di sisi kanan batang tidak teratur · bergelombang atau terputus di kanan · sisi kiri relatif rapi',
@@ -270,7 +270,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan suasana hati yang berasal dari situasi masa lalu atau refleksi terhadap diri sendiri. Menandakan kecenderungan introversi, subjek cenderung memusatkan perhatian pada dirinya sendiri. Adanya hambatan menunjukkan suasana hati menghambat kemampuan beraktivitas atau bereaksi terhadap rangsangan eksternal. Bayangan di sebelah kiri juga mengindikasikan kurangnya inisiatif atau sukar merespons rangsangan dari luar.'
         },
         {
-          image: BASE_BATANG + '34pohon%20kekakuan.png',
+          image: BASE_BATANG + '34menggambarkan%20kekakuan.png',
           id: 'kekakuan',
           label: 'Batang yang Menggambarkan Kekakuan',
           ciri: 'Batang kaku & kaku lurus sempurna · tidak ada variasi lebar · tepi lurus tajam · tidak ada gerakan · seperti tiang / pilar',
@@ -284,21 +284,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mengaitkan bayangan di sisi kanan dengan kehidupan masa depan seseorang — perasaan subjek terkait dengan masa depan atau prospek sosialnya. Jika bayangan di sisi kanan tampak intens, itu mengindikasikan subjek memiliki perasaan yang kuat terkait dengan apa yang akan terjadi, situasi yang akan dihadapi, atau harapan di masa depan. Intensitas perasaan ini dapat membantu subjek lebih mudah beradaptasi dengan peristiwa atau tantangan yang akan datang.'
         },
         {
-          image: BASE_BATANG + '36batang%20hitam.png',
+          image: BASE_BATANG + '36batang%20dihitamkan.png',
           id: 'seluruh_batang_hitam',
           label: 'Seluruh Batang Dihitamkan',
           ciri: 'Seluruh permukaan batang ditutup shading · tidak ada area terang · hitam merata · seperti dihitamkan dengan pensil',
           interpret: 'Menunjukkan suasana hati subjek sangat terbebani sehingga aktivitas atau gerakannya menjadi terhambat. Subjek selalu membawa beban emosional yang berat, baik terkait masalah internal pribadi maupun dinamika lingkungannya. Intensitas bayangan menjadi tanda bahwa subjek terus-menerus merasakan beban emosional yang signifikan, memengaruhi cara mereka melihat dan merespons situasi sehari-hari.'
         },
         {
-          image: BASE_BATANG + '37hitam%20agresif.png',
+          image: BASE_BATANG + '37batang%20dihitamkan%20agresif.png',
           id: 'hitam_agresif',
           label: 'Dihitamkan dengan Sedikit Agresif',
           ciri: 'Shading gelap disertai goresan agresif · area hitam tidak merata · ada coretan kasar di beberapa bagian',
           interpret: 'Menandakan suasana hati menjadi lebih menekan dan mendominasi — proses ini menggambarkan suasana hati yang lebih intens, kemungkinan dipicu oleh rasa kecemasan. Goresan agresif menandakan adanya dorongan emosional yang kuat namun belum tersalurkan dengan tepat.'
         },
         {
-          image: BASE_BATANG + '38hitam%20tekanan%20kuat.png',
+          image: BASE_BATANG + '38batang%20hitam%20tekanan%20kuat.png',
           id: 'tekanan_kuat',
           label: 'Batang Dihitamkan dengan Tekanan Kuat',
           ciri: 'Shading sangat gelap & tebal · pensil ditekan kuat hingga bekas tembus · area hitam pekat · goresan agresif',
