@@ -239,14 +239,14 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       imageSize: 300,
       items: [
         {
-          image: BASE_BATANG + 'teksturkasar.png',
+          image: BASE_BATANG + 'coretanbergelombang.png',
           id: 'tekstur_kasar',
           label: 'Tekstur Kasar / Berparut / Bersisik / Berbintik',
           ciri: 'Permukaan batang tidak halus · ada parut / sisik / bintik · seperti kulit kasar · banyak detail tak beraturan di permukaan',
           interpret: 'Variasi tekstur seperti halus, berparut, bersisik, berbintik, atau memiliki bayangan tertentu menunjukkan sifat kemauan yang kuat namun tanpa memperhatikan perasaan orang lain. Sifat keras seperti benda keras yang tahan terhadap tekanan, namun tekanan berlebihan dapat menyebabkan keretakan. Subjek cenderung memiliki kritik yang tajam dan pedas terhadap lingkungannya, menunjukkan sifat mudah marah, bersikap galak, bawel, seringkali kritis. Orang semacam ini juga dapat menjadi sangat peka terhadap kritik yang diberikan orang lain.'
         },
         {
-          image: BASE_BATANG + '33coretan%20bergelombang.png',   // ← GANTI nanti: belum ada URL
+          image: BASE_BATANG + 'teksturkasar.png',
           id: 'gelombang_batang',
           label: 'Coretan Bergelombang pada Permukaan Batang',
           ciri: 'Ada garis bergelombang di dalam / permukaan batang · seperti riak air · melengkung halus · berulang secara horizontal',
