@@ -4,7 +4,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar */
-const BASE_AKAR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/';
+const BASE_AKAR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/akar/';
 
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-05-akar',
@@ -17,21 +17,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
       type: 'checkbox',
       items: [
         {
-          image: BASE_AKAR + '1akar%20single.png',
+          image: BASE_AKAR + '1akar%20dengan%20satu%20garis.png',
           id: 'akar_satu_garis',
           label: 'Akar dengan Satu Garis',
           ciri: 'Hanya 1 garis tunggal sebagai akar · tidak ada pembatas / dua sisi · garis lurus sederhana di bawah batang · tanpa detail · umum pada anak kecil',
           interpret: 'Karakteristik: hanya terdiri dari satu garis tunggal. Umumnya ditemukan pada anak-anak usia dini (hingga kelas 2 SD). Menunjukkan aspek primitif, serta adanya dunia magis atau hal-hal tak terlihat yang masih ada dalam pikiran mereka. Pada orang dewasa, ini bisa ditemukan pada mereka dengan kecenderungan kekurangan intelektual atau taraf primitivitas serta kehidupan magis yang masih terpapar secara tidak sadar.'
         },
         {
-          image: BASE_AKAR + '2akar%20dobel.png',
+          image: BASE_AKAR + '2akar%20dengan%20dua%20garis.png',
           id: 'akar_dua_garis',
           label: 'Akar dengan Dua Garis (Normal)',
           ciri: 'Ada 2 garis yang membentuk area akar (kiri & kanan) · bukan garis tunggal · ada "ruang" di antara dua garis · bisa tertutup atau terbuka di ujungnya',
           interpret: 'Jenis ini dibagi lagi menjadi dua berdasarkan bentuknya: akar tertutup dan akar terbuka. Masing-masing mencerminkan cara subjek mengelola dorongan-dorongan internalnya — apakah melalui proses seleksi (tertutup) atau tanpa filter (terbuka).',
           subItems: [
             {
-              image: BASE_AKAR + '3akar%20tertutup.png',
+              image: BASE_AKAR + '3sksr%20tertutup.png',
               id: 'akar_tertutup',
               label: 'Akar Tertutup',
               dependsOn: 'akar_dua_garis',
