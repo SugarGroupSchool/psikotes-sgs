@@ -1791,52 +1791,57 @@ function __rerenderPreserveScroll(testKey, anchorSelector) {
     /* ============================================================
        Item click — pakai helper preserve scroll
        ============================================================ */
-    root.querySelectorAll('.js-option-item').forEach(label => {
-      label.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sectionId = label.getAttribute('data-section');
-        const itemId = label.getAttribute('data-item');
-        const type = label.getAttribute('data-type');
+root.querySelectorAll('.js-option-item').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const sectionId = label.getAttribute('data-section');
+    const itemId = label.getAttribute('data-item');
+    const type = label.getAttribute('data-type');
 
-        const section = (data.slides || [])
-          .flatMap(g => g.sections || [])
-          .find(s => s.id === sectionId);
+    const section = (data.slides || [])
+      .flatMap(g => g.sections || [])
+      .find(s => s.id === sectionId);
 
-        const clearSubItems = (parentItemId) => {
-          const parentItem = (section?.items || []).find(i => i.id === parentItemId);
-          (parentItem?.subItems || []).forEach(sub => {
-            delete state.selectedItems[testKey][sectionId + '::' + sub.id];
-          });
-        };
-
-        if (type === 'radio') {
-          const oldVal = state.selectedItems[testKey][sectionId];
-          if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
-          state.selectedItems[testKey][sectionId] = itemId;
-        } else {
-          let arr = state.selectedItems[testKey][sectionId];
-          if (!Array.isArray(arr)) arr = [];
-          const idx = arr.indexOf(itemId);
-          if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
-          else arr.push(itemId);
-          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
-        }
-        saveDraft();
-        __rerenderPreserveScroll(testKey);
+    const clearSubItems = (parentItemId) => {
+      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+      (parentItem?.subItems || []).forEach(sub => {
+        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
       });
-    });
+    };
 
-    root.querySelectorAll('.js-subitem').forEach(label => {
-      label.addEventListener('click', (e) => {
-        e.preventDefault();
-        const key = label.getAttribute('data-key');
-        const cur = state.selectedItems[testKey][key];
-        if (cur) delete state.selectedItems[testKey][key];
-        else state.selectedItems[testKey][key] = 'checked';
-        saveDraft();
-        __rerenderPreserveScroll(testKey);
-      });
-    });
+    if (type === 'radio') {
+      const oldVal = state.selectedItems[testKey][sectionId];
+      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+      state.selectedItems[testKey][sectionId] = itemId;
+    } else {
+      let arr = state.selectedItems[testKey][sectionId];
+      if (!Array.isArray(arr)) arr = [];
+      const idx = arr.indexOf(itemId);
+      if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
+      else arr.push(itemId);
+      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+    }
+    saveDraft();
+
+    /* 🆕 Anchor ke item yang barusan diklik */
+    const anchor = `.js-option-item[data-section="${sectionId}"][data-item="${itemId}"]`;
+    __rerenderPreserveScroll(testKey, anchor);
+  });
+});
+root.querySelectorAll('.js-subitem').forEach(label => {
+  label.addEventListener('click', (e) => {
+    e.preventDefault();
+    const key = label.getAttribute('data-key');
+    const cur = state.selectedItems[testKey][key];
+    if (cur) delete state.selectedItems[testKey][key];
+    else state.selectedItems[testKey][key] = 'checked';
+    saveDraft();
+
+    /* 🆕 Anchor ke sub-item yang barusan diklik */
+    const anchor = `.js-subitem[data-key="${key}"]`;
+    __rerenderPreserveScroll(testKey, anchor);
+  });
+});
 
     /* ===== Search ===== */
     const searchInput = document.getElementById('giSearchInput');
