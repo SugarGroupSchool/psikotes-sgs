@@ -1120,12 +1120,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </div>
     `;
 
-    root.querySelectorAll('.js-open-test').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        renderTestDetail(btn.getAttribute('data-test'));
-      });
-    });
+  root.querySelectorAll('.js-open-test').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    state.searchQuery = '';   // ← reset di sini saja
+    renderTestDetail(btn.getAttribute('data-test'));
+  });
+});
 
     renderCombinedNotes();
     renderCategories();
@@ -1157,7 +1158,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     root.style.overflowY = 'hidden';
     state.activePage = testKey;
-    state.searchQuery = '';
+    
 
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected    = state.selectedItems[testKey] || {};
@@ -1763,28 +1764,43 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
        ============================================================ */
 function __rerenderPreserveScroll(testKey, anchorSelector) {
   const root = getRoot();
-  const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
+  const panel = root ? root.querySelector('.gi-detail-right') : null;
 
-  // Simpan posisi scroll SEBELUM re-render
-  const savedRootScroll  = root ? root.scrollTop : 0;
-  const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
+  /* 1. Hitung posisi absolut anchor terhadap panel SEBELUM re-render */
+  let anchorTopBefore = null;
+  if (anchorSelector && panel) {
+    const el = panel.querySelector(anchorSelector);
+    if (el) {
+      const panelRect = panel.getBoundingClientRect();
+      anchorTopBefore = el.getBoundingClientRect().top - panelRect.top + panel.scrollTop;
+    }
+  }
 
+  /* 2. Simpan scroll position */
+  const rootScroll  = root ? root.scrollTop : 0;
+  const panelScroll = panel ? panel.scrollTop : 0;
+
+  /* 3. Re-render */
   renderTestDetail(testKey);
 
-  // Restore posisi scroll SETELAH re-render
-  const newRoot = getRoot();
-  const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
-  if (newRoot)       newRoot.scrollTop = savedRootScroll;
-  if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
+  /* 4. Restore root scroll */
+  const newRoot  = getRoot();
+  const newPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
+  if (newRoot) newRoot.scrollTop = rootScroll;
+  if (!newPanel) return;
 
-  // 🆕 Anchor ke item yang baru diklik — biar tidak "loncat"
-  if (anchorSelector) {
-    requestAnimationFrame(() => {
-      const el = document.querySelector(anchorSelector);
-      if (el && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-      }
-    });
+  /* 5. Koreksi panel scroll supaya anchor tetap di posisi visual yang sama */
+  if (anchorSelector && anchorTopBefore !== null) {
+    const el = newPanel.querySelector(anchorSelector);
+    if (el) {
+      const panelRect = newPanel.getBoundingClientRect();
+      const anchorTopAfter = el.getBoundingClientRect().top - panelRect.top + newPanel.scrollTop;
+      newPanel.scrollTop = newPanel.scrollTop + (anchorTopAfter - anchorTopBefore);
+    } else {
+      newPanel.scrollTop = panelScroll;
+    }
+  } else {
+    newPanel.scrollTop = panelScroll;
   }
 }
 
