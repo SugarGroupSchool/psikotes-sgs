@@ -109,25 +109,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           id: 'daun_nyata',
           label: 'Pohon dengan Daun yang Nyata',
           ciri: 'Daun digambar seperti daun asli · detail tulang daun · bentuk alami · sangat rapi & dekoratif',
-          interpret: 'Mencerminkan: (1) Berbakat dekoratif — bakat dalam hal estetika atau seni, mencari cara menghias atau membuat lingkungan menarik secara visual. (2) Tajam dalam pengamatan — kemampuan melihat detail-detail kecil, peka terhadap lingkungan, mampu melihat hal-hal yang tidak terlihat orang lain. (3) Senang hal yang lahiriah — menikmati pengalaman sensorik atau estetika visual dalam kehidupan sehari-hari. (4) Butuh pengakuan (menarik perhatian orang) — kebutuhan akan validasi sosial atau penghargaan dari lingkungan. (5) Suka dipuja — kecenderungan menyukai pujian atau penghargaan dari orang lain. (6) Kurang riil dalam menghadapi sesuatu — cenderung menghindari atau mengabaikan aspek-aspek lebih serius atau nyata dalam kehidupan. (7) Sering suka menyenangkan hati orang lain — kecenderungan sosial dan interpersonal yang kuat, suka membuat lingkungan sekitarnya ceria. (8) Pergaulan lincah tapi ada tendensi kekanak-kanakan (minta perlindungan) — mudah beradaptasi dalam berbagai situasi sosial, tetapi ada keinginan untuk dilindungi atau mendapatkan perlindungan dari orang lain.',
-          subItems: [
-            {
-              image: BASE_FITUR + 'daunjelek.png',
-              id: 'daun_jelek',
-              label: 'Daun Jelek (Negatif)',
-              dependsOn: 'daun_nyata',
-              optional: true,
-              interpret: 'Pemisahan sisi negatif dari daun mencerminkan adanya aspek kepribadian atau pengalaman yang dinilai kurang atau bermasalah oleh subjek. Daun yang digambar jelek (rusak, kering, jatuh, atau tidak beraturan) menunjukkan adanya bagian diri yang dipandang negatif — bisa berupa kelemahan, kegagalan, atau aspek yang tidak diterima. Subjek memiliki kesadaran akan sisi gelap dirinya, namun belum tentu mampu mengelolanya secara konstruktif.'
-            },
-            {
-              image: BASE_FITUR + 'daunbaik.png',
-              id: 'daun_baik',
-              label: 'Daun Baik (Positif)',
-              dependsOn: 'daun_nyata',
-              optional: true,
-              interpret: 'Pemisahan sisi positif dari daun mencerminkan adanya aspek kepribadian atau pengalaman yang dinilai baik dan membanggakan oleh subjek. Daun yang digambar baik (rapi, segar, simetris) menunjukkan bagian diri yang diterima dan dihargai. Subjek mampu mengenali dan menonjolkan kekuatan internalnya. Ketika sisi positif lebih dominan, hal ini menunjukkan kepercayaan diri dan kemampuan memandang diri secara positif.'
-            }
-  ]
+          interpret: 'Mencerminkan: (1) Berbakat dekoratif — bakat dalam hal estetika atau seni, mencari cara menghias atau membuat lingkungan menarik secara visual. (2) Tajam dalam pengamatan — kemampuan melihat detail-detail kecil, peka terhadap lingkungan, mampu melihat hal-hal yang tidak terlihat orang lain. (3) Senang hal yang lahiriah — menikmati pengalaman sensorik atau estetika visual dalam kehidupan sehari-hari. (4) Butuh pengakuan (menarik perhatian orang) — kebutuhan akan validasi sosial atau penghargaan dari lingkungan. (5) Suka dipuja — kecenderungan menyukai pujian atau penghargaan dari orang lain. (6) Kurang riil dalam menghadapi sesuatu — cenderung menghindari atau mengabaikan aspek-aspek lebih serius atau nyata dalam kehidupan. (7) Sering suka menyenangkan hati orang lain — kecenderungan sosial dan interpersonal yang kuat, suka membuat lingkungan sekitarnya ceria. (8) Pergaulan lincah tapi ada tendensi kekanak-kanakan (minta perlindungan) — mudah beradaptasi dalam berbagai situasi sosial, tetapi ada keinginan untuk dilindungi atau mendapatkan perlindungan dari orang lain.'
         }
       ]
     },
