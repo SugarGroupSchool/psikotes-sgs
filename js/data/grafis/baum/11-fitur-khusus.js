@@ -112,24 +112,23 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Berbakat dekoratif — bakat dalam hal estetika atau seni, mencari cara menghias atau membuat lingkungan menarik secara visual. (2) Tajam dalam pengamatan — kemampuan melihat detail-detail kecil, peka terhadap lingkungan, mampu melihat hal-hal yang tidak terlihat orang lain. (3) Senang hal yang lahiriah — menikmati pengalaman sensorik atau estetika visual dalam kehidupan sehari-hari. (4) Butuh pengakuan (menarik perhatian orang) — kebutuhan akan validasi sosial atau penghargaan dari lingkungan. (5) Suka dipuja — kecenderungan menyukai pujian atau penghargaan dari orang lain. (6) Kurang riil dalam menghadapi sesuatu — cenderung menghindari atau mengabaikan aspek-aspek lebih serius atau nyata dalam kehidupan. (7) Sering suka menyenangkan hati orang lain — kecenderungan sosial dan interpersonal yang kuat, suka membuat lingkungan sekitarnya ceria. (8) Pergaulan lincah tapi ada tendensi kekanak-kanakan (minta perlindungan) — mudah beradaptasi dalam berbagai situasi sosial, tetapi ada keinginan untuk dilindungi atau mendapatkan perlindungan dari orang lain.',
           subItems: [
             {
-              image: BASE_FITUR + 'daunjelekdanbaik.png',
-              id: 'daun_jelek_baik',
-              label: 'Daun Jelek (Negatif) / Daun Baik (Positif)',
+              image: BASE_FITUR + 'daunjelek.png',
+              id: 'daun_jelek',
+              label: 'Daun Jelek (Negatif)',
               dependsOn: 'daun_nyata',
               optional: true,
-              interpret: 'Ada pemisahan jelas antara daun "baik" & "jelek" — sebagian rapi, sebagian rusak / jatuh / mati. Pemisahan antara daun jelek dan daun baik mencerminkan penilaian subjektif terhadap sisi positif dan negatif dari kepribadian atau karakteristik subjek tersebut. Ini bisa mencerminkan pandangan pribadi atau nilai-nilai pembuat gambar terhadap aspek-aspek tertentu dalam kepribadian orang tersebut.'
+              interpret: 'Pemisahan sisi negatif dari daun mencerminkan adanya aspek kepribadian atau pengalaman yang dinilai kurang atau bermasalah oleh subjek. Daun yang digambar jelek (rusak, kering, jatuh, atau tidak beraturan) menunjukkan adanya bagian diri yang dipandang negatif — bisa berupa kelemahan, kegagalan, atau aspek yang tidak diterima. Subjek memiliki kesadaran akan sisi gelap dirinya, namun belum tentu mampu mengelolanya secara konstruktif.'
+            },
+            {
+              image: BASE_FITUR + 'daunbaik.png',
+              id: 'daun_baik',
+              label: 'Daun Baik (Positif)',
+              dependsOn: 'daun_nyata',
+              optional: true,
+              interpret: 'Pemisahan sisi positif dari daun mencerminkan adanya aspek kepribadian atau pengalaman yang dinilai baik dan membanggakan oleh subjek. Daun yang digambar baik (rapi, segar, simetris) menunjukkan bagian diri yang diterima dan dihargai. Subjek mampu mengenali dan menonjolkan kekuatan internalnya. Ketika sisi positif lebih dominan, hal ini menunjukkan kepercayaan diri dan kemampuan memandang diri secara positif.'
             }
           ]
         },
-        {
-          image: BASE_FITUR + 'buahtidakkaruan%20tempatnya.png',
-          id: 'buah_tidak_karuan',
-          label: 'Buah yang Tidak Karuan Tempatnya',
-          ciri: 'Buah digambar di tempat aneh · di batang, di akar, di udara · tidak pada tempatnya · kacau',
-          interpret: 'Mencerminkan: (1) Adanya indikasi retardasi mental ringan (debil) — ketidakstabilan atau kelemahan dalam karakter atau kepribadian, kemungkinan kesulitan mengatasi tuntutan atau tekanan dari lingkungan sekitar. (2) Agresif — cenderung bereaksi secara berlebihan atau tidak terkendali dalam mengekspresikan emosi atau frustrasi.'
-        }
-      ]
-    },
 
     /* ==========================================================
        3. ELEMEN ORGANIK LAIN & MULTI-POHON
