@@ -92,14 +92,34 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           id: 'buah_anak',
           label: 'Pohon dengan Buah (Umum pada Anak 6–8 Tahun hingga Pubertas)',
           ciri: 'Ada buah di pohon · digambar sederhana · biasanya oleh anak-anak · buah menempel di dahan / mahkota',
-          interpret: 'Mencerminkan: (1) Dorongan untuk menonjolkan kemampuan — dorongan alami memperlihatkan dan mencari validasi atas keberhasilan kepada dunia luar, kesadaran terhadap pencapaian dan perhatian dari orang lain. Ciri normal pada fase perkembangan anak. (2) Kemampuan pengamatan yang tinggi — memperhatikan detail dengan cermat. (3) Kurangnya ketahanan atau keuletan (persistence) — kurang ketahanan atau keuletan dalam menyelesaikan tugas yang lebih panjang. (4) Minat besar namun kurang daya tahan — minat besar memperlihatkan kemampuan, tetapi kurang dalam hal daya tahan untuk tetap fokus atau terlibat dalam usaha yang memerlukan waktu lebih lama. (5) Kurangnya kesabaran atau ketidakteraturan — kemampuan menyelesaikan sesuatu yang bersifat bertahap atau terstruktur terpengaruh kurangnya kesabaran. Catatan: penggambaran buah dalam mahkota pohon merupakan pola umum pada anak usia sekitar 10 tahun, jarang pada orang dewasa kecuali subjek dengan keterbatasan komunikasi seperti tuna rungu dan tuna bicara. Buah menjadi simbol pertanda kematangan atau perubahan, terutama saat anak memasuki pertengahan masa perkembangan.'
+          interpret: 'Mencerminkan: (1) Dorongan untuk menonjolkan kemampuan — dorongan alami memperlihatkan dan mencari validasi atas keberhasilan kepada dunia luar, kesadaran terhadap pencapaian dan perhatian dari orang lain. Ciri normal pada fase perkembangan anak. (2) Kemampuan pengamatan yang tinggi — memperhatikan detail dengan cermat. (3) Kurangnya ketahanan atau keuletan (persistence) — kurang ketahanan atau keuletan dalam menyelesaikan tugas yang lebih panjang. (4) Minat besar namun kurang daya tahan — minat besar memperlihatkan kemampuan, tetapi kurang dalam hal daya tahan untuk tetap fokus atau terlibat dalam usaha yang memerlukan waktu lebih lama. (5) Kurangnya kesabaran atau ketidakteraturan — kemampuan menyelesaikan sesuatu yang bersifat bertahap atau terstruktur terpengaruh kurangnya kesabaran. Catatan: penggambaran buah dalam mahkota pohon merupakan pola umum pada anak usia sekitar 10 tahun, jarang pada orang dewasa kecuali subjek dengan keterbatasan komunikasi seperti tuna rungu dan tuna bicara. Buah menjadi simbol pertanda kematangan atau perubahan, terutama saat anak memasuki pertengahan masa perkembangan.',
+          subItems: [
+            {
+              image: BASE_FITUR + 'penggambaranbuahdalammahkota.png',
+              id: 'buah_dalam_mahkota',
+              label: 'Penggambaran Buah dalam Mahkota',
+              dependsOn: 'buah_anak',
+              optional: true,
+              interpret: 'Buah digambar di dalam area mahkota — biasanya mengelilingi batang atau tersebar di dalam dedaunan, bukan di dahan luar. Penggambaran buah di dalam mahkota pohon merupakan pola umum pada karya anak-anak sekitar usia 10 tahun, namun jarang ditemukan pada gambar orang dewasa. Ketika muncul pada orang dewasa, biasanya terkait dengan kondisi komunikasi terbatas — seperti tuna rungu dan tuna bicara — yang menimbulkan pertanyaan menarik tentang bagaimana subjek memproses dan menyampaikan pesan secara visual dalam keterbatasan komunikasi verbal. Buah sendiri bukan sekadar elemen gambar biasa — ia berfungsi sebagai simbol pertanda kematangan atau perubahan, terutama ketika anak memasuki pertengahan masa perkembangan. Posisi buah yang berada di dalam mahkota (bukan di luar) dapat memperkuat makna simbolik ini: menunjukkan bahwa proses pematangan atau perubahan sedang terjadi pada ranah internal — pikiran, perasaan, atau kesadaran diri — bukan sekadar pada ranah eksternal atau sosial.'
+            }
+          ]
         },
         {
           image: BASE_FITUR + 'dengandaunygnyata.png',
           id: 'daun_nyata',
           label: 'Pohon dengan Daun yang Nyata',
           ciri: 'Daun digambar seperti daun asli · detail tulang daun · bentuk alami · sangat rapi & dekoratif',
-          interpret: 'Mencerminkan: (1) Berbakat dekoratif — bakat dalam hal estetika atau seni, mencari cara menghias atau membuat lingkungan menarik secara visual. (2) Tajam dalam pengamatan — kemampuan melihat detail-detail kecil, peka terhadap lingkungan, mampu melihat hal-hal yang tidak terlihat orang lain. (3) Senang hal yang lahiriah — menikmati pengalaman sensorik atau estetika visual dalam kehidupan sehari-hari. (4) Butuh pengakuan (menarik perhatian orang) — kebutuhan akan validasi sosial atau penghargaan dari lingkungan. (5) Suka dipuja — kecenderungan menyukai pujian atau penghargaan dari orang lain. (6) Kurang riil dalam menghadapi sesuatu — cenderung menghindari atau mengabaikan aspek-aspek lebih serius atau nyata dalam kehidupan. (7) Sering suka menyenangkan hati orang lain — kecenderungan sosial dan interpersonal yang kuat, suka membuat lingkungan sekitarnya ceria. (8) Pergaulan lincah tapi ada tendensi kekanak-kanakan (minta perlindungan) — mudah beradaptasi dalam berbagai situasi sosial, tetapi ada keinginan untuk dilindungi atau mendapatkan perlindungan dari orang lain.'
+          interpret: 'Mencerminkan: (1) Berbakat dekoratif — bakat dalam hal estetika atau seni, mencari cara menghias atau membuat lingkungan menarik secara visual. (2) Tajam dalam pengamatan — kemampuan melihat detail-detail kecil, peka terhadap lingkungan, mampu melihat hal-hal yang tidak terlihat orang lain. (3) Senang hal yang lahiriah — menikmati pengalaman sensorik atau estetika visual dalam kehidupan sehari-hari. (4) Butuh pengakuan (menarik perhatian orang) — kebutuhan akan validasi sosial atau penghargaan dari lingkungan. (5) Suka dipuja — kecenderungan menyukai pujian atau penghargaan dari orang lain. (6) Kurang riil dalam menghadapi sesuatu — cenderung menghindari atau mengabaikan aspek-aspek lebih serius atau nyata dalam kehidupan. (7) Sering suka menyenangkan hati orang lain — kecenderungan sosial dan interpersonal yang kuat, suka membuat lingkungan sekitarnya ceria. (8) Pergaulan lincah tapi ada tendensi kekanak-kanakan (minta perlindungan) — mudah beradaptasi dalam berbagai situasi sosial, tetapi ada keinginan untuk dilindungi atau mendapatkan perlindungan dari orang lain.',
+          subItems: [
+            {
+              image: BASE_FITUR + 'daunjelekdanbaik.png',
+              id: 'daun_jelek_baik',
+              label: 'Daun Jelek (Negatif) / Daun Baik (Positif)',
+              dependsOn: 'daun_nyata',
+              optional: true,
+              interpret: 'Ada pemisahan jelas antara daun "baik" & "jelek" — sebagian rapi, sebagian rusak / jatuh / mati. Pemisahan antara daun jelek dan daun baik mencerminkan penilaian subjektif terhadap sisi positif dan negatif dari kepribadian atau karakteristik subjek tersebut. Ini bisa mencerminkan pandangan pribadi atau nilai-nilai pembuat gambar terhadap aspek-aspek tertentu dalam kepribadian orang tersebut.'
+            }
+          ]
         },
         {
           image: BASE_FITUR + 'buahtidakkaruan%20tempatnya.png',
