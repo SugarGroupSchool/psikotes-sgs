@@ -127,8 +127,10 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
               optional: true,
               interpret: 'Pemisahan sisi positif dari daun mencerminkan adanya aspek kepribadian atau pengalaman yang dinilai baik dan membanggakan oleh subjek. Daun yang digambar baik (rapi, segar, simetris) menunjukkan bagian diri yang diterima dan dihargai. Subjek mampu mengenali dan menonjolkan kekuatan internalnya. Ketika sisi positif lebih dominan, hal ini menunjukkan kepercayaan diri dan kemampuan memandang diri secara positif.'
             }
-          ]
-        },
+  ]
+        }
+      ]
+    },
 
     /* ==========================================================
        3. ELEMEN ORGANIK LAIN & MULTI-POHON
