@@ -464,7 +464,12 @@
      border: 1.6px solid #c8f1d6;
      text-align: center;
    }
-   
+
+.gi-detail-right,
+.gi-page {
+  overflow-anchor: none;
+}
+
    .grafis-thank-icon { margin-bottom: 10px; font-size: 3rem; line-height: 1; }
    .grafis-thank h2 { margin: 6px 0 8px; color: #13693a; font-size: 26px; font-weight: 900; line-height: 1.3; }
    .grafis-thank p { max-width: 620px; margin: 0 auto; color: #475569; font-size: 13px; line-height: 1.65; }
