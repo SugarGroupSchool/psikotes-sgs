@@ -7,25 +7,21 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-02',
   title: '2. Kesan Umum',
   sections: [
-
-    /* ==========================================================
-       1. KESAN UMUM GAMBAR
-       ========================================================== */
     {
       id: 'kesan_umum',
-      title: '1. Kesan Umum Gambar',
+      title: 'Kesan Umum Gambar',
       type: 'checkbox',
       items: [
         {
           id: 'orang_tua',
           label: 'Gambar Orang Tua',
-          ciri: 'Figur yang digambar berpenampilan tua · keriput, rambut putih, postur membungkuk, atau atribut usia lanjut',
+          ciri: 'Figur berpenampilan tua · keriput, rambut putih, postur membungkuk, atau atribut usia lanjut',
           interpret: 'Dapat memberikan petunjuk tentang cara subjek mempersepsikan diri dan orang lain dalam konteks usia. Subjek cenderung memproyeksikan figur otoritas atau pengalaman hidup yang telah dilalui.'
         },
         {
           id: 'orang_muda',
           label: 'Gambar Orang Muda',
-          ciri: 'Figur yang digambar berpenampilan muda · segar, energik, atau atribut masa muda',
+          ciri: 'Figur berpenampilan muda · segar, energik, atau atribut masa muda',
           interpret: 'Dapat memberikan petunjuk tentang cara subjek mempersepsikan diri dan orang lain dalam konteks usia. Subjek cenderung mengidentifikasi diri dengan energi, vitalitas, atau aspirasi masa depan.'
         },
         {
@@ -55,7 +51,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         {
           id: 'tidak_lengkap',
           label: 'Gambar Tidak Lengkap',
-          ciri: 'Ada bagian tubuh yang hilang / tidak digambar · hanya fokus pada bagian tertentu · anggota badan terpotong',
+          ciri: 'Ada bagian tubuh yang hilang / tidak digambar · hanya fokus pada bagian tertentu',
           interpret: 'Mencerminkan fokus pada detail tertentu atau penghindaran terhadap aspek tertentu dari diri. Bagian yang hilang sering mencerminkan area konflik atau hal yang tidak ingin diungkapkan.'
         },
         {
@@ -67,7 +63,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         {
           id: 'tidak_tampan',
           label: 'Tidak Tampan',
-          ciri: 'Figur digambar dengan atribut kurang menarik · proporsi kurang ideal · atribut negatif · ekspresi datar',
+          ciri: 'Figur digambar dengan atribut kurang menarik · proporsi kurang ideal · ekspresi datar',
           interpret: 'Memberikan petunjuk tentang kepercayaan diri dan pandangan diri. Subjek mungkin memiliki self-image rendah atau merasa tidak puas dengan penampilan dirinya.'
         },
         {
@@ -114,6 +110,5 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         }
       ]
     }
-
   ]
 });
