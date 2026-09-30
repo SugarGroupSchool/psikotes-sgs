@@ -1,5 +1,5 @@
 /* ============================================================
-   DAP — 1. Ukuran Gambar (Ukuran Figur Orang & Proporsi)
+   DAP — 1. Ukuran Gambar
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
@@ -7,10 +7,6 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-01',
   title: '1. Ukuran Gambar',
   sections: [
-
-    /* ==========================================================
-       1. UKURAN FIGUR ORANG
-       ========================================================== */
     {
       id: 'ukuran_figur',
       title: '1. Ukuran Figur Orang',
@@ -42,26 +38,22 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           id: 'lebih_kecil',
           label: 'Gambar Lebih Kecil dari Rata-Rata',
           ciri: 'Figur orang jauh lebih kecil dari ukuran rata-rata · berada di sudut kertas · detail minim',
-          interpret: 'Mengindikasikan: (1) Rasa tidak aman, harga diri rendah, perasaan inferior. (2) Kecemasan, depresi, atau penarikan diri. (3) Ketergantungan berlebih dan perilaku kekanak-kanakan. (4) Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. (5) Hambatan dalam interaksi sosial, pemalu, atau defensif. (6) Reaksi menarik diri saat menghadapi stres. (7) Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah. Subjek tidak merasa terpacu untuk mengatasi hambatan-hambatan yang ada.'
+          interpret: 'Mengindikasikan: (1) Rasa tidak aman, harga diri rendah, perasaan inferior. (2) Kecemasan, depresi, atau penarikan diri. (3) Ketergantungan berlebih dan perilaku kekanak-kanakan. (4) Kekuatan ego yang rendah, kecenderungan kompulsif atau neurotik. (5) Hambatan dalam interaksi sosial, pemalu, atau defensif. (6) Reaksi menarik diri saat menghadapi stres. (7) Kurang bersemangat atau kurangnya motivasi dalam mengejar tujuan atau menyelesaikan masalah.'
         },
         {
           id: 'keluar_kertas',
           label: 'Gambar yang Keluar dari Kertas',
-          ciri: 'Bagian figur (kepala, tangan, kaki) melewati batas kertas · gambar tidak muat di halaman',
+          ciri: 'Bagian figur melewati batas kertas · gambar tidak muat di halaman',
           interpret: 'Mencerminkan: (1) Kesulitan merencanakan sesuatu atau menata sesuatu secara terstruktur. (2) Tendensi manik atau over-aktif — cenderung terlalu aktif secara fisik atau mental.'
         },
         {
           id: 'normal',
           label: 'Normal (≈ 7 Inci)',
-          ciri: 'Figur orang berukuran sekitar 7 inci · proporsional dengan kertas · detail wajar',
-          interpret: 'Gambar dengan ukuran mendekati rata-rata (± 7 inci) tidak selalu berarti sehat secara psikologis. Ukuran "normal" tetap perlu ditelaah lebih dalam berdasarkan kualitas ekspresi, detail, dan konteks emosional subjek. Menunjukkan beberapa hal: (1) Energi yang Biasa Saja — tingkat energi yang cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional yang kuat; bisa mencerminkan keadaan psikologis yang datar atau stabil, tergantung konteks. (2) Kurang Insight (Wawasan Diri Rendah) — subjek mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif, atau tidak terlalu mengenali konflik batin yang dialaminya. (3) Optimisme Superfisial — sikap positif yang ditampilkan bisa jadi hanya di permukaan; ada kemungkinan subjek menyangkal atau menekan perasaan negatif, sehingga tampak optimis secara luar tapi tidak disertai pemahaman mendalam terhadap masalah yang dihadapi.'
+          ciri: 'Figur berukuran sekitar 7 inci · proporsional dengan kertas · detail wajar',
+          interpret: 'Gambar dengan ukuran mendekati rata-rata (± 7 inci) tidak selalu berarti sehat secara psikologis. Menunjukkan: (1) Energi yang Biasa Saja — tingkat energi cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional kuat. (2) Kurang Insight — subjek mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif. (3) Optimisme Superfisial — sikap positif bisa jadi hanya di permukaan; subjek menyangkal atau menekan perasaan negatif.'
         }
       ]
     },
-
-    /* ==========================================================
-       2. UKURAN TOKOH SIMBOLIK
-       ========================================================== */
     {
       id: 'tokoh_simbolik',
       title: '2. Ukuran Tokoh Simbolik — Citra Orang Tua vs Ideal-Ego',
@@ -70,21 +62,17 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         {
           id: 'orang_tua_besar',
           label: 'Citra Orang Tua Digambar dalam Skala Besar',
-          ciri: 'Tokoh yang digambar adalah ayah/ibu atau figur otoritas dominan · digambar lebih besar dari figur lain · biasanya dengan atribut otoritas',
-          interpret: 'Mencerminkan: (1) Ketergantungan emosional atau tekanan psikologis terhadap figur tersebut. (2) Mungkin mencerminkan dominasi atau pengaruh kuat orang tua dalam pembentukan konsep diri subjek.'
+          ciri: 'Tokoh yang digambar adalah ayah/ibu atau figur otoritas dominan · digambar lebih besar dari figur lain',
+          interpret: 'Mencerminkan: (1) Ketergantungan emosional atau tekanan psikologis terhadap figur tersebut. (2) Dominasi atau pengaruh kuat orang tua dalam pembentukan konsep diri subjek.'
         },
         {
           id: 'ideal_ego_besar',
           label: 'Ideal-Ego Digambarkan Besar',
           ciri: 'Tokoh yang digambar adalah figur netral / imajinatif / superhero / proyeksi diri sendiri · digambar dalam skala besar & ideal',
-          interpret: 'Menandakan: (1) Aspirasi tinggi dan keinginan kuat menjadi versi ideal diri. (2) Merupakan bentuk kompensasi atas rasa rendah diri atau kegagalan aktual. (3) Subjek membangun tokoh "sempurna" sebagai pelarian fantasi dari kenyataan.'
+          interpret: 'Menandakan: (1) Aspirasi tinggi dan keinginan kuat menjadi versi ideal diri. (2) Bentuk kompensasi atas rasa rendah diri atau kegagalan aktual. (3) Subjek membangun tokoh "sempurna" sebagai pelarian fantasi dari kenyataan.'
         }
       ]
     },
-
-    /* ==========================================================
-       3. PROPORSI
-       ========================================================== */
     {
       id: 'proporsi',
       title: '3. Proporsi',
@@ -93,49 +81,49 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         {
           id: 'makin_kecil',
           label: 'Gambaran yang Ukurannya Makin Lama Makin Kecil',
-          ciri: 'Dimulai dari figur besar, lalu figur berikutnya makin kecil · biasanya digambar bertahap dari atas ke bawah',
+          ciri: 'Dimulai dari figur besar, lalu figur berikutnya makin kecil',
           interpret: 'Menurut Hammer-Lehner dan Anderson, gambaran ini lebih umum pada pria yang berusia 30 tahun dan pada wanita berusia di atas 40 tahun.'
         },
         {
           id: 'penuh_halaman',
           label: 'Gambaran yang Memenuhi Seluruh Halaman Kertas',
-          ciri: 'Figur orang memenuhi hampir seluruh area kertas · nyaris tidak ada ruang kosong di sekitar',
+          ciri: 'Figur memenuhi hampir seluruh area kertas · nyaris tidak ada ruang kosong',
           interpret: 'Bagi Hammer, ini menunjukkan kompensasi dari fantasi kebebasan atau fantasi kekuasaan.'
         },
         {
           id: 'terlalu_besar_kertas',
           label: 'Gambar yang Terlalu Besar dari Kertasnya',
-          ciri: 'Figur orang melampaui batas kertas · melebihi area yang tersedia secara signifikan',
+          ciri: 'Figur melampaui batas kertas · melebihi area yang tersedia secara signifikan',
           interpret: 'Dalam pandangan Hammer-Machover, subjek menunjukkan aspirasi yang melebihi kesempatan yang ada. Lingkungan dipandangnya sebagai terlalu mendesaknya.'
         },
         {
           id: 'amat_besar',
           label: 'Gambar yang Amat Besar',
-          ciri: 'Figur digambar sangat besar · mendekati batas fisik kertas · intensional secara berlebihan',
+          ciri: 'Figur digambar sangat besar · mendekati batas fisik kertas',
           interpret: 'Menurut Machover, ini merupakan tanda dari harga diri yang besar, namun terkadang juga menunjukkan tanda paranoid.'
         },
         {
           id: 'besar_seks_sama',
           label: 'Gambar Besar dengan Seks yang Sama dengan Subjek',
-          ciri: 'Figur besar · jenis kelamin sama dengan subjek (pria gambar pria / wanita gambar wanita)',
+          ciri: 'Figur besar · jenis kelamin sama dengan subjek',
           interpret: 'Menurut Hammer-Levy, ini mengarah pada agresi dan kecenderungan untuk menguasai orang lain.'
         },
         {
           id: 'besar_seks_berlawanan',
           label: 'Gambar Besar dengan Seks yang Berlawanan dengan Subjek',
-          ciri: 'Figur besar · jenis kelamin berlawanan dengan subjek (pria gambar wanita / wanita gambar pria)',
+          ciri: 'Figur besar · jenis kelamin berlawanan dengan subjek',
           interpret: 'Menurut Hammer-Levy dan Machover, ini menunjukkan kecenderungan kepasifan dan seks yang berlawanan dipandang lebih berkuasa atau lebih kuat.'
         },
         {
           id: 'obesitas_kurus',
           label: 'Subjek Obesitas dengan Gambar Kurus',
-          ciri: 'Subjek nyata memiliki tubuh gemuk · tapi gambar yang dibuat adalah figur sangat kurus',
+          ciri: 'Subjek nyata bertubuh gemuk · tapi gambar yang dibuat adalah figur sangat kurus',
           interpret: 'Bagi Hammer, ini adalah tanda yang membuktikan prognosa yang berhasil untuk penyembuhan atas kegemukan.'
         },
         {
           id: 'amat_kecil',
           label: 'Gambar yang Amat Kecil',
-          ciri: 'Figur sangat kecil · menempati area minimal di kertas · sering di sudut · detail terkadang minim',
+          ciri: 'Figur sangat kecil · menempati area minimal di kertas · sering di sudut',
           interpret: 'Dalam pandangan Hammer-Wachner, Harrowick, Elkisch, ini menunjukkan kecemasan dan ketergantungan secara emosional. Ada perasaan yang tidak nyaman dan merasa adanya pembatasan, serta ingin melarikan diri.'
         },
         {
@@ -146,6 +134,5 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         }
       ]
     }
-
   ]
 });
