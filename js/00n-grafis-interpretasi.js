@@ -1764,44 +1764,54 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
        ============================================================ */
 function __rerenderPreserveScroll(testKey, anchorSelector) {
   const root = getRoot();
-  const panel = root ? root.querySelector('.gi-detail-right') : null;
+  if (!root) return;
 
-  /* 1. Hitung posisi absolut anchor terhadap panel SEBELUM re-render */
-  let anchorTopBefore = null;
-  if (anchorSelector && panel) {
-    const el = panel.querySelector(anchorSelector);
-    if (el) {
-      const panelRect = panel.getBoundingClientRect();
-      anchorTopBefore = el.getBoundingClientRect().top - panelRect.top + panel.scrollTop;
-    }
+  const panel = root.querySelector('.gi-detail-right');
+  if (!panel) {
+    renderTestDetail(testKey);
+    return;
   }
 
-  /* 2. Simpan scroll position */
-  const rootScroll  = root ? root.scrollTop : 0;
-  const panelScroll = panel ? panel.scrollTop : 0;
+  /* 1. Simpan posisi scroll panel SEBELUM render */
+  const savedScrollTop = panel.scrollTop;
+
+  /* 2. Simpan posisi relatif anchor terhadap panel (dalam koordinat panel content) */
+  let anchorOffsetTop = null;
+  if (anchorSelector) {
+    const anchorEl = panel.querySelector(anchorSelector);
+    if (anchorEl) {
+      // Posisi absolut anchor dalam scroll container
+      anchorOffsetTop = anchorEl.offsetTop;
+    }
+  }
 
   /* 3. Re-render */
   renderTestDetail(testKey);
 
-  /* 4. Restore root scroll */
-  const newRoot  = getRoot();
-  const newPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
-  if (newRoot) newRoot.scrollTop = rootScroll;
-  if (!newPanel) return;
+  /* 4. Restore setelah DOM siap */
+  requestAnimationFrame(() => {
+    const newRoot = getRoot();
+    if (!newRoot) return;
+    const newPanel = newRoot.querySelector('.gi-detail-right');
+    if (!newPanel) return;
 
-  /* 5. Koreksi panel scroll supaya anchor tetap di posisi visual yang sama */
-  if (anchorSelector && anchorTopBefore !== null) {
-    const el = newPanel.querySelector(anchorSelector);
-    if (el) {
-      const panelRect = newPanel.getBoundingClientRect();
-      const anchorTopAfter = el.getBoundingClientRect().top - panelRect.top + newPanel.scrollTop;
-      newPanel.scrollTop = newPanel.scrollTop + (anchorTopAfter - anchorTopBefore);
+    if (anchorSelector && anchorOffsetTop !== null) {
+      // Cari anchor baru
+      const newAnchorEl = newPanel.querySelector(anchorSelector);
+      if (newAnchorEl) {
+        // Selisih antara posisi lama & baru
+        const delta = newAnchorEl.offsetTop - anchorOffsetTop;
+        // Koreksi: geser scroll supaya anchor tetap di posisi visual yang sama
+        newPanel.scrollTop = savedScrollTop + delta;
+      } else {
+        // Anchor hilang (mis. sub-item dihapus) → pakai scroll lama
+        newPanel.scrollTop = savedScrollTop;
+      }
     } else {
-      newPanel.scrollTop = panelScroll;
+      // Tanpa anchor → restore scroll lama
+      newPanel.scrollTop = savedScrollTop;
     }
-  } else {
-    newPanel.scrollTop = panelScroll;
-  }
+  });
 }
 
     /* ============================================================
