@@ -1761,20 +1761,32 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     /* ============================================================
        Helper: re-render sambil menjaga posisi scroll
        ============================================================ */
-    function __rerenderPreserveScroll(testKey) {
-      const root = getRoot();
-      const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
+function __rerenderPreserveScroll(testKey, anchorSelector) {
+  const root = getRoot();
+  const rightPanel = root ? root.querySelector('.gi-detail-right') : null;
 
-      const savedRootScroll  = root ? root.scrollTop : 0;
-      const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
+  // Simpan posisi scroll SEBELUM re-render
+  const savedRootScroll  = root ? root.scrollTop : 0;
+  const savedPanelScroll = rightPanel ? rightPanel.scrollTop : 0;
 
-      renderTestDetail(testKey);
+  renderTestDetail(testKey);
 
-      const newRoot = getRoot();
-      const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
-      if (newRoot)       newRoot.scrollTop = savedRootScroll;
-      if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
-    }
+  // Restore posisi scroll SETELAH re-render
+  const newRoot = getRoot();
+  const newRightPanel = newRoot ? newRoot.querySelector('.gi-detail-right') : null;
+  if (newRoot)       newRoot.scrollTop = savedRootScroll;
+  if (newRightPanel) newRightPanel.scrollTop = savedPanelScroll;
+
+  // 🆕 Anchor ke item yang baru diklik — biar tidak "loncat"
+  if (anchorSelector) {
+    requestAnimationFrame(() => {
+      const el = document.querySelector(anchorSelector);
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      }
+    });
+  }
+}
 
     /* ============================================================
        Item click — pakai helper preserve scroll
