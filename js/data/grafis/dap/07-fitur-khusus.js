@@ -1,19 +1,18 @@
 /* ============================================================
-   DAP — 7. Fitur Khusus
+   DAP — Fitur Khusus (6 Slide)
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
+/* ============================================================
+   SLIDE 1 — TEPI KERTAS
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
-  id: 'dap-07',
-  title: '7. Fitur Khusus',
+  id: 'dap-fitur-tepi-kertas',
+  title: 'Tepi Kertas',
   sections: [
-
-    /* ==========================================================
-       1. TEPI KERTAS
-       ========================================================== */
     {
       id: 'tepi_kertas',
-      title: '1. Tepi Kertas',
+      title: 'Tepi Kertas',
       type: 'checkbox',
       items: [
         {
@@ -23,14 +22,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menurut Hammer, subjek yang menggambar di tepi kertas pada dasarnya menunjukkan inferioritas. Subjek merasa kurang percaya diri dan enggan untuk menampilkan dirinya dengan leluasa. Ia cenderung bersembunyi di balik selimut, menjauhi aktivitas yang melibatkan banyak orang. Namun di sisi lain, subjek memiliki rasa ketergantungan dengan orang terdekatnya. Subjek merasa tidak bisa hidup sendiri, membutuhkan bantuan dan validasi dari orang lain.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. SIKAP BADAN
-       ========================================================== */
+/* ============================================================
+   SLIDE 2 — SIKAP BADAN
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-fitur-sikap-badan',
+  title: 'Sikap Badan',
+  sections: [
     {
       id: 'sikap_badan',
-      title: '2. Sikap Badan',
+      title: 'Sikap Badan',
       type: 'checkbox',
       items: [
         {
@@ -84,7 +89,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         {
           id: 'celana_sempit',
           label: 'Gambar Orang yang Memakai Celana Sempit',
-          ciri: 'Figur digambar dengan celana ketat / sempit / melekat di kaki · garis celana mengikuti bentuk kaki · tidak ada lipatan longgar · celana seperti第二 kulit',
+          ciri: 'Figur digambar dengan celana ketat / sempit / melekat di kaki · garis celana mengikuti bentuk kaki · tidak ada lipatan longgar · celana seperti kulit kedua',
           interpret: 'Menurut Machover, ini mengarah pada kecenderungan skizoid. Skizoid khas dengan penarikan diri.'
         },
         {
@@ -154,14 +159,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Bagi Hammer-Levy, ini menunjukkan rasa bermusuhan terhadap wanita yang ditunjukkan secara terang-terangan.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. GAMBAR YANG TIDAK JELAS
-       ========================================================== */
+/* ============================================================
+   SLIDE 3 — GAMBAR YANG TIDAK JELAS
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-fitur-gambar-tidak-jelas',
+  title: 'Gambar yang Tidak Jelas',
+  sections: [
     {
       id: 'gambar_tidak_jelas',
-      title: '3. Gambar yang Tidak Jelas',
+      title: 'Gambar yang Tidak Jelas',
       type: 'checkbox',
       items: [
         {
@@ -195,14 +206,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Bagi Hammer, ini menunjukkan bahwa subjek depresi dan kekurangan energi. Ini juga mengarah pada kecenderungan menghindar atau pelarian diri.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. SIMETRI
-       ========================================================== */
+/* ============================================================
+   SLIDE 4 — SIMETRI
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-fitur-simetri',
+  title: 'Simetri',
+  sections: [
     {
       id: 'simetri',
-      title: '4. Simetri',
+      title: 'Simetri',
       type: 'checkbox',
       items: [
         {
@@ -218,14 +235,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menurut Hammer, ini mengarah pada depresi. Di sisi yang lain, subjek memiliki intelektualitas yang sangat baik dan teliti dengan apa yang dikerjakannya.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. SIKAP SUBJEK
-       ========================================================== */
+/* ============================================================
+   SLIDE 5 — SIKAP SUBJEK
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-fitur-sikap-subjek',
+  title: 'Sikap Subjek',
+  sections: [
     {
       id: 'sikap_subjek',
-      title: '5. Sikap Subjek',
+      title: 'Sikap Subjek',
       type: 'checkbox',
       items: [
         {
@@ -313,14 +336,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Bagi Machover, ini jelas adalah kecenderungan skizofrenia.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. KRITERIA KOMBINASI
-       ========================================================== */
+/* ============================================================
+   SLIDE 6 — KRITERIA KOMBINASI
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-fitur-kriteria-kombinasi',
+  title: 'Kriteria Kombinasi',
+  sections: [
     {
       id: 'kriteria_kombinasi',
-      title: '6. Kriteria Kombinasi',
+      title: 'Kriteria Kombinasi',
       type: 'checkbox',
       items: [
         {
@@ -469,6 +498,5 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         }
       ]
     }
-
   ]
 });
