@@ -13,7 +13,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'akar_items',
-      title: 'Pilih sesuai yang digambarkan oleh subjek',
+      title: '',
       type: 'checkbox',
       items: [
         {
