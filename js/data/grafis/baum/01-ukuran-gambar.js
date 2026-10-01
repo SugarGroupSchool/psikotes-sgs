@@ -3,12 +3,12 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-01',
-  title: '1. Ukuran Gambar',
+  title: 'Ukuran Gambar',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
       id: 'ukuran_gambar',
-      title: 'Ukuran Gambar',
+      title: '',
       type: 'checkbox',
       items: [
         {
