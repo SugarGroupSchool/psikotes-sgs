@@ -1,8 +1,9 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.0
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.1
    ------------------------------------------------------------
    v8.1 [2026-09-25]
    🎨 Gambar referensi per item & sub-item — selalu tampil di kiri
+   🆕 Font diperbesar untuk label & ciri visual
    ============================================================ */
 
 (function () {
@@ -1123,7 +1124,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   root.querySelectorAll('.js-open-test').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    state.searchQuery = '';   // ← reset di sini saja
+    state.searchQuery = '';
     renderTestDetail(btn.getAttribute('data-test'));
   });
 });
@@ -1176,7 +1177,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           if (isRadio) isChecked = (val === item.id);
           else isChecked = Array.isArray(val) && val.includes(item.id);
 
-                    /* 🖼️ Gambar item — posisi fleksibel: left / top / bottom */
+          /* 🖼️ Gambar item — posisi fleksibel: left / top / bottom */
           const imgPos = section.imagePosition || 'left';
           const imgSize = section.imageSize || 160;
 
@@ -1197,7 +1198,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                   onerror="this.style.display='none';">
               `;
             } else {
-              // top / bottom → layout column, gambar full width
               itemImageHTML = `
                 <img src="${item.image}" alt="${escapeHtml(item.label)}"
                   style="max-width: 100%; max-height: 320px; width: auto;
@@ -1207,8 +1207,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             }
           }
 
-
-             let subItemsHTML = '';
+          let subItemsHTML = '';
           if (item.subItems && item.subItems.length && isChecked) {
             subItemsHTML = item.subItems.map(sub => {
               const subKey = section.id + '::' + sub.id;
@@ -1230,31 +1229,32 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               return `
                 <label class="js-subitem" data-key="${subKey}"
                   style="display: flex; align-items: center; gap: 10px;
-                    padding: 8px 12px; margin: 4px 0 6px 28px;
+                    padding: 10px 12px; margin: 4px 0 6px 28px;
                     background: ${subChecked ? '#fff' : '#f8fafc'};
                     border: 2px dashed ${subChecked ? theme.primary : '#cbd5e1'};
                     border-radius: 10px; cursor: pointer;
                     transition: all .15s ease; user-select: none;">
                   ${subImageHTML}
-                  <div style="width: 16px; height: 16px; flex: 0 0 16px;
+                  <div style="width: 18px; height: 18px; flex: 0 0 18px;
                     border: 2px solid ${subChecked ? theme.primary : '#cbd5e1'};
                     background: ${subChecked ? theme.primary : '#fff'};
-                    border-radius: 4px; display: grid; place-items: center;">
-                    ${subChecked ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    border-radius: 4px; display: grid; place-items: center; margin-top: 2px;">
+                    ${subChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
                       stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="20 6 9 17 4 12"/></svg>` : ''}
                   </div>
                   <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 12px; font-weight: 800;
-                      color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.35;">
+                    <div style="font-size: 14px; font-weight: 800;
+                      color: ${subChecked ? theme.primaryDark : '#334155'}; line-height: 1.45;
+                      text-align: left;">
                       ${escapeHtml(sub.label)}
-                      ${sub.optional ? `<span style="font-size: 10px; color: #94a3b8; font-weight: 700; margin-left: 4px;">(opsional)</span>` : ''}
+                      ${sub.optional ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 700; margin-left: 6px;">(opsional)</span>` : ''}
                     </div>
                     ${sub.ciri ? `
-                      <div style="margin-top: 4px; padding: 5px 8px;
-                        background: #fef3c7; border-left: 3px solid #f59e0b;
-                        border-radius: 4px; font-size: 10px; font-weight: 600;
-                        color: #78350f; line-height: 1.45; font-style: italic;
+                      <div style="margin-top: 5px; padding: 6px 9px;
+                        background: #fffbeb; border-left: 3px solid #f59e0b;
+                        border-radius: 4px; font-size: 12px; font-weight: 600;
+                        color: #78350f; line-height: 1.5; font-style: italic;
                         text-align: left;">
                         🔍 <b>Ciri visual:</b> ${escapeHtml(sub.ciri)}
                       </div>
@@ -1271,28 +1271,28 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             ? 'display: flex; flex-direction: column; align-items: stretch; gap: 10px;'
             : 'display: flex; align-items: center; gap: 12px;';
 
-                   const checkboxAndLabelHTML = `
+          const checkboxAndLabelHTML = `
             <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0; box-sizing: border-box;">
-              <div style="width: 18px; height: 18px; flex: 0 0 18px;
+              <div style="width: 20px; height: 20px; flex: 0 0 20px;
                 border: 2px solid ${isChecked ? theme.primary : '#cbd5e1'};
                 background: ${isChecked ? theme.primary : '#fff'};
                 ${isRadio ? 'border-radius: 50%;' : 'border-radius: 4px;'}
                 display: grid; place-items: center; margin-top: 1px;">
-                ${isChecked ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                ${isChecked ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                   stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="20 6 9 17 4 12"/></svg>` : ''}
               </div>
               <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 12.5px; font-weight: 800;
-                  color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.35;
+                <div style="font-size: 15px; font-weight: 800;
+                  color: ${isChecked ? theme.primaryDark : '#1e293b'}; line-height: 1.45;
                   text-align: left;">
                   ${escapeHtml(item.label)}
                 </div>
                 ${item.ciri ? `
-                  <div style="margin-top: 5px; padding: 6px 9px;
+                  <div style="margin-top: 6px; padding: 7px 10px;
                     background: #fffbeb; border-left: 3px solid #f59e0b;
-                    border-radius: 4px; font-size: 10.5px; font-weight: 600;
-                    color: #78350f; line-height: 1.45; font-style: italic;
+                    border-radius: 4px; font-size: 13px; font-weight: 600;
+                    color: #78350f; line-height: 1.5; font-style: italic;
                     text-align: left;">
                     🔍 <b>Ciri visual:</b> ${escapeHtml(item.ciri)}
                   </div>
@@ -1301,7 +1301,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             </div>
           `;
 
-                   return `
+          return `
             <div>
               <label class="js-option-item" data-section="${section.id}" data-item="${item.id}" data-type="${section.type}"
                 style="${labelFlexStyle}
@@ -1322,8 +1322,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
         return `
           <div style="margin-bottom: 16px;">
-            <div style="font-size: 11.5px; font-weight: 900; color: #334155;
-              margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <div style="font-size: 13px; font-weight: 900; color: #334155;
+              margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
               ${escapeHtml(section.title)}
             </div>
             ${itemsHTML}
@@ -1336,7 +1336,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           style="margin-bottom: 16px; padding: 14px 16px;
           background: ${theme.bg}; border: 2px solid ${theme.border};
           border-radius: 14px;">
-          <div style="font-size: 14px; font-weight: 900; color: ${theme.primaryDark};
+          <div style="font-size: 15px; font-weight: 900; color: ${theme.primaryDark};
             margin-bottom: 12px; padding-bottom: 8px;
             border-bottom: 1px dashed ${theme.border};">
             ${escapeHtml(group.title)}
@@ -1780,7 +1780,6 @@ function __rerenderPreserveScroll(testKey, anchorSelector) {
   if (anchorSelector) {
     const anchorEl = panel.querySelector(anchorSelector);
     if (anchorEl) {
-      // Posisi absolut anchor dalam scroll container
       anchorOffsetTop = anchorEl.offsetTop;
     }
   }
@@ -1796,19 +1795,14 @@ function __rerenderPreserveScroll(testKey, anchorSelector) {
     if (!newPanel) return;
 
     if (anchorSelector && anchorOffsetTop !== null) {
-      // Cari anchor baru
       const newAnchorEl = newPanel.querySelector(anchorSelector);
       if (newAnchorEl) {
-        // Selisih antara posisi lama & baru
         const delta = newAnchorEl.offsetTop - anchorOffsetTop;
-        // Koreksi: geser scroll supaya anchor tetap di posisi visual yang sama
         newPanel.scrollTop = savedScrollTop + delta;
       } else {
-        // Anchor hilang (mis. sub-item dihapus) → pakai scroll lama
         newPanel.scrollTop = savedScrollTop;
       }
     } else {
-      // Tanpa anchor → restore scroll lama
       newPanel.scrollTop = savedScrollTop;
     }
   });
@@ -1849,7 +1843,6 @@ root.querySelectorAll('.js-option-item').forEach(label => {
     }
     saveDraft();
 
-    /* 🆕 Anchor ke item yang barusan diklik */
     const anchor = `.js-option-item[data-section="${sectionId}"][data-item="${itemId}"]`;
     __rerenderPreserveScroll(testKey, anchor);
   });
@@ -1863,7 +1856,6 @@ root.querySelectorAll('.js-subitem').forEach(label => {
     else state.selectedItems[testKey][key] = 'checked';
     saveDraft();
 
-    /* 🆕 Anchor ke sub-item yang barusan diklik */
     const anchor = `.js-subitem[data-key="${key}"]`;
     __rerenderPreserveScroll(testKey, anchor);
   });
