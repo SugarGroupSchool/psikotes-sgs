@@ -13,7 +13,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'pengantar_proporsi',
-      title: 'Pengantar & Proporsi Umum',
       type: 'checkbox',
       items: [
         {
@@ -94,7 +93,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_khusus_mahkota',
-      title: 'Bentuk Khusus Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -182,7 +180,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'shading_tekstur_mahkota',
-      title: 'Shading & Tekstur Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -284,7 +281,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'orientasi_kiri_kanan',
-      title: 'Orientasi Kiri / Kanan / Seimbang',
       type: 'checkbox',
       items: [
         {
@@ -337,7 +333,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_lanjutan_mahkota',
-      title: 'Bentuk Lanjutan Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -418,7 +413,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'arah_streep',
-      title: 'Arah Streep (Garis Lurus) pada Mahkota',
       type: 'checkbox',
       items: [
         {
