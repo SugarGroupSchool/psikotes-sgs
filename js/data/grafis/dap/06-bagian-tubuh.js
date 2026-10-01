@@ -1,19 +1,18 @@
 /* ============================================================
-   DAP — 6. Bagian Tubuh
+   DAP — Bagian Tubuh (10 Slide)
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
+/* ============================================================
+   SLIDE 6 — LEHER
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
-  id: 'dap-06',
-  title: '6. Bagian Tubuh',
+  id: 'dap-06-leher',
+  title: '6. Leher',
   sections: [
-
-    /* ==========================================================
-       1. LEHER
-       ========================================================== */
     {
       id: 'leher',
-      title: '1. Leher',
+      title: 'Leher',
       type: 'checkbox',
       items: [
         {
@@ -47,14 +46,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Penutupan leher dengan dasi atau kerah baju diinterpretasikan sebagai simbol kontrol intelektual. Ini menandakan bahwa subjek tersebut mengadopsi pendekatan yang lebih sadar dan terencana dalam mengelola impuls atau dorongannya.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. PUNDAK
-       ========================================================== */
+/* ============================================================
+   SLIDE 7 — PUNDAK
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-07-pundak',
+  title: '7. Pundak',
+  sections: [
     {
       id: 'pundak',
-      title: '2. Pundak',
+      title: 'Pundak',
       type: 'checkbox',
       items: [
         {
@@ -94,14 +99,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Hal ini dapat mengindikasikan kemampuan subjek untuk beradaptasi dengan perubahan, mengelola stres, dan merespons tantangan hidup dengan kefleksibelan yang baik. Pundak yang proporsional dan memiliki bentuk yang baik juga dapat memberikan kesan seimbang, menciptakan perasaan keseimbangan dalam kehidupan dan kemampuan subjek untuk mengatasi tugas atau tantangan. Subjek merasa mampu menghadapi situasi hidup dengan keyakinan dan kepercayaan diri.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. LENGAN
-       ========================================================== */
+/* ============================================================
+   SLIDE 8 — LENGAN
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-08-lengan',
+  title: '8. Lengan',
+  sections: [
     {
       id: 'lengan',
-      title: '3. Lengan',
+      title: 'Lengan',
       type: 'checkbox',
       items: [
         {
@@ -201,14 +212,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Subjek merasa perlu mendapatkan dukungan, perhatian, atau koneksi emosional dari orang-orang di sekitarnya.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. TANGAN DAN JARI
-       ========================================================== */
+/* ============================================================
+   SLIDE 9 — TANGAN DAN JARI
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-09-tangan-jari',
+  title: '9. Tangan dan Jari',
+  sections: [
     {
       id: 'tangan_jari',
-      title: '4. Tangan dan Jari',
+      title: 'Tangan dan Jari',
       type: 'checkbox',
       items: [
         {
@@ -266,14 +283,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Kuku yang terlihat bisa mencerminkan tingkat agresivitas subjek, terutama dalam bentuk motorik. Perilaku agresif ini tercermin dalam cara subjek menggunakan tangan dan jari mereka. Gaya kuku yang menciptakan kesan "seperti robot" dan keahlian tangan yang lemah menunjukkan kurangnya keleluasaan atau fleksibilitas dalam ekspresi emosional. Subjek memiliki kesulitan dalam mengekspresikan diri dengan cara yang variatif atau alami. Pada anak-anak, karakteristik ini dianggap wajar sebagai bagian dari perkembangan motorik dan ekspresi emosional. Namun, pada dewasa, penampilan yang serupa dianggap sebagai indikasi tertentu dan dapat mempengaruhi persepsi orang lain terhadap subjek tersebut.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. TUBUH ATAU TORSO
-       ========================================================== */
+/* ============================================================
+   SLIDE 10 — TUBUH / TORSO
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-10-tubuh-torso',
+  title: '10. Tubuh / Torso',
+  sections: [
     {
       id: 'tubuh_torso',
-      title: '5. Tubuh atau Torso',
+      title: 'Tubuh / Torso',
       type: 'checkbox',
       items: [
         {
@@ -313,14 +336,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Ini mencerminkan konflik psikologis atau ketidaknyamanan terkait dengan relasi interpersonal dan hubungan dengan jenis kelamin yang bersangkutan.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. PAKAIAN
-       ========================================================== */
+/* ============================================================
+   SLIDE 11 — PAKAIAN
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-11-pakaian',
+  title: '11. Pakaian',
+  sections: [
     {
       id: 'pakaian',
-      title: '6. Pakaian',
+      title: 'Pakaian',
       type: 'checkbox',
       items: [
         {
@@ -354,14 +383,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Subjek cenderung merasa perlu untuk memberikan sentuhan tambahan atau detail pada penampilan mereka sebagai respons terhadap dorongan internal yang kuat. Ini menunjukkan kecenderungan kompulsif pada kepribadian subjek.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       7. PERHIASAN, DASI, DAN SAKU
-       ========================================================== */
+/* ============================================================
+   SLIDE 12 — PERHIASAN, DASI & SAKU
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-12-perhiasan-dasi-saku',
+  title: '12. Perhiasan, Dasi & Saku',
+  sections: [
     {
       id: 'perhiasan_dasi_saku',
-      title: '7. Perhiasan, Dasi, dan Saku',
+      title: 'Perhiasan, Dasi, dan Saku',
       type: 'checkbox',
       items: [
         {
@@ -383,14 +418,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Saku adalah ornamen tambahan yang melekat pada pakaian dan biasa digunakan untuk menyimpan sesuatu. Hal ini bisa mengindikasikan adanya kecenderungan untuk mempertahankan atau kembali ke keadaan yang lebih tergantung, sebagai cara untuk mengatasi perasaan ketidakamanan atau ketidakpastian. Subjek tersebut mencari pemenuhan kebutuhan mereka dari orang lain dan mengekspresikannya melalui penekanan pada saku, mencirikan ketidakmandirian atau kurangnya kemauan untuk berbagi.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       8. PAHA
-       ========================================================== */
+/* ============================================================
+   SLIDE 13 — PAHA
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-13-paha',
+  title: '13. Paha',
+  sections: [
     {
       id: 'paha',
-      title: '8. Paha',
+      title: 'Paha',
       type: 'checkbox',
       items: [
         {
@@ -442,14 +483,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Hal ini bisa menjadi manifestasi visual dari pengalaman emosional yang dalam dan perasaan terkait ketidakbahagiaan. Ini menunjukkan bahwa subjek tersebut tengah menghadapi tantangan atau perasaan negatif yang mendalam.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       9. LUTUT
-       ========================================================== */
+/* ============================================================
+   SLIDE 14 — LUTUT
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-14-lutut',
+  title: '14. Lutut',
+  sections: [
     {
       id: 'lutut',
-      title: '9. Lutut',
+      title: 'Lutut',
       type: 'checkbox',
       items: [
         {
@@ -465,14 +512,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Penggambaran lutut dengan teliti mencerminkan adanya kecenderungan obsessive-compulsive. Orang dengan sifat obsessive-compulsive cenderung memiliki keinginan untuk melakukan sesuatu dengan sangat rinci dan teliti, sebagai cara untuk mengatasi kecemasan atau ketidakpastian.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       10. KAKI
-       ========================================================== */
+/* ============================================================
+   SLIDE 15 — KAKI
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-15-kaki',
+  title: '15. Kaki',
+  sections: [
     {
       id: 'kaki',
-      title: '10. Kaki',
+      title: 'Kaki',
       type: 'checkbox',
       items: [
         {
@@ -555,6 +608,5 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         }
       ]
     }
-
   ]
 });
