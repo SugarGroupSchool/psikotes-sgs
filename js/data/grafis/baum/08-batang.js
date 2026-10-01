@@ -1,23 +1,19 @@
-/* ============================================================
-   BAUM — 8. Bentuk Batang
-   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar batang */
 const BASE_BATANG = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/batang/';
 
+/* ============================================================
+   Slide 1 — Bentuk Dasar Batang
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-08-batang',
-  title: '8. Bentuk Batang',
+  id: 'baum-08-batang-bentuk-dasar',
+  title: 'Bentuk Dasar Batang',
   image: BASE_BATANG + '1bentuk%20t.png',
   sections: [
-
-    /* ==========================================================
-       1. BENTUK DASAR BATANG
-       ========================================================== */
     {
       id: 'bentuk_dasar',
-      title: '1. Bentuk Dasar Batang',
+      title: 'Bentuk Dasar Batang',
       type: 'checkbox',
       items: [
         {
@@ -28,14 +24,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Bentuk T adalah bentuk awal pada gambaran anak-anak. Ini mencerminkan: (1) Kurang Cerdas — bentuk T yang kurang cemerlang atau tidak menunjukkan kompleksitas yang diharapkan dapat mengindikasikan keterbatasan kapasitas kognitif anak-anak dan mencerminkan tingkat kecerdasan yang masih dalam tahap perkembangan awalnya. (2) Cenderung Dikendalikan oleh Dorongan — jika anak menunjukkan kecenderungan menghasilkan gambar batang yang lebih didasarkan pada dorongan daripada pemikiran terencana, ini bisa mencerminkan dominasi instingual yang kuat. Respon terhadap instruksi tes lebih dipengaruhi oleh dorongan alami daripada proses kognitif yang lebih kompleks.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. BENTUK KHUSUS BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 2 — Bentuk Khusus Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-bentuk-khusus',
+  title: 'Bentuk Khusus Batang',
+  image: BASE_BATANG + '2membengkak.png',
+  sections: [
     {
       id: 'bentuk_khusus',
-      title: '2. Bentuk Khusus Batang',
+      title: 'Bentuk Khusus Batang',
       type: 'checkbox',
       items: [
         {
@@ -67,14 +70,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Primitif dan rigid — kecenderungan mengadopsi pendekatan sederhana dan kurang fleksibel. (2) Vitalitas kuat tetapi kurang "go different" — meski vitalitas tinggi, ada keterbatasan berpikir secara berbeda. (3) Sangat instingtif — lebih cenderung merespons secara spontan dan alami, mengandalkan insting daripada pemikiran mendalam. (4) Lebih bersifat praktis — pendekatan langsung dan sederhana dalam menyelesaikan tugas. (5) Ada gejala retardasi — potensi keterlambatan dalam perkembangan intelektual. (6) Remming untuk mengembangkan bakat — hambatan atau kekakuan dalam mengembangkan bakat. (7) Kurang mampu mengobjektifkan yang primitif — lebih cenderung melihat dunia melalui lensa pengalaman pribadi atau naluri alamiah.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. VARIASI & MODIFIKASI BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 3 — Variasi & Modifikasi Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-variasi-modifikasi',
+  title: 'Variasi & Modifikasi Batang',
+  image: BASE_BATANG + '6mnonjol.png',
+  sections: [
     {
       id: 'variasi_modifikasi',
-      title: '3. Variasi & Modifikasi Batang',
+      title: 'Variasi & Modifikasi Batang',
       type: 'checkbox',
       items: [
         {
@@ -127,14 +137,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Memiliki potensi bakat — potensi atau bakat luar biasa. (2) Mempunyai ide yang baik — kreativitas dan kemampuan menghasilkan ide. (3) Orisinil — mampu menghasilkan ide atau tindakan yang tidak umum. (4) Percaya pada diri sendiri — keyakinan terhadap kemampuan sendiri. (5) Dapat berdiri sendiri — independensi dan kemandirian.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. KONTINUITAS & STRUKTUR BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 4 — Kontinuitas & Struktur Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-kontinuitas-struktur',
+  title: 'Kontinuitas & Struktur Batang',
+  image: BASE_BATANG + '13tidak%20bersambung.png',
+  sections: [
     {
       id: 'kontinuitas_struktur',
-      title: '4. Kontinuitas & Struktur Batang',
+      title: 'Kontinuitas & Struktur Batang',
       type: 'checkbox',
       items: [
         {
@@ -201,14 +218,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Traumatik — indikator kejadian traumatis, pengalaman yang mengancam keselamatan atau kesejahteraan subjek. (2) Tendensi menarik diri dari lingkungan — kecenderungan menghindari atau menarik diri dari lingkungan sosial atau situasi tertentu. (3) Cepat cemas — tingkat kecemasan tinggi, cenderung merasa gelisah atau tegang dalam situasi tertentu.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. ARAH KEMIRINGAN BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 5 — Arah Kemiringan Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-arah-kemiringan',
+  title: 'Arah Kemiringan Batang',
+  image: BASE_BATANG + '22condong%20ke%20kiri.png',
+  sections: [
     {
       id: 'arah_kemiringan',
-      title: '5. Arah Kemiringan Batang',
+      title: 'Arah Kemiringan Batang',
       type: 'checkbox',
       items: [
         {
@@ -226,14 +250,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Ekstrovert — tingkat energi dan minat lebih besar terhadap interaksi sosial. (2) Penyesuaian baik — kemampuan adaptif menciptakan keseimbangan antara kebutuhan subjek dan tuntutan lingkungan. (3) Suggestible — mudah menerima saran atau pendapat orang lain. (4) Mudah dipermainskan — santai dan fleksibel dalam menghadapi situasi, tidak tegang atau defensif. (5) Suka menolong — sifat empati dan perhatian terhadap kebutuhan orang lain, terdorong secara intrinsik untuk memberikan dukungan dan bantuan.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. PERMUKAAN & TEKSTUR BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 6 — Permukaan & Tekstur Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-permukaan-tekstur',
+  title: 'Permukaan & Tekstur Batang',
+  image: BASE_BATANG + 'coretanbergelombang.png',
+  sections: [
     {
       id: 'permukaan_tekstur',
-      title: '6. Permukaan & Tekstur Batang',
+      title: 'Permukaan & Tekstur Batang',
       type: 'checkbox',
       imagePosition: 'top',
       imageSize: 300,
@@ -253,14 +284,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Sikap kontak emosional: coretan bergelombang pada permukaan batang sering diartikan sebagai penunjuk sikap subjek terhadap kontak emosional. Gelombang-gelombang ini menggambarkan pentingnya interaksi emosional dan perasaan dalam kehidupan subjek — dihubungkan dengan rasa sensitif dan kebutuhan akan perhatian emosional yang besar. Penyesuaian diri: gelombang yang lancar = penyesuaian diri mudah; gelombang yang lebih bercabang atau tidak teratur = kesulitan menyesuaikan diri atau kebutuhan besar akan perhatian emosional. Lingkaran tertutup pada permukaan batang → subjek tidak terlalu membutuhkan kontak emosional tetapi mampu memberikan hubungan emosional kepada orang lain (simbol simpati, kemampuan memberi dukungan emosional tanpa banyak membutuhkan perhatian serupa).'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       7. BAYANGAN (SHADING) PADA BATANG
-       ========================================================== */
+/* ============================================================
+   Slide 7 — Bayangan (Shading) pada Batang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-08-batang-bayangan-shading',
+  title: 'Bayangan (Shading) pada Batang',
+  image: BASE_BATANG + '24bayangan%20di%20kiri.png',
+  sections: [
     {
       id: 'shading',
-      title: '7. Bayangan (Shading) pada Batang',
+      title: 'Bayangan (Shading) pada Batang',
       type: 'checkbox',
       items: [
         {
@@ -314,6 +352,5 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
