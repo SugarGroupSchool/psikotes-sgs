@@ -1,15 +1,18 @@
 /* ============================================================
-   DAP — 4. Simbolisme Garis
+   DAP — Simbolisme Garis (8 Slide)
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
+/* ============================================================
+   SLIDE 1 — KUALITAS GARIS (BAGIAN 1)
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
-  id: 'dap-04',
-  title: '4. Simbolisme Garis',
+  id: 'dap-kualitas-garis-1',
+  title: 'Kualitas Garis — Bagian 1',
   sections: [
     {
-      id: 'kualitas_garis',
-      title: '1. Kualitas Garis',
+      id: 'kualitas_garis_1',
+      title: 'Kualitas Garis',
       type: 'checkbox',
       items: [
         {
@@ -59,7 +62,24 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           label: 'Garis Seperti Gergaji',
           ciri: 'Garis bergerigi seperti mata gergaji · tajam-tajam · tidak rata · tepi garis bergerigi tajam · ada tonjolan dan lekukan tajam · tidak ada bagian yang halus · garis tampak kasar · sudut tajam berulang · seperti gerigi gergaji · tidak stabil · kontur bergerigi di sepanjang garis · ada bagian yang menonjol keluar',
           interpret: 'Mencerminkan: (1) Kecemasan — detail dan tidak teraturnya goresan menjadi indikasi tingginya tingkat kegelisahan atau perasaan tertekan. (2) Kontrol motorik rendah. (3) Kurang dapat mencari keseimbangan — ketidakmampuan menyeimbangkan berbagai aspek seperti emosional, sosial, atau pekerjaan.'
-        },
+        }
+      ]
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 2 — KUALITAS GARIS (BAGIAN 2)
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-kualitas-garis-2',
+  title: 'Kualitas Garis — Bagian 2',
+  sections: [
+    {
+      id: 'kualitas_garis_2',
+      title: 'Kualitas Garis',
+      type: 'checkbox',
+      items: [
         {
           id: 'garis_dasar',
           label: 'Gambar Terdiri dari Garis-garis Dasar',
@@ -107,7 +127,24 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           label: 'Coretan-coretan yang Energik',
           ciri: 'Goresan cepat · kuat · bertenaga · tidak ragu · garis tebal dan cepat · goresan panjang dan mantap · tekanan kuat · tidak ada keraguan · gerakan tangan cepat · garis lurus atau melengkung tegas · ujung garis tajam · tidak ada goresan yang ragu · gambar tampak dinamis · energi tinggi terlihat dari goresan',
           interpret: 'Mencerminkan: (1) Sifat keras hati — tidak mudah putus asa, berusaha mencapai tujuan dengan hati mantap; namun dapat mengabaikan momen di sini dan sekarang. (2) Merasa aman (Hammer-Levy) — reaksi subjek yang merasa aman dengan lingkungan tes.'
-        },
+        }
+      ]
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 3 — KUALITAS GARIS (BAGIAN 3)
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-kualitas-garis-3',
+  title: 'Kualitas Garis — Bagian 3',
+  sections: [
+    {
+      id: 'kualitas_garis_3',
+      title: 'Kualitas Garis',
+      type: 'checkbox',
+      items: [
         {
           id: 'garis_pudar',
           label: 'Garis-garis yang Semakin Pudar',
@@ -157,10 +194,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Mencerminkan: (1) Tingkah laku impulsif (Hammer-Alachuler & Hatwick) — kontrol diri kurang; anak cenderung bertindak spontan. (2) Merasa terisolir — rasa diri subjek yang terisolir dan kurang dapat terhubung dengan orang lain; intimasi dengan orang tua dirindukan namun sulit dialami kembali.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 4 — BENTUK GARIS
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-bentuk-garis',
+  title: 'Bentuk Garis',
+  sections: [
     {
       id: 'bentuk_garis',
-      title: '2. Bentuk Garis',
+      title: 'Bentuk Garis',
       type: 'checkbox',
       items: [
         {
@@ -182,10 +229,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Mencerminkan: (1) Agresif — bentuk runcing atau sudut tajam menunjukkan dorongan agresif yang kuat; kecenderungan melukai dan menyakiti. (2) Penyesuaian diri yang buruk (Hammer-Wachner) — kurang andal dalam menempatkan diri sehingga seringkali mengalami situasi canggung atau permusuhan.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 5 — KONTEKS, SUASANA & KEADAAN
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-konteks-suasana',
+  title: 'Konteks, Suasana & Keadaan',
+  sections: [
     {
       id: 'konteks_suasana',
-      title: '3. Konteks, Suasana & Keadaan',
+      title: 'Konteks, Suasana & Keadaan',
       type: 'checkbox',
       items: [
         {
@@ -225,10 +282,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Dalam pandangan Hammer, gambar matahari berarti subjek merindukan hubungan yang hangat. Subjek memiliki dorongan yang kuat akan pemenuhan afeksi atau kasih sayang. Ini berkaitan dengan hubungan pengasuhan.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 6 — KESINAMBUNGAN GARIS
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-kesinambungan-garis',
+  title: 'Kesinambungan Garis',
+  sections: [
     {
       id: 'kesinambungan_garis',
-      title: '4. Kesinambungan Garis',
+      title: 'Kesinambungan Garis',
       type: 'checkbox',
       items: [
         {
@@ -256,10 +323,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menurut Hammer-Wachner, ini adalah tanda dari kecenderungan skizoid. Ada penarikan diri (withdrawal) yang khas. Subjek merasa terbatas atau merasa perlu menjaga jarak dengan dunia sekitarnya, menciptakan gambar yang kecil dan terpencil.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 7 — AKTIVITAS & USIA
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-aktivitas-usia',
+  title: 'Aktivitas & Usia',
+  sections: [
     {
       id: 'aktivitas_usia',
-      title: '5. Aktivitas & Usia',
+      title: 'Aktivitas & Usia',
       type: 'checkbox',
       items: [
         {
@@ -287,10 +364,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menunjukkan keinginan untuk tetap muda atau mungkin menciptakan gambaran yang lebih positif tentang diri sendiri. Di sisi lain, gambar yang lebih muda juga merupakan representasi dari sifat kekanak-kanakan atau imaturitas sebagai dampak dari fiksasi perkembangan.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 8 — PERUBAHAN & PENGHAPUSAN
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-perubahan-penghapusan',
+  title: 'Perubahan & Penghapusan',
+  sections: [
     {
       id: 'perubahan_penghapusan',
-      title: '6. Perubahan & Penghapusan',
+      title: 'Perubahan & Penghapusan',
       type: 'checkbox',
       items: [
         {
