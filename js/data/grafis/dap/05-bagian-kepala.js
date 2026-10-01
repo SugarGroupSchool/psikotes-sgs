@@ -1,19 +1,18 @@
 /* ============================================================
-   DAP — 5. Bagian Kepala
+   DAP — Bagian Kepala (8 Slide)
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
+/* ============================================================
+   SLIDE 1 — KEPALA
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
-  id: 'dap-05',
-  title: '5. Bagian Kepala',
+  id: 'dap-kepala',
+  title: 'Kepala',
   sections: [
-
-    /* ==========================================================
-       1. KEPALA
-       ========================================================== */
     {
       id: 'kepala',
-      title: '1. Kepala',
+      title: 'Kepala',
       type: 'checkbox',
       items: [
         {
@@ -59,14 +58,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Ada pandangan bahwa lawan jenis dianggap lebih cerdas atau memiliki otoritas sosial yang lebih besar. Gambar kepala besar pada jenis kelamin yang berlawanan mencerminkan persepsi atau stereotipe yang terdapat dalam masyarakat. Hal ini menunjukkan bahwa ada pandangan bahwa lawan jenis dianggap lebih cerdas atau memiliki otoritas sosial yang lebih besar. Interpretasi ini pada dasarnya berkaitan dengan persepsi sosial dan stereotipe gender yang dapat memengaruhi cara subjek melihat dan menilai kecerdasan serta otoritas sosial lawan jenis.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. RAMBUT
-       ========================================================== */
+/* ============================================================
+   SLIDE 2 — RAMBUT
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-rambut',
+  title: 'Rambut',
+  sections: [
     {
       id: 'rambut',
-      title: '2. Rambut',
+      title: 'Rambut',
       type: 'checkbox',
       items: [
         {
@@ -118,14 +123,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menunjukkan mekanisme kompensasi. Mekanisme kompensasi, seperti mengadopsi penampilan yang dianggap lebih maskulin, dapat menjadi bentuk tanggapan psikologis terhadap tekanan internal akan apa yang ia tidak miliki namun subjek inginkan untuk miliki.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. ALIS
-       ========================================================== */
+/* ============================================================
+   SLIDE 3 — ALIS
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-alis',
+  title: 'Alis',
+  sections: [
     {
       id: 'alis',
-      title: '3. Alis',
+      title: 'Alis',
       type: 'checkbox',
       items: [
         {
@@ -141,14 +152,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Alis yang diatur secara rapi mencerminkan upaya subjek dalam merawat diri dan memiliki kontrol emosi yang tinggi. Ini menggambarkan potensi bahwa bentuk alis teratur dapat menjadi saluran untuk menyampaikan sikap menghina atau mengekspresikan ketidaksetujuan terhadap norma sosial.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. MATA
-       ========================================================== */
+/* ============================================================
+   SLIDE 4 — MATA
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-mata',
+  title: 'Mata',
+  sections: [
     {
       id: 'mata',
-      title: '4. Mata',
+      title: 'Mata',
       type: 'checkbox',
       items: [
         {
@@ -242,14 +259,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Lingkaran bola mata besar mencerminkan tingkat rasa ingin tahu yang tinggi atau keinginan untuk mendapatkan informasi. Sebaliknya, mata yang kecil dapat diartikan sebagai ciri yang lebih tersembunyi atau kurang terbuka terhadap orang lain. Subjek dengan karakteristik ini cenderung memiliki ketertarikan atau keinginan untuk menjelajahi aspek-aspek yang dianggap tabu atau moralitas yang kontroversial, seperti voyeurisme.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. HIDUNG
-       ========================================================== */
+/* ============================================================
+   SLIDE 5 — HIDUNG
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-hidung',
+  title: 'Hidung',
+  sections: [
     {
       id: 'hidung',
-      title: '5. Hidung',
+      title: 'Hidung',
       type: 'checkbox',
       items: [
         {
@@ -259,14 +282,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Dalam psikologi simbol, hidung biasa dikaitkan dengan penis atau organ genital pria. Dalam beberapa kasus, ini dapat mengarah pada pengalaman seksual masa lalu, konflik internal, atau perasaan yang tidak disadari terkait dengan aspek seksualitas. Bentuk, tekanan, ukuran, atau penghilangan hidung dalam gambar manusia dapat mencerminkan berbagai aspek psikologis yang sensitif, terutama terkait dengan ekspresi identitas.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. MULUT DAN BIBIR
-       ========================================================== */
+/* ============================================================
+   SLIDE 6 — MULUT DAN BIBIR
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-mulut-bibir',
+  title: 'Mulut dan Bibir',
+  sections: [
     {
       id: 'mulut_bibir',
-      title: '6. Mulut dan Bibir',
+      title: 'Mulut dan Bibir',
       type: 'checkbox',
       items: [
         {
@@ -360,14 +389,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Subjek yang tidak menggambarkan mulut mengekspresikan kesulitan untuk menyuarakan atau menghadapi emosi mereka, menciptakan bentuk perlindungan terhadap ketidaknyamanan afektif. Ketika subjek merasa bersalah, mereka menghindari ekspresi wajah atau komunikasi verbal yang terbuka, dan mulut yang tidak digambar mencerminkan perasaan yang ditekan atau disembunyikan. Kondisi ini membuat subjek kehilangan minat atau energi untuk berkomunikasi secara ekspresif, dan ketidakhadiran mulut dalam gambaran dapat mencerminkan rasa kehilangan atau kekosongan emosional.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       7. TELINGA
-       ========================================================== */
+/* ============================================================
+   SLIDE 7 — TELINGA
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-telinga',
+  title: 'Telinga',
+  sections: [
     {
       id: 'telinga',
-      title: '7. Telinga',
+      title: 'Telinga',
       type: 'checkbox',
       items: [
         {
@@ -407,14 +442,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Subjek cenderung menolak atau tidak merespons dengan baik terhadap umpan balik negatif, dan lebih memilih untuk mengikuti pemikiran dan keyakinan mereka sendiri. Dalam situasi tekanan, subjek lebih rentan terhadap pengalaman auditori yang tidak nyata, sedangkan kurangnya tekanan dapat berkontribusi pada ketahanan terhadap gejala tersebut. Gambar ini diketahui lebih umum terjadi pada orang lanjut usia dibandingkan dengan orang muda. Karena, orang lanjut usia memiliki pengalaman hidup yang lebih kaya dan sehingga cenderung mengabaikan pendapat orang lain.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       8. DAGU
-       ========================================================== */
+/* ============================================================
+   SLIDE 8 — DAGU
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-dagu',
+  title: 'Dagu',
+  sections: [
     {
       id: 'dagu',
-      title: '8. Dagu',
+      title: 'Dagu',
       type: 'checkbox',
       items: [
         {
@@ -437,6 +478,5 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
         }
       ]
     }
-
   ]
 });
