@@ -8,7 +8,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-06-leher',
-  title: '6. Leher',
+  title: 'Leher',
   sections: [
     {
       id: 'leher',
@@ -55,7 +55,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-07-pundak',
-  title: '7. Pundak',
+  title: 'Pundak',
   sections: [
     {
       id: 'pundak',
@@ -108,7 +108,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-08-lengan',
-  title: '8. Lengan',
+  title: 'Lengan',
   sections: [
     {
       id: 'lengan',
@@ -221,7 +221,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-09-tangan-jari',
-  title: '9. Tangan dan Jari',
+  title: 'Tangan dan Jari',
   sections: [
     {
       id: 'tangan_jari',
@@ -292,7 +292,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-10-tubuh-torso',
-  title: '10. Tubuh / Torso',
+  title: 'Tubuh / Torso',
   sections: [
     {
       id: 'tubuh_torso',
@@ -345,7 +345,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-11-pakaian',
-  title: '11. Pakaian',
+  title: 'Pakaian',
   sections: [
     {
       id: 'pakaian',
@@ -392,7 +392,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-12-perhiasan-dasi-saku',
-  title: '12. Perhiasan, Dasi & Saku',
+  title: 'Perhiasan, Dasi & Saku',
   sections: [
     {
       id: 'perhiasan_dasi_saku',
@@ -427,7 +427,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-13-paha',
-  title: '13. Paha',
+  title: 'Paha',
   sections: [
     {
       id: 'paha',
@@ -492,7 +492,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-14-lutut',
-  title: '14. Lutut',
+  title: 'Lutut',
   sections: [
     {
       id: 'lutut',
@@ -521,7 +521,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-15-kaki',
-  title: '15. Kaki',
+  title: 'Kaki',
   sections: [
     {
       id: 'kaki',
