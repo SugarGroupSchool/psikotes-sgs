@@ -8,7 +8,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'kualitas_garis',
-      title: 'Karakteristik Garis',
+      title: '',
       type: 'checkbox',
       items: [
         {
