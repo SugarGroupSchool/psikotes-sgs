@@ -13,7 +13,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'batas_pagar_dasar',
-      title: 'Batas, Pagar & Dasar',
       type: 'checkbox',
       items: [
         {
@@ -59,7 +58,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bunga_buah_daun',
-      title: 'Bunga, Buah & Daun',
       type: 'checkbox',
       items: [
         {
@@ -151,7 +149,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'elemen_organik_multi',
-      title: 'Elemen Organik Lain & Multi-Pohon',
       type: 'checkbox',
       items: [
         {
@@ -204,7 +201,6 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'pemandangan_lingkungan',
-      title: 'Pemandangan & Lingkungan',
       type: 'checkbox',
       items: [
         {
