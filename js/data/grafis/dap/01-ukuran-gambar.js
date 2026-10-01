@@ -1,15 +1,18 @@
 /* ============================================================
-   DAP — 1. Ukuran Gambar
+   DAP — Ukuran Gambar (3 Slide)
    ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
+/* ============================================================
+   SLIDE 1 — UKURAN FIGUR ORANG
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
-  id: 'dap-01',
-  title: '1. Ukuran Gambar',
+  id: 'dap-ukuran-figur',
+  title: 'Ukuran Figur Orang',
   sections: [
     {
       id: 'ukuran_figur',
-      title: '1. Ukuran Figur Orang',
+      title: 'Ukuran Figur Orang',
       type: 'checkbox',
       items: [
         {
@@ -55,10 +58,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Gambar dengan ukuran mendekati rata-rata (± 7 inci) tidak selalu berarti sehat secara psikologis. Menunjukkan: (1) Energi yang Biasa Saja — tingkat energi cukup untuk berfungsi sehari-hari, tetapi tidak menunjukkan dorongan atau gairah emosional kuat. (2) Kurang Insight — subjek mungkin tidak sepenuhnya menyadari dinamika internal, cenderung kurang reflektif. (3) Optimisme Superfisial — sikap positif bisa jadi hanya di permukaan; subjek menyangkal atau menekan perasaan negatif.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 2 — UKURAN TOKOH SIMBOLIK
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-tokoh-simbolik',
+  title: 'Ukuran Tokoh Simbolik — Citra Orang Tua vs Ideal-Ego',
+  sections: [
     {
       id: 'tokoh_simbolik',
-      title: '2. Ukuran Tokoh Simbolik — Citra Orang Tua vs Ideal-Ego',
+      title: 'Ukuran Tokoh Simbolik',
       type: 'checkbox',
       items: [
         {
@@ -74,10 +87,20 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
           interpret: 'Menandakan: (1) Aspirasi tinggi dan keinginan kuat menjadi versi ideal diri. (2) Bentuk kompensasi atas rasa rendah diri atau kegagalan aktual. (3) Subjek membangun tokoh "sempurna" sebagai pelarian fantasi dari kenyataan.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   SLIDE 3 — PROPORSI
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
+  id: 'dap-proporsi',
+  title: 'Proporsi',
+  sections: [
     {
       id: 'proporsi',
-      title: '3. Proporsi',
+      title: 'Proporsi',
       type: 'checkbox',
       items: [
         {
