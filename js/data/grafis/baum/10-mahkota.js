@@ -1,23 +1,19 @@
-/* ============================================================
-   BAUM — 10. Mahkota
-   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar mahkota */
 const BASE_MAHKOTA = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/mahkota/';
 
+/* ============================================================
+   Slide 1 — Pengantar & Proporsi Umum
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-10-mahkota',
-  title: '10. Mahkota',
+  id: 'baum-10-mahkota-pengantar-proporsi',
+  title: 'Pengantar & Proporsi Umum',
   image: BASE_MAHKOTA + '1mahkotatertutup.png',
   sections: [
-
-    /* ==========================================================
-       1. PENGANTAR & PROPORSI UMUM
-       ========================================================== */
     {
       id: 'pengantar_proporsi',
-      title: '1. Pengantar & Proporsi Umum',
+      title: 'Pengantar & Proporsi Umum',
       type: 'checkbox',
       items: [
         {
@@ -84,14 +80,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mahkota terbagi menjadi beberapa bagian terpisah. Ciri ini umumnya muncul pada subjek dengan bakat seni gambar atau pada mereka yang mengalami perubahan signifikan dalam diri. Fokus utama: bagian batang yang tertutupi (seolah disembunyikan dengan lapisan menyerupai kapas) — metafora perbedaan jelas dalam beberapa aspek, namun ada bagian yang disembunyikan atau tidak diungkapkan sepenuhnya (disensor). Mengindikasikan kecenderungan membuat keputusan tiba-tiba yang dapat menyebabkan kebingungan bagi orang lain. Kemungkinan: maksud khusus yang tidak ingin diungkapkan, atau kurangnya kepercayaan diri menghadapi peristiwa penting. Kecenderungan agresif yang ditekan — takut menyakiti orang lain atau kehilangan dukungan sosial. Sikap tertutup mencerminkan usaha menjaga citra diri.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. BENTUK KHUSUS MAHKOTA
-       ========================================================== */
+/* ============================================================
+   Slide 2 — Bentuk Khusus Mahkota
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-10-mahkota-bentuk-khusus',
+  title: 'Bentuk Khusus Mahkota',
+  image: BASE_MAHKOTA + '10bolatertutup.png',
+  sections: [
     {
       id: 'bentuk_khusus_mahkota',
-      title: '2. Bentuk Khusus Mahkota',
+      title: 'Bentuk Khusus Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -165,14 +168,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Narsisme tercermin dalam bentuk yang menunjukkan fokus pada diri sendiri — menempatkan diri sebagai pusat perhatian. Mengindikasikan seseorang yang cenderung menunjukkan perilaku lebih mengedepankan kepentingan dan kepuasan pribadi. Kecenderungan cepat merasa bosan tercermin dalam bentuk yang kurang variasi dan kompleksitas. Tidak adanya aktivitas ke luar menggambarkan kecenderungan menjaga jarak dari lingkungan luar atau aktivitas sosial yang memerlukan interaksi lebih lanjut.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. SHADING & TEKSTUR MAHKOTA
-       ========================================================== */
+/* ============================================================
+   Slide 3 — Shading & Tekstur Mahkota
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-10-mahkota-shading-tekstur',
+  title: 'Shading & Tekstur Mahkota',
+  image: BASE_MAHKOTA + '20berbentukbayangan.png',
+  sections: [
     {
       id: 'shading_tekstur_mahkota',
-      title: '3. Shading & Tekstur Mahkota',
+      title: 'Shading & Tekstur Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -260,14 +270,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Tendensi tidak ada kemauan — ketidakjelasan atau kehilangan tujuan hidup, kurang motivasi intrinsik. (2) Kurang agresif — kurang keberanian dalam mengejar hal-hal baru. (3) Kurang mampu mengambil keputusan — kesulitan mengambil keputusan mandiri, ketidakpastian dan kebingungan. (4) Mudah diliputi sedih — suasana hati cenderung melankolis atau sedih. (5) Tendensi depresif — perasaan terhimpit, hampa, atau kurangnya kegembiraan dalam kehidupan.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. ORIENTASI KIRI / KANAN / SEIMBANG
-       ========================================================== */
+/* ============================================================
+   Slide 4 — Orientasi Kiri / Kanan / Seimbang
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-10-mahkota-orientasi-kiri-kanan',
+  title: 'Orientasi Kiri / Kanan / Seimbang',
+  image: BASE_MAHKOTA + '32beratkekanan.png',
+  sections: [
     {
       id: 'orientasi_kiri_kanan',
-      title: '4. Orientasi Kiri / Kanan / Seimbang',
+      title: 'Orientasi Kiri / Kanan / Seimbang',
       type: 'checkbox',
       items: [
         {
@@ -306,14 +323,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Lebih mengutamakan penampilan diri (performance) — mementingkan citra yang dilihat orang lain, cenderung tampil rapi & teratur di depan publik. (2) Perfeksionis — detail gerigi menunjukkan kebutuhan akan kerapian & kontrol tinggi. (3) Mudah tegang — gerigi rapat menunjukkan ketegangan internal yang tersimpan. (4) Butuh pengakuan — dorongan untuk diakui kemampuan & penampilannya oleh lingkungan.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. BENTUK LANJUTAN MAHKOTA
-       ========================================================== */
+/* ============================================================
+   Slide 5 — Bentuk Lanjutan Mahkota
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-10-mahkota-bentuk-lanjutan',
+  title: 'Bentuk Lanjutan Mahkota',
+  image: BASE_MAHKOTA + '37didalamnyadiberitandasilang.png',
+  sections: [
     {
       id: 'bentuk_lanjutan_mahkota',
-      title: '5. Bentuk Lanjutan Mahkota',
+      title: 'Bentuk Lanjutan Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -380,14 +404,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Catatan tambahan: vlek atau bagian kosong pada mahkota mencerminkan perasaan rendah diri atau ketidakpuasan subjek karena sesuatu yang belum tercapai dalam hidup — simbol visual dari kekosongan atau kekurangan yang dirasakan (prestasi pribadi, hubungan, atau pencapaian tujuan hidup yang belum memuaskan). Mencerminkan: (1) Merasa dirinya tertekan dari luar — terpengaruh tekanan eksternal (ekspektasi sosial, tuntutan pekerjaan, faktor luar lainnya). (2) Penurut — kesulitan mengekspresikan diri secara bebas atau mengambil keputusan yang tidak selaras dengan harapan orang lain. (3) Rasa diri tidak bebas — keterbatasan dalam ruang gerak untuk mengejar keinginan. (4) Perkembangan tertekan — dampak tekanan dari lingkungan, pengalaman hidup, atau faktor eksternal yang membatasi ruang gerak untuk tumbuh dan berkembang. (5) Merasa diri dirugikan — persepsi terhadap dampak negatif atau ketidakadilan yang dialami.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. ARAH STREEP (GARIS LURUS) PADA MAHKOTA
-       ========================================================== */
+/* ============================================================
+   Slide 6 — Arah Streep (Garis Lurus) pada Mahkota
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-10-mahkota-arah-streep',
+  title: 'Arah Streep (Garis Lurus) pada Mahkota',
+  image: BASE_MAHKOTA + '46streepkekanan.png',
+  sections: [
     {
       id: 'arah_streep',
-      title: '6. Arah Streep (Garis Lurus) pada Mahkota',
+      title: 'Arah Streep (Garis Lurus) pada Mahkota',
       type: 'checkbox',
       items: [
         {
@@ -413,6 +444,5 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
