@@ -1,23 +1,19 @@
-/* ============================================================
-   BAUM — 9. Dahan
-   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar dahan */
 const BASE_DAHAN = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/dahan/';
 
+/* ============================================================
+   Slide 1 — Bentuk Dasar Dahan
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-09-dahan',
-  title: '9. Dahan',
+  id: 'baum-09-dahan-bentuk-dasar',
+  title: 'Dahan — Bentuk Dasar Dahan',
   image: BASE_DAHAN + '1horizontal.png',
   sections: [
-
-    /* ==========================================================
-       1. BENTUK DASAR DAHAN
-       ========================================================== */
     {
       id: 'bentuk_dasar_dahan',
-      title: '1. Bentuk Dasar Dahan',
+      title: 'Bentuk Dasar Dahan',
       type: 'checkbox',
       items: [
         {
@@ -28,14 +24,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Menunjukkan subjek berada dalam tahap primitif pemahaman emosi dan persepsi diri. Fenomena ini umum terlihat pada seni orang dewasa, khususnya gambar pohon kapuk, menandakan proses pencarian keseimbangan atau stabilitas dalam kehidupan. Fokus pada dahan lurus mencerminkan subjek sedang mengeksplorasi atau mengatasi hambatan emosional, menandakan upaya mencapai keselarasan terutama dalam aspek emosional dan mental.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. KETEBALAN & SUSUNAN
-       ========================================================== */
+/* ============================================================
+   Slide 2 — Ketebalan & Susunan Dahan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-ketebalan-susunan',
+  title: 'Dahan — Ketebalan & Susunan Dahan',
+  image: BASE_DAHAN + '2dahan%20tebal.png',
+  sections: [
     {
       id: 'ketebalan_susunan',
-      title: '2. Ketebalan & Susunan Dahan',
+      title: 'Ketebalan & Susunan Dahan',
       type: 'checkbox',
       items: [
         {
@@ -53,14 +56,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Menunjukkan penggunaan energi besar yang didorong oleh motivasi yang kuat, mencerminkan kemampuan subjek untuk mencapai prestasi tinggi. Meskipun subjek dapat mencapai banyak hal secara kuantitatif, ini tidak selalu mengindikasikan rendahnya kualitas. Orang yang menggambarkan dahan paralel mampu mencapai prestasi berkualitas, namun seringkali memerlukan usaha dan fokus intensif untuk mencapai hasil tersebut.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. ARAH & KONFLIK DAHAN
-       ========================================================== */
+/* ============================================================
+   Slide 3 — Arah & Konflik Dahan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-arah-konflik',
+  title: 'Dahan — Arah & Konflik Dahan',
+  image: BASE_DAHAN + '4berlawanan.png',
+  sections: [
     {
       id: 'arah_konflik',
-      title: '3. Arah & Konflik Dahan',
+      title: 'Arah & Konflik Dahan',
       type: 'checkbox',
       items: [
         {
@@ -85,14 +95,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan perubahan atau pengaruh pada perkembangan psikologis subjek, terutama pada anak laki-laki. Anak laki-laki sering menggambarkan pola ini karena menghadapi dinamika internal yang kuat seperti memiliki energi yang kuat dan inisiatif besar namun juga tekanan eksternal dari lingkungan. Dahan yang dipotong bisa mencerminkan kegagalan, tekanan, atau terhentinya perkembangan anak, menandakan kurangnya kepercayaan diri, ketidakstabilan emosional, atau potensi trauma konflik. Secara rinci: (1) Hambatan perasaan (remming) karena trauma masa lalu. (2) Kurang percaya diri. (3) Cenderung regresi. (4) Adanya konflik. (5) Ingin berkuasa dan merasa dirugikan. (6) Merasa tidak mengerti dan tidak berterus terang. (7) Menarik diri dan simbol pubertas. (8) Nasib yang kurang enak.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. DAHAN BENTUK PIPA / TERBUKA
-       ========================================================== */
+/* ============================================================
+   Slide 4 — Dahan Bentuk Pipa / Terbuka
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-pipa-terbuka',
+  title: 'Dahan — Dahan Bentuk Pipa / Terbuka',
+  image: BASE_DAHAN + '7pipa.png',
+  sections: [
     {
       id: 'pipa_terbuka',
-      title: '4. Dahan Bentuk Pipa / Terbuka',
+      title: 'Dahan Bentuk Pipa / Terbuka',
       type: 'checkbox',
       items: [
         {
@@ -110,14 +127,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Tendensi adanya keinginan yang ingin dicapai — dahan terbuka mencerminkan kecenderungan memiliki keinginan yang ingin dicapai, memandang masa depan dengan ambisi dan tujuan yang ingin dikejar. (2) Ada keinginan untuk berprestasi dan bekerja sebanyak mungkin — dorongan berprestasi dan bekerja keras, motivasi tinggi untuk mencapai keberhasilan. (3) Kurang dapat menentukan sikap — kesulitan menentukan sikap atau pendirian yang konsisten. (4) Tidak ada kepastian dalam menghadapi lingkungan (negatifnya) — kecenderungan merasa tidak yakin atau ragu-ragu dalam menghadapi situasi tertentu.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       5. DISTRIBUSI & UKURAN DAHAN
-       ========================================================== */
+/* ============================================================
+   Slide 5 — Distribusi & Ukuran Dahan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-distribusi-ukuran',
+  title: 'Dahan — Distribusi & Ukuran Dahan',
+  image: BASE_DAHAN + '9tersebar.png',
+  sections: [
     {
       id: 'distribusi_ukuran',
-      title: '5. Distribusi & Ukuran Dahan',
+      title: 'Distribusi & Ukuran Dahan',
       type: 'checkbox',
       items: [
         {
@@ -177,14 +201,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Mudah lupa — tantangan dalam mempertahankan atau mengingat informasi. (2) Tak suka berpikir — kurang minat atau keengganan berpikir secara mendalam, menghindari refleksi atau analisis. (3) Sifat kekanak-kanakan — mempertahankan sifat atau respon yang lebih cocok dengan tahap perkembangan yang lebih muda. (4) Suka melamun — terjebak dalam dunia pikiran sendiri. (5) Tidak dapat mengendalikan diri — kesulitan dalam menghadapi situasi atau rangsangan yang menantang. (6) Sifat malu — enggan tampil di depan umum karena perasaan rendah diri atau kecemasan sosial.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       6. BENTUK KHUSUS DAHAN
-       ========================================================== */
+/* ============================================================
+   Slide 6 — Bentuk Khusus Dahan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-bentuk-khusus',
+  title: 'Dahan — Bentuk Khusus Dahan',
+  image: BASE_DAHAN + '17kaktus.png',
+  sections: [
     {
       id: 'bentuk_khusus_dahan',
-      title: '6. Bentuk Khusus Dahan',
+      title: 'Bentuk Khusus Dahan',
       type: 'checkbox',
       items: [
         {
@@ -230,14 +261,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Kurang dapat menyatakan diri — kesulitan mengomunikasikan keinginan, perasaan, atau pikiran kepada orang lain. (2) Regresi — kembali ke tingkat perkembangan atau perilaku yang lebih primitif sebagai respons terhadap stres. (3) Retardasi dan debil — keterbatasan intelektual, hambatan dalam proses berpikir atau belajar. (4) Tidak self-standing dalam putusan — kesulitan membuat keputusan sendiri, ketergantungan pada orang lain atau ketidakpercayaan diri.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       7. ARAH DAHAN (VERTIKAL & HORIZONTAL)
-       ========================================================== */
+/* ============================================================
+   Slide 7 — Arah Dahan (Vertikal & Horizontal)
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-arah-vertikal-horizontal',
+  title: 'Dahan — Arah Dahan (Vertikal & Horizontal)',
+  image: BASE_DAHAN + '23kebawah.png',
+  sections: [
     {
       id: 'arah_dahan',
-      title: '7. Arah Dahan (Vertikal & Horizontal)',
+      title: 'Arah Dahan (Vertikal & Horizontal)',
       type: 'checkbox',
       items: [
         {
@@ -276,14 +314,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Pengalaman masa lampau sangat mempengaruhi diri — pengaruh traumatis, pengalaman sulit, atau kejadian signifikan yang berdampak kuat pada kepribadian. (2) Mudah mengalami frustrasi — rentan mengalami frustrasi atau kesulitan menanggapi tantangan hidup secara adaptif. (3) Mementingkan hal yang bersifat materi — menempatkan nilai atau kepentingan pada aspek material atau kekayaan. Bila diimbangi dengan batang yang kecil → indikasi ortodoks (kecenderungan konservatif, tradisional, sesuai norma yang mapan).'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       8. BENTUK KHUSUS LAIN
-       ========================================================== */
+/* ============================================================
+   Slide 8 — Bentuk Khusus Lain
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-09-dahan-bentuk-khusus-lain',
+  title: 'Dahan — Bentuk Khusus Lain',
+  image: BASE_DAHAN + '28cacing.png',
+  sections: [
     {
       id: 'bentuk_khusus_lain',
-      title: '8. Bentuk Khusus Lain',
+      title: 'Bentuk Khusus Lain',
       type: 'checkbox',
       items: [
         {
@@ -295,6 +340,5 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
