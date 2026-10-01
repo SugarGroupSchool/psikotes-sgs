@@ -5,7 +5,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-03',
-  title: '3. Penempatan / Lokasi',
+  title: 'Penempatan / Lokasi',
   sections: [
     {
       id: 'zona_penempatan',
