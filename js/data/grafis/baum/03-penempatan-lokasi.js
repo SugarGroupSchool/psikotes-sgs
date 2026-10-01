@@ -12,7 +12,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'zona_utama',
-      title: 'Zona Utama',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -55,7 +55,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-03-sudut-spesifik',
-  title: 'Sudut Spesifik',
+  title: '',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
@@ -97,7 +97,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-03-arah-gerak-khusus',
-  title: 'Arah Gerak Khusus',
+  title: '',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
