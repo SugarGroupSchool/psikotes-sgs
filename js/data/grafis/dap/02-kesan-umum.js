@@ -5,7 +5,7 @@ window.GRAFIS_AUTO_DATA_DAP_SLIDES = window.GRAFIS_AUTO_DATA_DAP_SLIDES || [];
 
 window.GRAFIS_AUTO_DATA_DAP_SLIDES.push({
   id: 'dap-02',
-  title: '2. Kesan Umum',
+  title: 'Kesan Umum',
   sections: [
     {
       id: 'kesan_umum',
