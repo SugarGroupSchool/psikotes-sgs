@@ -1,14 +1,17 @@
 /* BAUM — Bagian 2: Kesan Gambar */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
+/* ============================================================
+   Slide 1 — Kejelasan Gambar
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-02',
-  title: '2. Kesan Gambar',
+  id: 'baum-02-kejelasan-gambar',
+  title: 'Kejelasan Gambar',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
       id: 'kejelasan_gambar',
-      title: '1. Kejelasan Gambar',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -24,10 +27,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Kesan abstrak atau kurang jelas mencerminkan kurangnya kejelasan struktur internal atau kesulitan mengomunikasikan isi pikiran secara konkret. Gambar yang sulit dikenali dapat mengindikasikan kebingungan, kekaburan identitas, hambatan dalam mengorganisir pengalaman, atau kecenderungan menghindar dari pengungkapan diri yang jelas.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   Slide 2 — Kehidupan Pohon
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-02-kehidupan-pohon',
+  title: 'Kehidupan Pohon',
+  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  sections: [
     {
       id: 'kehidupan_pohon',
-      title: '2. Kehidupan Pohon',
+      title: 'Kehidupan Pohon',
       type: 'checkbox',
       items: [
         {
@@ -43,10 +57,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Gambar statis dan mati dapat mencerminkan pengurangan vitalitas psikis, kekakuan, atau penekanan emosi yang berkepanjangan. Subjek mungkin sedang mengalami kelelahan mental, kehilangan minat, depresi, atau perasaan hampa. Ketika gambar pohon tidak menunjukkan tanda kehidupan apa pun (tanpa daun, tanpa gerak, kaku), hal ini bisa menandakan penarikan diri dari pengalaman hidup yang aktif.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   Slide 3 — Statis atau Dinamis
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-02-statis-dinamis',
+  title: 'Statis atau Dinamis',
+  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  sections: [
     {
       id: 'statis_dinamis',
-      title: '3. Statis atau Dinamis',
+      title: 'Statis atau Dinamis',
       type: 'checkbox',
       items: [
         {
@@ -62,10 +87,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Statis = gambar menunjukkan kesan diam, kaku, simetris sempurna, tanpa gerakan, tanpa aliran energi. Misalnya: batang lurus kaku, dahan simetris presisi, tidak ada elemen yang bergerak. Kesan statis dapat menunjukkan dua hal: (1) Ketenangan / kestabilan — jika garis-garisnya tetap hidup, subjek mampu mempertahankan ketenangan di tengah tekanan. (2) Kepasifan / kekakuan — jika garis kaku dan kering, subjek mungkin mengalami hambatan emosi, kesulitan beradaptasi terhadap perubahan, atau kecenderungan defensif dan rigid.'
         }
       ]
-    },
+    }
+  ]
+});
+
+/* ============================================================
+   Slide 4 — Ekspresi Keseluruhan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-02-ekspresi-keseluruhan',
+  title: 'Ekspresi Keseluruhan',
+  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  sections: [
     {
       id: 'ekspresi_keseluruhan',
-      title: '4. Ekspresi Keseluruhan',
+      title: 'Ekspresi Keseluruhan',
       type: 'checkbox',
       items: [
         {
