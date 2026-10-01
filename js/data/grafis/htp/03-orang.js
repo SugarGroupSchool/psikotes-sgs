@@ -19,133 +19,133 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'perbedaan_kiri_kanan',
           label: 'Perbedaan Proporsional Mencolok Antara Sisi Kanan & Kiri',
-          ciri: 'Sisi kanan & kiri figur jauh berbeda · tidak seimbang · asimetris mencolok',
+          ciri: 'Sisi kanan & kiri figur jauh berbeda · tidak seimbang · asimetris mencolok · salah satu sisi lebih besar atau lebih panjang · lengan kiri berbeda ukuran dengan lengan kanan · kaki tidak sama panjang · bahu tidak sejajar · mata tidak sama besar · proporsi tubuh tidak simetris',
           interpret: 'Perbedaan proporsional yang mencolok antara sisi kanan dan kiri seseorang menunjukkan ketidakseimbangan kepribadian secara umum dan, khususnya, kebingungan peran seksual.'
         },
         {
           id: 'kepala_kecil_tidak_proporsional',
           label: 'Kepala Kecil yang Tidak Proporsional',
-          ciri: 'Kepala digambar kecil · tidak proporsional dengan tubuh',
+          ciri: 'Kepala digambar kecil · tidak proporsional dengan tubuh · ukuran kepala jauh lebih kecil dari badan · detail wajah minim · kepala tampak "tenggelam" di antara bahu · proporsi kepala tidak wajar',
           interpret: 'Kepala kecil yang tidak proporsional digambarkan oleh subjek obsesif-kompulsif dan dapat mewakili penolakan terhadap tempat munculnya pikiran menyakitkan dan perasaan bersalah.'
         },
         {
           id: 'mata_kecil',
           label: 'Mata Kecil',
-          ciri: 'Mata digambar kecil · minimal detail',
+          ciri: 'Mata digambar kecil · minimal detail · titik kecil · tidak ada bola mata · tidak ada pupil · mata hampir tidak terlihat · garis mata tipis',
           interpret: 'Mata kecil menandakan keinginan untuk melihat sesedikit mungkin.'
         },
         {
           id: 'mulut_terlalu_besar',
           label: 'Mulut Terlalu Besar',
-          ciri: 'Mulut digambar besar · mendominasi wajah',
+          ciri: 'Mulut digambar besar · mendominasi wajah · melebihi proporsi wajar · bibir tebal · mulut lebar · gigi terlihat · ekspresi berlebihan',
           interpret: 'Mulut yang terlalu besar menyiratkan erotisme oral, kecenderungan agresif oral, atau keduanya.'
         },
         {
           id: 'leher_panjang_tipis',
           label: 'Leher Panjang & Tipis',
-          ciri: 'Leher digambar panjang & tipis · kurus',
+          ciri: 'Leher digambar panjang & tipis · kurus · seperti batang korek api · tidak berotot · garis leher tipis · leher tampak lemah · tidak mampu menopang kepala',
           interpret: 'Leher yang panjang dan tipis menunjukkan ciri-ciri skizoid.'
         },
         {
           id: 'badan_besar_proporsional',
           label: 'Batang Tubuh Besar Tidak Proporsional',
-          ciri: 'Batang tubuh digambar besar · tidak proporsional dengan bagian lain',
+          ciri: 'Batang tubuh digambar besar · tidak proporsional dengan bagian lain · tubuh mendominasi gambar · kepala dan kaki tampak kecil · perut atau dada besar',
           interpret: 'Batang tubuh yang besarnya tidak proporsional menyiratkan adanya impuls yang tidak terpuaskan yang dapat dirasakan subjek dengan jelas.'
         },
         {
           id: 'badan_kecil_proporsional',
           label: 'Batang Tubuh Kecil Tidak Proporsional',
-          ciri: 'Batang tubuh digambar kecil · tidak proporsional',
+          ciri: 'Batang tubuh digambar kecil · tidak proporsional · tubuh tampak kurus atau kerdil · tidak seimbang dengan kepala · bahu sempit · dada kosong',
           interpret: 'Batang tubuh yang kecil dan tidak proporsional menunjukkan penolakan terhadap impuls tubuh, perasaan rendah diri, atau keduanya.'
         },
         {
           id: 'badan_panjang_tipis',
           label: 'Batang Tubuh Panjang & Tipis',
-          ciri: 'Batang tubuh digambar panjang & tipis · kurus memanjang',
+          ciri: 'Batang tubuh digambar panjang & tipis · kurus memanjang · seperti stick · tidak ada otot · tidak ada lekuk alami · tubuh tampak lemah',
           interpret: 'Batang tubuh yang panjang dan tipis mengandung konotasi skizoid.'
         },
         {
           id: 'bahu_terlalu_besar',
           label: 'Bahu Terlalu Besar',
-          ciri: 'Bahu digambar besar · melebihi proporsi wajar',
+          ciri: 'Bahu digambar besar · melebihi proporsi wajar · lebar berlebihan · bahu menonjol · seperti balok · garis bahu tebal',
           interpret: 'Besar kecilnya bahu merupakan indeks perasaan berkuasa atau kekuatan dasar, baik fisik maupun psikis. Bahu yang terlalu besar menyiratkan perasaan kuat atau sangat khawatir akan kebutuhan akan kekuatan atau kekuasaan.'
         },
         {
           id: 'bahu_kecil',
           label: 'Bahu Kecil',
-          ciri: 'Bahu digambar kecil · sempit',
+          ciri: 'Bahu digambar kecil · sempit · tidak proporsional · bahu tampak turun · lebar bahu minimal · tidak ada otot',
           interpret: 'Bahu yang kecil menunjukkan perasaan rendah diri.'
         },
         {
           id: 'bahu_tidak_seimbang',
           label: 'Ketimpangan Ukuran Bahu',
-          ciri: 'Bahu kiri & kanan tidak sama besar',
+          ciri: 'Bahu kiri & kanan tidak sama besar · salah satu lebih tinggi · salah satu lebih lebar · tidak simetris · garis bahu tidak sejajar',
           interpret: 'Ketimpangan dalam ukuran bahu menyiratkan ketidakseimbangan dalam kepribadian.'
         },
         {
           id: 'lengan_terlalu_panjang',
           label: 'Lengan Terlalu Panjang',
-          ciri: 'Lengan digambar sangat panjang · melebihi proporsi wajar',
+          ciri: 'Lengan digambar sangat panjang · melebihi proporsi wajar · tangan mencapai lutut atau bawah · lengan tampak menjulur · tidak seimbang dengan tubuh',
           interpret: 'Lengan yang terlalu panjang menyiratkan upaya yang ambisius.'
         },
         {
           id: 'lengan_sangat_pendek',
           label: 'Lengan Sangat Pendek',
-          ciri: 'Lengan digambar sangat pendek · hampir tidak ada',
+          ciri: 'Lengan digambar sangat pendek · hampir tidak ada · hanya sampai pinggang · tidak proporsional · lengan tampak kerdil',
           interpret: 'Lengan yang sangat pendek menunjukkan tidak adanya momentum.'
         },
         {
           id: 'lengan_lebar',
           label: 'Lengan Lebar',
-          ciri: 'Lengan digambar lebar · berotot · besar',
+          ciri: 'Lengan digambar lebar · berotot · besar · melebihi proporsi · garis tebal · lengan tampak kuat',
           interpret: 'Lengan yang lebar menunjukkan perasaan dasar kekuatan untuk bertarung.'
         },
         {
           id: 'lengan_tipis',
           label: 'Lengan Tipis',
-          ciri: 'Lengan digambar tipis · kurus · lemah',
+          ciri: 'Lengan digambar tipis · kurus · lemah · tidak berotot · garis tipis · lengan tampak tidak bertenaga',
           interpret: 'Lengan yang tipis melambangkan perasaan lemah.'
         },
         {
           id: 'tangan_besar',
           label: 'Tangan Besar',
-          ciri: 'Tangan digambar besar · menonjol',
+          ciri: 'Tangan digambar besar · menonjol · melebihi proporsi · jari tebal · telapak lebar · tangan tampak kokoh',
           interpret: 'Tangan yang besar menyiratkan impulsif dan ketidakmampuan dalam aspek hubungan sosial yang lebih halus.'
         },
         {
           id: 'tangan_kecil',
           label: 'Tangan Kecil',
-          ciri: 'Tangan digambar kecil · minimal',
+          ciri: 'Tangan digambar kecil · minimal · tidak proporsional · jari pendek · telapak sempit · tangan hampir tidak terlihat',
           interpret: 'Tangan kecil menunjukkan keengganan untuk menjalin kontak yang lebih halus dan intim dalam hubungan psikososial.'
         },
         {
           id: 'kaki_panjang_tidak_proporsional',
           label: 'Kaki Panjang Tidak Proporsional',
-          ciri: 'Kaki digambar panjang · melebihi proporsi wajar',
+          ciri: 'Kaki digambar panjang · melebihi proporsi wajar · kaki tampak jangkung · tidak seimbang dengan tubuh',
           interpret: 'Kaki yang panjangnya tidak proporsional melambangkan perjuangan yang intens untuk mendapatkan otonomi.'
         },
         {
           id: 'kaki_sangat_pendek',
           label: 'Kaki Sangat Pendek',
-          ciri: 'Kaki digambar sangat pendek · minimal',
+          ciri: 'Kaki digambar sangat pendek · minimal · hampir tidak ada · tidak proporsional · kaki tampak kerdil',
           interpret: 'Kaki yang sangat pendek melambangkan perasaan terkekang.'
         },
         {
           id: 'kaki_disparitas',
           label: 'Disparitas Ukuran Kaki',
-          ciri: 'Kaki kiri & kanan berbeda ukuran',
+          ciri: 'Kaki kiri & kanan berbeda ukuran · salah satu lebih panjang · salah satu lebih besar · tidak simetris',
           interpret: 'Disparitas ukuran kaki mengandung arti ambivalensi mengenai perjuangan otonomi atau kemerdekaan.'
         },
         {
           id: 'kaki_sangat_besar',
           label: 'Kaki Sangat Besar',
-          ciri: 'Kaki digambar besar · melebihi proporsi',
+          ciri: 'Kaki digambar besar · melebihi proporsi · kaki mendominasi bagian bawah · telapak lebar · sepatu besar',
           interpret: 'Kaki yang sangat besar menyiratkan perlunya rasa aman dan menunjukkan kewajiban untuk menunjukkan kejantanan.'
         },
         {
           id: 'kaki_kecil_tidak_proporsional',
           label: 'Kaki Kecil Tidak Proporsional',
-          ciri: 'Kaki digambar kecil · minimal',
+          ciri: 'Kaki digambar kecil · minimal · tidak proporsional · telapak sempit · kaki hampir tidak terlihat',
           interpret: 'Kaki yang kecil dan tidak proporsional menyiratkan perasaan terkekang dan ketergantungan.'
         }
       ]
@@ -162,79 +162,79 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'orang_kecil',
           label: 'Gambar Orang Berukuran Kecil',
-          ciri: 'Figur orang digambar kecil · area minimal',
+          ciri: 'Figur orang digambar kecil · area minimal · sering di sudut kertas · detail minim · garis tipis · banyak ruang kosong di sekeliling',
           interpret: 'Subjek mungkin merasa bahwa perannya dalam keluarga minim atau tidak diakui, sehingga kurang memberikan kontribusi atau memegang peran yang signifikan. Perasaan ini mungkin muncul karena kurangnya perhatian dan penghargaan dari anggota keluarga lainnya, yang dapat mempengaruhi rasa kepercayaan diri dan nilai diri.'
         },
         {
           id: 'orang_besar',
           label: 'Gambar Orang Berukuran Besar',
-          ciri: 'Figur orang digambar besar · mendominasi',
+          ciri: 'Figur orang digambar besar · mendominasi · memenuhi sebagian besar kertas · detail berlimpah · garis tebal · figur tampak "menekan" halaman',
           interpret: 'Pemahaman diri yang dominan dan mungkin berlebihan dalam peran keluarga, menunjukkan kecenderungan untuk mengontrol atau mendominasi lingkungan rumah. Sikap yang mencerminkan fokus tinggi pada diri sendiri, mungkin sebagai cara untuk mengatasi perasaan kurang mampu atau tidak aman. Tindakan-tindakan ini mungkin merupakan strategi untuk mengatasi perasaan ketidakmampuan atau ketidakamanan dengan mencari kekuasaan dan perhatian.'
         },
         {
           id: 'orang_jamak',
           label: 'Jamak atau Lebih dari Satu Orang',
-          ciri: 'Ada lebih dari satu figur orang digambar',
+          ciri: 'Ada lebih dari satu figur orang digambar · padahal instruksi hanya satu orang · figur bisa berdampingan atau terpisah',
           interpret: 'Subjek mengalami kesulitan dalam menetapkan identitas dan peran diri, yang dapat menciptakan ketidakjelasan dalam hubungan interpersonal. Perasaan ini mencerminkan ketidakpastian dan mungkin merasa terasing atau diabaikan dalam lingkungan keluarga.'
         },
         {
           id: 'orang_bersandar',
           label: 'Orang Bersandar / Berlindung',
-          ciri: 'Figur bersandar pada objek lain · atau berlindung di balik sesuatu',
+          ciri: 'Figur bersandar pada objek lain · atau berlindung di balik sesuatu · posisi tubuh tidak tegak · seperti mencari sandaran',
           interpret: 'Kecenderungan ada ketidakmampuan atau ketakutan untuk mandiri, sehingga individu cenderung bergantung pada orang lain dan kurang berani mengambil langkah-langkah yang diperlukan.'
         },
         {
           id: 'orang_melihat_ke_arah_lain',
           label: 'Orang Melihat ke Arah Lain',
-          ciri: 'Figur menghadap ke arah lain · tidak menatap depan',
+          ciri: 'Figur menghadap ke arah lain · tidak menatap depan · pandangan mata ke samping · kepala menoleh',
           interpret: 'Ada ketertarikan yang lebih besar pada hal-hal di luar keluarga, seperti pekerjaan, teman-teman, atau aktivitas di luar rumah dikarenakan adanya indikasi ketidakpuasan atau kebutuhan untuk menemukan kepuasan di luar lingkungan keluarga. Pada anak-anak, mereka merasa tidak diterima atau diabaikan dalam lingkungan keluarga, sehingga mencari penerimaan atau pengakuan dari luar keluarga sehingga anak menjadi lebih reaktif atau cenderung mencari validasi dari sumber lain.'
         },
         {
           id: 'orang_aktivitas_keluarga',
           label: 'Melakukan Sesuatu yang Berhubungan dengan Keluarga (Menyapu, dll)',
-          ciri: 'Figur sedang melakukan aktivitas rumah tangga · menyapu · memasak · dll',
+          ciri: 'Figur sedang melakukan aktivitas rumah tangga · menyapu · memasak · membersihkan · merawat rumah',
           interpret: 'Aktivitas ini menunjukkan keterlibatan dan kontribusi positif terhadap keseluruhan unit keluarga, di mana setiap anggota memiliki peran dan tanggung jawabnya sendiri. Tindakan ini mencerminkan kepedulian terhadap kesejahteraan dan kenyamanan bersama serta menunjukkan rasa tanggung jawab terhadap ruang bersama yang ditempati oleh seluruh keluarga. Upaya untuk dapat menciptakan suasana positif dan kesejahteraan bagi seluruh keluarga.'
         },
         {
           id: 'tekanan_luar_keluarga',
           label: 'Tekanan Lebih Besar pada Keadaan di Luar Aktivitas Keluarga',
-          ciri: 'Fokus figur pada aktivitas di luar rumah · pekerjaan · hobi · teman',
+          ciri: 'Fokus figur pada aktivitas di luar rumah · pekerjaan · hobi · teman · lingkungan sosial',
           interpret: 'Tindakan ini mencerminkan dorongan untuk mencari pemenuhan atau pencapaian di luar lingkungan keluarga, ketidakpuasan dan merasa kurang terkait dengan dinamika keluarga.'
         },
         {
           id: 'orang_mendekati_rumah',
           label: 'Orang Mendekati Rumah / Pohon',
-          ciri: 'Figur bergerak mendekati rumah atau pohon',
+          ciri: 'Figur bergerak mendekati rumah atau pohon · posisi tubuh mengarah ke rumah/pohon',
           interpret: 'Mencerminkan keinginan mendalam untuk merasa diperhatikan, dicintai, dan menciptakan hubungan positif di dalam keluarga.'
         },
         {
           id: 'orang_menjauhi_rumah',
           label: 'Orang Menjauhi Rumah / Pohon',
-          ciri: 'Figur bergerak menjauhi rumah atau pohon',
+          ciri: 'Figur bergerak menjauhi rumah atau pohon · posisi tubuh membelakangi rumah/pohon',
           interpret: 'Mencerminkan perasaan ketidakpuasan atau keinginan untuk menjauh dari situasi keluarga yang tidak diinginkan.'
         },
         {
           id: 'pemandangan_luas',
           label: 'Gambar Pemandangan Luas, Rumah-Pohon-Orang Hanya Bagian Kecil atau Tidak Sesuai Instruksi',
-          ciri: 'Ada pemandangan luas · figur-figur HTP hanya bagian kecil · atau tidak sesuai instruksi',
+          ciri: 'Ada pemandangan luas · figur-figur HTP hanya bagian kecil · atau tidak sesuai instruksi · banyak elemen lain mendominasi',
           interpret: 'Adanya kecenderungan mekanisme untuk mengatasi realitas yang mungkin dianggap kurang memuaskan atau untuk melarikan diri dari kenyataan yang sulit.'
         },
         {
           id: 'hanya_atas_meja',
           label: 'Hanya Bagian Atas Meja yang Nampak',
-          ciri: 'Hanya bagian atas meja yang terlihat · bagian bawah disembunyikan',
+          ciri: 'Hanya bagian atas meja yang terlihat · bagian bawah disembunyikan · meja tampak mengambang',
           interpret: 'Sikap superioritas mungkin muncul dari perasaan kuat atau mungkin sebagai bentuk pertahanan diri untuk mengatasi ketidakamanan.'
         },
         {
           id: 'hanya_atas_orang',
           label: 'Hanya Bagian Atas Saja yang Nampak dari Orang',
-          ciri: 'Hanya bagian atas tubuh figur yang terlihat · bawah tidak digambar',
+          ciri: 'Hanya bagian atas tubuh figur yang terlihat · bawah tidak digambar · figur terpotong di pinggang',
           interpret: 'Hal ini bisa mencerminkan rasa percaya diri yang tinggi atau kecenderungan untuk menempatkan diri pada posisi yang lebih baik dibandingkan dengan orang lain.'
         },
         {
           id: 'hanya_bawah_orang',
           label: 'Hanya Bagian Bawah Saja yang Nampak dari Orang',
-          ciri: 'Hanya bagian bawah tubuh figur yang terlihat · atas tidak digambar',
+          ciri: 'Hanya bagian bawah tubuh figur yang terlihat · atas tidak digambar · figur terpotong di dada',
           interpret: 'Mencerminkan persepsi diri yang rendah dengan membandingkan diri dengan standar atau harapan yang dianggap tidak tercapai. Seseorang yang melihat dirinya rendah cenderung merasa kurang percaya diri untuk mengambil langkah-langkah besar, menghadapi tantangan, atau mengejar tujuan. Kurangnya keberanian atau inisiatif bisa menjadi hasil langsung dari persepsi diri yang rendah yang dapat menghambat kemampuan seseorang untuk mencapai potensinya.'
         }
       ]
@@ -251,73 +251,73 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'kaki_terpotong_tepi',
           label: 'Kaki Terpotong di Tepi Bawah Halaman',
-          ciri: 'Kaki figur terpotong oleh tepi bawah kertas',
+          ciri: 'Kaki figur terpotong oleh tepi bawah kertas · tidak ada bagian bawah kaki · figur tampak "hilang" di tepi',
           interpret: 'Jika kakinya terpotong di tepi bawah halaman, subjek mungkin merasa tidak memiliki otonomi yang hampir tidak tertahankan. Ketika kaki digambar seperti ini, psikolog harus meminta subjek untuk menunjukkan seberapa jauh kaki melampaui tepi lembaran.'
         },
         {
           id: 'orang_di_atas_pengamat',
           label: 'Orang Digambarkan Seolah Berada di Atas Pengamat',
-          ciri: 'Figur digambar dari sudut pandang rendah · seolah di atas pengamat',
+          ciri: 'Figur digambar dari sudut pandang rendah · seolah di atas pengamat · figur tampak tinggi dan dominan',
           interpret: 'Orang jarang digambarkan seolah-olah berada di atas pengamat. Ketika hal itu terjadi, implikasinya seolah-olah subjek ingin tetap tinggal relatif terisolasi dari hubungan psikososial, atau yang merasa tertindas dan didominasi oleh orang yang diwakili.'
         },
         {
           id: 'tampak_depan_kaku',
           label: 'Ditarik Sepenuhnya dari Depan, Tanpa Kedalaman, Lengan Terentang Sudut Kanan',
-          ciri: 'Figur tampak depan penuh · tanpa kedalaman · lengan terentang tegak lurus ke badan',
+          ciri: 'Figur tampak depan penuh · tanpa kedalaman · lengan terentang tegak lurus ke badan · seperti huruf T',
           interpret: 'Seseorang yang ditarik sepenuhnya dari depan, tanpa indikasi kedalaman dan lengan terentang sepenuhnya pada sudut kanan ke badan, menyiratkan bahwa subjek pada dasarnya kaku dan tanpa kompromi. Meski begitu, subjek mempunyai kebutuhan yang kuat untuk menyembunyikan perasaan tidak mampu dan tidak amannya dengan kesediaan yang nyata untuk menghadapi segala sesuatu secara langsung dan tegas.'
         },
         {
           id: 'profil_sebagian',
           label: 'Sebagian dalam Profil (Umum)',
-          ciri: 'Figur ditampilkan sebagian dalam profil · 3/4 pandangan',
+          ciri: 'Figur ditampilkan sebagian dalam profil · 3/4 pandangan · satu sisi wajah terlihat',
           interpret: 'Merupakan hal yang umum untuk menampilkan orang tersebut sebagian dalam profil.'
         },
         {
           id: 'profil_penuh',
           label: 'Sepenuhnya dalam Profil Tanpa Indikasi Pihak Lain',
-          ciri: 'Figur tampil penuh dari samping · tanpa indikasi keberadaan pihak lain',
+          ciri: 'Figur tampil penuh dari samping · tanpa indikasi keberadaan pihak lain · tidak ada interaksi',
           interpret: 'Seseorang yang digambarkan sepenuhnya dalam profil, tanpa indikasi apa pun bahwa pihak lain itu ada, menyiratkan kecenderungan oposisi dan isolasi yang kuat. Presentasi ini biasanya digunakan oleh subjek yang mengalami keadaan paranoid terang-terangan.'
         },
         {
           id: 'membelakangi_pengamat',
           label: 'Membelakangi Pengamat',
-          ciri: 'Figur digambar menghadap ke belakang · hanya punggung terlihat',
+          ciri: 'Figur digambar menghadap ke belakang · hanya punggung terlihat · tidak ada wajah',
           interpret: 'Seseorang yang membelakangi pengamat menunjukkan isolasi paranoid-skizoid di mana individu tersebut secara terbuka menolak hubungan psikososial dan, dalam banyak kasus, juga kenyataan.'
         },
         {
           id: 'kepala_menjauh',
           label: 'Kepala Seolah Menjauh dari Pengamat (Diputar Lebih dari Bagian Tubuh Lain)',
-          ciri: 'Kepala diputar menghindar · lebih dari bagian tubuh lain',
+          ciri: 'Kepala diputar menghindar · lebih dari bagian tubuh lain · wajah menoleh ke samping',
           interpret: 'Keengganan yang ditunjukkan dengan kepala seolah-olah mencoba menjauhkannya dari pengamat dengan memutarnya lebih dari bagian tubuh lainnya menyiratkan penghindaran dan isolasi yang serius, tetapi tidak sebanyak ketika bagian belakang kepala dihadirkan.'
         },
         {
           id: 'lengan_fleksibel',
           label: 'Lengan Fleksibel & Rileks',
-          ciri: 'Lengan digambar rileks · fleksibel · tidak tegang',
+          ciri: 'Lengan digambar rileks · fleksibel · tidak tegang · mengalir alami',
           interpret: 'Postur lengan bisa mengungkapkan hal ini. Lengan yang fleksibel dan rileks menunjukkan kesesuaian.'
         },
         {
           id: 'lengan_tegang_menempel',
           label: 'Lengan Tegang, Menempel Erat pada Tubuh',
-          ciri: 'Lengan digambar tegang · menempel ketat di tubuh',
+          ciri: 'Lengan digambar tegang · menempel ketat di tubuh · tidak ada celah antara lengan dan badan',
           interpret: 'Lengan yang tegang, menempel erat pada tubuh menunjukkan kekakuan.'
         },
         {
           id: 'lengan_disilang_dada',
           label: 'Lengan Disilangkan di Depan Dada',
-          ciri: 'Lengan terlipat di depan dada · bersilang',
+          ciri: 'Lengan terlipat di depan dada · bersilang · posisi defensif',
           interpret: 'Lengan disilangkan di depan dada menandakan kecurigaan dan sikap bermusuhan.'
         },
         {
           id: 'lengan_ditarik_belakang',
           label: 'Lengan Ditarik ke Belakang',
-          ciri: 'Lengan diletakkan di belakang badan',
+          ciri: 'Lengan diletakkan di belakang badan · tangan tersembunyi di belakang',
           interpret: 'Lengan yang ditarik ke belakang menyiratkan keengganan untuk memberikan konsesi kepada orang lain.'
         },
         {
           id: 'lengan_silang_panggul',
           label: 'Lengan Disilang dengan Tangan di Panggul',
-          ciri: 'Lengan bersilang di depan · tangan bertumpu di panggul',
+          ciri: 'Lengan bersilang di depan · tangan bertumpu di panggul · sikap menantang',
           interpret: 'Lengan disilangkan di depan sehingga tangan berada di panggul biasanya ditarik oleh wanita yang mengalami maladaptasi seksual atau orang melankolis yang tidak disengaja.'
         },
         {
@@ -329,61 +329,61 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'tangan_dalam_kantong',
           label: 'Tangan Masuk dalam Kantong Celana',
-          ciri: 'Tangan figur dimasukkan ke kantong celana',
+          ciri: 'Tangan figur dimasukkan ke kantong celana · tidak terlihat',
           interpret: 'Tangan masuk dalam kantong celana memiliki indikasi penghindaran yang terkendali, namun penafsiran ini dapat diubah ketika subjek menjelaskan isi tangan atau saku.'
         },
         {
           id: 'kaki_terbuka',
           label: 'Postur Berdiri dengan Kaki Terbuka',
-          ciri: 'Kaki dibuka lebar · seperti kangkang',
+          ciri: 'Kaki dibuka lebar · seperti kangkang · posisi menantang',
           interpret: 'Postur berdiri dengan kaki terbuka melambangkan pembangkangan, kebutuhan yang kuat akan rasa aman, atau keduanya.'
         },
         {
           id: 'kaki_menyatu',
           label: 'Kaki Disatukan dalam Posisi Tidak Bergerak',
-          ciri: 'Kaki rapat & tidak bergerak',
+          ciri: 'Kaki rapat & tidak bergerak · sejajar · kaku',
           interpret: 'Jika kaki yang disatukan dalam posisi tidak bergerak menunjukkan kemungkinan ketidakseimbangan seksual, kekakuan dan ketegangan.'
         },
         {
           id: 'kaki_berjinjit',
           label: 'Berjinjit',
-          ciri: 'Figur digambar berjinjit · tumit terangkat',
+          ciri: 'Figur digambar berjinjit · tumit terangkat · hanya ujung kaki menyentuh tanah',
           interpret: 'Posisi kaki bisa sangat ekspresif. Misalnya, seseorang yang digambarkan sedang berjinjit menandakan kontak yang lemah dengan kenyataan atau kebutuhan yang kuat untuk melarikan diri.'
         },
         {
           id: 'kaki_berlawanan_arah',
           label: 'Kaki Menunjuk ke Arah yang Berlawanan Secara Diametris',
-          ciri: 'Kaki menunjuk ke arah berlawanan · sementara figur menghadap depan',
+          ciri: 'Kaki menunjuk ke arah berlawanan · sementara figur menghadap depan · kaki kiri ke kiri, kaki kanan ke kanan',
           interpret: 'Kaki yang menunjuk ke arah yang berlawanan secara diametris, dengan orang yang berdiri di depan, mungkin menunjukkan perasaan ambivalen.'
         },
         {
           id: 'transparansi_lengan',
           label: 'Transparansi Lengan Terlihat Melalui Lengan',
-          ciri: 'Lengan terlihat menembus lengan lain · transparan',
+          ciri: 'Lengan terlihat menembus lengan lain · transparan · garis lengan saling menembus',
           interpret: 'Transparansi yang paling umum dan paling tidak signifikan dalam gambar orang adalah lengan yang terlihat melalui lengan.'
         },
         {
           id: 'organ_dalam_terlihat',
           label: 'Organ Tubuh Terlihat (Jantung, Paru-paru, dll)',
-          ciri: 'Organ dalam seperti jantung / paru-paru terlihat menembus tubuh',
+          ciri: 'Organ dalam seperti jantung / paru-paru terlihat menembus tubuh · gambar anatomi berlebihan',
           interpret: 'Namun, jika organ tubuh seperti jantung atau paru-paru terlihat, maka diindikasikan adanya patologi.'
         },
         {
           id: 'gerakan_berjalan_santai',
           label: 'Gerakan — Berjalan dengan Santai & Tanpa Beban',
-          ciri: 'Figur digambar sedang berjalan santai · rileks',
+          ciri: 'Figur digambar sedang berjalan santai · rileks · langkah ringan · tidak tegang',
           interpret: 'Gerakan tersebut mungkin menunjukkan perasaan penyesuaian memuaskan yang dialami subjek. Misalnya, seseorang yang berjalan dengan santai dan tanpa beban menunjukkan bahwa ia nyaman dengan kondisinya saat ini.'
         },
         {
           id: 'gerakan_lari_terkendali',
           label: 'Gerakan — Lari Terkendali (Seperti Kompetisi)',
-          ciri: 'Figur digambar sedang berlari · terkendali · seperti dalam kompetisi',
+          ciri: 'Figur digambar sedang berlari · terkendali · seperti dalam kompetisi · posisi tubuh dinamis',
           interpret: 'Lari yang terkendali, seperti dalam sebuah kompetisi, menyiratkan kebutuhan yang kuat untuk berprestasi.'
         },
         {
           id: 'gerakan_membeku',
           label: 'Gerakan — Tampak Seperti Membeku',
-          ciri: 'Figur tampak kaku / membeku / tidak bisa bergerak',
+          ciri: 'Figur tampak kaku / membeku / tidak bisa bergerak · postur kaku · seperti terpaku',
           interpret: 'Namun, gambaran yang tampak seperti membeku menunjukkan bahwa subjek kadang-kadang merasa menjadi mangsa dari keadaan panik.'
         }
       ]
@@ -400,49 +400,49 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'detail_wajib_orang',
           label: 'Detail Wajib (Kepala, Badan, 2 Kaki, 2 Lengan, 2 Mata, 1 Hidung, 1 Mulut, 2 Telinga)',
-          ciri: 'Figur harus memiliki: kepala · badan · 2 kaki · 2 lengan · 2 mata · 1 hidung · 1 mulut · 2 telinga',
+          ciri: 'Figur harus memiliki: kepala · badan · 2 kaki · 2 lengan · 2 mata · 1 hidung · 1 mulut · 2 telinga · semua elemen ada · proporsi wajar',
           interpret: 'Orang tersebut harus mempunyai kepala, badan, dua kaki dan dua lengan, kecuali hanya satu yang dapat dilihat atau ketidakhadirannya dapat dijelaskan dengan cara tertentu, misalnya dengan amputasi. Ciri-ciri wajah harus mencakup dua mata, satu hidung, satu mulut, dan dua telinga, kecuali jika posisinya tidak memungkinkan telinga terlihat atau ketidakhadirannya dijelaskan secara lisan, misalnya dengan mutilasi.'
         },
         {
           id: 'kepala_kecerdasan',
           label: 'Kepala (Wilayah Kecerdasan, Kendali & Fantasi)',
-          ciri: 'Perhatikan bagaimana kepala digambar · ukuran · detail',
+          ciri: 'Perhatikan bagaimana kepala digambar · ukuran · detail · ekspresi wajah',
           interpret: 'Kepala diyakini mewakili wilayah kecerdasan, kendali, dan fantasi.'
         },
         {
           id: 'mata_detail_pertama',
           label: 'Mata Sebagai Detail Wajah Pertama yang Digambar',
-          ciri: 'Mata digambar paling awal · sebelum detail wajah lain',
+          ciri: 'Mata digambar paling awal · sebelum detail wajah lain · mata menjadi fokus pertama',
           interpret: 'Mata, penerima rangsangan visual, mungkin merupakan detail karakteristik wajah yang paling terbuka. Biasanya ini adalah detail wajah pertama yang digambar anak kecil.'
         },
         {
           id: 'mata_kosong',
           label: 'Mata Kosong (Tanpa Bola Mata / Pupil)',
-          ciri: 'Mata digambar kosong · tanpa detail bola mata / pupil',
+          ciri: 'Mata digambar kosong · tanpa detail bola mata / pupil · hanya garis mata',
           interpret: 'Ketika mata digambar kosong tanpa detail bola mata atau pupil, hal ini bisa menunjukkan kecenderungan menghindari rangsangan visual yang tidak menyenangkan. Subjek kemungkinan lebih suka fokus pada pikiran internal dan fantasi daripada pada stimulus visual eksternal. Jika seseorang secara konsisten mengarahkan pandangannya ke dalam dan menciptakan gambaran mata yang kosong, ini bisa menjadi tanda bahwa individu tersebut cenderung mengesampingkan realitas visual dan lebih suka memfokuskan pikiran ke dalam dunia imajinasinya.'
         },
         {
           id: 'mata_patologis',
           label: 'Ketidaknormalan pada Cara Menggambar Mata (Patologis)',
-          ciri: 'Mata digambar tidak normal · kemungkinan pengalaman visual tidak nyata',
+          ciri: 'Mata digambar tidak normal · kemungkinan pengalaman visual tidak nyata · bentuk aneh · ukuran ekstrem',
           interpret: 'Jika ada ketidaknormalan dalam cara mata digambarkan (bersifat patologis) dan kemungkinan adanya pengalaman visual yang tidak nyata, maka perlu dicurigai bahwa ada masalah kesehatan mental atau kondisi patologis yang mungkin memengaruhi persepsi visual seseorang.'
         },
         {
           id: 'telinga_hilang',
           label: 'Hilangnya Telinga',
-          ciri: 'Telinga tidak digambar · dihilangkan',
+          ciri: 'Telinga tidak digambar · dihilangkan · tidak ada detail telinga',
           interpret: 'Hilangnya telinga mungkin menunjukkan adanya halusinasi pendengaran, meskipun telinga sering kali dihilangkan oleh subjek yang terbelakang tetapi dapat menyesuaikan diri dengan baik.'
         },
         {
           id: 'mulut_gigi',
           label: 'Mulut dengan Gigi (Instrumen Agresi)',
-          ciri: 'Mulut digambar dengan gigi terlihat · menonjol',
+          ciri: 'Mulut digambar dengan gigi terlihat · menonjol · deretan gigi jelas',
           interpret: 'Mulut, yang dianggap sebagai penerima sensasi menyenangkan pertama, juga dapat dianggap sebagai instrumen agresi; Kemungkinan terjadinya hal ini meningkat bila terdapat gigi.'
         },
         {
           id: 'dagu_kejantanan',
           label: 'Dagu Sebagai Simbol Kejantanan',
-          ciri: 'Perhatikan bagaimana dagu digambar · ukuran · penekanan',
+          ciri: 'Perhatikan bagaimana dagu digambar · ukuran · penekanan · bentuk',
           interpret: 'Dagu dipercaya sebagai simbol kejantanan.'
         }
       ]
@@ -459,31 +459,31 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'badan_pusat_impuls',
           label: 'Batang Tubuh (Pusat Impuls & Kebutuhan Fisik Dasar)',
-          ciri: 'Batang tubuh adalah pusat impuls · perhatikan kehadirannya',
+          ciri: 'Batang tubuh adalah pusat impuls · perhatikan kehadirannya · apakah digambar lengkap',
           interpret: 'Batang tubuh adalah pusat impuls dan kebutuhan fisik dasar; Tidak adanya batang tubuh menyiratkan penolakan impuls tubuh.'
         },
         {
           id: 'bahu_bulat_baik',
           label: 'Bahu Digambar dengan Baik & Membulat',
-          ciri: 'Bahu digambar membulat · baik · proporsional',
+          ciri: 'Bahu digambar membulat · baik · proporsional · lekuk alami',
           interpret: 'Bahu mengekspresikan perasaan dasar kekuatan dan kekuasaan. Bahu yang digambar dengan baik dan membulat menyiratkan ekspresi kekuatan yang lembut, fleksibel, dan seimbang.'
         },
         {
           id: 'bahu_persegi',
           label: 'Bahu Persegi',
-          ciri: 'Bahu digambar persegi · sudut tajam',
+          ciri: 'Bahu digambar persegi · sudut tajam · seperti balok',
           interpret: 'Bahu persegi berkonotasi dengan sikap bermusuhan dan defensif berlebihan.'
         },
         {
           id: 'lengan_alat_kendali',
           label: 'Lengan Sebagai Alat Mengendalikan / Membuat Perubahan',
-          ciri: 'Perhatikan bagaimana lengan digambar · panjang · posisi',
+          ciri: 'Perhatikan bagaimana lengan digambar · panjang · posisi · apakah ada tangan',
           interpret: 'Senjata dianggap sebagai alat untuk mengendalikan atau membuat perubahan di lingkungan.'
         },
         {
           id: 'lengan_kelalaian_keduanya',
           label: 'Kelalaian Kedua Lengan',
-          ciri: 'Kedua lengan tidak digambar · tidak ada',
+          ciri: 'Kedua lengan tidak digambar · tidak ada · bahu langsung ke badan',
           interpret: 'Kelalaian kedua lengan menyiratkan perasaan tidak mampu yang kuat. Kecenderungan bunuh diri dapat terjadi dan adanya ketakutan yang kuat akan pengebirian dapat dicurigai.'
         },
         {
@@ -501,7 +501,7 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'kaki_hilang',
           label: 'Tidak Adanya Kaki',
-          ciri: 'Kaki tidak digambar · hilang',
+          ciri: 'Kaki tidak digambar · hilang · figur berakhir di paha',
           interpret: 'Kaki, alat gerak tubuh, dapat dianggap sebagai representasi sudut pandang subjek tentang otonominya dalam lingkungan. Tidak adanya kaki menunjukkan penyempitan dan, mungkin, ketakutan akan pengebirian.'
         }
       ]
@@ -518,43 +518,43 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'leher_tidak_ada',
           label: 'Penghilangan Leher atau Garis Leher',
-          ciri: 'Leher tidak digambar · atau garis dagu / leher dihilangkan',
+          ciri: 'Leher tidak digambar · atau garis dagu / leher dihilangkan · kepala langsung ke badan',
           interpret: 'Biasanya leher, tangan, kaki, rambut, dan tubuh disertakan dalam gambar orang tersebut. Leher, persimpangan antara kepala (area kendali) dan tubuh (yang disebut area impuls) merupakan indeks koordinasi antara kepala dan tubuh. Penghilangan garis dagu pada gambar yang ditampilkan dari depan atau garis leher pada gambar profil menyiratkan aliran impuls dasar tubuh yang tidak menyenangkan, mungkin karena kurangnya kontrol yang memadai. Implikasi yang sama berlaku ketika leher dihilangkan seluruhnya. Dalam keadaan seperti itu subjek merasa bahwa subjek bergantung pada dorongan-dorongan tubuhnya, yang sering kali mengancam untuk menguasai dirinya.'
         },
         {
           id: 'alat_kelamin_anak',
           label: 'Gambar Alat Kelamin oleh Anak Kecil',
-          ciri: 'Alat kelamin digambar oleh anak kecil · wajar',
+          ciri: 'Alat kelamin digambar oleh anak kecil · wajar · sederhana',
           interpret: 'Gambaran alat kelamin yang dibuat oleh anak kecil dianggap wajar dan tidak aneh.'
         },
         {
           id: 'alat_kelamin_dewasa',
           label: 'Gambar Alat Kelamin Detail oleh Anak Lebih Besar / Orang Dewasa',
-          ciri: 'Alat kelamin digambar detail oleh anak lebih besar / dewasa',
+          ciri: 'Alat kelamin digambar detail oleh anak lebih besar / dewasa · tidak wajar',
           interpret: 'Jika gambar alat kelamin orang telanjang diilustrasikan secara rinci oleh anak lebih besar atau orang dewasa, itu dapat menunjukkan kecenderungan patologi.'
         },
         {
           id: 'tangan_tidak_ada',
           label: 'Tidak Memiliki Tangan',
-          ciri: 'Tangan tidak digambar · hilang',
+          ciri: 'Tangan tidak digambar · hilang · lengan berakhir tanpa tangan',
           interpret: 'Tangan adalah alat yang sangat penting untuk bertahan atau menyerang dalam lingkungan sekitar kita; tidak memiliki tangan bisa menandakan perasaan ketidakmampuan.'
         },
         {
           id: 'jari_belum_sempurna',
           label: 'Jari Digambar Seperti Tangan yang Belum Sempurna / Muncul dari Lengan Bawah',
-          ciri: 'Jari tidak jelas · tampak muncul langsung dari lengan bawah',
+          ciri: 'Jari tidak jelas · tampak muncul langsung dari lengan bawah · tidak ada telapak',
           interpret: 'Jika jari-jari digambar seperti pada tangan yang belum sempurna atau yang tampak muncul dari lengan bawah berkonotasi permusuhan.'
         },
         {
           id: 'jari_seperti_kelopak',
           label: 'Jari Digambar Seperti Kelopak Bunga',
-          ciri: 'Jari digambar seperti kelopak bunga · bulat · tidak proporsional',
+          ciri: 'Jari digambar seperti kelopak bunga · bulat · tidak proporsional · tidak seperti jari',
           interpret: 'Jika jari-jari digambar seperti kelopak bunga, itu mungkin memberikan kesan kekanak-kanakan.'
         },
         {
           id: 'kaki_diabaikan',
           label: 'Gambar Mengabaikan Kaki',
-          ciri: 'Kaki tidak digambar · diabaikan',
+          ciri: 'Kaki tidak digambar · diabaikan · figur berakhir di paha',
           interpret: 'Kaki, di sisi lain, adalah alat penting untuk mengontrol gerakan, dan kadang-kadang dapat dianggap sebagai senjata. Jika gambar mengabaikan kaki, itu bisa menandakan adanya perasaan tekanan yang kuat. Meskipun orang bisa mahir dalam menggambar, seringkali kaki menjadi bagian tubuh yang sulit digambarkan dengan baik.'
         }
       ]
@@ -577,13 +577,13 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'pipa_cerutu_rokok',
           label: 'Pipa, Cerutu, atau Rokok',
-          ciri: 'Figur memegang pipa · cerutu · atau rokok',
+          ciri: 'Figur memegang pipa · cerutu · atau rokok · ada asap',
           interpret: 'Pipa, cerutu, atau rokok mungkin menunjukkan erotisme oral ringan.'
         },
         {
           id: 'tongkat_pedang_senjata',
           label: 'Tongkat, Pedang, atau Senjata Lain',
-          ciri: 'Figur memegang tongkat · pedang · atau senjata',
+          ciri: 'Figur memegang tongkat · pedang · atau senjata · senjata jelas',
           interpret: 'Tongkat, pedang atau senjata lain menyaratkan adanya kecenderungan agresif dan mungkin juga memiliki asosiasi lingga.'
         }
       ]
@@ -600,13 +600,13 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'manusia_stik',
           label: 'Sosok "Manusia Stik" Satu Dimensi',
-          ciri: 'Figur digambar seperti stickman · satu garis · tanpa volume',
+          ciri: 'Figur digambar seperti stickman · satu garis · tanpa volume · kepala bulat · badan garis',
           interpret: 'Sosok "manusia stik" satu dimensi dapat digambar oleh orang yang mengalami keterbelakangan mental atau subjek yang mengalami kerusakan organik.'
         },
         {
           id: 'jari_satu_dimensi_terkait',
           label: 'Jari Satu Dimensi Digambar Tertutup dalam Garis (Seolah Saling Terkait)',
-          ciri: 'Jari digambar satu garis · seolah saling terkait / terkurung',
+          ciri: 'Jari digambar satu garis · seolah saling terkait / terkurung · garis menyambung',
           interpret: 'Ketika jari-jari satu dimensi digambar tertutup dalam garis seolah-olah saling terkait, maka diperlukan usaha sadar untuk menekan impuls agresif.'
         }
       ]
@@ -623,19 +623,19 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'bayangan_pakaian',
           label: 'Bayangan pada Batang Tubuh (Menunjukkan Pakaian)',
-          ciri: 'Batang tubuh di-shading · seolah menunjukkan figur berpakaian',
+          ciri: 'Batang tubuh di-shading · seolah menunjukkan figur berpakaian · garis-garis pakaian',
           interpret: 'Melalui bayangan pada batang tubuh, subjek dapat menunjukkan bahwa orang tersebut berpakaian.'
         },
         {
           id: 'bayangan_gaun',
           label: 'Bayangan Parsial dengan Serangkaian Garis di Bagian Kaki (Gaun)',
-          ciri: 'Ada serangkaian garis di bagian kaki · seolah menggambarkan gaun',
+          ciri: 'Ada serangkaian garis di bagian kaki · seolah menggambarkan gaun · rok',
           interpret: 'Bayangan parsial dengan serangkaian garis di bagian kaki mungkin menunjukkan sebuah gaun.'
         },
         {
           id: 'tangan_terlalu_teduh',
           label: 'Tangan yang Terlalu Teduh',
-          ciri: 'Tangan di-shading berlebihan',
+          ciri: 'Tangan di-shading berlebihan · goresan tebal pada tangan',
           interpret: 'Tangan yang terlalu teduh dikatakan sebagai patognomonik dari rasa bersalah saat melakukan masturbasi, namun karena rasa bersalah seperti itu sangat umum terjadi dan tangan yang terkena naungan tidak demikian, maka tangan tersebut tidak boleh ditafsirkan secara rutin dengan cara ini.'
         }
       ]
@@ -681,43 +681,43 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'penekanan_hidung',
           label: 'Penekanan Berlebihan pada Hidung',
-          ciri: 'Hidung ditekankan · diperbesar · detail berlebihan',
+          ciri: 'Hidung ditekankan · diperbesar · detail berlebihan · menonjol',
           interpret: 'Penekanan yang berlebihan pada hidung menunjukkan perhatian pada lingga dan kemungkinan ketakutan akan pengebirian.'
         },
         {
           id: 'penekanan_telinga',
           label: 'Penekanan Berlebihan pada Telinga',
-          ciri: 'Telinga ditekankan · diperbesar · detail',
+          ciri: 'Telinga ditekankan · diperbesar · detail · menonjol',
           interpret: 'Penekanan berlebihan pada telinga biasanya terlihat pada gambar subjek paranoid. Orang-orang seperti itu mengungkapkan keinginan yang sangat besar untuk mendengar dengan jelas apa yang mereka rasakan yang dikatakan orang lain tentang mereka.'
         },
         {
           id: 'tidak_menekankan_telinga',
           label: 'Tidak Menekankan Telinga',
-          ciri: 'Telinga digambar minimal · tidak ditekankan',
+          ciri: 'Telinga digambar minimal · tidak ditekankan · hampir tidak ada',
           interpret: 'Tidak menekankan telinga mungkin menunjukkan keinginan untuk membungkam kritik.'
         },
         {
           id: 'penekanan_dagu',
           label: 'Penekanan Berlebihan pada Dagu',
-          ciri: 'Dagu ditekankan · diperbesar · detail',
+          ciri: 'Dagu ditekankan · diperbesar · detail · menonjol',
           interpret: 'Penekanan yang berlebihan pada dagu menyiratkan adanya kebutuhan akan dominasi sosial.'
         },
         {
           id: 'tidak_menekankan_dagu',
           label: 'Tidak Menekankan Dagu',
-          ciri: 'Dagu digambar minimal · tidak ditekankan',
+          ciri: 'Dagu digambar minimal · tidak ditekankan · hampir tidak ada',
           interpret: 'Sebaliknya menyiratkan perasaan impotensi sosial.'
         },
         {
           id: 'penekanan_pinggang',
           label: 'Penekanan Berlebihan pada Pinggang (Ikat Pinggang Susah / Banyak Bayangan)',
-          ciri: 'Pinggang ditekankan · ikat pinggang susah digambar · banyak shading',
+          ciri: 'Pinggang ditekankan · ikat pinggang susah digambar · banyak shading · garis pinggang tebal',
           interpret: 'Garis pinggang dapat dianggap sebagai koordinator impuls kekuatan (batang atas) dan dorongan seksual (batang bawah). Penekanan berlebihan pada pinggang, biasanya ditunjukkan dengan kesulitan dalam menarik ikat pinggang atau ikat pinggang terlalu banyak bayangan, menyiratkan konflik dalam ekspresi dan kontrol impuls seksual.'
         },
         {
           id: 'penekanan_lutut_bokong',
           label: 'Penekanan pada Lutut atau Bokong (pada Gambar Pria)',
-          ciri: 'Lutut atau bokong pria ditekankan · diperbesar · detail',
+          ciri: 'Lutut atau bokong pria ditekankan · diperbesar · detail · menonjol',
           interpret: 'Penekanan pada lutut atau bokong pada gambar pria mungkin menunjukkan adanya dorongan homoseksual yang kuat.'
         },
         {
@@ -729,7 +729,7 @@ window.GRAFIS_AUTO_DATA_HTP_SLIDES.push({
         {
           id: 'penekanan_pakaian_ikat_pinggang',
           label: 'Penekanan Berlebihan pada Ikat Pinggang (Detail Pakaian)',
-          ciri: 'Ikat pinggang digambar detail berlebihan · ditekankan',
+          ciri: 'Ikat pinggang digambar detail berlebihan · ditekankan · menonjol',
           interpret: 'Penekanan pada detail pakaian tertentu tampaknya memiliki implikasi tertentu. Penekanan berlebihan pada ikat pinggang menyiratkan kekhawatiran dan kegelisahan seksual yang hebat.'
         }
       ]
