@@ -13,7 +13,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_dasar',
-      title: 'Bentuk Dasar Batang',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -38,7 +38,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_khusus',
-      title: 'Bentuk Khusus Batang',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -84,7 +84,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'variasi_modifikasi',
-      title: 'Variasi & Modifikasi Batang',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -146,7 +146,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-08-batang-kontinuitas-struktur',
-  title: 'Kontinuitas & Struktur Batang',
+  title: '',
   image: BASE_BATANG + '13tidak%20bersambung.png',
   sections: [
     {
@@ -232,7 +232,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'arah_kemiringan',
-      title: 'Arah Kemiringan Batang',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -264,7 +264,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'permukaan_tekstur',
-      title: 'Permukaan & Tekstur Batang',
+      title: '',
       type: 'checkbox',
       imagePosition: 'top',
       imageSize: 300,
@@ -298,7 +298,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'shading',
-      title: 'Bayangan (Shading) pada Batang',
+      title: '',
       type: 'checkbox',
       items: [
         {
