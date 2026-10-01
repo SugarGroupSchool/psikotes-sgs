@@ -36,7 +36,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-kehidupan-pohon',
-  title: 'Kehidupan Pohon',
+  title: '',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
@@ -66,7 +66,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-statis-dinamis',
-  title: 'Statis atau Dinamis',
+  title: '',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
@@ -96,7 +96,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
    ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-ekspresi-keseluruhan',
-  title: 'Ekspresi Keseluruhan',
+  title: '',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
     {
