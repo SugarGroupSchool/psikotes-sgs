@@ -13,7 +13,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_dasar_dahan',
-      title: 'Bentuk Dasar Dahan',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -38,7 +38,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'ketebalan_susunan',
-      title: 'Ketebalan & Susunan Dahan',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -70,7 +70,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'arah_konflik',
-      title: 'Arah & Konflik Dahan',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -109,7 +109,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'pipa_terbuka',
-      title: 'Dahan Bentuk Pipa / Terbuka',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -141,7 +141,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'distribusi_ukuran',
-      title: 'Distribusi & Ukuran Dahan',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -215,7 +215,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_khusus_dahan',
-      title: 'Bentuk Khusus Dahan',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -275,7 +275,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'arah_dahan',
-      title: 'Arah Dahan (Vertikal & Horizontal)',
+      title: '',
       type: 'checkbox',
       items: [
         {
@@ -328,7 +328,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   sections: [
     {
       id: 'bentuk_khusus_lain',
-      title: 'Bentuk Khusus Lain',
+      title: '',
       type: 'checkbox',
       items: [
         {
