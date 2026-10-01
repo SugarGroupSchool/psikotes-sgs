@@ -1,18 +1,18 @@
-/* BAUM — Bagian 3: Penempatan / Lokasi */
+/* BAUM — Penempatan / Lokasi */
+
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
+/* ============================================================
+   Slide 1 — Zona Utama
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-03',
-  title: '3. Penempatan / Lokasi',
+  id: 'baum-03-zona-utama',
+  title: 'Zona Utama',
   image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
   sections: [
-
-    /* ==========================================================
-       1. ZONA UTAMA
-       ========================================================== */
     {
       id: 'zona_utama',
-      title: '1. Zona Utama',
+      title: 'Zona Utama',
       type: 'checkbox',
       items: [
         {
@@ -46,14 +46,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mudah Didominasi oleh Drive-nya (Ketidaksadaran). Cenderung ke bawah menunjukkan adanya pengaruh yang signifikan dari lapisan tak sadar atau dorongan-dorongan yang tidak sepenuhnya disadari. Bagian bawah: ada perasaan tidak aman terutama bila diikuti oleh shading yang kuat, selain itu mengindikasikan pula adanya perasaan tidak mampu yang dirasakan oleh individu. Selain itu mengindikasikan adanya tendensi depresif. Fokus pada pembawaan, substansi, lapisan primitif, dorongan, dan emosi.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. SUDUT SPESIFIK
-       ========================================================== */
+/* ============================================================
+   Slide 2 — Sudut Spesifik
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-03-sudut-spesifik',
+  title: 'Sudut Spesifik',
+  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  sections: [
     {
       id: 'sudut',
-      title: '2. Sudut Spesifik',
+      title: 'Sudut Spesifik',
       type: 'checkbox',
       items: [
         {
@@ -81,14 +88,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Kondisi depresif karena terpengaruh pada masa laluanya. Bila digambar nampak kurang proporsional, garis kurang baik dan shading yang kuat menunjukkan kecenderungan depresif.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. ARAH GERAK KHUSUS (disederhanakan)
-       ========================================================== */
+/* ============================================================
+   Slide 3 — Arah Gerak Khusus
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-03-arah-gerak-khusus',
+  title: 'Arah Gerak Khusus',
+  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  sections: [
     {
       id: 'arah_gerak',
-      title: '3. Arah Gerak Khusus',
+      title: 'Arah Gerak Khusus',
       type: 'checkbox',
       items: [
         {
@@ -111,6 +125,5 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
