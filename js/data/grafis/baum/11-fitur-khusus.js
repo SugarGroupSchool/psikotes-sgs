@@ -1,23 +1,19 @@
-/* ============================================================
-   BAUM — 11. Fitur Khusus
-   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar fitur khusus */
 const BASE_FITUR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/fitur%20khusus/';
 
+/* ============================================================
+   Slide 1 — Batas, Pagar & Dasar
+   ============================================================ */
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
-  id: 'baum-11-fitur-khusus',
-  title: '11. Fitur Khusus',
+  id: 'baum-11-batas-pagar-dasar',
+  title: 'Batas, Pagar & Dasar',
   image: BASE_FITUR + 'pohon%20dilingkari%20pagar.png',
   sections: [
-
-    /* ==========================================================
-       1. BATAS, PAGAR & DASAR
-       ========================================================== */
     {
       id: 'batas_pagar_dasar',
-      title: '1. Batas, Pagar & Dasar',
+      title: 'Batas, Pagar & Dasar',
       type: 'checkbox',
       items: [
         {
@@ -49,14 +45,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Sikap hati-hati — tidak terburu-buru, lebih memperhatikan detail-detail kecil, mempertimbangkan berbagai faktor sebelum bertindak. (2) Ketidakpercayaan atau keraguan — ketidakpastian dalam membuat keputusan atau kurang keyakinan pada orang lain. (3) Ketidakmampuan menyesuaikan diri — tidak mau menyesuaikan diri dengan situasi baru atau perubahan, perasaan ketidaknyamanan atau kekhawatiran akan konsekuensi perubahan. (4) Stabilitas lemah — kesulitan menjaga stabilitas emosional, terutama saat menanggapi perubahan. (5) Kemauan lemah untuk bertindak — kekurangan motivasi atau keinginan kuat untuk bertindak, dipicu ketidakpastian atau kurangnya keyakinan diri dalam membuat keputusan. (6) Perasaan tidak aman atau kurang keyakinan diri — menyebabkan ketidakstabilan atau ketidaknyamanan dalam situasi tertentu.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       2. BUNGA, BUAH & DAUN
-       ========================================================== */
+/* ============================================================
+   Slide 2 — Bunga, Buah & Daun
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-11-bunga-buah-daun',
+  title: 'Bunga, Buah & Daun',
+  image: BASE_FITUR + 'bungadiujungnya.png',
+  sections: [
     {
       id: 'bunga_buah_daun',
-      title: '2. Bunga, Buah & Daun',
+      title: 'Bunga, Buah & Daun',
       type: 'checkbox',
       items: [
         {
@@ -134,14 +137,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           ]
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       3. ELEMEN ORGANIK LAIN & MULTI-POHON
-       ========================================================== */
+/* ============================================================
+   Slide 3 — Elemen Organik Lain & Multi-Pohon
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-11-elemen-organik-multi',
+  title: 'Elemen Organik Lain & Multi-Pohon',
+  image: BASE_FITUR + 'sarangburung.png',
+  sections: [
     {
       id: 'elemen_organik_multi',
-      title: '3. Elemen Organik Lain & Multi-Pohon',
+      title: 'Elemen Organik Lain & Multi-Pohon',
       type: 'checkbox',
       items: [
         {
@@ -180,14 +190,21 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
           interpret: 'Mencerminkan: (1) Kurang percaya pada diri sendiri — kurang percaya pada kemampuan dan potensinya, ketidakmampuan mengakui dan memanfaatkan kekuatan internal. (2) Rasa tergantung — cenderung bergantung pada orang lain atau faktor luar untuk mendapatkan dukungan dan validasi. (3) Kurang diakui lingkungan — kurang mendapatkan pengakuan atau perhatian dari lingkungan sekitarnya, bisa memicu perasaan terisolasi atau kurang dihargai.'
         }
       ]
-    },
+    }
+  ]
+});
 
-    /* ==========================================================
-       4. PEMANDANGAN & LINGKUNGAN
-       ========================================================== */
+/* ============================================================
+   Slide 4 — Pemandangan & Lingkungan
+   ============================================================ */
+window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
+  id: 'baum-11-pemandangan-lingkungan',
+  title: 'Pemandangan & Lingkungan',
+  image: BASE_FITUR + 'pohondikelilingipemandangan.png',
+  sections: [
     {
       id: 'pemandangan_lingkungan',
-      title: '4. Pemandangan & Lingkungan',
+      title: 'Pemandangan & Lingkungan',
       type: 'checkbox',
       items: [
         {
@@ -213,6 +230,5 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
         }
       ]
     }
-
   ]
 });
