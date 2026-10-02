@@ -1,933 +1,916 @@
-/* =========================================================
-   GRAFIS TEST (DAP, HTP, BAUM) — Full Logic v2.0
-   ---------------------------------------------------------
-   Improvements v2.0:
-   - Progress indicator (subtes 1/3, 2/3, 3/3)
-   - Timer warning di 60s & 30s (pulse red)
-   - Validasi foto (resolusi, brightness, ukuran)
-   - Preview sebelum lanjut
-   - Firebase upload dengan retry (3× exponential backoff)
-   - LocalStorage fallback kalau Firebase gagal
-   - Konfirmasi sebelum finish
-   ========================================================= */
+/* ============================================================
+   js/data/grafis-scoring.js — GRAFIS SCORING ENGINE v9.0
+   ------------------------------------------------------------
+   SINGLE SOURCE OF TRUTH untuk auto-scoring DAP / BAUM / HTP.
 
-const GRAFIS_SUBTESTS = (typeof GRAFIS_DATA !== 'undefined' && GRAFIS_DATA.subtests)
-  ? GRAFIS_DATA.subtests
-  : [];
+   Dipakai oleh:
+   - js/00n-grafis-interpretasi.js (form admin)
+   - js/tests/grafis.js (kandidat, opsional)
 
-let __grafisTimer = null;
-let __grafisTimeLeft = 0;
-let __grafisCurrentIdx = 0;
-let __grafisWarned60 = false;
-let __grafisWarned30 = false;
+   Basis literatur:
+   - Machover (1949)  — Personality Projection in DAP
+   - Buck (1948)      — HTP Manual
+   - Koch (1952)      — Der Baumtest
+   - Hammer (1958)    — The Clinical Application of Projective Drawings
+   - Groth-Marnat (2009) — Handbook of Psychological Assessment
+   ============================================================ */
 
-/* =========================================================
-   HELPER: Escape
-   ========================================================= */
-function __grafisEscape(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+(function (global) {
+  'use strict';
 
-/* =========================================================
-   STYLES
-   ========================================================= */
-function ensureGrafisStyles() {
-  if (document.getElementById('grafisStylesInjected')) return;
+  /* ============================================================
+     VERSI & KONFIGURASI
+     ============================================================ */
+  const VERSION = '9.0.0';
+  const RELEASED = '2026-10-02';
 
-  const s = document.createElement('style');
-  s.id = 'grafisStylesInjected';
-  s.textContent = `
-    .grafis-page p,
-    .grafis-page li,
-    .grafis-page .grafis-detail-list li,
-    .grafis-page .grafis-instruction,
-    .grafis-page .grafis-instruction li,
-    .grafis-page .grafis-notice,
-    .grafis-page .grafis-modal-text,
-    .grafis-page .grafis-modal-highlight,
-    .grafis-page .grafis-example-note,
-    .grafis-page .grafis-upload-info li,
-    .grafis-page .grafis-final p,
-    .grafis-thank p {
-      text-align: justify;
-      text-justify: inter-word;
-      hyphens: auto;
-      -webkit-hyphens: auto;
-      word-break: break-word;
-    }
+  const CONFIG = Object.freeze({
+    VERSION,
+    RELEASED,
 
-    .grafis-btn,
-    .grafis-timer-chip,
-    .grafis-modal-actions button {
-      text-align: center;
-    }
+    KATEGORI: [
+      'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
+      'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+      'STABILITAS EMOSI & KONTROL IMPULS',
+      'MOTIVATION & ACHIEVEMENT DRIVE',
+      'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
+      'INTEGRITY & RULE COMPLIANCE',
+      'TEACHING CREATIVITY'
+    ],
 
-    /* Progress indicator */
-    .grafis-progress-track {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      margin: 18px auto 0;
-      padding: 14px 18px;
-      max-width: 560px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-    }
-    .grafis-progress-step {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #94a3b8;
-      transition: all .25s ease;
-    }
-    .grafis-progress-step.active { color: #2563eb; }
-    .grafis-progress-step.done { color: #16a34a; }
-    .grafis-progress-dot {
-      width: 26px; height: 26px;
-      border-radius: 50%;
-      display: grid; place-items: center;
-      background: #e2e8f0;
-      color: #94a3b8;
-      font-size: 11px;
-      font-weight: 900;
-      transition: all .25s ease;
-    }
-    .grafis-progress-step.active .grafis-progress-dot {
-      background: linear-gradient(135deg, #3b82f6, #1e40af);
-      color: #fff;
-      box-shadow: 0 0 0 4px rgba(59,130,246,.15);
-    }
-    .grafis-progress-step.done .grafis-progress-dot {
-      background: linear-gradient(135deg, #16a34a, #059669);
-      color: #fff;
-    }
-    .grafis-progress-connector {
-      width: 30px; height: 2px;
-      background: #e2e8f0;
-      border-radius: 2px;
-    }
-    .grafis-progress-connector.done { background: #16a34a; }
+    SKOR_BASE: 3.0,
+    SKOR_MIN: 1.0,
+    SKOR_MAX: 4.0,
+    DELTA_SCALE: 1.2,
 
-    /* Timer warning */
-    .grafis-timer-chip.warn-60 {
-      background: #fef3c7 !important;
-      border-color: #fde68a !important;
-      color: #92400e !important;
-    }
-    .grafis-timer-chip.warn-30 {
-      background: #fee2e2 !important;
-      border-color: #fca5a5 !important;
-      color: #991b1b !important;
-      animation: grafisTimerPulse 1s ease-in-out infinite;
-    }
-    @keyframes grafisTimerPulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220,38,38,.4); }
-      50%      { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(220,38,38,0); }
-    }
+    MIN_BOBOT_CONFIDENCE: 6,
+    MIN_KONVERGENSI: 2,
 
-    /* Warning validation */
-    .grafis-warn-inline {
-      margin-top: 8px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 11.5px;
-      line-height: 1.5;
-      display: none;
-    }
-    .grafis-warn-inline.show { display: block; }
-    .grafis-warn-inline.warn {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      color: #78350f;
-    }
-    .grafis-warn-inline.error {
-      background: #fef2f2;
-      border: 1px solid #fca5a5;
-      color: #991b1b;
-    }
+    THRESHOLD: {
+      SANGAT_BAIK: 3.5,
+      BAIK: 3.0,
+      CUKUP: 2.5
+    },
 
-    /* Preview block */
-    .grafis-preview-block {
-      margin-top: 14px;
-      padding: 14px;
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      border-radius: 12px;
-      display: none;
-    }
-    .grafis-preview-block.show { display: block; }
-    .grafis-preview-block-title {
-      font-size: 12px;
-      font-weight: 800;
-      color: #166534;
-      margin-bottom: 8px;
-    }
-    .grafis-preview-block-meta {
-      font-size: 11px;
-      color: #4b7a5a;
-      line-height: 1.6;
-    }
-  `;
-  document.head.appendChild(s);
-}
+    FIT_THRESHOLD: {
+      HIGHLY: 85,
+      RECO: 70,
+      FAIRLY: 50
+    },
 
-/* =========================================================
-   PLAY TIMEOUT SOUND
-   ========================================================= */
-function playTimeoutSound() {
-  try {
-    const a = new Audio("https://cdn.jsdelivr.net/gh/Pragas123/assets@main/time%20up.mp3");
-    a.volume = .87;
-    a.play().catch(() => {});
-  } catch {}
-}
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-function nextOrUploadSlide(idx) {
-  if (idx < GRAFIS_SUBTESTS.length - 1) {
-    renderGrafisSlide(idx + 1, "persiapan");
-  } else {
-    renderUploadSlide();
-  }
-}
-
-function grafisHeader(title, subtitle = "") {
-  return renderTestPageHeader({
-    eyebrow: "ASSESSMENT CENTER",
-    title: title,
-    subtitle: subtitle
+    RED_FLAG_BOBOT: 3,
+    MAX_TRACE_ENTRIES: 500
   });
-}
 
-/* =========================================================
-   PROGRESS INDICATOR
-   ========================================================= */
-function renderGrafisProgress(currentIdx) {
-  return `
-    <div class="grafis-progress-track">
-      ${GRAFIS_SUBTESTS.map((s, i) => {
-        const isDone = i < currentIdx;
-        const isActive = i === currentIdx;
-        const cls = isDone ? 'done' : (isActive ? 'active' : '');
-        const dotContent = isDone ? '✓' : (i + 1);
-        return `
-          <div class="grafis-progress-step ${cls}">
-            <div class="grafis-progress-dot">${dotContent}</div>
-            <span>${__grafisEscape(s.kode)}</span>
-          </div>
-          ${i < GRAFIS_SUBTESTS.length - 1 ? `<div class="grafis-progress-connector ${isDone ? 'done' : ''}"></div>` : ''}
-        `;
-      }).join('')}
-    </div>
-  `;
-}
+  /* ============================================================
+     BOBOT & RED FLAG RULES
+     ============================================================ */
+  const BOBOT_RULES = Object.freeze({
+    RED_FLAG: [
+      /mutilasi/i, /dipotong/i, /terpotong/i, /terputus/i,
+      /terbakar/i, /runtuh/i, /tumbang/i, /kematian/i, /\bmati\b/i,
+      /mayat/i, /hantu/i, /kuburan/i, /bunuh/i, /kastrasi/i,
+      /organ.*hilang/i, /x.?ray/i, /kerangka/i,
+      /menembus.*kepala/i
+    ],
+    BERAT: [
+      /agresif/i, /bermusuhan/i, /marah/i, /meledak/i,
+      /depresi/i, /psikosis/i, /skizo/i, /paranoid/i, /manik/i,
+      /\bkacau\b/i, /histeris/i, /destruktif/i,
+      /bunuh diri/i, /suicid/i, /curiga/i, /antisosial/i, /psikopat/i
+    ],
+    SEDANG: [
+      /cemas/i, /takut/i, /sedih/i, /murung/i, /gelisah/i,
+      /tegang/i, /impulsif/i, /\bkaku\b/i, /regres/i, /infantil/i,
+      /defensif/i, /menarik diri/i, /insecure/i, /rendah diri/i,
+      /tertekan/i, /neurotik/i, /kompulsif/i, /obsesif/i
+    ]
+  });
 
-/* =========================================================
-   WARNING SEBELUM UPLOAD
-   ========================================================= */
-function showGrafisUploadWarning(idx) {
-  if (__grafisTimer) { clearInterval(__grafisTimer); __grafisTimer = null; }
-  const subtest = GRAFIS_SUBTESTS[idx];
+  /* ============================================================
+     KEYWORD → KATEGORI & POLARITAS
+     ============================================================ */
+  const KEYWORD_RULES = Object.freeze({
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': {
+      positif: [
+        /jelas/i, /teratur/i, /sistematis/i, /logis/i, /konsisten/i,
+        /terorganisir/i, /fokus/i, /analitis/i, /cerdas/i,
+        /intelektual/i, /kreatif.*berpikir/i
+      ],
+      negatif: [
+        /kebingungan/i, /\bbingung\b/i, /tidak jelas/i, /kabur/i,
+        /tidak logis/i, /tidak teratur/i, /\bkacau\b/i, /disorientasi/i,
+        /tidak mampu/i, /kesulitan berpikir/i, /retardasi/i,
+        /\bdebil\b/i, /gangguan kognitif/i, /tidak fokus/i,
+        /konsentrasi kurang/i, /pelupa/i, /tidak konsisten/i,
+        /tidak sistematis/i, /berpikir asosiatif/i, /kekacauan/i,
+        /primitif/i, /persepsi.*terdistorsi/i, /keterbatasan berpikir/i
+      ]
+    },
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': {
+      positif: [
+        /empati/i, /hangat/i, /ramah/i, /kooperatif/i,
+        /bersahabat/i, /peduli/i, /suka membantu/i, /sosial.*baik/i,
+        /mudah bergaul/i, /interpersonal.*baik/i, /terbuka/i,
+        /kolaboratif/i, /peka.*orang lain/i, /diplomatis/i
+      ],
+      negatif: [
+        /menarik diri/i, /isolasi/i, /penyendiri/i, /tidak bergaul/i,
+        /kesulitan.*sosial/i, /hambatan.*interaksi/i, /permusuhan/i,
+        /bermusuhan/i, /agresif.*sosial/i, /tidak percaya/i,
+        /curiga/i, /sulit.*berhubungan/i, /\bdingin\b/i, /\bcuek\b/i,
+        /tidak peduli/i, /\bego\b/i, /individualis/i, /terisolasi/i,
+        /kesepian/i, /canggung/i, /pemalu/i, /menghindar/i,
+        /menghina/i, /menyerang verbal/i, /manipulasi/i, /eksploitasi/i
+      ]
+    },
+    'STABILITAS EMOSI & KONTROL IMPULS': {
+      positif: [
+        /tenang/i, /stabil/i, /damai/i, /terkendali/i, /seimbang/i,
+        /sabar/i, /kalem/i, /harmonis/i, /matang.*emosi/i,
+        /kontrol.*baik/i, /dapat mengendalikan/i, /relaks/i
+      ],
+      negatif: [
+        /agresif/i, /marah/i, /impulsif/i, /cemas/i, /takut/i,
+        /depresi/i, /sedih/i, /murung/i, /\bkacau\b/i, /gelisah/i,
+        /tegang/i, /panik/i, /nervous/i, /manik/i, /meledak/i,
+        /kontrol.*lemah/i, /tidak stabil/i, /emosional/i,
+        /histeris/i, /frustrasi/i, /putus asa/i, /melankolis/i,
+        /labilitas/i, /moody/i, /sensitif/i, /mudah tersinggung/i,
+        /mudah marah/i, /\bstres\b/i, /ketegangan/i, /psikotik/i
+      ]
+    },
+    'MOTIVATION & ACHIEVEMENT DRIVE': {
+      positif: [
+        /ambisi/i, /berprestasi/i, /termotivasi/i, /semangat/i,
+        /vitalitas/i, /energi.*tinggi/i, /rajin/i, /tekun/i,
+        /gigih/i, /berusaha keras/i, /optimis/i, /aspirasi/i,
+        /produktif/i, /inisiatif/i, /berusaha mencapai tujuan/i,
+        /aktif/i, /dinamis/i, /vital aktif/i
+      ],
+      negatif: [
+        /tidak termotivasi/i, /kurang semangat/i, /pasif/i,
+        /malas/i, /tidak ambisi/i, /kurang dorongan/i,
+        /mudah menyerah/i, /lemah.*kemauan/i, /tidak ada tujuan/i,
+        /stagnan/i, /tidak produktif/i, /\bloyo\b/i, /lemas/i,
+        /tidak bertenaga/i, /energi.*lemah/i, /lesu/i,
+        /kurangnya usaha/i, /tidak ada kemauan/i, /hampa/i
+      ]
+    },
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': {
+      positif: [
+        /fleksibel/i, /adaptif/i, /dinamis/i, /mudah menyesuaikan/i,
+        /terbuka/i, /mengeksplorasi/i, /mencoba.*baru/i,
+        /inovatif/i, /kreatif/i, /cepat belajar/i, /inisiatif/i,
+        /responsif/i, /spontan/i, /berani tampil beda/i
+      ],
+      negatif: [
+        /\bkaku\b/i, /rigid/i, /tidak fleksibel/i, /sulit beradaptasi/i,
+        /stagnan/i, /monoton/i, /tidak bisa berubah/i, /resistensi/i,
+        /menolak perubahan/i, /tidak dinamis/i, /statis/i,
+        /menentang/i, /keras kepala/i, /kepala batu/i, /defensif/i,
+        /tertutup.*pengalaman baru/i, /tidak inisiatif/i
+      ]
+    },
+    'INTEGRITY & RULE COMPLIANCE': {
+      positif: [
+        /integritas/i, /jujur/i, /bertanggung jawab/i, /disiplin/i,
+        /patuh.*aturan/i, /moral.*baik/i, /etis/i, /dapat dipercaya/i,
+        /dedikasi/i, /loyal/i, /amanah/i, /konsisten.*nilai/i
+      ],
+      negatif: [
+        /curang/i, /manipulasi/i, /eksploitasi/i, /melanggar/i,
+        /antisosial/i, /psikopat/i, /tidak jujur/i, /menyembunyikan/i,
+        /berbohong/i, /mengelak/i, /menentang aturan/i, /melawan.*otoritas/i,
+        /tidak bertanggung jawab/i, /otoriter/i, /narsis/i, /narsistik/i
+      ]
+    },
+    'TEACHING CREATIVITY': {
+      positif: [
+        /kreatif/i, /inovatif/i, /imajinatif/i, /ide.*baru/i,
+        /ekspresif/i, /artistik/i, /orisinil/i, /variatif/i,
+        /mengeksplorasi/i, /inventif/i, /kaya ide/i
+      ],
+      negatif: [
+        /tidak kreatif/i, /monoton/i, /\bkaku\b.*mengajar/i,
+        /tidak inovatif/i, /repetitif/i, /tidak imajinatif/i,
+        /kurang ide/i, /tidak variatif/i, /daya cipta kurang/i
+      ]
+    }
+  });
 
-  const modal = document.createElement("div");
-  modal.className = "grafis-modal-overlay";
-  modal.id = "grafisUploadWarning";
-  modal.innerHTML = `
-    <div class="grafis-modal">
-      <div class="grafis-modal-top"></div>
-      <div class="grafis-modal-body">
-        <div class="grafis-modal-icon">!</div>
-        <h3>Pastikan foto sudah siap</h3>
-        <div class="grafis-modal-text">
-          Sebelum masuk ke tahap upload, pastikan hasil gambar Anda sudah selesai dan
-          <b>sudah difoto dengan jelas</b>.<br><br>
-          Setelah melanjutkan, Anda akan memiliki waktu terbatas untuk mengunggah hasil gambar.
-        </div>
-        <div class="grafis-modal-highlight">
-          <b>Silakan ambil foto terlebih dahulu.</b><br>
-          Untuk memudahkan proses upload, Anda dapat mengirim foto ke
-          <b>WhatsApp diri sendiri</b>, kemudian membuka WhatsApp Web pada komputer atau laptop.
-          <br><br>
-          <b>Waktu upload: ${Math.round(subtest.waktuUpload / 60)} menit.</b>
-        </div>
-        <div class="grafis-modal-actions">
-          <button type="button" class="grafis-btn" id="grafisBtnLanjutUpload">
-            Saya Sudah Foto, Lanjut Upload →
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  document.getElementById("grafisBtnLanjutUpload").onclick = () => {
-    modal.remove();
-    renderGrafisSlide(idx, "foto");
+  /* ============================================================
+     OVERRIDE TABLE — tuning manual per item
+     Format key: 'testKey::sectionId::itemId'
+     ============================================================ */
+  const OVERRIDE_TABLE = {
+    // Kosongkan dulu — isi bertahap sesuai tuning psikolog
   };
-}
 
-/* =========================================================
-   TIMER MENGGAMBAR
-   ========================================================= */
-function startGrafisDrawingTimer() {
-  if (__grafisTimer) clearInterval(__grafisTimer);
-  __grafisWarned60 = false;
-  __grafisWarned30 = false;
+  /* ============================================================
+     POSITION PROFILES
+     ============================================================ */
+  const POSITION_PROFILES = Object.freeze({
+    guru_mapel: {
+      label: 'Guru Mata Pelajaran',
+      matcher: /guru|dosen|pengajar|teacher|biologi|kimia|fisika|matematika|math|bahasa|inggris|indonesia|lampung|sejarah|sosial|\bipa\b|islam|kristen|katholik|katolik|hindu|\btik\b|visual|art|olahraga|olah\s*raga/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.5,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.2,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.2,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.2,
+        'INTEGRITY & RULE COMPLIANCE': 3.3,
+        'TEACHING CREATIVITY': 3.2
+      },
+      priority: [
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
+        'INTEGRITY & RULE COMPLIANCE',
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK'
+      ],
+      nama_field: 'mata pelajaran'
+    },
 
-  __grafisTimer = setInterval(() => {
-    __grafisTimeLeft--;
-    const chip = document.getElementById("timerGrafisChip");
-    const t = document.getElementById("timerGrafis");
-    if (t) t.textContent = formatTime(__grafisTimeLeft);
+    guru_kelas: {
+      label: 'Guru Kelas / TK / SD',
+      matcher: /kindergarten|\btk\b|primary|\bsd\b|guru\s*kelas/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.6,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.5,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.2,
+        'INTEGRITY & RULE COMPLIANCE': 3.3,
+        'TEACHING CREATIVITY': 3.5
+      },
+      priority: [
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'TEACHING CREATIVITY'
+      ],
+      nama_field: 'pendidikan anak'
+    },
 
-    // Warning at 60s
-    if (__grafisTimeLeft <= 60 && !__grafisWarned60 && __grafisTimeLeft > 30) {
-      __grafisWarned60 = true;
-      if (chip) chip.classList.add("warn-60");
+    administrator: {
+      label: 'Administrator / Staff',
+      matcher: /administrator|admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.5
+      },
+      priority: [
+        'INTEGRITY & RULE COMPLIANCE',
+        'MOTIVATION & ACHIEVEMENT DRIVE'
+      ],
+      nama_field: 'administrasi & pelayanan'
+    },
+
+    technical: {
+      label: 'Technical Staff / Operator',
+      matcher: /technical|teknisi|welder|las\b|wood|maintenance|baker|operator|produksi|engineering|it\s*staff/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.5,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.5
+      },
+      priority: [
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'INTEGRITY & RULE COMPLIANCE'
+      ],
+      nama_field: 'kerja teknis & keselamatan'
+    },
+
+    konselor: {
+      label: 'Konselor / BK',
+      matcher: /konselor|counselor|\bbk\b|bimbingan/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.3,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.8,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.6,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.3,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 3.2
+      },
+      priority: [
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'INTEGRITY & RULE COMPLIANCE'
+      ],
+      nama_field: 'bimbingan & konseling'
+    },
+
+    housekeeping: {
+      label: 'Housekeeping',
+      matcher: /housekeeping|cleaning|kebersihan|kebun|gardener/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 2.8,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.3,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.0
+      },
+      priority: [
+        'INTEGRITY & RULE COMPLIANCE',
+        'MOTIVATION & ACHIEVEMENT DRIVE'
+      ],
+      nama_field: 'kebersihan & ketertiban'
+    },
+
+    default: {
+      label: 'Umum',
+      matcher: /.*/,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.0,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.0,
+        'TEACHING CREATIVITY': 3.0
+      },
+      priority: [],
+      nama_field: 'kompetensi umum'
     }
-    // Warning at 30s
-    if (__grafisTimeLeft <= 30 && !__grafisWarned30) {
-      __grafisWarned30 = true;
-      if (chip) {
-        chip.classList.remove("warn-60");
-        chip.classList.add("warn-30");
-      }
+  });
+
+  /* ============================================================
+     INTERPRETASI KLINIS PER KATEGORI PER BAND
+     ============================================================ */
+  const SCORING_INTERPRETATION = Object.freeze({
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': {
+      SANGAT_BAIK: 'Kandidat menunjukkan kapasitas kognitif yang kuat — mampu berpikir sistematis, menganalisis masalah secara mendalam, dan menyusun strategi pemecahan yang efektif. Struktur berpikir terorganisir dan stabil di bawah tekanan.',
+      BAIK: 'Kandidat memiliki kemampuan berpikir yang baik — dapat memahami konsep dan menyelesaikan masalah secara terstruktur, meski pada kasus yang sangat kompleks mungkin memerlukan waktu lebih untuk analisis.',
+      CUKUP: 'Kandidat menunjukkan kemampuan berpikir pada taraf memadai — mampu menangani tugas rutin dan masalah sederhana, namun masih memerlukan pendampingan untuk analisis masalah kompleks dan perencanaan strategis.',
+      PERHATIAN: 'Kandidat menunjukkan hambatan pada kemampuan berpikir terstruktur — kesulitan menganalisis masalah, cenderung kebingungan pada situasi kompleks, dan butuh pendampingan intensif untuk menyusun kerangka pemecahan masalah.'
+    },
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': {
+      SANGAT_BAIK: 'Kandidat sangat empatik, hangat, dan kooperatif — mudah membangun hubungan interpersonal yang sehat, mampu membaca kebutuhan orang lain, dan menjadi penggerak harmoni dalam tim.',
+      BAIK: 'Kandidat memiliki kemampuan interpersonal yang baik — mampu bekerja sama, berkomunikasi efektif, dan menjaga relasi kerja yang positif dengan rekan maupun atasan.',
+      CUKUP: 'Kandidat memiliki kemampuan interpersonal yang cukup — mampu bekerja dalam tim, namun kadang perlu waktu untuk menyesuaikan diri dalam interaksi sosial yang intens atau situasi konflik.',
+      PERHATIAN: 'Kandidat menunjukkan hambatan dalam relasi interpersonal — cenderung menarik diri, sulit membangun kedekatan emosional, dan bisa mengalami kesulitan dalam kolaborasi tim.'
+    },
+    'STABILITAS EMOSI & KONTROL IMPULS': {
+      SANGAT_BAIK: 'Kandidat sangat stabil secara emosional — tenang di bawah tekanan, mampu mengendalikan impuls dengan baik, dan menjadi penyeimbang suasana di lingkungan kerja.',
+      BAIK: 'Kandidat memiliki kestabilan emosi yang baik — mampu mengelola stres dan tekanan kerja dengan wajar, meski pada kondisi ekstrem mungkin sesekali memerlukan waktu untuk pulih.',
+      CUKUP: 'Kandidat memiliki kestabilan emosi pada taraf memadai — mampu menangani tekanan sehari-hari, namun pada kondisi tekanan tinggi cenderung menunjukkan reaksi emosional yang lebih intens.',
+      PERHATIAN: 'Kandidat menunjukkan kerentanan emosional — mudah terpengaruh tekanan, impulsif, dan rentan mengalami fluktuasi mood yang dapat mengganggu produktivitas serta hubungan kerja.'
+    },
+    'MOTIVATION & ACHIEVEMENT DRIVE': {
+      SANGAT_BAIK: 'Kandidat sangat termotivasi dan berorientasi prestasi — memiliki dorongan internal yang kuat, tekun, gigih, dan tidak mudah menyerah dalam mencapai tujuan.',
+      BAIK: 'Kandidat memiliki motivasi kerja yang baik — menunjukkan inisiatif, tekun dalam menyelesaikan tugas, dan memiliki dorongan untuk berkembang.',
+      CUKUP: 'Kandidat memiliki motivasi kerja pada taraf memadai — mampu menyelesaikan tugas rutin, namun pada tugas-tugas menantang mungkin memerlukan dukungan atau dorongan eksternal.',
+      PERHATIAN: 'Kandidat menunjukkan motivasi kerja yang rendah — kurang bersemangat, mudah menyerah, pasif, dan cenderung tidak memiliki dorongan kuat untuk mencapai hasil optimal.'
+    },
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': {
+      SANGAT_BAIK: 'Kandidat sangat adaptif dan fleksibel — cepat belajar hal baru, terbuka pada perubahan, dan mampu menyesuaikan diri dengan cepat di berbagai situasi.',
+      BAIK: 'Kandidat memiliki kemampuan adaptasi yang baik — mampu menyesuaikan diri pada perubahan, terbuka pada ide baru, dan memiliki kemauan belajar yang baik.',
+      CUKUP: 'Kandidat memiliki kemampuan adaptasi pada taraf memadai — mampu menyesuaikan diri pada perubahan bertahap, namun pada perubahan mendadak mungkin memerlukan waktu lebih.',
+      PERHATIAN: 'Kandidat menunjukkan kekakuan dalam beradaptasi — sulit menerima perubahan, cenderung bertahan pada cara lama, dan rentan mengalami kesulitan saat lingkungan kerja dinamis.'
+    },
+    'INTEGRITY & RULE COMPLIANCE': {
+      SANGAT_BAIK: 'Kandidat menunjukkan integritas yang sangat kuat — jujur, bertanggung jawab, patuh aturan, dan dapat dipercaya dalam menjalankan tugas maupun menjaga amanah.',
+      BAIK: 'Kandidat memiliki integritas yang baik — menunjukkan tanggung jawab, disiplin, dan kemampuan menjaga nilai-nilai etika dalam pekerjaan.',
+      CUKUP: 'Kandidat memiliki integritas pada taraf memadai — memahami aturan dan nilai kerja, namun pada situasi tertentu mungkin memerlukan pengingat atau penguatan terkait kepatuhan.',
+      PERHATIAN: 'Kandidat menunjukkan kerentanan pada aspek integritas — cenderung mengelak, sulit mematuhi aturan, dan berpotensi menghadapi masalah kedisiplinan jika tidak diperkuat.'
+    },
+    'TEACHING CREATIVITY': {
+      SANGAT_BAIK: 'Kandidat sangat kreatif dan imajinatif — menghasilkan banyak ide baru, ekspresif, dan mampu menciptakan metode atau pendekatan yang unik dalam pekerjaannya.',
+      BAIK: 'Kandidat memiliki kreativitas yang baik — mampu berpikir orisinal, terbuka pada eksperimen, dan mencari cara-cara variatif dalam menyelesaikan tugas.',
+      CUKUP: 'Kandidat memiliki kreativitas pada taraf memadai — mampu mengikuti metode yang ada, namun belum menonjol dalam menghasilkan ide-ide baru atau pendekatan inovatif.',
+      PERHATIAN: 'Kandidat menunjukkan keterbatasan pada aspek kreativitas — cenderung monoton, kurang ide baru, dan kesulitan mengembangkan pendekatan inovatif dalam pekerjaan.'
     }
+  });
 
-    if (__grafisTimeLeft <= 0) {
-      clearInterval(__grafisTimer);
-      __grafisTimer = null;
-      playTimeoutSound();
-      renderGrafisSlide(__grafisCurrentIdx, "foto");
-    }
-  }, 1000);
-}
+  /* ============================================================
+     DEVELOPMENT KAMUS
+     ============================================================ */
+  const DEVELOPMENT_KAMUS = Object.freeze({
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING':
+      'Latih kemampuan analisis melalui studi kasus, brainstorming terstruktur, dan problem-solving exercise. ' +
+      'Rekomendasi: pelatihan critical thinking, mind mapping, dan latihan pengambilan keputusan berbasis data.',
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK':
+      'Kembangkan empati melalui active listening, role-play, dan feedback 360°. ' +
+      'Rekomendasi: pelatihan komunikasi interpersonal, team building, dan mentoring sebaya.',
+    'STABILITAS EMOSI & KONTROL IMPULS':
+      'Pelatihan manajemen emosi, mindfulness, dan teknik regulasi stres. ' +
+      'Rekomendasi: konseling rutin, journaling emosi, dan teknik relaksasi (breathing exercise).',
+    'MOTIVATION & ACHIEVEMENT DRIVE':
+      'Bantu tetapkan tujuan SMART, bangun sistem reward, dan mentoring rutin. ' +
+      'Rekomendasi: coaching motivasi, perencanaan karier, dan umpan balik positif berkala.',
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY':
+      'Ekspos ke situasi baru, dorong learning by doing, dan rotasi tugas. ' +
+      'Rekomendasi: pelatihan adaptability, project-based learning, dan exposure lintas fungsi.',
+    'INTEGRITY & RULE COMPLIANCE':
+      'Perkuat pemahaman nilai, studi kasus etika, dan konsistensi konsekuensi. ' +
+      'Rekomendasi: workshop integritas, mentoring etika, dan penegakan aturan yang konsisten.',
+    'TEACHING CREATIVITY':
+      'Latih metode kreatif (mind mapping, project-based, gamifikasi) dan apresiasi inovasi. ' +
+      'Rekomendasi: workshop kreativitas, peer teaching, dan observasi kelas inovatif.'
+  });
 
-/* =========================================================
-   PERSIAPAN UTAMA
-   ========================================================= */
-function renderPersiapanSlide() {
-  ensureGrafisStyles();
-  if (__grafisTimer) { clearInterval(__grafisTimer); __grafisTimer = null; }
+  /* ============================================================
+     TRACE LOGGER
+     ============================================================ */
+  const _trace = {
+    entries: [],
+    enabled: false,
+    enable()  { this.enabled = true; },
+    disable() { this.enabled = false; },
+    clear()   { this.entries = []; },
+    log(type, payload) {
+      if (!this.enabled) return;
+      if (this.entries.length >= CONFIG.MAX_TRACE_ENTRIES) this.entries.shift();
+      this.entries.push({ ts: Date.now(), type, payload });
+    },
+    dump() { return this.entries.slice(); }
+  };
 
-  const app = document.getElementById("app");
-  app.innerHTML = `
-    <div class="grafis-page">
-      <div class="grafis-container">
-        <div class="grafis-card">
-          <div class="grafis-accent"></div>
-          ${grafisHeader("Persiapan Tes Grafis", "Pastikan seluruh perlengkapan sudah tersedia.")}
-          <div class="grafis-content">
-            <div class="grafis-box">
-              <div class="grafis-box-title">
-                <div class="grafis-box-icon">✓</div>
-                <strong>Siapkan terlebih dahulu</strong>
-              </div>
-              <ul class="grafis-detail-list">
-                <li><b>3 lembar kertas A4 polos</b></li>
-                <li>Pensil <b>HB / 2B</b></li>
-                <li>HP / kamera untuk memfoto hasil</li>
-              </ul>
-            </div>
-            <div class="grafis-box">
-              <div class="grafis-box-title">
-                <div class="grafis-box-icon">↑</div>
-                <strong>Setelah menggambar</strong>
-              </div>
-              <ol class="grafis-detail-list">
-                <li>Foto hasil gambar dengan jelas.</li>
-                <li>Kirim foto ke WhatsApp diri sendiri.</li>
-                <li>Buka WhatsApp Web.</li>
-                <li>Download foto lalu upload pada halaman tes.</li>
-              </ol>
-            </div>
-            <div class="grafis-notice">
-              <b>Perhatian:</b> waktu akan berjalan setelah tombol mulai pada masing-masing tes ditekan.
-            </div>
-            <div class="grafis-actions">
-              <button type="button" class="grafis-btn" id="btnSiapSemua">Saya Sudah Siap →</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-  document.getElementById("btnSiapSemua").onclick = () => renderGrafisSlide(0, "persiapan");
-}
-
-/* =========================================================
-   DAP / HTP / BAUM
-   ========================================================= */
-function renderGrafisSlide(idx, step = "persiapan") {
-  ensureGrafisStyles();
-  if (__grafisTimer) { clearInterval(__grafisTimer); __grafisTimer = null; }
-
-  __grafisCurrentIdx = idx;
-  const subtest = GRAFIS_SUBTESTS[idx];
-  const app = document.getElementById("app");
-
-  window.appState = window.appState || {};
-  appState.grafis = appState.grafis || {};
-
-  if (step === "persiapan") {
-    app.innerHTML = `
-      <div class="grafis-page">
-        <div class="grafis-container">
-          <div class="grafis-card">
-            <div class="grafis-accent"></div>
-            ${grafisHeader(subtest.title, subtest.subtitle)}
-            <div class="grafis-content">
-              ${renderGrafisProgress(idx)}
-              <div class="grafis-prep-grid" style="margin-top:20px;">
-                <div>
-                  <div class="grafis-box">
-                    <div class="grafis-box-title">
-                      <div class="grafis-box-icon">✓</div>
-                      <strong>Persiapan</strong>
-                    </div>
-                    ${subtest.alat}
-                  </div>
-                  <div class="grafis-notice">
-                    <b>Waktu menggambar:</b> ${Math.round(subtest.waktuGambar / 60)} menit.<br>
-                    Waktu mulai setelah tombol <b>Mulai Menggambar</b> ditekan.
-                  </div>
-                </div>
-                <div class="grafis-example-card">
-                  <div class="grafis-example-label">Contoh hasil gambar</div>
-                  <div class="grafis-example-image-wrap">
-                    <img src="${subtest.contoh}" alt="Contoh ${subtest.kode}" class="grafis-example-image">
-                  </div>
-                  <div class="grafis-example-note">Contoh hanya sebagai referensi. Jangan meniru gambar.</div>
-                </div>
-              </div>
-              <div class="grafis-actions">
-                <button class="grafis-btn" id="btnSiap">Mulai Menggambar →</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    document.getElementById("btnSiap").onclick = () => renderGrafisSlide(idx, "gambar");
-    return;
+  /* ============================================================
+     UTIL
+     ============================================================ */
+  function _detectBobot(text) {
+    if (!text) return 1;
+    for (const rx of BOBOT_RULES.RED_FLAG) if (rx.test(text)) return CONFIG.RED_FLAG_BOBOT;
+    for (const rx of BOBOT_RULES.BERAT)    if (rx.test(text)) return 3;
+    for (const rx of BOBOT_RULES.SEDANG)   if (rx.test(text)) return 2;
+    return 1;
   }
 
-  if (step === "gambar") {
-    __grafisTimeLeft = subtest.waktuGambar;
-    app.innerHTML = `
-      <div class="grafis-page">
-        <div class="grafis-container">
-          <div class="grafis-card">
-            <div class="grafis-accent"></div>
-            ${grafisHeader(subtest.title, `Waktu pengerjaan ${Math.round(subtest.waktuGambar / 60)} menit.`)}
-            <div class="grafis-content">
-              ${renderGrafisProgress(idx)}
-              <div class="grafis-instruction" style="margin-top:20px;">${subtest.instruksi}</div>
-              <div class="grafis-timer-area">
-                <span class="grafis-timer-chip" id="timerGrafisChip">
-                  ⏱️ <span id="timerGrafis">${formatTime(__grafisTimeLeft)}</span>
-                </span>
-                <button class="grafis-btn" id="btnSelesaiGambar">Selesai</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    startGrafisDrawingTimer();
-    document.getElementById("btnSelesaiGambar").onclick = () => showGrafisUploadWarning(idx);
-    return;
+  function _detectRedFlag(text) {
+    if (!text) return false;
+    for (const rx of BOBOT_RULES.RED_FLAG) if (rx.test(text)) return true;
+    return false;
   }
 
-  if (step === "foto") {
-    __grafisTimeLeft = subtest.waktuUpload;
-    app.innerHTML = `
-      <div class="grafis-page">
-        <div class="grafis-container">
-          <div class="grafis-card">
-            <div class="grafis-accent"></div>
-            ${grafisHeader("Upload Hasil " + subtest.kode, "Foto hasil gambar lalu unggah di bawah.")}
-            <div class="grafis-content">
-              ${renderGrafisProgress(idx)}
-              <div class="grafis-upload-info" style="margin-top:20px;">
-                <ul class="grafis-detail-list">
-                  <li>Foto harus <b>jelas dan tidak buram</b>.</li>
-                  <li>Seluruh bagian gambar harus terlihat.</li>
-                  <li>Usahakan kertas tidak terpotong pada foto.</li>
-                  <li>Resolusi minimal <b>800 × 600 px</b>.</li>
-                  <li>Klik atau drag file ke area upload.</li>
-                </ul>
-              </div>
-              <div class="grafis-time-warning">
-                Sisa waktu upload: <b><span id="timerFoto">${formatTime(__grafisTimeLeft)}</span></b>
-              </div>
-              <div class="grafis-drop" id="dropZone">
-                <input type="file" accept="image/*" id="uploadGambar" style="display:none;">
-                <div class="grafis-drop-icon">↑</div>
-                <div class="grafis-drop-main" id="dropMsg">Klik atau drag & drop gambar</div>
-                <div class="grafis-drop-note">JPG / PNG / WEBP · Maks 10 MB</div>
-                <div class="grafis-preview" id="previewGambar"></div>
-              </div>
-              <div class="grafis-warn-inline" id="grafisWarnInline"></div>
-              <div class="grafis-preview-block" id="grafisPreviewBlock">
-                <div class="grafis-preview-block-title">✅ File siap diunggah</div>
-                <div class="grafis-preview-block-meta" id="grafisPreviewMeta"></div>
-              </div>
-              <div class="grafis-actions">
-                <button class="grafis-btn" id="btnNextGrafis" disabled>Lanjut →</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+  function _autoMap(text) {
+    const katPos = new Set();
+    const katNeg = new Set();
+    Object.entries(KEYWORD_RULES).forEach(([kat, rules]) => {
+      rules.positif.forEach(rx => { if (rx.test(text)) katPos.add(kat); });
+      rules.negatif.forEach(rx => { if (rx.test(text)) katNeg.add(kat); });
+    });
+    const katNegArr = [...katNeg];
+    const katPosArr = [...katPos].filter(k => !katNeg.has(k));
+    if (katNegArr.length > 0) return { kategori: katNegArr, polaritas: '-' };
+    if (katPosArr.length > 0) return { kategori: katPosArr, polaritas: '+' };
+    return { kategori: [], polaritas: null };
+  }
 
-    __grafisTimer = setInterval(() => {
-      __grafisTimeLeft--;
-      const tf = document.getElementById("timerFoto");
-      if (tf) tf.textContent = formatTime(__grafisTimeLeft);
-      if (__grafisTimeLeft <= 0) {
-        clearInterval(__grafisTimer);
-        __grafisTimer = null;
-        playTimeoutSound();
-        nextOrUploadSlide(idx);
-      }
-    }, 1000);
+  /* ============================================================
+     RESOLVE META
+     ============================================================ */
+  function resolveMeta(item, testKey, sectionId) {
+    if (!item) return null;
+    const itemId = item.id || 'sub';
+    const overrideKey = `${testKey}::${sectionId}::${itemId}`;
 
-    const dropZone = document.getElementById("dropZone");
-    const fileInput = document.getElementById("uploadGambar");
-    const btnNext = document.getElementById("btnNextGrafis");
-    const dropMsg = document.getElementById("dropMsg");
-    const preview = document.getElementById("previewGambar");
-    const warnEl = document.getElementById("grafisWarnInline");
-    const previewBlock = document.getElementById("grafisPreviewBlock");
-    const previewMeta = document.getElementById("grafisPreviewMeta");
-
-    /* Show/hide warning */
-    function showWarn(type, msg) {
-      warnEl.className = "grafis-warn-inline show " + type;
-      warnEl.textContent = msg;
-    }
-    function hideWarn() {
-      warnEl.className = "grafis-warn-inline";
-      warnEl.textContent = "";
+    if (OVERRIDE_TABLE[overrideKey]) {
+      _trace.log('meta_override', { key: overrideKey });
+      return { ...OVERRIDE_TABLE[overrideKey], _source: 'override' };
     }
 
-    /* Validate image */
-    async function validateImage(dataUrl) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const w = img.naturalWidth;
-          const h = img.naturalHeight;
-          const minW = 800, minH = 600;
-
-          if (w < minW || h < minH) {
-            resolve({
-              ok: false,
-              level: 'warn',
-              msg: `⚠️ Resolusi foto rendah (${w}×${h}px). Disarankan minimal ${minW}×${minH}px. Lanjutkan upload atau foto ulang.`,
-              w, h
-            });
-            return;
-          }
-
-          if (w < 1200 || h < 900) {
-            resolve({
-              ok: true,
-              level: 'warn',
-              msg: `ℹ️ Resolusi sedang (${w}×${h}px). Jika bisa, foto ulang dengan resolusi lebih tinggi.`,
-              w, h
-            });
-            return;
-          }
-
-          resolve({
-            ok: true,
-            level: 'ok',
-            msg: `✅ Resolusi baik (${w}×${h}px).`,
-            w, h
-          });
-        };
-        img.onerror = () => resolve({ ok: false, level: 'error', msg: '❌ Gagal memuat gambar.' });
-        img.src = dataUrl;
-      });
+    const fullText = [item.label || '', item.ciri || '', item.interpret || ''].join(' \n ');
+    const { kategori, polaritas } = _autoMap(fullText);
+    if (!kategori || kategori.length === 0) {
+      _trace.log('meta_skip', { itemId, reason: 'no_kategori' });
+      return null;
     }
 
-    /* Handle file */
-    async function handleFile(file) {
-      if (!file || !file.type.startsWith('image/')) {
-        showWarn('error', '❌ File harus berupa gambar (JPG/PNG/WEBP).');
-        return;
+    const bobot = _detectBobot(fullText);
+    const redFlag = _detectRedFlag(fullText);
+    _trace.log('meta_auto', { itemId, kategori, polaritas, bobot, redFlag });
+    return { kategori, polaritas, bobot, redFlag, _source: 'auto' };
+  }
+
+  function _applyMeta(acc, meta, item) {
+    const bobot = Number(meta.bobot) || 1;
+    meta.kategori.forEach(kat => {
+      const kd = acc[kat];
+      if (!kd) return;
+      kd.totalBobot += bobot;
+      const entry = { label: item.label || item.id || 'item', bobot, redFlag: !!meta.redFlag };
+      if (meta.polaritas === '+') {
+        kd.nPos += bobot;
+        kd.itemsPos.push(entry);
+      } else if (meta.polaritas === '-') {
+        kd.nNeg += bobot;
+        kd.itemsNeg.push(entry);
+        if (meta.redFlag) kd.redFlags.push(entry.label);
       }
-      if (file.size > 10 * 1024 * 1024) {
-        showWarn('error', '❌ Ukuran maksimal 10 MB. Kompres dulu atau foto ulang.');
-        return;
-      }
+    });
+  }
 
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const dataUrl = ev.target.result;
+  /* ============================================================
+     CORE: hitungSkorKategori
+     ============================================================ */
+  function hitungSkorKategori(selectedItems) {
+    _trace.clear();
+    if (!selectedItems || typeof selectedItems !== 'object') selectedItems = {};
 
-        /* Validate */
-        const result = await validateImage(dataUrl);
-        if (result.level === 'warn') showWarn('warn', result.msg);
-        else if (result.level === 'error') { showWarn('error', result.msg); return; }
-        else hideWarn();
-
-        /* Show preview */
-        preview.innerHTML = `<img src="${dataUrl}" alt="Preview hasil gambar">`;
-        dropMsg.textContent = "✓ File berhasil diunggah";
-        dropMsg.style.color = "#188c3a";
-
-        /* Simpan ke state */
-        appState.grafis[subtest.key] = dataUrl;
-
-        /* Preview meta */
-        const sizeKb = (file.size / 1024).toFixed(0);
-        previewMeta.innerHTML = `
-          <div><b>File:</b> ${__grafisEscape(file.name)}</div>
-          <div><b>Ukuran:</b> ${sizeKb} KB</div>
-          <div><b>Dimensi:</b> ${result.w} × ${result.h} px</div>
-        `;
-        previewBlock.classList.add('show');
-
-        /* Enable next */
-        btnNext.disabled = false;
+    const acc = {};
+    CONFIG.KATEGORI.forEach(k => {
+      acc[k] = {
+        kategori: k, nPos: 0, nNeg: 0,
+        itemsPos: [], itemsNeg: [], redFlags: [],
+        totalBobot: 0, skor: CONFIG.SKOR_BASE,
+        confidence: 0, status: 'NO_DATA'
       };
-      reader.onerror = () => showWarn('error', '❌ Gagal membaca file.');
-      reader.readAsDataURL(file);
-    }
-
-    dropZone.onclick = (e) => {
-      if (e.target.closest('#previewGambar')) return;
-      fileInput.click();
-    };
-    dropZone.ondragover = e => { e.preventDefault(); dropZone.style.background = "#e3f4ff"; };
-    dropZone.ondragleave = e => { e.preventDefault(); dropZone.style.background = "#f8fcff"; };
-    dropZone.ondrop = e => {
-      e.preventDefault();
-      dropZone.style.background = "#f8fcff";
-      if (e.dataTransfer.files && e.dataTransfer.files.length) {
-        handleFile(e.dataTransfer.files[0]);
-      }
-    };
-
-    fileInput.addEventListener("change", function () {
-      const file = fileInput.files[0];
-      if (file) handleFile(file);
     });
 
-    btnNext.onclick = function () {
-      /* Konfirmasi kalau resolusi rendah */
-      if (previewBlock.classList.contains('show') && warnEl.classList.contains('warn')) {
-        const ok = confirm(
-          "Foto Anda memiliki resolusi rendah.\n\n" +
-          "Sistem tetap bisa menerima, namun akurasi interpretasi bisa berkurang.\n\n" +
-          "Lanjutkan dengan foto ini?"
-        );
-        if (!ok) return;
+    const autoData = window.GRAFIS_AUTO_DATA || {};
+    ['dap', 'baum', 'htp'].forEach(testKey => {
+      const data = autoData[testKey];
+      if (!data || !Array.isArray(data.slides)) return;
+      const selected = selectedItems[testKey] || {};
+
+      data.slides.forEach(slide => {
+        (slide.sections || []).forEach(section => {
+          const sectionId = section.id;
+          const val = selected[sectionId];
+          if (!val) return;
+          const itemIds = Array.isArray(val) ? val : [val];
+
+          itemIds.forEach(itemId => {
+            const item = (section.items || []).find(i => i.id === itemId);
+            if (!item) return;
+            const meta = resolveMeta(item, testKey, sectionId);
+            if (!meta) return;
+            _applyMeta(acc, meta, item);
+
+            (item.subItems || []).forEach(sub => {
+              const subKey = sectionId + '::' + sub.id;
+              if (!selected[subKey]) return;
+              const subMeta = resolveMeta(sub, testKey, subKey);
+              if (!subMeta) return;
+              _applyMeta(acc, subMeta, sub);
+            });
+          });
+        });
+      });
+    });
+
+    CONFIG.KATEGORI.forEach(k => {
+      const kd = acc[k];
+      const total = kd.nPos + kd.nNeg;
+      if (total === 0) {
+        kd.skor = CONFIG.SKOR_BASE;
+        kd.confidence = 0;
+        kd.status = 'NO_DATA';
+        return;
       }
+      const delta = (kd.nPos - kd.nNeg) / total;
+      const skorRaw = CONFIG.SKOR_BASE + delta * CONFIG.DELTA_SCALE;
+      const confidence = Math.min(1.0, total / CONFIG.MIN_BOBOT_CONFIDENCE);
+      const skorAkhir = CONFIG.SKOR_BASE + (skorRaw - CONFIG.SKOR_BASE) * confidence;
+      kd.skor = Math.max(CONFIG.SKOR_MIN, Math.min(CONFIG.SKOR_MAX, skorAkhir));
+      kd.confidence = confidence;
 
-      if (__grafisTimer) { clearInterval(__grafisTimer); __grafisTimer = null; }
-      nextOrUploadSlide(idx);
-    };
-    return;
+      if (kd.skor >= CONFIG.THRESHOLD.SANGAT_BAIK)      kd.status = 'SANGAT_BAIK';
+      else if (kd.skor >= CONFIG.THRESHOLD.BAIK)        kd.status = 'BAIK';
+      else if (kd.skor >= CONFIG.THRESHOLD.CUKUP)       kd.status = 'CUKUP';
+      else                                              kd.status = 'PERHATIAN';
+    });
+
+    return acc;
   }
-}
 
-/* =========================================================
-   FINAL
-   ========================================================= */
-function renderUploadSlide() {
-  ensureGrafisStyles();
-  if (__grafisTimer) { clearInterval(__grafisTimer); __grafisTimer = null; }
+  /* ============================================================
+     POSITION FIT
+     ============================================================ */
+  function detectPositionProfile(position) {
+    const pos = String(position || '').toLowerCase().trim();
+    if (!pos) return { ...POSITION_PROFILES.default, key: 'default' };
+    const order = ['konselor', 'guru_kelas', 'housekeeping', 'technical', 'guru_mapel', 'administrator'];
+    for (const key of order) {
+      if (POSITION_PROFILES[key].matcher.test(pos)) {
+        return { ...POSITION_PROFILES[key], key };
+      }
+    }
+    return { ...POSITION_PROFILES.default, key: 'default' };
+  }
 
-  const app = document.getElementById("app");
-  app.innerHTML = `
-    <div class="grafis-page">
-      <div class="grafis-container">
-        <div class="grafis-card">
-          <div class="grafis-accent"></div>
-          ${grafisHeader("Tes Grafis Selesai", "Semua hasil gambar telah diunggah.")}
-          <div class="grafis-content">
-            ${renderGrafisProgress(GRAFIS_SUBTESTS.length)}
-            <div class="grafis-final" style="margin-top:20px;">
-              <h3>Semua gambar berhasil diunggah</h3>
-              <p>Klik Selesai untuk mengirim gambar ke sistem dan melanjutkan ke tahap berikutnya.</p>
-            </div>
-            <div class="grafis-actions">
-              <button class="grafis-btn" id="btnFinishGrafis">Selesai & Kirim →</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+  function computePositionFit(scoring, profile) {
+    const perKategori = [];
+    let weightedSum = 0, weightTotal = 0;
+    let fitCount = 0, partialCount = 0, notFitCount = 0;
+    const priorityIssues = [];
+    const gaps = [];
 
-  document.getElementById("btnFinishGrafis").onclick = async function () {
-    const ok = confirm(
-      "Kirim semua hasil gambar ke sistem?\n\n" +
-      "Pastikan semua gambar sudah benar dan jelas.\n" +
-      "Setelah dikirim, Anda tidak bisa mengulang tes ini."
-    );
-    if (!ok) return;
+    CONFIG.KATEGORI.forEach(kat => {
+      const k = scoring[kat];
+      const need = profile.needs[kat] ?? 3.0;
+      const isPriority = profile.priority.includes(kat);
+      const weight = isPriority ? 2 : 1;
 
-    const btn = document.getElementById("btnFinishGrafis");
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim gambar...'; }
-
-    try {
-      await __uploadGrafisImagesToFirebase();
-      renderGrafisThankYou();
-    } catch (e) {
-      console.warn('[GRAFIS] Upload error:', e);
-
-      /* Tanya user: retry atau lanjut */
-      const retry = confirm(
-        "⚠️ Upload ke server bermasalah:\n\n" +
-        (e.message || 'Koneksi tidak stabil') + "\n\n" +
-        "Gambar Anda tersimpan di perangkat ini.\n\n" +
-        "Klik OK untuk COBA LAGI, atau Cancel untuk LANJUT tanpa upload (admin akan hubungi Anda)."
-      );
-
-      if (retry) {
-        btn.disabled = false;
-        btn.textContent = 'Selesai & Kirim →';
+      if (!k || k.status === 'NO_DATA') {
+        perKategori.push({ kategori: kat, skor: null, need, gap: null, status: 'NO_DATA', isPriority, weight, catFitScore: null });
         return;
       }
 
-      renderGrafisThankYou({ uploadFailed: true });
-    }
-  };
-}
+      const gap = k.skor - need;
+      let status;
+      if (gap >= 0) status = 'MEMENUHI';
+      else if (gap >= -0.4) status = 'HAMPIR';
+      else status = 'KURANG';
 
-/* =========================================================
-   FIREBASE UPLOAD — With Retry + LocalStorage Fallback
-   ========================================================= */
-async function __uploadGrafisImagesToFirebase() {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    throw new Error('Firebase belum siap');
+      let catFitScore;
+      if (gap >= 0) catFitScore = 100;
+      else if (gap >= -0.5) catFitScore = 75 + (gap + 0.5) * 50;
+      else if (gap >= -1.0) catFitScore = 40 + (gap + 1.0) * 70;
+      else catFitScore = Math.max(0, 40 + (gap + 1.0) * 40);
+
+      weightedSum += catFitScore * weight;
+      weightTotal += weight;
+
+      if (status === 'MEMENUHI') fitCount++;
+      else if (status === 'HAMPIR') partialCount++;
+      else { notFitCount++; if (isPriority) priorityIssues.push(kat); }
+
+      gaps.push({ kategori: kat, gap, isPriority });
+      perKategori.push({
+        kategori: kat, skor: k.skor, need, gap, status,
+        isPriority, weight, catFitScore: Math.round(catFitScore)
+      });
+    });
+
+    return {
+      profile, perKategori, fitCount, partialCount, notFitCount,
+      priorityIssues, gaps,
+      fitScore: weightTotal > 0 ? Math.round(weightedSum / weightTotal) : 0
+    };
   }
 
-  const identity = (window.appState && appState.identity) ? appState.identity : {};
-  if (!identity.name) {
-    throw new Error('Nama kandidat kosong');
-  }
+  /* ============================================================
+     GENERATOR KESIMPULAN
+     ============================================================ */
+  function generateKesimpulan(scoring, identity) {
+    identity = identity || (window.appState && window.appState.identity) || {};
+    const posisi = identity.position || '';
+    const profile = detectPositionProfile(posisi);
+    const fitData = computePositionFit(scoring, profile);
 
-  const slug = String(identity.name).toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80);
-  if (!slug) throw new Error('Slug tidak valid');
+    const kategoriArr = Object.values(scoring);
+    const kategoriValid = kategoriArr.filter(k => k.status !== 'NO_DATA');
 
-  const map = { orang: 'dap', rumah: 'htp', pohon: 'baum' };
-  const images = {};
-  let hasAny = false;
-
-  /* Kompres semua gambar dulu */
-  for (const [key, testKey] of Object.entries(map)) {
-    const dataUrl = appState.grafis && appState.grafis[key];
-    if (!dataUrl) continue;
-    try {
-      const compressed = (typeof __compressImageForPDF === 'function')
-        ? await __compressImageForPDF(dataUrl, 1200, 0.6)
-        : dataUrl;
-      images[testKey] = {
-        dataUrl: compressed,
-        label: key,
-        uploadedAt: Date.now()
+    if (kategoriValid.length === 0) {
+      return {
+        version: VERSION, rataRata: 0,
+        overallLabel: 'TIDAK CUKUP DATA', overallColor: '#94a3b8',
+        overallConfidence: 'RENDAH', totalBobot: 0,
+        posisiLabel: profile.label, fitScore: 0, fitData: null,
+        strengths: [], weaknesses: [], allRedFlags: [], perKategoriNarasi: [],
+        text: 'Tidak cukup indikator terpilih untuk menghasilkan kesimpulan yang valid. ' +
+              'Mohon lengkapi checklist interpretasi terlebih dahulu.'
       };
-      hasAny = true;
-    } catch (e) {
-      console.warn('[GRAFIS] Compress gagal (' + key + '):', e.message);
     }
-  }
 
-  if (!hasAny) throw new Error('Tidak ada gambar untuk di-upload');
+    const rataRata = kategoriValid.reduce((a, k) => a + k.skor, 0) / kategoriValid.length;
+    const totalBobot = kategoriArr.reduce((s, k) => s + k.totalBobot, 0);
 
-  /* Payload */
-  const payload = {
-    meta: {
-      name: identity.name,
-      position: identity.position || '',
-      ts: firebase.database.ServerValue.TIMESTAMP
-    },
-    images: images
-  };
+    let overallConfidence = 'RENDAH';
+    if (totalBobot >= 18)      overallConfidence = 'TINGGI';
+    else if (totalBobot >= 10) overallConfidence = 'SEDANG';
 
-  /* Retry 3× exponential backoff */
-  const maxRetry = 3;
-  let lastErr = null;
+    const fitScore = fitData.fitScore;
+    const hasPriorityIssue = fitData.priorityIssues.length > 0;
+    const lowKategoriCount = fitData.notFitCount;
 
-  for (let attempt = 1; attempt <= maxRetry; attempt++) {
-    try {
-      await firebase.database()
-        .ref('sgs_grafis_images/' + slug)
-        .set(payload);
+    let overallLabel, overallColor;
+    if (fitScore >= CONFIG.FIT_THRESHOLD.HIGHLY && !hasPriorityIssue && lowKategoriCount <= 1) {
+      overallLabel = 'HIGHLY RECOMMENDED'; overallColor = '#166534';
+    } else if (fitScore >= CONFIG.FIT_THRESHOLD.RECO && !hasPriorityIssue) {
+      overallLabel = 'RECOMMENDED'; overallColor = '#16a34a';
+    } else if (fitScore >= CONFIG.FIT_THRESHOLD.FAIRLY) {
+      overallLabel = 'FAIRLY RECOMMENDED'; overallColor = '#d97706';
+    } else {
+      overallLabel = 'NOT RECOMMENDED'; overallColor = '#dc2626';
+    }
 
-      console.log('[GRAFIS] ✅ Gambar tersimpan di Firebase (attempt ' + attempt + ')');
+    const sorted = [...kategoriArr].sort((a, b) => b.skor - a.skor);
+    const strengths = sorted.filter(k => k.skor >= 3.0 && k.itemsPos.length >= CONFIG.MIN_KONVERGENSI).slice(0, 3);
+    const weaknesses = sorted.filter(k => k.skor < 3.0 && k.itemsNeg.length >= CONFIG.MIN_KONVERGENSI).reverse().slice(0, 3);
 
-      /* Sinyal ke admin */
-      try {
-        firebase.database().ref('sgs_state/lastUpload').set({
-          ts: firebase.database.ServerValue.TIMESTAMP,
-          type: 'grafis',
-          name: identity.name,
-          position: identity.position || '',
-          deviceId: localStorage.getItem('_sgs_device_id') || ''
-        }).catch(() => {});
-      } catch (e) {}
-
-      /* Hapus fallback kalau ada */
-      try { localStorage.removeItem('_sgs_grafis_fallback_' + slug); } catch (e) {}
-
-      return { ok: true, attempt };
-
-    } catch (err) {
-      lastErr = err;
-      console.warn(`[GRAFIS] Upload attempt ${attempt}/${maxRetry} gagal:`, err.message);
-
-      if (attempt < maxRetry) {
-        await new Promise(r => setTimeout(r, 1000 * attempt));
+    const allRedFlags = [];
+    kategoriArr.forEach(k => {
+      if (k.redFlags.length > 0 && k.skor < 2.5) {
+        allRedFlags.push({ kategori: k.kategori, skor: k.skor, items: k.redFlags });
       }
+    });
+
+    const perKategoriNarasi = CONFIG.KATEGORI.map(kat => {
+      const k = scoring[kat];
+      const fitItem = fitData.perKategori.find(f => f.kategori === kat);
+      const interp = SCORING_INTERPRETATION[kat];
+
+      if (!k || k.status === 'NO_DATA') {
+        return {
+          kategori: kat, skor: null, status: 'NO_DATA',
+          need: fitItem?.need || 3.0, gap: null, fitStatus: 'NO_DATA',
+          isPriority: fitItem?.isPriority || false,
+          narasi: 'Belum ada indikator yang cukup untuk menilai kategori ini. ' +
+                  'Disarankan untuk melengkapi checklist interpretasi pada DAP/BAUM/HTP.'
+        };
+      }
+
+      const parts = [`SKOR ${k.skor.toFixed(2)} / 4.00 (${k.status.replace('_', ' ')}).`];
+      if (interp && interp[k.status]) parts.push(interp[k.status]);
+
+      if (k.itemsPos.length > 0) {
+        const labels = k.itemsPos.slice(0, 5).map(x => `"${x.label}"`).join(', ');
+        const more = k.itemsPos.length > 5 ? ` (+${k.itemsPos.length - 5} lain)` : '';
+        parts.push(`Indikator positif (${k.itemsPos.length}): ${labels}${more}.`);
+      }
+      if (k.itemsNeg.length > 0) {
+        const labels = k.itemsNeg.slice(0, 5).map(x => `"${x.label}"`).join(', ');
+        const more = k.itemsNeg.length > 5 ? ` (+${k.itemsNeg.length - 5} lain)` : '';
+        parts.push(`Indikator negatif (${k.itemsNeg.length}): ${labels}${more}.`);
+      }
+      if (k.redFlags.length > 0) {
+        parts.push(`⚠️ RED FLAG (${k.redFlags.length}): ${k.redFlags.slice(0, 3).join(', ')}${k.redFlags.length > 3 ? '...' : ''}.`);
+      }
+
+      let fitStatus = 'NO_DATA';
+      if (fitItem && fitItem.status !== 'NO_DATA') {
+        fitStatus = fitItem.status;
+        const needStr = fitItem.need.toFixed(2);
+        const gapStr = (fitItem.gap >= 0 ? '+' : '') + fitItem.gap.toFixed(2);
+        const priorityTag = fitItem.isPriority ? ' [⚡ PRIORITAS POSISI]' : '';
+        if (fitItem.status === 'MEMENUHI') {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} ≥ kebutuhan ${needStr} — MEMENUHI dengan surplus ${gapStr}.`);
+        } else if (fitItem.status === 'HAMPIR') {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} vs kebutuhan ${needStr} — HAMPIR memenuhi, gap ${gapStr}. Perlu penguatan ringan.`);
+        } else {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} vs kebutuhan ${needStr} — KURANG memenuhi, gap ${gapStr}. Disarankan pendampingan / pelatihan.`);
+        }
+      }
+
+      return {
+        kategori: kat, skor: k.skor, status: k.status,
+        need: fitItem?.need || 3.0, gap: fitItem?.gap ?? null,
+        fitStatus, isPriority: fitItem?.isPriority || false,
+        narasi: parts.join('\n\n')
+      };
+    });
+
+    const lines = [];
+    const sep = '─'.repeat(60);
+
+    lines.push('KESIMPULAN INTERPRETASI GRAFIS (DAP · BAUM · HTP)');
+    lines.push(sep); lines.push('');
+    lines.push(`Kandidat            : ${identity.name || '-'}`);
+    lines.push(`Posisi Dilamar      : ${posisi || '(tidak disebutkan)'}`);
+    lines.push(`Kategori Posisi     : ${profile.label}`);
+    lines.push(`Tanggal             : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+    lines.push('');
+    lines.push(sep); lines.push('RINGKASAN SKOR'); lines.push(sep); lines.push('');
+    lines.push(`Skor rata-rata              : ${rataRata.toFixed(2)} / 4.00`);
+    lines.push(`Skor kecocokan posisi       : ${fitScore} / 100`);
+    lines.push(`Tingkat kecocokan           : ${overallLabel}`);
+    lines.push(`Tingkat keyakinan data      : ${overallConfidence} (total bobot: ${totalBobot})`);
+    lines.push(`Kategori terukur            : ${kategoriValid.length} dari ${CONFIG.KATEGORI.length}`);
+    lines.push('');
+    lines.push(`Kategori MEMENUHI kebutuhan : ${fitData.fitCount}`);
+    lines.push(`Kategori HAMPIR memenuhi    : ${fitData.partialCount}`);
+    lines.push(`Kategori KURANG memenuhi    : ${fitData.notFitCount}`);
+    if (fitData.priorityIssues.length > 0) {
+      lines.push(`⚡ PRIORITAS yang bermasalah : ${fitData.priorityIssues.length} — ${fitData.priorityIssues.join(', ')}`);
     }
+    lines.push('');
+    lines.push(sep); lines.push('◆ INTERPRETASI PER KATEGORI'); lines.push(sep); lines.push('');
+
+    perKategoriNarasi.forEach((pn, i) => {
+      const priorityTag = pn.isPriority ? ' ⚡' : '';
+      lines.push(`${i + 1}. ${pn.kategori}${priorityTag}`);
+      if (pn.skor !== null) {
+        lines.push(`   Skor: ${pn.skor.toFixed(2)} / 4.00  (kebutuhan posisi: ${pn.need.toFixed(2)}, gap: ${pn.gap >= 0 ? '+' : ''}${pn.gap.toFixed(2)}, status: ${pn.fitStatus})`);
+      } else {
+        lines.push(`   Skor: (tidak terukur) — kebutuhan posisi: ${pn.need.toFixed(2)}`);
+      }
+      lines.push('');
+      lines.push(pn.narasi.split('\n\n').map(p => '   ' + p).join('\n   '));
+      lines.push('');
+    });
+    lines.push(sep); lines.push('');
+
+    if (strengths.length > 0) {
+      lines.push('◆ KEKUATAN UTAMA (KONVERGENSI ≥ 2 INDIKATOR POSITIF)'); lines.push('');
+      strengths.forEach((k, i) => {
+        lines.push(`${i + 1}. ${k.kategori}`);
+        lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsPos.length} indikator positif)`);
+        const c = k.itemsPos.sort((a, b) => b.bobot - a.bobot).slice(0, 3).map(x => `"${x.label}"`).join(', ');
+        if (c) lines.push(`   Indikator: ${c}`);
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    if (weaknesses.length > 0) {
+      lines.push('◆ AREA YANG PERLU PERHATIAN (KONVERGENSI ≥ 2 INDIKATOR NEGATIF)'); lines.push('');
+      weaknesses.forEach((k, i) => {
+        lines.push(`${i + 1}. ${k.kategori}`);
+        lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsNeg.length} indikator negatif)`);
+        const c = k.itemsNeg.sort((a, b) => b.bobot - a.bobot).slice(0, 3).map(x => `"${x.label}"`).join(', ');
+        if (c) lines.push(`   Indikator: ${c}`);
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    if (allRedFlags.length > 0) {
+      lines.push('⚠️  INDIKATOR KRITIS — PERLU PENELAAHAN LANJUT'); lines.push('');
+      allRedFlags.forEach((rf, i) => {
+        lines.push(`${i + 1}. ${rf.kategori} (skor: ${rf.skor.toFixed(2)})`);
+        rf.items.forEach(it => lines.push(`   • ${it}`));
+        lines.push('');
+      });
+      lines.push('Catatan: red flag TIDAK otomatis menggugurkan kandidat, namun');
+      lines.push('memerlukan wawancara klinis dan/atau asesmen tambahan.');
+      lines.push('');
+      lines.push(sep); lines.push('');
+    }
+
+    const devKategori = fitData.perKategori
+      .filter(f => f.status === 'KURANG' || f.status === 'HAMPIR')
+      .sort((a, b) => (a.isPriority === b.isPriority ? a.gap - b.gap : (a.isPriority ? -1 : 1)));
+
+    if (devKategori.length > 0) {
+      lines.push('◆ REKOMENDASI PENGEMBANGAN (SESUAI KEBUTUHAN POSISI)'); lines.push('');
+      devKategori.forEach((f, i) => {
+        const dev = DEVELOPMENT_KAMUS[f.kategori];
+        if (!dev) return;
+        const priorityTag = f.isPriority ? ' [⚡ PRIORITAS]' : '';
+        lines.push(`${i + 1}. ${f.kategori}${priorityTag}`);
+        lines.push(`   Skor ${f.skor.toFixed(2)} vs kebutuhan ${f.need.toFixed(2)} (gap ${f.gap.toFixed(2)})`);
+        lines.push(`   ${dev}`);
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    lines.push('CATATAN PENTING'); lines.push('');
+    lines.push('1. Skor dihasilkan dari analisis checklist indikator visual pada tes');
+    lines.push('   grafis (DAP, BAUM, HTP) dengan bobot berdasarkan tingkat keparahan');
+    lines.push('   klinis dari literatur (Machover, Buck, Koch, Hammer).');
+    lines.push('');
+    lines.push('2. Interpretasi ini bersifat SCREENING, BUKAN diagnosis klinis.');
+    lines.push('   Keputusan akhir seleksi harus mempertimbangkan: wawancara,');
+    lines.push('   tes objektif lain (IST, DISC, PAPI, Big Five), referensi kerja,');
+    lines.push('   dan pertimbangan profesional psikolog.');
+    lines.push('');
+    lines.push('3. Prinsip interpretasi: konvergensi minimal 2 indikator searah —');
+    lines.push('   tidak menggunakan single-sign interpretation.');
+    lines.push('');
+    lines.push('4. Kebutuhan posisi ("needs") disusun berdasarkan turunan dari');
+    lines.push('   bigfive-position-analysis.js dan DISC roles.');
+    lines.push('');
+    lines.push(`Engine version: ${VERSION} (${RELEASED})`);
+    lines.push(`Dokumen ini dihasilkan otomatis pada ${new Date().toLocaleString('id-ID')}.`);
+
+    return {
+      version: VERSION,
+      rataRata: Number(rataRata.toFixed(2)),
+      overallLabel, overallColor, overallConfidence, totalBobot,
+      kategoriValidCount: kategoriValid.length,
+      posisiLabel: profile.label,
+      fitScore, fitData, perKategoriNarasi,
+      strengths, weaknesses, allRedFlags,
+      text: lines.join('\n')
+    };
   }
 
-  /* SEMUA RETRY GAGAL → Fallback ke localStorage */
-  try {
-    localStorage.setItem('_sgs_grafis_fallback_' + slug, JSON.stringify({
-      slug,
-      payload: {
-        meta: { name: identity.name, position: identity.position || '', ts: Date.now() },
-        images: images
-      },
-      savedAt: Date.now()
-    }));
-    console.warn('[GRAFIS] Fallback tersimpan di localStorage');
-  } catch (e) {
-    console.warn('[GRAFIS] Gagal simpan fallback:', e.message);
-  }
+  /* ============================================================
+     EXPORT
+     ============================================================ */
+  const GRAFIS_SCORING = {
+    VERSION, RELEASED, CONFIG, BOBOT_RULES, KEYWORD_RULES,
+    OVERRIDE_TABLE, DEVELOPMENT_KAMUS, POSITION_PROFILES, SCORING_INTERPRETATION,
 
-  throw lastErr || new Error('Upload gagal setelah ' + maxRetry + ' percobaan');
-}
+    resolveMeta, hitungSkorKategori, generateKesimpulan,
+    detectPositionProfile, computePositionFit,
 
-/* =========================================================
-   THANK YOU
-   ========================================================= */
-function renderGrafisThankYou(opts = {}) {
-  window.__inTestView = false;
-  ensureGrafisStyles();
-  const app = document.getElementById("app");
+    enableTrace:  () => _trace.enable(),
+    disableTrace: () => _trace.disable(),
+    clearTrace:   () => _trace.clear(),
+    dumpTrace:    () => _trace.dump(),
 
-  const isFailed = opts.uploadFailed === true;
-
-  app.innerHTML = `
-    <div class="grafis-page">
-      <div class="grafis-container">
-        <div class="grafis-card">
-          <div class="grafis-accent"></div>
-          ${renderTestPageHeader({
-            eyebrow: 'ASSESSMENT CENTER',
-            title: isFailed ? 'Tes Grafis Selesai (Pending Upload)' : 'Tes Grafis Selesai',
-            subtitle: isFailed
-              ? 'Gambar tersimpan di perangkat. Admin akan menghubungi Anda.'
-              : 'Semua gambar Anda telah tersimpan.',
-            showBack: false
-          })}
-        </div>
-        <div class="grafis-thank" style="margin-top:20px;">
-          <div class="grafis-thank-icon">${isFailed ? '⚠️' : '🎉'}</div>
-          <h2>${isFailed ? 'Upload Pending' : 'Terima Kasih!'}</h2>
-          <p>
-            ${isFailed
-              ? 'Koneksi ke server sedang bermasalah. Jangan khawatir — gambar Anda masih tersimpan di perangkat ini.<br>Silakan beritahu admin agar data bisa diambil manual.'
-              : 'Semua gambar Anda telah tersimpan. Silakan lanjut ke tes berikutnya.'}
-          </p>
-          <div class="grafis-actions">
-            <button id="btnContinueGrafis" class="grafis-btn">
-              ${isFailed ? '🏠 Kembali ke Beranda' : '✅ Lanjut Tes Berikutnya'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("btnContinueGrafis").onclick = () => {
-    window.appState = window.appState || {};
-    appState.completed = appState.completed || {};
-    appState.completed.GRAFIS = true;
-
-    if (typeof window.markTestCompleted === 'function') {
-      markTestCompleted('GRAFIS');
-    }
-    if (typeof window.updateDownloadButtonState === "function") {
-      window.updateDownloadButtonState();
-    }
-    if (typeof window.renderHome === "function") {
-      window.__inTestView = false;
-      window.renderHome();
-      setTimeout(() => {
-        const el = document.getElementById("homeCard") || document.getElementById("downloadPDFBox");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 200);
-    }
+    _debugAutoMap(text) { return _autoMap(text); },
+    _debugBobot(text)   { return { bobot: _detectBobot(text), redFlag: _detectRedFlag(text) }; }
   };
-}
 
-/* =========================================================
-   ENTRY POINT
-   ========================================================= */
-function renderGrafisUpload() {
-  window.__inTestView = true;
-  appState.currentTest = 'GRAFIS';
-  appState.completed = appState.completed || {};
-  appState.completed.GRAFIS = false;
-  appState.grafis = appState.grafis || {};
-  renderPersiapanSlide();
-}
+  global.GRAFIS_SCORING = GRAFIS_SCORING;
+  global.__GRAFIS_SCORING_VERSION = VERSION;
 
-/* =========================================================
-   RECOVERY — Cek fallback di startup
-   ========================================================= */
-async function __recoverGrafisFallback() {
-  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('_sgs_grafis_fallback_'));
-  if (keys.length === 0) return;
-
-  console.log('[GRAFIS] 🔄 Recovery: ' + keys.length + ' fallback ditemukan');
-
-  for (const key of keys) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-      const data = JSON.parse(raw);
-      if (!data.slug || !data.payload) continue;
-
-      await firebase.database()
-        .ref('sgs_grafis_images/' + data.slug)
-        .set(data.payload);
-
-      localStorage.removeItem(key);
-      console.log('[GRAFIS] ✓ Fallback recovered:', data.slug);
-    } catch (e) {
-      console.warn('[GRAFIS] Recovery gagal untuk', key, ':', e.message);
-    }
-  }
-}
-
-/* Auto-run recovery setelah Firebase siap */
-setTimeout(() => {
-  __recoverGrafisFallback().catch(() => {});
-}, 5000);
-
-console.log('[TEST-GRAFIS] ✓ Loaded — v2.0 (progress + validation + retry + recovery)');
+  console.log(`[GRAFIS-SCORING] ✓ Loaded v${VERSION} (${RELEASED})`);
+})(window);
