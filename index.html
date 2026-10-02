@@ -19,7 +19,7 @@
   >
 
   <!-- Google Fonts -->
- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- ============================================================
        CSS — URUT DARI VARIABEL KE KOMPONEN
@@ -110,45 +110,13 @@
     }
 
     @keyframes passwordScreenError {
-      0% {
-        background-color: rgba(255, 0, 0, 0);
-        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
-      }
-      10% {
-        background-color: rgba(255, 0, 0, 0.48);
-        box-shadow:
-          inset 0 0 160px rgba(255, 0, 0, 0.85),
-          inset 0 0 320px rgba(255, 0, 0, 0.65);
-      }
-      22% {
-        background-color: rgba(150, 0, 0, 0.58);
-        box-shadow:
-          inset 0 0 100px rgba(255, 0, 0, 1),
-          inset 0 0 260px rgba(255, 0, 0, 0.9),
-          inset 0 0 500px rgba(255, 0, 0, 0.55);
-      }
-      38% {
-        background-color: rgba(255, 0, 0, 0.35);
-        box-shadow:
-          inset 0 0 180px rgba(255, 0, 0, 0.95),
-          inset 0 0 360px rgba(255, 0, 0, 0.7);
-      }
-      55% {
-        background-color: rgba(255, 0, 0, 0.20);
-        box-shadow:
-          inset 0 0 120px rgba(255, 0, 0, 0.75),
-          inset 0 0 300px rgba(255, 0, 0, 0.55);
-      }
-      75% {
-        background-color: rgba(255, 0, 0, 0.10);
-        box-shadow:
-          inset 0 0 80px rgba(255, 0, 0, 0.45),
-          inset 0 0 220px rgba(255, 0, 0, 0.30);
-      }
-      100% {
-        background-color: rgba(255, 0, 0, 0);
-        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
-      }
+      0%   { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0); }
+      10%  { background-color: rgba(255,0,0,.48);  box-shadow: inset 0 0 160px rgba(255,0,0,.85), inset 0 0 320px rgba(255,0,0,.65); }
+      22%  { background-color: rgba(150,0,0,.58);  box-shadow: inset 0 0 100px rgba(255,0,0,1), inset 0 0 260px rgba(255,0,0,.9), inset 0 0 500px rgba(255,0,0,.55); }
+      38%  { background-color: rgba(255,0,0,.35);  box-shadow: inset 0 0 180px rgba(255,0,0,.95), inset 0 0 360px rgba(255,0,0,.7); }
+      55%  { background-color: rgba(255,0,0,.20);  box-shadow: inset 0 0 120px rgba(255,0,0,.75), inset 0 0 300px rgba(255,0,0,.55); }
+      75%  { background-color: rgba(255,0,0,.10);  box-shadow: inset 0 0 80px rgba(255,0,0,.45), inset 0 0 220px rgba(255,0,0,.3); }
+      100% { background-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0); }
     }
 
     .password-screen-error::before {
@@ -159,23 +127,22 @@
       height: 100vh;
       pointer-events: none;
       z-index: 9999;
-      background:
-        radial-gradient(
-          ellipse at center,
-          rgba(255, 0, 0, 0.05) 0%,
-          rgba(255, 0, 0, 0.18) 45%,
-          rgba(255, 0, 0, 0.55) 100%
-        );
+      background: radial-gradient(
+        ellipse at center,
+        rgba(255,0,0,.05) 0%,
+        rgba(255,0,0,.18) 45%,
+        rgba(255,0,0,.55) 100%
+      );
       animation: passwordRedOverlay 0.9s ease-out;
     }
 
     @keyframes passwordRedOverlay {
       0%   { opacity: 0; }
       12%  { opacity: 1; }
-      25%  { opacity: 0.95; }
-      45%  { opacity: 0.72; }
-      65%  { opacity: 0.42; }
-      82%  { opacity: 0.18; }
+      25%  { opacity: .95; }
+      45%  { opacity: .72; }
+      65%  { opacity: .42; }
+      82%  { opacity: .18; }
       100% { opacity: 0; }
     }
 
@@ -185,32 +152,17 @@
       inset: 0;
       pointer-events: none;
       z-index: 10000;
-      border: 6px solid rgba(255, 0, 0, 0);
+      border: 6px solid rgba(255,0,0,0);
       box-sizing: border-box;
       animation: passwordBorderFlash 0.9s ease-out;
     }
 
     @keyframes passwordBorderFlash {
-      0% {
-        border-color: rgba(255, 0, 0, 0);
-        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
-      }
-      12% {
-        border-color: rgba(255, 0, 0, 0.95);
-        box-shadow: inset 0 0 45px rgba(255, 0, 0, 0.75);
-      }
-      30% {
-        border-color: rgba(255, 0, 0, 0.85);
-        box-shadow: inset 0 0 70px rgba(255, 0, 0, 0.65);
-      }
-      60% {
-        border-color: rgba(255, 0, 0, 0.35);
-        box-shadow: inset 0 0 35px rgba(255, 0, 0, 0.35);
-      }
-      100% {
-        border-color: rgba(255, 0, 0, 0);
-        box-shadow: inset 0 0 0 rgba(255, 0, 0, 0);
-      }
+      0%   { border-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0); }
+      12%  { border-color: rgba(255,0,0,.95);  box-shadow: inset 0 0 45px rgba(255,0,0,.75); }
+      30%  { border-color: rgba(255,0,0,.85);  box-shadow: inset 0 0 70px rgba(255,0,0,.65); }
+      60%  { border-color: rgba(255,0,0,.35);  box-shadow: inset 0 0 35px rgba(255,0,0,.35); }
+      100% { border-color: rgba(255,0,0,0);    box-shadow: inset 0 0 0 rgba(255,0,0,0); }
     }
 
     .password-screen-error .password-error {
@@ -218,25 +170,10 @@
     }
 
     @keyframes passwordErrorText {
-      0% {
-        color: inherit;
-        text-shadow: 0 0 0 rgba(255, 0, 0, 0);
-      }
-      15% {
-        color: #ff0000;
-        text-shadow:
-          0 0 8px rgba(255, 0, 0, 1),
-          0 0 18px rgba(255, 0, 0, 0.8);
-      }
-      35% {
-        color: #ff2020;
-        text-shadow:
-          0 0 12px rgba(255, 0, 0, 1),
-          0 0 25px rgba(255, 0, 0, 0.9);
-      }
-      100% {
-        text-shadow: 0 0 0 rgba(255, 0, 0, 0);
-      }
+      0%   { color: inherit; text-shadow: 0 0 0 rgba(255,0,0,0); }
+      15%  { color: #ff0000; text-shadow: 0 0 8px rgba(255,0,0,1), 0 0 18px rgba(255,0,0,.8); }
+      35%  { color: #ff2020; text-shadow: 0 0 12px rgba(255,0,0,1), 0 0 25px rgba(255,0,0,.9); }
+      100% { text-shadow: 0 0 0 rgba(255,0,0,0); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -252,24 +189,16 @@
        CHAT BLINK ANIMATIONS
        ========================================= */
     @keyframes chatFabBlink {
-      0%, 100% {
-        box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 0 rgba(239,68,68,.7);
-      }
-      50% {
-        box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 16px rgba(239,68,68,0);
-      }
+      0%, 100% { box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 0 rgba(239,68,68,.7); }
+      50%      { box-shadow: 0 12px 28px rgba(30,64,175,.35), 0 0 0 16px rgba(239,68,68,0); }
     }
-    .chat-blink {
-      animation: chatFabBlink 1.5s ease-in-out infinite !important;
-    }
+    .chat-blink { animation: chatFabBlink 1.5s ease-in-out infinite !important; }
 
     @keyframes chatBadgeBlink {
       0%, 100% { transform: scale(1);    opacity: 1; }
       50%      { transform: scale(1.25); opacity: .85; }
     }
-    .chat-badge-blink {
-      animation: chatBadgeBlink 1s ease-in-out infinite !important;
-    }
+    .chat-badge-blink { animation: chatBadgeBlink 1s ease-in-out infinite !important; }
 
     @keyframes chatBtnBlink {
       0%, 100% {
@@ -283,9 +212,7 @@
         box-shadow: 0 0 0 6px rgba(239,68,68,.22), 0 3px 12px rgba(239,68,68,.5);
       }
     }
-    .chat-btn-blink {
-      animation: chatBtnBlink 1.2s ease-in-out infinite !important;
-    }
+    .chat-btn-blink { animation: chatBtnBlink 1.2s ease-in-out infinite !important; }
   </style>
 </head>
 
@@ -327,14 +254,12 @@
       }
       applyMode();
 
-      /* Helper global: nyalakan log via console */
       window.__ENABLE_LOGS = function () {
         isDebug = true;
         applyMode();
         original.log('%c[LOGS ENABLED]', 'color:#22c55e;font-weight:bold;');
       };
 
-      /* Helper global: matikan log via console */
       window.__DISABLE_LOGS = function () {
         isDebug = false;
         applyMode();
@@ -406,14 +331,14 @@
   <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js"></script>
 
-<!-- SheetJS untuk export .xlsx -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- SheetJS untuk export .xlsx -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
-<!-- 🆕 JSZip untuk download ZIP -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- JSZip untuk download ZIP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-<!-- jsPDF untuk generate PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- jsPDF untuk generate PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Firebase SDK v9 compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -422,16 +347,8 @@
 
   <!-- ============================================================
        CORE UTILITIES — URUTAN PENTING!
-       - 00-config.js          : konstanta global
-       - 00b-admin.js          : admin panel
-       - 00c-admin-candidate.js: halaman daftar + detail kandidat
-       - 00d-firebase.js       : cloud sync
-       - 00e-presence.js       : heartbeat kandidat aktif
-       - 00f-chat.js           : chat UI
-       - 00g-chat-sync.js      : chat queue
-       - 00i-request.js        : request izin akses
        ============================================================ -->
-   <script src="./js/00-config.js"></script>
+  <script src="./js/00-config.js"></script>
   <script src="./js/00b-admin.js"></script>
   <script src="./js/00c-admin-candidate.js"></script>
   <script src="./js/00d-firebase.js"></script>
@@ -442,11 +359,15 @@
   <script src="./js/00i-request.js"></script>
   <script src="./js/00j-admin-password.js"></script>
 
-  <!-- 🔒 SECURITY LAYER — NEW -->
+  <!-- 🔒 SECURITY LAYER -->
   <script src="./js/00k-modal.js"></script>
-<script src="./js/00l-security.js"></script>
-  <script src="./js/00m-interview.js"></script>
-  <script src="./js/00n-grafis-interpretasi.js"></script>
+  <script src="./js/00l-security.js"></script>
+
+  <!-- ============================================================
+       ⚠️ 00m & 00n DIPINDAH KE BAWAH SETELAH DATA GRAFIS
+       (karena mereka butuh GRAFIS_SCORING & GRAFIS_AUTO_DATA)
+       ============================================================ -->
+
   <script src="./js/01-state.js"></script>
   <script src="./js/01b-resume.js"></script>
   <script src="./js/02-utils.js"></script>
@@ -456,50 +377,67 @@
   <!-- ============================================================
        DATA — File data (dimuat setelah core)
        ============================================================ -->
+
+  <!-- IST -->
   <script src="./js/data/ist-data.js"></script>
   <script src="./js/data/ist-keys.js"></script>
   <script src="./js/data/ist-norms.js"></script>
+
+  <!-- DISC -->
   <script src="./js/data/disc-data.js"></script>
   <script src="./js/data/disc-implications.js"></script>
   <script src="./js/data/disc-roles.js"></script>
+
+  <!-- PAPI -->
   <script src="./js/data/papi-data.js"></script>
   <script src="./js/data/papi-kamus.js"></script>
+
+  <!-- BIG FIVE -->
   <script src="./js/data/bigfive-data.js"></script>
   <script src="./js/data/bigfive-position-analysis.js"></script>
-<script src="./js/data/grafis-data.js"></script>
 
-<!-- BAUM -->
-<script src="./js/data/grafis/baum/01-ukuran-gambar.js"></script>
-<script src="./js/data/grafis/baum/02-kesan-gambar.js"></script>
-<script src="./js/data/grafis/baum/03-penempatan-lokasi.js"></script>
-<script src="./js/data/grafis/baum/04-kualitas-garis.js"></script>
-<script src="./js/data/grafis/baum/06-bagian-pohon.js"></script>
-<script src="./js/data/grafis/baum/07-stambasis.js"></script>
-<script src="./js/data/grafis/baum/08-batang.js"></script>
-<script src="./js/data/grafis/baum/09-dahan.js"></script>
-<script src="./js/data/grafis/baum/10-mahkota.js"></script>
-<script src="./js/data/grafis/baum/11-fitur-khusus.js"></script>
-<script src="./js/data/grafis/baum/index.js"></script>
+  <!-- ============================================================
+       GRAFIS DATA — BAUM, DAP, HTP
+       ============================================================ -->
+  <script src="./js/data/grafis-data.js"></script>
 
-<!-- DAP -->
-<script src="./js/data/grafis/dap/01-ukuran-gambar.js"></script>
-<script src="./js/data/grafis/dap/02-kesan-umum.js"></script>
-<script src="./js/data/grafis/dap/03-penempatan-lokasi.js"></script>
-<script src="./js/data/grafis/dap/04-simbolisme-garis.js"></script>
-<script src="./js/data/grafis/dap/05-bagian-kepala.js"></script>
-<script src="./js/data/grafis/dap/06-bagian-tubuh.js"></script>
-<script src="./js/data/grafis/dap/07-fitur-khusus.js"></script>
-<script src="./js/data/grafis/dap/index.js"></script>
+  <!-- BAUM -->
+  <script src="./js/data/grafis/baum/01-ukuran-gambar.js"></script>
+  <script src="./js/data/grafis/baum/02-kesan-gambar.js"></script>
+  <script src="./js/data/grafis/baum/03-penempatan-lokasi.js"></script>
+  <script src="./js/data/grafis/baum/04-kualitas-garis.js"></script>
+  <script src="./js/data/grafis/baum/06-bagian-pohon.js"></script>
+  <script src="./js/data/grafis/baum/07-stambasis.js"></script>
+  <script src="./js/data/grafis/baum/08-batang.js"></script>
+  <script src="./js/data/grafis/baum/09-dahan.js"></script>
+  <script src="./js/data/grafis/baum/10-mahkota.js"></script>
+  <script src="./js/data/grafis/baum/11-fitur-khusus.js"></script>
+  <script src="./js/data/grafis/baum/index.js"></script>
 
-<!-- HTP -->
-<script src="./js/data/grafis/htp/01-rumah.js"></script>
-<script src="./js/data/grafis/htp/02-pohon.js"></script>
-<script src="./js/data/grafis/htp/03-orang.js"></script>
-<script src="./js/data/grafis/htp/04-gambar-selain-instruksi.js"></script>
-<script src="./js/data/grafis/htp/index.js"></script>
+  <!-- DAP -->
+  <script src="./js/data/grafis/dap/01-ukuran-gambar.js"></script>
+  <script src="./js/data/grafis/dap/02-kesan-umum.js"></script>
+  <script src="./js/data/grafis/dap/03-penempatan-lokasi.js"></script>
+  <script src="./js/data/grafis/dap/04-simbolisme-garis.js"></script>
+  <script src="./js/data/grafis/dap/05-bagian-kepala.js"></script>
+  <script src="./js/data/grafis/dap/06-bagian-tubuh.js"></script>
+  <script src="./js/data/grafis/dap/07-fitur-khusus.js"></script>
+  <script src="./js/data/grafis/dap/index.js"></script>
 
-<!-- Merger — WAJIB paling bawah -->
-<script src="./js/data/grafis-auto-data.js"></script>
+  <!-- HTP -->
+  <script src="./js/data/grafis/htp/01-rumah.js"></script>
+  <script src="./js/data/grafis/htp/02-pohon.js"></script>
+  <script src="./js/data/grafis/htp/03-orang.js"></script>
+  <script src="./js/data/grafis/htp/04-gambar-selain-instruksi.js"></script>
+  <script src="./js/data/grafis/htp/index.js"></script>
+
+  <!-- Merger — WAJIB paling bawah -->
+  <script src="./js/data/grafis-auto-data.js"></script>
+
+  <!-- ✨ GRAFIS SCORING ENGINE v9.0 — SINGLE SOURCE OF TRUTH ✨ -->
+  <script src="./js/data/grafis-scoring.js"></script>
+
+  <!-- SUBJECT & KRAEPLIN DATA -->
   <script src="./js/data/subject-data.js"></script>
   <script src="./js/data/kraeplin-data.js"></script>
 
@@ -510,6 +448,12 @@
        AUTH & CORE (Identity)
        ============================================================ -->
   <script src="./js/core/identity.js"></script>
+
+  <!-- ============================================================
+       🆕 MODUL FORM KHUSUS — Butuh GRAFIS_SCORING & GRAFIS_AUTO_DATA
+       ============================================================ -->
+  <script src="./js/00m-interview.js"></script>
+  <script src="./js/00n-grafis-interpretasi.js"></script>
 
   <!-- ============================================================
        TESTS — Semua modul tes
@@ -536,6 +480,72 @@
   <script src="./js/06-timer.js"></script>
   <script src="./js/07-download-v2.js"></script>
   <script src="./js/08-app-init.js"></script>
+
+  <!-- ============================================================
+       🔍 SELF-CHECK — Verifikasi semua dependency tersedia
+       (aktifkan dengan ?debug=1)
+       ============================================================ -->
+  <script>
+    (function selfCheck() {
+      const isDebug = new URLSearchParams(location.search).get('debug') === '1';
+      if (!isDebug) return;
+
+      setTimeout(function () {
+        const checks = [
+          ['APP_CONFIG',               typeof window.APP_CONFIG !== 'undefined'],
+          ['appState',                 typeof window.appState !== 'undefined'],
+          ['tests (global)',           typeof window.tests !== 'undefined'],
+          ['GRAFIS_AUTO_DATA',         typeof window.GRAFIS_AUTO_DATA !== 'undefined'],
+          ['GRAFIS_SCORING v9.0',      typeof window.GRAFIS_SCORING !== 'undefined'],
+          ['GRAFIS_SCORING.VERSION',   window.GRAFIS_SCORING?.VERSION || '-'],
+          ['GRAFIS_DATA',              typeof window.GRAFIS_DATA !== 'undefined'],
+          ['BAUM slides',              window.GRAFIS_AUTO_DATA?.baum?.slides?.length || 0],
+          ['DAP slides',               window.GRAFIS_AUTO_DATA?.dap?.slides?.length || 0],
+          ['HTP slides',               window.GRAFIS_AUTO_DATA?.htp?.slides?.length || 0],
+          ['firebase',                 typeof firebase !== 'undefined'],
+          ['jsPDF',                    typeof window.jspdf !== 'undefined'],
+          ['Luckysheet',               typeof window.luckysheet !== 'undefined'],
+          ['JSZip',                    typeof window.JSZip !== 'undefined'],
+          ['SheetJS',                  typeof window.XLSX !== 'undefined'],
+          ['renderGrafisUpload',       typeof window.renderGrafisUpload === 'function'],
+          ['openGrafisInterpLink',     typeof window.openGrafisInterpLink === 'function'],
+          ['openInterviewLink',        typeof window.openInterviewLink === 'function'],
+          ['generatePDFBlob',          typeof window.generatePDFBlob === 'function'],
+          ['checkPassword',            typeof window.checkPassword === 'function'],
+        ];
+
+        const style = 'font-weight:bold;padding:2px 6px;border-radius:4px;';
+        console.log('%c[SELF-CHECK] Dependency Verification', 'color:#6366f1;font-size:14px;font-weight:900;');
+        console.log('─'.repeat(60));
+
+        let allOk = true;
+        checks.forEach(function (row) {
+          const [name, value] = row;
+          const ok = value !== false && value !== 0 && value !== '-' && value !== undefined;
+          if (!ok) allOk = false;
+          const icon = ok ? '✅' : '❌';
+          const color = ok ? '#22c55e' : '#ef4444';
+          console.log(
+            '%c' + icon + ' ' + name.padEnd(28) + ' %c' + String(value),
+            style + 'background:' + color + ';color:#fff;',
+            'color:#475569;font-family:monospace;'
+          );
+        });
+
+        console.log('─'.repeat(60));
+        console.log(
+          allOk
+            ? '%c✅ SEMUA DEPENDENCY OK — Aplikasi siap digunakan'
+            : '%c⚠️ ADA DEPENDENCY YANG HILANG — cek log di atas',
+          'font-weight:900;font-size:12px;color:' + (allOk ? '#16a34a' : '#dc2626') + ';'
+        );
+        console.log(
+          '%c💡 Buka form admin dengan: ?grafindo=1&n=NamaKandidat&p=Posisi',
+          'color:#6366f1;font-style:italic;'
+        );
+      }, 3000);
+    })();
+  </script>
 
 </body>
 </html>
