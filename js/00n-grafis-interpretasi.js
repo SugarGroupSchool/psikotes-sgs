@@ -1,8 +1,9 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.2
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.3
    ------------------------------------------------------------
-   v8.2 [2026-10-02]
-   🤖 Auto-scoring engine + conclusion generator
+   v8.3 [2026-10-02]
+   🎯 Position-aware scoring — interpretasi menyesuaikan posisi
+   🤖 Auto-scoring engine + conclusion generator presisi
    🎨 Gambar referensi per item & sub-item — selalu tampil di kiri
    ============================================================ */
 
@@ -173,6 +174,275 @@
   ];
 
   /* ============================================================
+     🎯 POSITION PROFILES
+     ------------------------------------------------------------
+     Setiap posisi punya "kebutuhan" minimal per kategori.
+     Sumber: turunan dari bigfive-position-analysis.js + DISC roles
+     ============================================================ */
+  const POSITION_PROFILES = {
+    guru_mapel: {
+      label: 'Guru Mata Pelajaran',
+      matcher: /guru|dosen|pengajar|teacher|biologi|kimia|fisika|matematika|math|bahasa|inggris|indonesia|lampung|sejarah|sosial|\bipa\b|islam|kristen|katholik|katolik|hindu|\btik\b|visual|art|olahraga|olah\s*raga/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.5,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.2,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.2,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.2,
+        'INTEGRITY & RULE COMPLIANCE': 3.3,
+        'TEACHING CREATIVITY': 3.2
+      },
+      priority: [
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
+        'INTEGRITY & RULE COMPLIANCE',
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK'
+      ],
+      nama_field: 'mata pelajaran'
+    },
+
+    guru_kelas: {
+      label: 'Guru Kelas / TK / SD',
+      matcher: /kindergarten|tk|primary|\bsd\b|guru\s*kelas/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.6,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.5,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.2,
+        'INTEGRITY & RULE COMPLIANCE': 3.3,
+        'TEACHING CREATIVITY': 3.5
+      },
+      priority: [
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'TEACHING CREATIVITY'
+      ],
+      nama_field: 'pendidikan anak'
+    },
+
+    administrator: {
+      label: 'Administrator / Staff',
+      matcher: /administrator|admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.5
+      },
+      priority: [
+        'INTEGRITY & RULE COMPLIANCE',
+        'MOTIVATION & ACHIEVEMENT DRIVE'
+      ],
+      nama_field: 'administrasi & pelayanan'
+    },
+
+    technical: {
+      label: 'Technical Staff / Operator',
+      matcher: /technical|teknisi|welder|las\b|wood|maintenance|baker|operator|produksi|engineering|it\s*staff/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.2,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.5,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.5
+      },
+      priority: [
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'INTEGRITY & RULE COMPLIANCE'
+      ],
+      nama_field: 'kerja teknis & keselamatan'
+    },
+
+    konselor: {
+      label: 'Konselor / BK',
+      matcher: /konselor|counselor|\bbk\b|bimbingan/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.3,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.8,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.6,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.2,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.3,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 3.2
+      },
+      priority: [
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+        'STABILITAS EMOSI & KONTROL IMPULS',
+        'INTEGRITY & RULE COMPLIANCE'
+      ],
+      nama_field: 'bimbingan & konseling'
+    },
+
+    housekeeping: {
+      label: 'Housekeeping',
+      matcher: /housekeeping|cleaning|kebersihan|kebun|gardener/i,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 2.8,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.3,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.5,
+        'TEACHING CREATIVITY': 2.0
+      },
+      priority: [
+        'INTEGRITY & RULE COMPLIANCE',
+        'MOTIVATION & ACHIEVEMENT DRIVE'
+      ],
+      nama_field: 'kebersihan & ketertiban'
+    },
+
+    default: {
+      label: 'Umum',
+      matcher: /.*/,
+      needs: {
+        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': 3.0,
+        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': 3.0,
+        'STABILITAS EMOSI & KONTROL IMPULS': 3.0,
+        'MOTIVATION & ACHIEVEMENT DRIVE': 3.0,
+        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': 3.0,
+        'INTEGRITY & RULE COMPLIANCE': 3.0,
+        'TEACHING CREATIVITY': 3.0
+      },
+      priority: [],
+      nama_field: 'kompetensi umum'
+    }
+  };
+
+  /* ============================================================
+     🧠 INTERPRETASI KLINIS PER KATEGORI PER BAND
+     ============================================================ */
+  const SCORING_INTERPRETATION = {
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': {
+      SANGAT_BAIK: 'Kandidat menunjukkan kapasitas kognitif yang kuat — mampu berpikir sistematis, menganalisis masalah secara mendalam, dan menyusun strategi pemecahan yang efektif. Struktur berpikir terorganisir dan stabil di bawah tekanan.',
+      BAIK: 'Kandidat memiliki kemampuan berpikir yang baik — dapat memahami konsep dan menyelesaikan masalah secara terstruktur, meski pada kasus yang sangat kompleks mungkin memerlukan waktu lebih untuk analisis.',
+      CUKUP: 'Kandidat menunjukkan kemampuan berpikir pada taraf memadai — mampu menangani tugas rutin dan masalah sederhana, namun masih memerlukan pendampingan untuk analisis masalah kompleks dan perencanaan strategis.',
+      PERHATIAN: 'Kandidat menunjukkan hambatan pada kemampuan berpikir terstruktur — kesulitan menganalisis masalah, cenderung kebingungan pada situasi kompleks, dan butuh pendampingan intensif untuk menyusun kerangka pemecahan masalah.'
+    },
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': {
+      SANGAT_BAIK: 'Kandidat sangat empatik, hangat, dan kooperatif — mudah membangun hubungan interpersonal yang sehat, mampu membaca kebutuhan orang lain, dan menjadi penggerak harmoni dalam tim.',
+      BAIK: 'Kandidat memiliki kemampuan interpersonal yang baik — mampu bekerja sama, berkomunikasi efektif, dan menjaga relasi kerja yang positif dengan rekan maupun atasan.',
+      CUKUP: 'Kandidat memiliki kemampuan interpersonal yang cukup — mampu bekerja dalam tim, namun kadang perlu waktu untuk menyesuaikan diri dalam interaksi sosial yang intens atau situasi konflik.',
+      PERHATIAN: 'Kandidat menunjukkan hambatan dalam relasi interpersonal — cenderung menarik diri, sulit membangun kedekatan emosional, dan bisa mengalami kesulitan dalam kolaborasi tim.'
+    },
+    'STABILITAS EMOSI & KONTROL IMPULS': {
+      SANGAT_BAIK: 'Kandidat sangat stabil secara emosional — tenang di bawah tekanan, mampu mengendalikan impuls dengan baik, dan menjadi penyeimbang suasana di lingkungan kerja.',
+      BAIK: 'Kandidat memiliki kestabilan emosi yang baik — mampu mengelola stres dan tekanan kerja dengan wajar, meski pada kondisi ekstrem mungkin sesekali memerlukan waktu untuk pulih.',
+      CUKUP: 'Kandidat memiliki kestabilan emosi pada taraf memadai — mampu menangani tekanan sehari-hari, namun pada kondisi tekanan tinggi cenderung menunjukkan reaksi emosional yang lebih intens.',
+      PERHATIAN: 'Kandidat menunjukkan kerentanan emosional — mudah terpengaruh tekanan, impulsif, dan rentan mengalami fluktuasi mood yang dapat mengganggu produktivitas serta hubungan kerja.'
+    },
+    'MOTIVATION & ACHIEVEMENT DRIVE': {
+      SANGAT_BAIK: 'Kandidat sangat termotivasi dan berorientasi prestasi — memiliki dorongan internal yang kuat, tekun, gigih, dan tidak mudah menyerah dalam mencapai tujuan.',
+      BAIK: 'Kandidat memiliki motivasi kerja yang baik — menunjukkan inisiatif, tekun dalam menyelesaikan tugas, dan memiliki dorongan untuk berkembang.',
+      CUKUP: 'Kandidat memiliki motivasi kerja pada taraf memadai — mampu menyelesaikan tugas rutin, namun pada tugas-tugas menantang mungkin memerlukan dukungan atau dorongan eksternal.',
+      PERHATIAN: 'Kandidat menunjukkan motivasi kerja yang rendah — kurang bersemangat, mudah menyerah, pasif, dan cenderung tidak memiliki dorongan kuat untuk mencapai hasil optimal.'
+    },
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': {
+      SANGAT_BAIK: 'Kandidat sangat adaptif dan fleksibel — cepat belajar hal baru, terbuka pada perubahan, dan mampu menyesuaikan diri dengan cepat di berbagai situasi.',
+      BAIK: 'Kandidat memiliki kemampuan adaptasi yang baik — mampu menyesuaikan diri pada perubahan, terbuka pada ide baru, dan memiliki kemauan belajar yang baik.',
+      CUKUP: 'Kandidat memiliki kemampuan adaptasi pada taraf memadai — mampu menyesuaikan diri pada perubahan bertahap, namun pada perubahan mendadak mungkin memerlukan waktu lebih.',
+      PERHATIAN: 'Kandidat menunjukkan kekakuan dalam beradaptasi — sulit menerima perubahan, cenderung bertahan pada cara lama, dan rentan mengalami kesulitan saat lingkungan kerja dinamis.'
+    },
+    'INTEGRITY & RULE COMPLIANCE': {
+      SANGAT_BAIK: 'Kandidat menunjukkan integritas yang sangat kuat — jujur, bertanggung jawab, patuh aturan, dan dapat dipercaya dalam menjalankan tugas maupun menjaga amanah.',
+      BAIK: 'Kandidat memiliki integritas yang baik — menunjukkan tanggung jawab, disiplin, dan kemampuan menjaga nilai-nilai etika dalam pekerjaan.',
+      CUKUP: 'Kandidat memiliki integritas pada taraf memadai — memahami aturan dan nilai kerja, namun pada situasi tertentu mungkin memerlukan pengingat atau penguatan terkait kepatuhan.',
+      PERHATIAN: 'Kandidat menunjukkan kerentanan pada aspek integritas — cenderung mengelak, sulit mematuhi aturan, dan berpotensi menghadapi masalah kedisiplinan jika tidak diperkuat.'
+    },
+    'TEACHING CREATIVITY': {
+      SANGAT_BAIK: 'Kandidat sangat kreatif dan imajinatif — menghasilkan banyak ide baru, ekspresif, dan mampu menciptakan metode atau pendekatan yang unik dalam pekerjaannya.',
+      BAIK: 'Kandidat memiliki kreativitas yang baik — mampu berpikir orisinal, terbuka pada eksperimen, dan mencari cara-cara variatif dalam menyelesaikan tugas.',
+      CUKUP: 'Kandidat memiliki kreativitas pada taraf memadai — mampu mengikuti metode yang ada, namun belum menonjol dalam menghasilkan ide-ide baru atau pendekatan inovatif.',
+      PERHATIAN: 'Kandidat menunjukkan keterbatasan pada aspek kreativitas — cenderung monoton, kurang ide baru, dan kesulitan mengembangkan pendekatan inovatif dalam pekerjaan.'
+    }
+  };
+
+  /* ============================================================
+     DETEKSI PROFIL POSISI
+     ============================================================ */
+  function detectPositionProfile(position) {
+    const pos = String(position || '').toLowerCase().trim();
+    if (!pos) return POSITION_PROFILES.default;
+    const order = ['konselor', 'guru_kelas', 'housekeeping', 'technical', 'guru_mapel', 'administrator'];
+    for (const key of order) {
+      if (POSITION_PROFILES[key].matcher.test(pos)) return POSITION_PROFILES[key];
+    }
+    return POSITION_PROFILES.default;
+  }
+
+  /* ============================================================
+     HITUNG KECOCOKAN TERHADAP POSISI
+     ============================================================ */
+  function computePositionFit(scoring, profile) {
+    const perKategori = [];
+    let weightedSum = 0;
+    let weightTotal = 0;
+    let fitCount = 0, partialCount = 0, notFitCount = 0;
+    const priorityIssues = [];
+    const gaps = [];
+
+    KATEGORI.forEach(kat => {
+      const k = scoring[kat];
+      const need = profile.needs[kat] ?? 3.0;
+      const isPriority = profile.priority.includes(kat);
+      const weight = isPriority ? 2 : 1;
+
+      if (!k || k.status === 'NO_DATA') {
+        perKategori.push({
+          kategori: kat, skor: null, need, gap: null,
+          status: 'NO_DATA', isPriority, weight, catFitScore: null
+        });
+        return;
+      }
+
+      const gap = k.skor - need;
+      let status;
+      if (gap >= 0) status = 'MEMENUHI';
+      else if (gap >= -0.4) status = 'HAMPIR';
+      else status = 'KURANG';
+
+      let catFitScore;
+      if (gap >= 0) catFitScore = 100;
+      else if (gap >= -0.5) catFitScore = 75 + (gap + 0.5) * 50;
+      else if (gap >= -1.0) catFitScore = 40 + (gap + 1.0) * 70;
+      else catFitScore = Math.max(0, 40 + (gap + 1.0) * 40);
+
+      weightedSum += catFitScore * weight;
+      weightTotal += weight;
+
+      if (status === 'MEMENUHI') fitCount++;
+      else if (status === 'HAMPIR') partialCount++;
+      else {
+        notFitCount++;
+        if (isPriority) priorityIssues.push(kat);
+      }
+
+      gaps.push({ kategori: kat, gap, isPriority });
+
+      perKategori.push({
+        kategori: kat, skor: k.skor, need, gap,
+        status, isPriority, weight, catFitScore: Math.round(catFitScore)
+      });
+    });
+
+    const fitScore = weightTotal > 0 ? Math.round(weightedSum / weightTotal) : 0;
+
+    return {
+      profile,
+      perKategori,
+      fitCount, partialCount, notFitCount,
+      priorityIssues,
+      gaps,
+      fitScore
+    };
+  }
+
+  /* ============================================================
      🔥 AUTO-SCORING ENGINE v1.0
      ------------------------------------------------------------
      Basis literatur:
@@ -212,32 +482,32 @@
 
   const SCORING_KEYWORDS = {
     'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': {
-      n: [/kebingungan/i, /bingung/i, /tidak jelas/i, /kabur/i, /tidak logis/i, /tidak teratur/i, /\bkacau\b/i, /disorientasi/i, /tidak mampu/i, /kesulitan berpikir/i, /retardasi/i, /debil/i, /gangguan kognitif/i, /tidak fokus/i, /konsentrasi kurang/i, /pelupa/i, /tidak konsisten/i, /tidak sistematis/i, /berpikir asosiatif/i, /kekacauan/i],
-      p: [/jelas/i, /teratur/i, /sistematis/i, /logis/i, /konsisten/i, /terorganisir/i, /fokus/i, /analitis/i, /intelegensi tinggi/i, /cerdas/i]
+      n: [/kebingungan/i, /bingung/i, /tidak jelas/i, /kabur/i, /tidak logis/i, /tidak teratur/i, /\bkacau\b/i, /disorientasi/i, /tidak mampu/i, /kesulitan berpikir/i, /retardasi/i, /debil/i, /gangguan kognitif/i, /tidak fokus/i, /konsentrasi kurang/i, /pelupa/i, /tidak konsisten/i, /tidak sistematis/i, /berpikir asosiatif/i, /kekacauan/i, /wilayah konflik/i, /konflik batin/i, /menunda identifikasi/i, /keterbatasan berpikir/i, /primitif/i],
+      p: [/jelas/i, /teratur/i, /sistematis/i, /logis/i, /konsisten/i, /terorganisir/i, /fokus/i, /analitis/i, /intelegensi tinggi/i, /cerdas/i, /intelektual/i]
     },
     'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': {
-      n: [/menarik diri/i, /isolasi/i, /penyendiri/i, /tidak bergaul/i, /kesulitan.*sosial/i, /hambatan.*interaksi/i, /permusuhan/i, /bermusuhan/i, /agresif.*sosial/i, /tidak percaya/i, /curiga/i, /sulit.*berhubungan/i, /dingin/i, /\bcuek\b/i, /tidak peduli/i, /\bego\b/i, /individualis/i, /terisolasi/i, /kesepian/i, /canggung/i, /pemalu/i, /menghindar/i],
-      p: [/empati/i, /hangat/i, /ramah/i, /kooperatif/i, /bersahabat/i, /peduli/i, /suka membantu/i, /sosial.*baik/i, /mudah bergaul/i, /interpersonal.*baik/i, /terbuka/i, /kolaboratif/i]
+      n: [/menarik diri/i, /isolasi/i, /penyendiri/i, /tidak bergaul/i, /kesulitan.*sosial/i, /hambatan.*interaksi/i, /permusuhan/i, /bermusuhan/i, /agresif.*sosial/i, /tidak percaya/i, /curiga/i, /sulit.*berhubungan/i, /dingin/i, /\bcuek\b/i, /tidak peduli/i, /\bego\b/i, /individualis/i, /terisolasi/i, /kesepian/i, /canggung/i, /pemalu/i, /menghindar/i, /menghina/i, /menyerang verbal/i, /menolak reseptor/i, /memanipulasi/i],
+      p: [/empati/i, /hangat/i, /ramah/i, /kooperatif/i, /bersahabat/i, /peduli/i, /suka membantu/i, /sosial.*baik/i, /mudah bergaul/i, /interpersonal.*baik/i, /terbuka/i, /kolaboratif/i, /suka menolong/i]
     },
     'STABILITAS EMOSI & KONTROL IMPULS': {
-      n: [/agresif/i, /marah/i, /impulsif/i, /cemas/i, /takut/i, /depresi/i, /sedih/i, /murung/i, /\bkacau\b/i, /gelisah/i, /tegang/i, /panik/i, /nervous/i, /manik/i, /meledak/i, /kontrol.*lemah/i, /tidak stabil/i, /emosional/i, /histeris/i, /frustrasi/i, /putus asa/i, /melankolis/i, /labilitas/i, /moody/i, /sensitif/i, /mudah tersinggung/i, /mudah marah/i],
-      p: [/tenang/i, /stabil/i, /damai/i, /terkendali/i, /seimbang/i, /sabar/i, /kalem/i, /harmonis/i, /matang.*emosi/i, /kontrol.*baik/i]
+      n: [/agresif/i, /marah/i, /impulsif/i, /cemas/i, /takut/i, /depresi/i, /sedih/i, /murung/i, /\bkacau\b/i, /gelisah/i, /tegang/i, /panik/i, /nervous/i, /manik/i, /meledak/i, /kontrol.*lemah/i, /tidak stabil/i, /emosional/i, /histeris/i, /frustrasi/i, /putus asa/i, /melankolis/i, /labilitas/i, /moody/i, /sensitif/i, /mudah tersinggung/i, /mudah marah/i, /regresi/i, /obsesif/i, /kompulsi/i, /keras hati/i, /memberontak/i, /kegelisahan/i, /ketegangan/i, /stress/i],
+      p: [/tenang/i, /stabil/i, /damai/i, /terkendali/i, /seimbang/i, /sabar/i, /kalem/i, /harmonis/i, /matang.*emosi/i, /kontrol.*baik/i, /relaks/i]
     },
     'MOTIVATION & ACHIEVEMENT DRIVE': {
       n: [/tidak termotivasi/i, /kurang semangat/i, /pasif/i, /malas/i, /tidak ambisi/i, /kurang dorongan/i, /mudah menyerah/i, /lemah.*kemauan/i, /tidak ada tujuan/i, /stagnan/i, /tidak produktif/i, /\bloyo\b/i, /lemas/i, /tidak bertenaga/i, /energi.*lemah/i, /lesu/i],
-      p: [/ambisi/i, /berprestasi/i, /termotivasi/i, /semangat/i, /vitalitas/i, /energi.*tinggi/i, /rajin/i, /tekun/i, /gigih/i, /berusaha keras/i, /optimis/i, /aspirasi/i, /produktif/i, /inisiatif/i]
+      p: [/ambisi/i, /berprestasi/i, /termotivasi/i, /semangat/i, /vitalitas/i, /energi.*tinggi/i, /rajin/i, /tekun/i, /gigih/i, /berusaha keras/i, /optimis/i, /aspirasi/i, /produktif/i, /inisiatif/i, /keras hati/i, /tidak mudah putus asa/i, /berusaha mencapai tujuan/i]
     },
     'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': {
-      n: [/\bkaku\b/i, /rigid/i, /tidak fleksibel/i, /sulit beradaptasi/i, /stagnan/i, /monoton/i, /tidak bisa berubah/i, /resistensi/i, /menolak perubahan/i, /tidak dinamis/i, /statis/i, /menentang/i, /keras kepala/i, /kepala batu/i, /tertutup.*pengalaman baru/i],
-      p: [/fleksibel/i, /adaptif/i, /dinamis/i, /mudah menyesuaikan/i, /terbuka/i, /mengeksplorasi/i, /mencoba.*baru/i, /inovatif/i, /kreatif/i, /cepat belajar/i, /inisiatif/i, /responsif/i, /spontan/i]
+      n: [/\bkaku\b/i, /rigid/i, /tidak fleksibel/i, /sulit beradaptasi/i, /stagnan/i, /monoton/i, /tidak bisa berubah/i, /resistensi/i, /menolak perubahan/i, /tidak dinamis/i, /statis/i, /menentang/i, /keras kepala/i, /kepala batu/i, /tertutup.*pengalaman baru/i, /hambatan emosional/i, /transisi.*sulit/i, /kekhawatiran.*perubahan/i],
+      p: [/fleksibel/i, /adaptif/i, /dinamis/i, /mudah menyesuaikan/i, /terbuka/i, /mengeksplorasi/i, /mencoba.*baru/i, /inovatif/i, /kreatif/i, /cepat belajar/i, /inisiatif/i, /responsif/i, /spontan/i, /berani tampil beda/i]
     },
     'INTEGRITY & RULE COMPLIANCE': {
-      n: [/curang/i, /manipulasi/i, /eksploitasi/i, /melanggar/i, /antisosial/i, /psikopat/i, /tidak jujur/i, /menyembunyikan/i, /berbohong/i, /mengelak/i, /menentang aturan/i, /melawan.*otoritas/i, /tidak bertanggung jawab/i],
+      n: [/curang/i, /manipulasi/i, /eksploitasi/i, /melanggar/i, /antisosial/i, /psikopat/i, /tidak jujur/i, /menyembunyikan/i, /berbohong/i, /mengelak/i, /menentang aturan/i, /melawan.*otoritas/i, /tidak bertanggung jawab/i, /otoriter/i, /oposisi/i, /menentang/i, /manipulatif/i, /narsistik/i, /narsis/i],
       p: [/integritas/i, /jujur/i, /bertanggung jawab/i, /disiplin/i, /patuh.*aturan/i, /moral.*baik/i, /etis/i, /dapat dipercaya/i, /dedikasi/i, /loyal/i, /amanah/i]
     },
     'TEACHING CREATIVITY': {
-      n: [/tidak kreatif/i, /monoton/i, /kaku.*mengajar/i, /tidak inovatif/i, /repetitif/i, /tidak imajinatif/i, /kurang ide/i, /tidak variatif/i],
-      p: [/kreatif/i, /inovatif/i, /imajinatif/i, /ide.*baru/i, /ekspresif/i, /artistik/i, /orisinil/i, /variatif/i, /mengeksplorasi/i, /inventif/i, /kaya ide/i]
+      n: [/tidak kreatif/i, /monoton/i, /kaku.*mengajar/i, /tidak inovatif/i, /repetitif/i, /tidak imajinatif/i, /kurang ide/i, /tidak variatif/i, /daya cipta kurang/i],
+      p: [/kreatif/i, /inovatif/i, /imajinatif/i, /ide.*baru/i, /ekspresif/i, /artistik/i, /orisinil/i, /orisinalitas/i, /variatif/i, /mengeksplorasi/i, /inventif/i, /kaya ide/i, /berani tampil beda/i]
     }
   };
 
@@ -380,9 +650,13 @@
     return acc;
   }
 
-  /* ---------- GENERATOR KESIMPULAN ---------- */
+  /* ---------- GENERATOR KESIMPULAN (POSITION-AWARE) ---------- */
   function generateKesimpulan(scoring, identity) {
     identity = identity || {};
+    const posisi = identity.position || '';
+    const profile = detectPositionProfile(posisi);
+    const fitData = computePositionFit(scoring, profile);
+
     const kategoriArr = Object.values(scoring);
     const kategoriValid = kategoriArr.filter(k => k.status !== 'NO_DATA');
 
@@ -390,7 +664,8 @@
       return {
         rataRata: 0, overallLabel: 'TIDAK CUKUP DATA', overallColor: '#94a3b8',
         overallConfidence: 'RENDAH', totalBobot: 0,
-        strengths: [], weaknesses: [], allRedFlags: [],
+        posisiLabel: profile.label, fitScore: 0, fitData: null,
+        strengths: [], weaknesses: [], allRedFlags: [], perKategoriNarasi: [],
         text: 'Tidak cukup indikator terpilih untuk menghasilkan kesimpulan yang valid. ' +
               'Mohon lengkapi checklist interpretasi terlebih dahulu.'
       };
@@ -404,12 +679,23 @@
     if (totalBobot >= 18)      overallConfidence = 'TINGGI';
     else if (totalBobot >= 10) overallConfidence = 'SEDANG';
 
-    let overallLabel, overallColor;
-    if (rataRata >= SCORING_CONFIG.THRESHOLD.SANGAT_BAIK) { overallLabel = 'HIGHLY RECOMMENDED'; overallColor = '#166534'; }
-    else if (rataRata >= SCORING_CONFIG.THRESHOLD.BAIK)   { overallLabel = 'RECOMMENDED';        overallColor = '#16a34a'; }
-    else if (rataRata >= SCORING_CONFIG.THRESHOLD.CUKUP)  { overallLabel = 'FAIRLY RECOMMENDED'; overallColor = '#d97706'; }
-    else                                                   { overallLabel = 'NOT RECOMMENDED';    overallColor = '#dc2626'; }
+    /* ===== Rekomendasi berdasarkan FIT SCORE (bukan rata-rata) ===== */
+    const fitScore = fitData.fitScore;
+    const hasPriorityIssue = fitData.priorityIssues.length > 0;
+    const lowKategoriCount = fitData.notFitCount;
 
+    let overallLabel, overallColor;
+    if (fitScore >= 85 && !hasPriorityIssue && lowKategoriCount <= 1) {
+      overallLabel = 'HIGHLY RECOMMENDED'; overallColor = '#166534';
+    } else if (fitScore >= 70 && !hasPriorityIssue) {
+      overallLabel = 'RECOMMENDED';        overallColor = '#16a34a';
+    } else if (fitScore >= 50) {
+      overallLabel = 'FAIRLY RECOMMENDED'; overallColor = '#d97706';
+    } else {
+      overallLabel = 'NOT RECOMMENDED';    overallColor = '#dc2626';
+    }
+
+    /* ===== Strengths & weaknesses ===== */
     const sorted = [...kategoriArr].sort((a, b) => b.skor - a.skor);
     const strengths = sorted
       .filter(k => k.skor >= 3.0 && k.itemsPos.length >= SCORING_CONFIG.MIN_KONVERGENSI)
@@ -425,27 +711,131 @@
       }
     });
 
-    const lines = [];
-    const sep = '─'.repeat(55);
+    /* ===== Bangun narasi per kategori ===== */
+    const perKategoriNarasi = KATEGORI.map(kat => {
+      const k = scoring[kat];
+      const fitItem = fitData.perKategori.find(f => f.kategori === kat);
+      const interp = SCORING_INTERPRETATION[kat];
 
-    lines.push('KESIMPULAN INTERPRETASI GRAFIS');
+      if (!k || k.status === 'NO_DATA') {
+        return {
+          kategori: kat,
+          skor: null, status: 'NO_DATA',
+          need: fitItem?.need || 3.0,
+          gap: null, fitStatus: 'NO_DATA',
+          isPriority: fitItem?.isPriority || false,
+          narasi: 'Belum ada indikator yang cukup untuk menilai kategori ini. ' +
+                  'Disarankan untuk melengkapi checklist interpretasi pada DAP/BAUM/HTP.'
+        };
+      }
+
+      const parts = [];
+
+      parts.push(`SKOR ${k.skor.toFixed(2)} / 4.00 (${k.status.replace('_', ' ')}).`);
+
+      if (interp && interp[k.status]) {
+        parts.push(interp[k.status]);
+      }
+
+      if (k.itemsPos.length > 0) {
+        const labels = k.itemsPos.slice(0, 5).map(x => `"${x.label}"`).join(', ');
+        const more = k.itemsPos.length > 5 ? ` (+${k.itemsPos.length - 5} lain)` : '';
+        parts.push(`Indikator positif (${k.itemsPos.length}): ${labels}${more}.`);
+      }
+
+      if (k.itemsNeg.length > 0) {
+        const labels = k.itemsNeg.slice(0, 5).map(x => `"${x.label}"`).join(', ');
+        const more = k.itemsNeg.length > 5 ? ` (+${k.itemsNeg.length - 5} lain)` : '';
+        parts.push(`Indikator negatif (${k.itemsNeg.length}): ${labels}${more}.`);
+      }
+
+      if (k.redFlags.length > 0) {
+        parts.push(`⚠️ RED FLAG (${k.redFlags.length}): ${k.redFlags.slice(0, 3).join(', ')}${k.redFlags.length > 3 ? '...' : ''}.`);
+      }
+
+      let fitStatus = 'NO_DATA';
+      if (fitItem && fitItem.status !== 'NO_DATA') {
+        fitStatus = fitItem.status;
+        const needStr = fitItem.need.toFixed(2);
+        const gapStr = (fitItem.gap >= 0 ? '+' : '') + fitItem.gap.toFixed(2);
+        const priorityTag = fitItem.isPriority ? ' [⚡ PRIORITAS POSISI]' : '';
+
+        if (fitItem.status === 'MEMENUHI') {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} ≥ kebutuhan ${needStr} — MEMENUHI dengan surplus ${gapStr}.`);
+        } else if (fitItem.status === 'HAMPIR') {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} vs kebutuhan ${needStr} — HAMPIR memenuhi, gap ${gapStr}. Perlu penguatan ringan.`);
+        } else {
+          parts.push(`Konteks posisi ${profile.label}${priorityTag}: skor kandidat ${fitItem.skor.toFixed(2)} vs kebutuhan ${needStr} — KURANG memenuhi, gap ${gapStr}. Disarankan pendampingan / pelatihan.`);
+        }
+      }
+
+      return {
+        kategori: kat,
+        skor: k.skor,
+        status: k.status,
+        need: fitItem?.need || 3.0,
+        gap: fitItem?.gap ?? null,
+        fitStatus,
+        isPriority: fitItem?.isPriority || false,
+        narasi: parts.join('\n\n')
+      };
+    });
+
+    /* ===== Bangun teks kesimpulan ===== */
+    const lines = [];
+    const sep = '─'.repeat(60);
+
+    lines.push('KESIMPULAN INTERPRETASI GRAFIS (DAP · BAUM · HTP)');
     lines.push(sep); lines.push('');
-    lines.push(`Kandidat   : ${identity.name || '-'}`);
-    lines.push(`Posisi     : ${identity.position || '-'}`);
-    lines.push(`Tanggal    : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+
+    lines.push(`Kandidat            : ${identity.name || '-'}`);
+    lines.push(`Posisi Dilamar      : ${posisi || '(tidak disebutkan)'}`);
+    lines.push(`Kategori Posisi     : ${profile.label}`);
+    lines.push(`Tanggal             : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`);
     lines.push('');
-    lines.push(`Skor rata-rata       : ${rataRata.toFixed(2)} / 4.00`);
-    lines.push(`Tingkat kecocokan    : ${overallLabel}`);
-    lines.push(`Tingkat keyakinan    : ${overallConfidence} (total bobot: ${totalBobot})`);
-    lines.push(`Kategori terukur     : ${kategoriValid.length} dari ${KATEGORI.length}`);
-    lines.push(''); lines.push(sep); lines.push('');
+
+    lines.push(sep);
+    lines.push('RINGKASAN SKOR');
+    lines.push(sep); lines.push('');
+    lines.push(`Skor rata-rata              : ${rataRata.toFixed(2)} / 4.00`);
+    lines.push(`Skor kecocokan posisi       : ${fitScore} / 100`);
+    lines.push(`Tingkat kecocokan           : ${overallLabel}`);
+    lines.push(`Tingkat keyakinan data      : ${overallConfidence} (total bobot: ${totalBobot})`);
+    lines.push(`Kategori terukur            : ${kategoriValid.length} dari ${KATEGORI.length}`);
+    lines.push('');
+    lines.push(`Kategori MEMENUHI kebutuhan : ${fitData.fitCount}`);
+    lines.push(`Kategori HAMPIR memenuhi    : ${fitData.partialCount}`);
+    lines.push(`Kategori KURANG memenuhi    : ${fitData.notFitCount}`);
+    if (fitData.priorityIssues.length > 0) {
+      lines.push(`⚡ PRIORITAS yang bermasalah : ${fitData.priorityIssues.length} — ${fitData.priorityIssues.join(', ')}`);
+    }
+    lines.push('');
+    lines.push(sep); lines.push('');
+
+    lines.push('◆ INTERPRETASI PER KATEGORI');
+    lines.push(sep); lines.push('');
+
+    perKategoriNarasi.forEach((pn, i) => {
+      const priorityTag = pn.isPriority ? ' ⚡' : '';
+      lines.push(`${i + 1}. ${pn.kategori}${priorityTag}`);
+      if (pn.skor !== null) {
+        lines.push(`   Skor: ${pn.skor.toFixed(2)} / 4.00  (kebutuhan posisi: ${pn.need.toFixed(2)}, gap: ${pn.gap >= 0 ? '+' : ''}${pn.gap.toFixed(2)}, status: ${pn.fitStatus})`);
+      } else {
+        lines.push(`   Skor: (tidak terukur) — kebutuhan posisi: ${pn.need.toFixed(2)}`);
+      }
+      lines.push('');
+      lines.push(pn.narasi.split('\n\n').map(p => '   ' + p).join('\n   '));
+      lines.push('');
+    });
+    lines.push(sep); lines.push('');
 
     if (strengths.length > 0) {
-      lines.push('◆ KEKUATAN UTAMA'); lines.push('');
+      lines.push('◆ KEKUATAN UTAMA (KONVERGENSI ≥ 2 INDIKATOR POSITIF)');
+      lines.push('');
       strengths.forEach((k, i) => {
         lines.push(`${i + 1}. ${k.kategori}`);
         lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsPos.length} indikator positif)`);
-        const c = k.itemsPos.sort((a,b)=>b.bobot-a.bobot).slice(0,3).map(x=>`"${x.label}"`).join(', ');
+        const c = k.itemsPos.sort((a, b) => b.bobot - a.bobot).slice(0, 3).map(x => `"${x.label}"`).join(', ');
         if (c) lines.push(`   Indikator: ${c}`);
         lines.push('');
       });
@@ -453,11 +843,12 @@
     }
 
     if (weaknesses.length > 0) {
-      lines.push('◆ AREA YANG PERLU PERHATIAN'); lines.push('');
+      lines.push('◆ AREA YANG PERLU PERHATIAN (KONVERGENSI ≥ 2 INDIKATOR NEGATIF)');
+      lines.push('');
       weaknesses.forEach((k, i) => {
         lines.push(`${i + 1}. ${k.kategori}`);
         lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsNeg.length} indikator negatif)`);
-        const c = k.itemsNeg.sort((a,b)=>b.bobot-a.bobot).slice(0,3).map(x=>`"${x.label}"`).join(', ');
+        const c = k.itemsNeg.sort((a, b) => b.bobot - a.bobot).slice(0, 3).map(x => `"${x.label}"`).join(', ');
         if (c) lines.push(`   Indikator: ${c}`);
         lines.push('');
       });
@@ -465,33 +856,55 @@
     }
 
     if (allRedFlags.length > 0) {
-      lines.push('⚠️  INDIKATOR KRITIS (PERLU PENELAAHAN LANJUT)'); lines.push('');
+      lines.push('⚠️  INDIKATOR KRITIS — PERLU PENELAAHAN LANJUT');
+      lines.push('');
       allRedFlags.forEach((rf, i) => {
         lines.push(`${i + 1}. ${rf.kategori} (skor: ${rf.skor.toFixed(2)})`);
         rf.items.forEach(it => lines.push(`   • ${it}`));
         lines.push('');
       });
+      lines.push('Catatan: red flag TIDAK otomatis menggugurkan kandidat, namun');
+      lines.push('memerlukan wawancara klinis dan/atau asesmen tambahan.');
+      lines.push('');
       lines.push(sep); lines.push('');
     }
 
-    if (weaknesses.length > 0) {
-      lines.push('◆ REKOMENDASI PENGEMBANGAN'); lines.push('');
-      weaknesses.forEach((k, i) => {
-        const dev = SCORING_DEVELOPMENT_KAMUS[k.kategori];
-        if (dev) { lines.push(`${i + 1}. ${k.kategori}`); lines.push(`   ${dev}`); lines.push(''); }
+    const devKategori = fitData.perKategori
+      .filter(f => f.status === 'KURANG' || f.status === 'HAMPIR')
+      .sort((a, b) => (a.isPriority === b.isPriority ? a.gap - b.gap : (a.isPriority ? -1 : 1)));
+
+    if (devKategori.length > 0) {
+      lines.push('◆ REKOMENDASI PENGEMBANGAN (SESUAI KEBUTUHAN POSISI)');
+      lines.push('');
+      devKategori.forEach((f, i) => {
+        const dev = SCORING_DEVELOPMENT_KAMUS[f.kategori];
+        if (!dev) return;
+        const priorityTag = f.isPriority ? ' [⚡ PRIORITAS]' : '';
+        lines.push(`${i + 1}. ${f.kategori}${priorityTag}`);
+        lines.push(`   Skor ${f.skor.toFixed(2)} vs kebutuhan ${f.need.toFixed(2)} (gap ${f.gap.toFixed(2)})`);
+        lines.push(`   ${dev}`);
+        lines.push('');
       });
       lines.push(sep); lines.push('');
     }
 
-    lines.push('CATATAN PENTING'); lines.push('');
-    lines.push('Skor ini dihasilkan dari analisis checklist indikator visual pada');
-    lines.push('tes grafis (DAP, BAUM, HTP). Interpretasi ini bersifat SCREENING,');
-    lines.push('BUKAN diagnosis klinis. Keputusan akhir seleksi tetap harus');
-    lines.push('mempertimbangkan: wawancara, tes objektif lain, referensi kerja,');
-    lines.push('dan pertimbangan profesional psikolog.');
+    lines.push('CATATAN PENTING');
     lines.push('');
-    lines.push('Prinsip interpretasi: konvergensi minimal 2 indikator searah,');
-    lines.push('tidak menggunakan single-sign interpretation.');
+    lines.push('1. Skor dihasilkan dari analisis checklist indikator visual pada tes');
+    lines.push('   grafis (DAP, BAUM, HTP) dengan bobot berdasarkan tingkat keparahan');
+    lines.push('   klinis dari literatur (Machover, Buck, Koch, Hammer).');
+    lines.push('');
+    lines.push('2. Interpretasi ini bersifat SCREENING, BUKAN diagnosis klinis.');
+    lines.push('   Keputusan akhir seleksi harus mempertimbangkan: wawancara,');
+    lines.push('   tes objektif lain (IST, DISC, PAPI, Big Five), referensi kerja,');
+    lines.push('   dan pertimbangan profesional psikolog.');
+    lines.push('');
+    lines.push('3. Prinsip interpretasi: konvergensi minimal 2 indikator searah —');
+    lines.push('   tidak menggunakan single-sign interpretation.');
+    lines.push('');
+    lines.push('4. Kebutuhan posisi ("needs") disusun berdasarkan turunan dari');
+    lines.push('   bigfive-position-analysis.js dan DISC roles. Sesuaikan jika');
+    lines.push('   ada standar internal perusahaan yang berbeda.');
     lines.push('');
     lines.push(`Dokumen ini dihasilkan otomatis pada ${new Date().toLocaleString('id-ID')}.`);
 
@@ -499,6 +912,10 @@
       rataRata: Number(rataRata.toFixed(2)),
       overallLabel, overallColor, overallConfidence, totalBobot,
       kategoriValidCount: kategoriValid.length,
+      posisiLabel: profile.label,
+      fitScore,
+      fitData,
+      perKategoriNarasi,
       strengths, weaknesses, allRedFlags,
       text: lines.join('\n')
     };
@@ -507,7 +924,7 @@
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] v8.2 —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] v8.3 —', { candidateName, candidatePosition });
 
   /* ============================================================
      TOAST SYSTEM
@@ -1484,33 +1901,28 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     bindInput('giReasons', 'reasons');
     bindInput('giDevelopment', 'development');
 
-       const rec = document.getElementById('giRecommendation');
+    const rec = document.getElementById('giRecommendation');
     if (rec) rec.addEventListener('change', (e) => {
       state.recommendation = e.target.value;
       saveDraft();
-
-      // Kalau admin ubah manual, kasih flag biar tidak ter-overwrite otomatis
       if (state.autoKesimpulan) {
         const autoValue = (() => {
-          const rr = state.autoKesimpulan.rataRata;
-          if (rr >= 3.5) return 'HIGHLY_RECOMMENDED';
-          if (rr >= 3.0) return 'RECOMMENDED';
-          if (rr >= 2.5) return 'FAIRLY_RECOMMENDED';
+          const fs = state.autoKesimpulan.fitScore;
+          const hasPri = state.autoKesimpulan.fitData?.priorityIssues?.length > 0;
+          const lowCnt = state.autoKesimpulan.fitData?.notFitCount || 0;
+          if (fs >= 85 && !hasPri && lowCnt <= 1) return 'HIGHLY_RECOMMENDED';
+          if (fs >= 70 && !hasPri) return 'RECOMMENDED';
+          if (fs >= 50) return 'FAIRLY_RECOMMENDED';
           return 'NOT_RECOMMENDED';
         })();
-        if (e.target.value !== autoValue) {
-          state.recommendationOverridden = true;
-          console.log('[GRAFIS-INTERP] Rekomendasi di-override manual:', e.target.value);
-        } else {
-          state.recommendationOverridden = false;
-        }
+        state.recommendationOverridden = (e.target.value !== autoValue);
       }
     });
 
     const submit = document.getElementById('giSubmitBtn');
     if (submit) submit.addEventListener('click', handleSubmit);
 
-       const autoBtn = document.getElementById('giAutoScoreBtn');
+    const autoBtn = document.getElementById('giAutoScoreBtn');
     if (autoBtn) autoBtn.addEventListener('click', () => __runAutoScoring(true, true));
   }
 
@@ -1538,29 +1950,34 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     state.autoScoring = scoring;
     state.autoKesimpulan = kesimpulan;
 
-    /* ---------- SKOR PER KATEGORI ---------- */
+    /* ---------- SKOR & NARASI DETAIL PER KATEGORI ---------- */
+    const narasiMap = {};
+    (kesimpulan.perKategoriNarasi || []).forEach(pn => {
+      narasiMap[pn.kategori] = pn.narasi;
+    });
+
     state.categories.forEach(cat => {
       const k = scoring[cat.name];
       if (!k || k.status === 'NO_DATA') return;
 
-      // Skor selalu overwrite (auto-driven by checklist)
       cat.score = Math.max(1, Math.min(4, Math.round(k.skor)));
 
-      // Narasi: overwrite kalau forceOverride atau masih kosong
       const narasiKosong = !cat.narrative || cat.narrative.trim() === '';
       if (forceOverride || narasiKosong) {
-        const parts = [];
-        parts.push(`Skor otomatis: ${k.skor.toFixed(2)} / 4.00 (${k.status}).`);
-        if (k.itemsPos.length > 0) {
-          parts.push(`Indikator positif (${k.itemsPos.length}): ${k.itemsPos.slice(0,3).map(x=>x.label).join('; ')}.`);
+        const detail = narasiMap[cat.name];
+        if (detail) {
+          cat.narrative = detail;
+        } else {
+          const parts = [];
+          parts.push(`Skor otomatis: ${k.skor.toFixed(2)} / 4.00 (${k.status}).`);
+          if (k.itemsPos.length > 0) {
+            parts.push(`Indikator positif (${k.itemsPos.length}): ${k.itemsPos.slice(0,3).map(x=>x.label).join('; ')}.`);
+          }
+          if (k.itemsNeg.length > 0) {
+            parts.push(`Indikator negatif (${k.itemsNeg.length}): ${k.itemsNeg.slice(0,3).map(x=>x.label).join('; ')}.`);
+          }
+          cat.narrative = parts.join(' ');
         }
-        if (k.itemsNeg.length > 0) {
-          parts.push(`Indikator negatif (${k.itemsNeg.length}): ${k.itemsNeg.slice(0,3).map(x=>x.label).join('; ')}.`);
-        }
-        if (k.redFlags.length > 0) {
-          parts.push(`⚠️ Red flag: ${k.redFlags.slice(0,3).join('; ')}.`);
-        }
-        cat.narrative = parts.join(' ');
       }
     });
 
@@ -1571,97 +1988,128 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     }
 
     /* ---------- 🔥 TINGKAT REKOMENDASI — SELALU OTOMATIS ---------- */
-    // Mapping rata-rata → level rekomendasi
-    let autoRecValue, autoRecLabel, autoRecShort;
-    if (kesimpulan.rataRata >= 3.5) {
-      autoRecValue = 'HIGHLY_RECOMMENDED';
-      autoRecLabel = '🌟 HIGHLY RECOMMENDED';
-      autoRecShort = 'Highly Recommended';
-    } else if (kesimpulan.rataRata >= 3.0) {
-      autoRecValue = 'RECOMMENDED';
-      autoRecLabel = '✅ RECOMMENDED';
-      autoRecShort = 'Recommended';
-    } else if (kesimpulan.rataRata >= 2.5) {
-      autoRecValue = 'FAIRLY_RECOMMENDED';
-      autoRecLabel = '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan';
-      autoRecShort = 'Fairly Recommended';
-    } else {
-      autoRecValue = 'NOT_RECOMMENDED';
-      autoRecLabel = '❌ NOT RECOMMENDED';
-      autoRecShort = 'Not Recommended';
-    }
+    const autoRecValue = kesimpulan.overallLabel
+      .replace('HIGHLY RECOMMENDED', 'HIGHLY_RECOMMENDED')
+      .replace('RECOMMENDED', 'RECOMMENDED')
+      .replace('FAIRLY RECOMMENDED', 'FAIRLY_RECOMMENDED')
+      .replace('NOT RECOMMENDED', 'NOT_RECOMMENDED');
 
-    // Selalu overwrite — keputusan rekomendasi 100% driven by skor
+    let autoRecShort;
+    if (autoRecValue === 'HIGHLY_RECOMMENDED')      autoRecShort = 'Highly Recommended';
+    else if (autoRecValue === 'RECOMMENDED')         autoRecShort = 'Recommended';
+    else if (autoRecValue === 'FAIRLY_RECOMMENDED')  autoRecShort = 'Fairly Recommended';
+    else                                             autoRecShort = 'Not Recommended';
+
     state.recommendation = autoRecValue;
 
-    /* ---------- ALASAN REKOMENDASI ---------- */
+    /* ---------- ALASAN REKOMENDASI (POSITION-AWARE) ---------- */
     const reasonsKosong = !state.reasons || state.reasons.trim() === '';
     if (forceOverride || reasonsKosong) {
-      const strengths  = kesimpulan.strengths.map(s => s.kategori).slice(0, 3);
-      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 3);
-
+      const f = kesimpulan.fitData;
+      const profile = f.profile;
       const parts = [];
 
-      // Paragraf 1 — overview
       parts.push(
-        `Berdasarkan analisis checklist indikator visual DAP/BAUM/HTP, ` +
-        `kandidat memperoleh skor rata-rata ${kesimpulan.rataRata.toFixed(2)} / 4.00 ` +
-        `dengan tingkat keyakinan ${kesimpulan.overallConfidence} ` +
+        `Berdasarkan analisis checklist indikator visual DAP/BAUM/HTP, kandidat untuk posisi ` +
+        `"${candidatePosition || '-'}" (kategori: ${profile.label}) memperoleh skor rata-rata ` +
+        `${kesimpulan.rataRata.toFixed(2)} / 4.00 dengan skor kecocokan posisi ${kesimpulan.fitScore}/100 ` +
+        `dan tingkat keyakinan data ${kesimpulan.overallConfidence} ` +
         `(total bobot ${kesimpulan.totalBobot}, ${kesimpulan.kategoriValidCount} dari ${KATEGORI.length} kategori terukur).`
       );
 
-      // Paragraf 2 — kekuatan
+      parts.push(
+        `Dari ${KATEGORI.length} kategori yang dinilai: ${f.fitCount} MEMENUHI kebutuhan posisi, ` +
+        `${f.partialCount} HAMPIR memenuhi, dan ${f.notFitCount} KURANG memenuhi.`
+      );
+
+      const strengths = kesimpulan.strengths.map(s => s.kategori).slice(0, 3);
       if (strengths.length > 0) {
         parts.push(
-          `Kekuatan utama teridentifikasi pada: ${strengths.join(', ')}.`
+          `Kekuatan utama kandidat teridentifikasi pada: ${strengths.join(', ')}. ` +
+          `Area ini menjadi modal utama kandidat dalam menjalankan tugas posisi.`
         );
       } else {
         parts.push('Belum ada kekuatan dominan yang muncul dari checklist (butuh minimal 2 indikator positif per kategori).');
       }
 
-      // Paragraf 3 — kelemahan
+      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 3);
       if (weaknesses.length > 0) {
         parts.push(
-          `Area yang perlu perhatian: ${weaknesses.join(', ')}.`
+          `Area yang perlu perhatian: ${weaknesses.join(', ')}. ` +
+          `Disarankan pendampingan atau pelatihan pada area-area tersebut.`
         );
       }
 
-      // Paragraf 4 — red flag
+      if (f.priorityIssues.length > 0) {
+        parts.push(
+          `⚡ KATEGORI PRIORITAS yang belum memenuhi: ${f.priorityIssues.join(', ')}. ` +
+          `Kategori prioritas adalah aspek yang paling kritis untuk posisi ini — ` +
+          `diperlukan penelaahan lebih dalam sebelum keputusan final.`
+        );
+      }
+
       if (kesimpulan.allRedFlags.length > 0) {
         const flagCount = kesimpulan.allRedFlags.reduce((s, rf) => s + rf.items.length, 0);
         parts.push(
           `⚠️ Terdapat ${flagCount} indikator kritis (red flag) pada ` +
-          `${kesimpulan.allRedFlags.length} kategori, ` +
-          `memerlukan penelaahan lanjut oleh psikolog sebelum keputusan final.`
+          `${kesimpulan.allRedFlags.length} kategori, memerlukan wawancara klinis ` +
+          `dan/atau asesmen tambahan oleh psikolog sebelum keputusan final.`
         );
       }
 
-      // Paragraf 5 — kesimpulan
       parts.push(
-        `Dengan demikian, tingkat rekomendasi untuk kandidat ini adalah: ${autoRecShort}.`
+        `Dengan demikian, tingkat rekomendasi untuk posisi ini adalah: ${autoRecShort}. ` +
+        `Skor kecocokan posisi ${kesimpulan.fitScore}/100 mencerminkan seberapa besar ` +
+        `profil grafis kandidat selaras dengan kebutuhan spesifik posisi ${profile.label}.`
       );
 
       state.reasons = parts.join(' ');
     }
 
-    /* ---------- REKOMENDASI PENGEMBANGAN ---------- */
+    /* ---------- REKOMENDASI PENGEMBANGAN (POSITION-AWARE) ---------- */
     const devKosong = !state.development || state.development.trim() === '';
     if (forceOverride || devKosong) {
-      const devList = kesimpulan.weaknesses
-        .map(w => SCORING_DEVELOPMENT_KAMUS[w.kategori])
-        .filter(Boolean);
+      const f = kesimpulan.fitData;
+
+      const devKategori = f.perKategori
+        .filter(x => x.status === 'KURANG' || x.status === 'HAMPIR')
+        .sort((a, b) => {
+          if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
+          return a.gap - b.gap;
+        });
+
+      const devList = [];
+
+      devKategori.forEach(x => {
+        const dev = SCORING_DEVELOPMENT_KAMUS[x.kategori];
+        if (!dev) return;
+        const priorityTag = x.isPriority ? '⚡ PRIORITAS POSISI — ' : '';
+        devList.push(
+          `▶ ${x.kategori}\n` +
+          `   Skor ${x.skor.toFixed(2)} vs kebutuhan ${x.need.toFixed(2)} (gap ${x.gap.toFixed(2)}).\n` +
+          `   ${priorityTag}${dev}`
+        );
+      });
 
       if (devList.length > 0) {
-        state.development = devList.join('\n\n');
-      } else if (kesimpulan.rataRata >= 3.5) {
         state.development =
-          'Kandidat menunjukkan profil grafis yang sangat baik di semua kategori terukur. ' +
-          'Rekomendasi: pertahankan konsistensi, dorong untuk mentoring rekan sejawat, ' +
-          'dan berikan tanggung jawab yang menantang untuk pengembangan berkelanjutan.';
+          `REKOMENDASI PENGEMBANGAN UNTUK POSISI: ${f.profile.label}\n\n` +
+          devList.join('\n\n');
+      } else if (kesimpulan.fitScore >= 85) {
+        state.development =
+          `Kandidat menunjukkan profil grafis yang sangat selaras dengan kebutuhan posisi ${f.profile.label}.\n\n` +
+          `Rekomendasi:\n` +
+          `1. Pertahankan konsistensi perilaku & kompetensi yang sudah baik.\n` +
+          `2. Berikan tanggung jawab yang menantang untuk memperkuat area kekuatan.\n` +
+          `3. Dorong untuk menjadi mentor / role model bagi rekan sejawat.\n` +
+          `4. Lakukan evaluasi berkala (3-6 bulan) untuk memantau konsistensi.`;
       } else {
         state.development =
-          'Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist. ' +
-          'Perkuat kompetensi umum sesuai kebutuhan posisi dan lakukan evaluasi berkala.';
+          `Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist untuk posisi ${f.profile.label}.\n\n` +
+          `Rekomendasi umum:\n` +
+          `1. Perkuat kompetensi umum sesuai kebutuhan posisi.\n` +
+          `2. Lakukan evaluasi berkala.\n` +
+          `3. Sesuaikan pengembangan dengan kebutuhan spesifik tim/divisi.`;
       }
     }
 
@@ -1675,7 +2123,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const recEl = document.getElementById('giRecommendation');
     if (recEl) {
       recEl.value = state.recommendation;
-      // Highlight animasi — supaya admin tahu otomatis terisi
       recEl.style.transition = 'background .35s ease, border-color .35s ease';
       recEl.style.background = '#ecfdf5';
       recEl.style.borderColor = '#10b981';
@@ -1693,7 +2140,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     if (showToastMsg) {
       toast(
-        `Skor ${kesimpulan.rataRata.toFixed(2)}/4.00 → ${autoRecShort}`,
+        `Skor ${kesimpulan.rataRata.toFixed(2)}/4 · Fit ${kesimpulan.fitScore}/100 → ${autoRecShort}`,
         'success'
       );
     }
@@ -2112,7 +2559,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px;
               color: ${theme.primary}; margin-bottom: 2px;">
-              INTERPRETASI OTOMATIS · v8.2
+              INTERPRETASI OTOMATIS · v8.3
             </div>
             <div style="font-size: 15px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
@@ -2120,7 +2567,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
           <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
             text-align: right; line-height: 1.4;">
-            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.2</div>
+            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.3</div>
           </div>
         </div>
 
@@ -2530,9 +2977,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (!container) return;
 
     const auto = state.autoScoring || null;
+    const fit = state.autoKesimpulan?.fitData || null;
 
     container.innerHTML = state.categories.map((cat, idx) => {
       const autoData = auto ? auto[cat.name] : null;
+      const fitData = fit ? fit.perKategori.find(f => f.kategori === cat.name) : null;
       const hasAuto = autoData && autoData.status !== 'NO_DATA';
 
       let badgeHTML = '';
@@ -2544,6 +2993,24 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           'PERHATIAN':   { bg: '#fee2e2', br: '#fca5a5', txt: '#991b1b', label: 'Perlu Perhatian' }
         };
         const sc = statusColors[autoData.status] || statusColors['CUKUP'];
+
+        let fitBadge = '';
+        if (fitData && fitData.status !== 'NO_DATA') {
+          const fitColors = {
+            'MEMENUHI': { bg: '#dcfce7', br: '#86efac', txt: '#166534', label: '✓ Memenuhi' },
+            'HAMPIR':   { bg: '#fef3c7', br: '#fde68a', txt: '#92400e', label: '≈ Hampir' },
+            'KURANG':   { bg: '#fee2e2', br: '#fca5a5', txt: '#991b1b', label: '✗ Kurang' }
+          };
+          const fc = fitColors[fitData.status];
+          const prioTag = fitData.isPriority ? ' ⚡' : '';
+          fitBadge = `
+            <span style="padding: 4px 10px; border-radius: 999px;
+              background: ${fc.bg}; border: 1px solid ${fc.br}; color: ${fc.txt};
+              font-size: 10.5px; font-weight: 800; white-space: nowrap;">
+              ${fc.label}${prioTag} (need ${fitData.need.toFixed(2)}, gap ${fitData.gap >= 0 ? '+' : ''}${fitData.gap.toFixed(2)})
+            </span>
+          `;
+        }
 
         badgeHTML = `
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
@@ -2557,6 +3024,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               font-size: 10px; font-weight: 700; white-space: nowrap;">
               +${autoData.nPos} / −${autoData.nNeg}
             </span>
+            ${fitBadge}
             ${autoData.redFlags.length > 0 ? `
               <span style="padding: 4px 10px; border-radius: 999px;
                 background: #7f1d1d; color: #fff;
@@ -2722,19 +3190,21 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           overallLabel: autoKesimpulan?.overallLabel || '-',
           overallConfidence: autoKesimpulan?.overallConfidence || '-',
           totalBobot: autoKesimpulan?.totalBobot || 0,
-          perKategori: Object.values(autoScoring).map(k => ({
-            kategori: k.kategori,
-            skor: Number(k.skor.toFixed(2)),
-            status: k.status,
-            nPos: k.nPos,
-            nNeg: k.nNeg,
-            redFlags: k.redFlags
-          }))
+          posisiLabel: autoKesimpulan?.posisiLabel || '-',
+          fitScore: autoKesimpulan?.fitScore || 0,
+          perKategori: autoKesimpulan?.fitData?.perKategori?.map(f => ({
+            kategori: f.kategori,
+            skor: f.skor !== null ? Number(f.skor.toFixed(2)) : null,
+            need: f.need,
+            gap: f.gap !== null ? Number(f.gap.toFixed(2)) : null,
+            status: f.status,
+            isPriority: f.isPriority
+          })) || []
         } : null,
 
         ts: firebase.database.ServerValue.TIMESTAMP
       });
-    console.log('[GRAFIS-INTERP] ✅ Saved (with auto-scoring)');
+    console.log('[GRAFIS-INTERP] ✅ Saved (with auto-scoring + position fit)');
   }
 
   /* ============================================================
@@ -2776,6 +3246,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const infoRows = [
       ['Nama Kandidat', cleanForPDF(candidateName)],
       ['Posisi Dilamar', cleanForPDF(candidatePosition) || '-'],
+      ['Kategori Posisi', cleanForPDF(state.autoKesimpulan?.posisiLabel || '-')],
       ['Assessor', ADMIN_ASSESSOR],
       ['Tanggal', cleanForPDF(tanggal)]
     ];
@@ -2829,9 +3300,8 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (y > pageH - 40) { doc.addPage(); y = 20; }
     doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.text('KESIMPULAN', 15, y); y += 8;
+    doc.text('KESIMPULAN PER KATEGORI', 15, y); y += 8;
 
-    /* 🔥 FIX: forEach wrapper ditambahkan di sini */
     state.categories.forEach((cat, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
@@ -2982,6 +3452,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             border-radius: 14px; text-align: left; font-size: 13px; color: #166534; line-height: 1.9;">
             <div><b>Assessor:</b> ${escapeHtml(ADMIN_ASSESSOR)}</div>
             <div><b>Kandidat:</b> ${escapeHtml(candidateName)}</div>
+            <div><b>Posisi:</b> ${escapeHtml(candidatePosition || '-')}</div>
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #86efac;">
               <div style="color: rgb(${recColor[0]}, ${recColor[1]}, ${recColor[2]});
                 font-weight: 900; font-size: 14px;">
