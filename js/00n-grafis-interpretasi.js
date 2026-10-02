@@ -1484,20 +1484,45 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     bindInput('giReasons', 'reasons');
     bindInput('giDevelopment', 'development');
 
-    const rec = document.getElementById('giRecommendation');
-    if (rec) rec.addEventListener('change', (e) => { state.recommendation = e.target.value; saveDraft(); });
+       const rec = document.getElementById('giRecommendation');
+    if (rec) rec.addEventListener('change', (e) => {
+      state.recommendation = e.target.value;
+      saveDraft();
+
+      // Kalau admin ubah manual, kasih flag biar tidak ter-overwrite otomatis
+      if (state.autoKesimpulan) {
+        const autoValue = (() => {
+          const rr = state.autoKesimpulan.rataRata;
+          if (rr >= 3.5) return 'HIGHLY_RECOMMENDED';
+          if (rr >= 3.0) return 'RECOMMENDED';
+          if (rr >= 2.5) return 'FAIRLY_RECOMMENDED';
+          return 'NOT_RECOMMENDED';
+        })();
+        if (e.target.value !== autoValue) {
+          state.recommendationOverridden = true;
+          console.log('[GRAFIS-INTERP] Rekomendasi di-override manual:', e.target.value);
+        } else {
+          state.recommendationOverridden = false;
+        }
+      }
+    });
 
     const submit = document.getElementById('giSubmitBtn');
     if (submit) submit.addEventListener('click', handleSubmit);
 
-    const autoBtn = document.getElementById('giAutoScoreBtn');
-    if (autoBtn) autoBtn.addEventListener('click', () => __runAutoScoring(true));
+       const autoBtn = document.getElementById('giAutoScoreBtn');
+    if (autoBtn) autoBtn.addEventListener('click', () => __runAutoScoring(true, true));
   }
 
   /* ============================================================
      🔥 RUN AUTO SCORING
+     ------------------------------------------------------------
+     @param {boolean} showToastMsg - tampilkan toast feedback
+     @param {boolean} forceOverride - paksa overwrite semua field
+       • true  → klik manual tombol 🤖 (overwrite semua)
+       • false → auto-run dari handleSubmit (hanya isi kosong)
      ============================================================ */
-  function __runAutoScoring(showToastMsg) {
+  function __runAutoScoring(showToastMsg, forceOverride) {
     const totalItems = countSelectedItems('dap') + countSelectedItems('baum') + countSelectedItems('htp');
     if (totalItems === 0) {
       if (showToastMsg) toast('Pilih minimal 1 item di DAP/BAUM/HTP terlebih dahulu', 'warn');
@@ -1513,11 +1538,17 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     state.autoScoring = scoring;
     state.autoKesimpulan = kesimpulan;
 
+    /* ---------- SKOR PER KATEGORI ---------- */
     state.categories.forEach(cat => {
       const k = scoring[cat.name];
       if (!k || k.status === 'NO_DATA') return;
+
+      // Skor selalu overwrite (auto-driven by checklist)
       cat.score = Math.max(1, Math.min(4, Math.round(k.skor)));
-      if (!cat.narrative || cat.narrative.trim() === '') {
+
+      // Narasi: overwrite kalau forceOverride atau masih kosong
+      const narasiKosong = !cat.narrative || cat.narrative.trim() === '';
+      if (forceOverride || narasiKosong) {
         const parts = [];
         parts.push(`Skor otomatis: ${k.skor.toFixed(2)} / 4.00 (${k.status}).`);
         if (k.itemsPos.length > 0) {
@@ -1526,48 +1557,133 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         if (k.itemsNeg.length > 0) {
           parts.push(`Indikator negatif (${k.itemsNeg.length}): ${k.itemsNeg.slice(0,3).map(x=>x.label).join('; ')}.`);
         }
+        if (k.redFlags.length > 0) {
+          parts.push(`⚠️ Red flag: ${k.redFlags.slice(0,3).join('; ')}.`);
+        }
         cat.narrative = parts.join(' ');
       }
     });
 
-    if (!state.conclusion || state.conclusion.trim() === '') {
+    /* ---------- KESIMPULAN KESELURUHAN ---------- */
+    const concKosong = !state.conclusion || state.conclusion.trim() === '';
+    if (forceOverride || concKosong) {
       state.conclusion = kesimpulan.text;
     }
 
-    if (!state.recommendation) {
-      if (kesimpulan.rataRata >= 3.5)      state.recommendation = 'HIGHLY_RECOMMENDED';
-      else if (kesimpulan.rataRata >= 3.0) state.recommendation = 'RECOMMENDED';
-      else if (kesimpulan.rataRata >= 2.5) state.recommendation = 'FAIRLY_RECOMMENDED';
-      else                                 state.recommendation = 'NOT_RECOMMENDED';
+    /* ---------- 🔥 TINGKAT REKOMENDASI — SELALU OTOMATIS ---------- */
+    // Mapping rata-rata → level rekomendasi
+    let autoRecValue, autoRecLabel, autoRecShort;
+    if (kesimpulan.rataRata >= 3.5) {
+      autoRecValue = 'HIGHLY_RECOMMENDED';
+      autoRecLabel = '🌟 HIGHLY RECOMMENDED';
+      autoRecShort = 'Highly Recommended';
+    } else if (kesimpulan.rataRata >= 3.0) {
+      autoRecValue = 'RECOMMENDED';
+      autoRecLabel = '✅ RECOMMENDED';
+      autoRecShort = 'Recommended';
+    } else if (kesimpulan.rataRata >= 2.5) {
+      autoRecValue = 'FAIRLY_RECOMMENDED';
+      autoRecLabel = '⚠️ Fairly Recommended / Dipertimbangkan dengan Catatan';
+      autoRecShort = 'Fairly Recommended';
+    } else {
+      autoRecValue = 'NOT_RECOMMENDED';
+      autoRecLabel = '❌ NOT RECOMMENDED';
+      autoRecShort = 'Not Recommended';
     }
 
-    if (!state.reasons || state.reasons.trim() === '') {
-      const strengths = kesimpulan.strengths.map(s => s.kategori).slice(0, 2);
-      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 2);
+    // Selalu overwrite — keputusan rekomendasi 100% driven by skor
+    state.recommendation = autoRecValue;
+
+    /* ---------- ALASAN REKOMENDASI ---------- */
+    const reasonsKosong = !state.reasons || state.reasons.trim() === '';
+    if (forceOverride || reasonsKosong) {
+      const strengths  = kesimpulan.strengths.map(s => s.kategori).slice(0, 3);
+      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 3);
+
       const parts = [];
-      if (strengths.length) parts.push(`Kekuatan utama pada: ${strengths.join(', ')}.`);
-      if (weaknesses.length) parts.push(`Area perhatian pada: ${weaknesses.join(', ')}.`);
-      if (kesimpulan.allRedFlags.length) parts.push(`Terdapat ${kesimpulan.allRedFlags.length} indikator kritis yang perlu penelaahan lanjut.`);
-      state.reasons = parts.join(' ') || 'Berdasarkan analisis checklist indikator grafis.';
+
+      // Paragraf 1 — overview
+      parts.push(
+        `Berdasarkan analisis checklist indikator visual DAP/BAUM/HTP, ` +
+        `kandidat memperoleh skor rata-rata ${kesimpulan.rataRata.toFixed(2)} / 4.00 ` +
+        `dengan tingkat keyakinan ${kesimpulan.overallConfidence} ` +
+        `(total bobot ${kesimpulan.totalBobot}, ${kesimpulan.kategoriValidCount} dari ${KATEGORI.length} kategori terukur).`
+      );
+
+      // Paragraf 2 — kekuatan
+      if (strengths.length > 0) {
+        parts.push(
+          `Kekuatan utama teridentifikasi pada: ${strengths.join(', ')}.`
+        );
+      } else {
+        parts.push('Belum ada kekuatan dominan yang muncul dari checklist (butuh minimal 2 indikator positif per kategori).');
+      }
+
+      // Paragraf 3 — kelemahan
+      if (weaknesses.length > 0) {
+        parts.push(
+          `Area yang perlu perhatian: ${weaknesses.join(', ')}.`
+        );
+      }
+
+      // Paragraf 4 — red flag
+      if (kesimpulan.allRedFlags.length > 0) {
+        const flagCount = kesimpulan.allRedFlags.reduce((s, rf) => s + rf.items.length, 0);
+        parts.push(
+          `⚠️ Terdapat ${flagCount} indikator kritis (red flag) pada ` +
+          `${kesimpulan.allRedFlags.length} kategori, ` +
+          `memerlukan penelaahan lanjut oleh psikolog sebelum keputusan final.`
+        );
+      }
+
+      // Paragraf 5 — kesimpulan
+      parts.push(
+        `Dengan demikian, tingkat rekomendasi untuk kandidat ini adalah: ${autoRecShort}.`
+      );
+
+      state.reasons = parts.join(' ');
     }
 
-    if (!state.development || state.development.trim() === '') {
+    /* ---------- REKOMENDASI PENGEMBANGAN ---------- */
+    const devKosong = !state.development || state.development.trim() === '';
+    if (forceOverride || devKosong) {
       const devList = kesimpulan.weaknesses
         .map(w => SCORING_DEVELOPMENT_KAMUS[w.kategori])
         .filter(Boolean);
-      state.development = devList.length
-        ? devList.join('\n\n')
-        : 'Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist. Perkuat kompetensi umum sesuai kebutuhan posisi.';
+
+      if (devList.length > 0) {
+        state.development = devList.join('\n\n');
+      } else if (kesimpulan.rataRata >= 3.5) {
+        state.development =
+          'Kandidat menunjukkan profil grafis yang sangat baik di semua kategori terukur. ' +
+          'Rekomendasi: pertahankan konsistensi, dorong untuk mentoring rekan sejawat, ' +
+          'dan berikan tanggung jawab yang menantang untuk pengembangan berkelanjutan.';
+      } else {
+        state.development =
+          'Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist. ' +
+          'Perkuat kompetensi umum sesuai kebutuhan posisi dan lakukan evaluasi berkala.';
+      }
     }
 
     saveDraft();
     renderCategories();
 
+    /* ---------- UPDATE UI ---------- */
     const concEl = document.getElementById('giConclusion');
     if (concEl) concEl.value = state.conclusion;
 
     const recEl = document.getElementById('giRecommendation');
-    if (recEl) recEl.value = state.recommendation;
+    if (recEl) {
+      recEl.value = state.recommendation;
+      // Highlight animasi — supaya admin tahu otomatis terisi
+      recEl.style.transition = 'background .35s ease, border-color .35s ease';
+      recEl.style.background = '#ecfdf5';
+      recEl.style.borderColor = '#10b981';
+      setTimeout(() => {
+        recEl.style.background = '#fff';
+        recEl.style.borderColor = '#7dd3fc';
+      }, 1200);
+    }
 
     const reasonsEl = document.getElementById('giReasons');
     if (reasonsEl) reasonsEl.value = state.reasons;
@@ -1576,7 +1692,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (devEl) devEl.value = state.development;
 
     if (showToastMsg) {
-      toast(`Skor dihitung: ${kesimpulan.rataRata.toFixed(2)}/4.00 — ${kesimpulan.overallLabel}`, 'success');
+      toast(
+        `Skor ${kesimpulan.rataRata.toFixed(2)}/4.00 → ${autoRecShort}`,
+        'success'
+      );
     }
 
     return kesimpulan;
