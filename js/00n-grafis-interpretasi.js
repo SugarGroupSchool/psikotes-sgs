@@ -2816,13 +2816,19 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           const oldVal = state.selectedItems[testKey][sectionId];
           if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
           state.selectedItems[testKey][sectionId] = itemId;
-        } else {
+               } else {
           let arr = state.selectedItems[testKey][sectionId];
           if (!Array.isArray(arr)) arr = [];
           const idx = arr.indexOf(itemId);
           if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
           else arr.push(itemId);
-          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+
+          /* 🔥 FIX: pakai delete, jangan set undefined */
+          if (arr.length > 0) {
+            state.selectedItems[testKey][sectionId] = arr;
+          } else {
+            delete state.selectedItems[testKey][sectionId];
+          }
         }
         saveDraft();
 
@@ -3158,8 +3164,32 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     SAVE FIREBASE
+     🔥 SANITIZE — hapus semua undefined/null dari object
+     Firebase Realtime DB tidak menerima undefined sebagai value
      ============================================================ */
+  function __sanitizeForFirebase(obj) {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) {
+      const arr = obj
+        .map(v => __sanitizeForFirebase(v))
+        .filter(v => v !== null && v !== undefined);
+      return arr.length > 0 ? arr : null;
+    }
+    if (typeof obj === 'object') {
+      const clean = {};
+      let hasKeys = false;
+      Object.keys(obj).forEach(k => {
+        const v = __sanitizeForFirebase(obj[k]);
+        if (v !== null && v !== undefined) {
+          clean[k] = v;
+          hasKeys = true;
+        }
+      });
+      return hasKeys ? clean : null;
+    }
+    return obj;
+  }
+
   async function saveToFirebase() {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
     const slug = candidateSlug(candidateName);
@@ -3168,13 +3198,16 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const autoScoring = state.autoScoring || null;
     const autoKesimpulan = state.autoKesimpulan || null;
 
+    /* 🔥 FIX: sanitize selectedItems sebelum kirim */
+    const cleanSelectedItems = __sanitizeForFirebase(state.selectedItems) || { dap: {}, baum: {}, htp: {} };
+
     await firebase.database()
       .ref('sgs_grafis_interp/' + slug + '/' + ADMIN_ASSESSOR)
       .set({
         candidateName,
         candidatePosition,
         assessor: ADMIN_ASSESSOR,
-        selectedItems: state.selectedItems,
+               selectedItems: cleanSelectedItems,
         dapText: generateAutoText('dap'),
         baumText: generateAutoText('baum'),
         htpText: generateAutoText('htp'),
