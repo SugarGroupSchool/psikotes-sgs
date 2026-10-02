@@ -3241,7 +3241,28 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     GENERATE PDF
+     PDF HELPERS — Justify manual (jsPDF tidak reliable)
+     ============================================================ */
+  function __pdfJustifyLine(doc, line, x, y, maxWidth, fontSize) {
+    const words = line.trim().split(/\s+/);
+    if (words.length < 2) { doc.text(line, x, y); return; }
+    const textWidth = doc.getTextWidth(line);
+    const gapCount = words.length - 1;
+    const extraSpace = (maxWidth - textWidth) / gapCount;
+    // Kalau gap terlalu lebar (>0.6em) atau negatif, fallback ke left-align
+    if (extraSpace <= 0 || extraSpace > fontSize * 0.55) {
+      doc.text(line, x, y); return;
+    }
+    const spaceW = doc.getTextWidth(' ');
+    let xPos = x;
+    words.forEach((w, i) => {
+      doc.text(w, xPos, y);
+      if (i < words.length - 1) xPos += doc.getTextWidth(w) + spaceW + extraSpace;
+    });
+  }
+
+  /* ============================================================
+     GENERATE PDF — Compact & Justified
      ============================================================ */
   async function generatePDF() {
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF belum siap');
@@ -3250,27 +3271,51 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
 
+    const MARGIN = 12;                     // ← margin lebih kecil
+    const CONTENT_W = pageW - (MARGIN * 2);
+
+    /* Logo lebih kecil */
     try {
       const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
         || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
       const imgData = await fetchImageAsDataURL(logoUrl);
-      doc.addImage(imgData, 'PNG', pageW / 2 - 12, 10, 24, 20);
+      doc.addImage(imgData, 'PNG', pageW / 2 - 8, 8, 16, 13);
     } catch (e) {}
 
-    let y = 38;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text('LAPORAN INTERPRETASI GRAFIS', pageW / 2, y, { align: 'center' }); y += 5.5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text('SUGAR GROUP SCHOOLS', pageW / 2, y, { align: 'center' }); y += 5;
-    doc.setFontSize(8);
-    doc.text('DAP · BAUM · HTP', pageW / 2, y, { align: 'center' }); y += 6;
-    doc.setDrawColor(109, 40, 217); doc.setLineWidth(0.6);
-    doc.line(15, y, pageW - 15, y); doc.setLineWidth(0.2); y += 1.5;
-    doc.line(15, y, pageW - 15, y); y += 8;
+    let y = 26;
 
-    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-    doc.text('INFORMASI KANDIDAT', 15, y); y += 6;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    /* ===== HEADER ===== */
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('LAPORAN INTERPRETASI GRAFIS', pageW / 2, y, { align: 'center' }); y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+    doc.text('SUGAR GROUP SCHOOLS', pageW / 2, y, { align: 'center' }); y += 3.5;
+    doc.setFontSize(7);
+    doc.text('DAP · BAUM · HTP', pageW / 2, y, { align: 'center' }); y += 4;
+    doc.setDrawColor(109, 40, 217); doc.setLineWidth(0.5);
+    doc.line(MARGIN, y, pageW - MARGIN, y); doc.setLineWidth(0.15); y += 1.2;
+    doc.line(MARGIN, y, pageW - MARGIN, y); y += 5;
+
+    /* ===== HELPER PRINT PARAGRAPH (justify) ===== */
+    function printParagraph(text, indent = MARGIN + 3, fontSize = 7.5, lineH = 3.4) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(fontSize);
+      const maxW = pageW - MARGIN - indent;
+      const lines = doc.splitTextToSize(cleanForPDF(text || ''), maxW);
+      lines.forEach((line, idx) => {
+        if (y > pageH - 15) { doc.addPage(); y = 15; }
+        const isLast = idx === lines.length - 1;
+        if (isLast || line.trim().length < 3) {
+          doc.text(line, indent, y);
+        } else {
+          __pdfJustifyLine(doc, line, indent, y, maxW, fontSize);
+        }
+        y += lineH;
+      });
+    }
+
+    /* ===== INFO KANDIDAT ===== */
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+    doc.text('INFORMASI KANDIDAT', MARGIN, y); y += 4;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
 
     const tanggal = new Date().toLocaleDateString('id-ID', {
       day: '2-digit', month: 'long', year: 'numeric'
@@ -3284,112 +3329,121 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       ['Tanggal', cleanForPDF(tanggal)]
     ];
     infoRows.forEach(([label, val]) => {
-      doc.text(label + ' :', 18, y);
-      doc.text(String(val), 65, y);
-      y += 5.5;
+      doc.text(label + ' :', MARGIN + 2, y);
+      doc.text(String(val), MARGIN + 40, y);
+      y += 3.8;
     });
-    y += 3;
-    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
+    y += 2;
+    doc.setDrawColor(220); doc.line(MARGIN, y, pageW - MARGIN, y); y += 5;
 
-    function printParagraph(text, indent = 18, fontSize = 9) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(fontSize);
-      const wrapped = doc.splitTextToSize(cleanForPDF(text), pageW - 36);
-      wrapped.forEach(line => {
-        if (y > pageH - 25) { doc.addPage(); y = 20; }
-        doc.text(line, indent, y);
-        y += 4.5;
-      });
-    }
-
+    /* ===== HASIL PER TES (DAP/BAUM/HTP) ===== */
     ['dap', 'baum', 'htp'].forEach(key => {
       const count = countSelectedItems(key);
       if (count === 0) return;
       const data = (window.GRAFIS_AUTO_DATA || {})[key] || {};
 
-      if (y > pageH - 40) { doc.addPage(); y = 20; }
-      doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 6;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-      doc.text(cleanForPDF(data.title || key.toUpperCase()), 15, y); y += 7;
+      if (y > pageH - 25) { doc.addPage(); y = 15; }
+      doc.setDrawColor(220); doc.line(MARGIN, y, pageW - MARGIN, y); y += 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.text(cleanForPDF(data.title || key.toUpperCase()), MARGIN, y); y += 4.5;
 
       const autoText = generateAutoText(key);
       autoText.split('\n').forEach(line => {
-        if (!line.trim()) { y += 2; return; }
-        if (y > pageH - 25) { doc.addPage(); y = 20; }
+        if (!line.trim()) { y += 1; return; }
+        if (y > pageH - 15) { doc.addPage(); y = 15; }
         if (line.startsWith('  •') || line.startsWith('    ')) {
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-          const wrapped = doc.splitTextToSize(cleanForPDF(line), pageW - 40);
-          wrapped.forEach(w => {
-            if (y > pageH - 25) { doc.addPage(); y = 20; }
-            doc.text(w, 22, y); y += 4.2;
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+          const indent = line.startsWith('    ') ? MARGIN + 6 : MARGIN + 3;
+          const maxW = pageW - MARGIN - indent;
+          const wrapped = doc.splitTextToSize(cleanForPDF(line.trim()), maxW);
+          wrapped.forEach((w, idx) => {
+            if (y > pageH - 15) { doc.addPage(); y = 15; }
+            const isLast = idx === wrapped.length - 1;
+            if (isLast || w.trim().length < 3) {
+              doc.text(w, indent, y);
+            } else {
+              __pdfJustifyLine(doc, w, indent, y, maxW, 7);
+            }
+            y += 3.2;
           });
         } else {
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-          doc.text(cleanForPDF(line), 18, y); y += 5;
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
+          doc.text(cleanForPDF(line), MARGIN + 2, y); y += 3.8;
         }
       });
-      y += 4;
+      y += 3;
     });
 
-    if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.text('KESIMPULAN PER KATEGORI', 15, y); y += 8;
+    /* ===== KESIMPULAN PER KATEGORI ===== */
+    if (y > pageH - 25) { doc.addPage(); y = 15; }
+    doc.setDrawColor(220); doc.line(MARGIN, y, pageW - MARGIN, y); y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text('KESIMPULAN PER KATEGORI', MARGIN, y); y += 5;
 
     state.categories.forEach((cat, idx) => {
-      if (y > pageH - 40) { doc.addPage(); y = 20; }
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      if (y > pageH - 25) { doc.addPage(); y = 15; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
 
       const autoData = state.autoScoring ? state.autoScoring[cat.name] : null;
       const autoSuffix = (autoData && autoData.status !== 'NO_DATA')
-        ? ` [auto: ${autoData.skor.toFixed(2)}/4, +${autoData.nPos}/−${autoData.nNeg}]`
+        ? ` [auto: ${autoData.skor.toFixed(2)}/4, +${autoData.nPos}/-${autoData.nNeg}]`
         : '';
-      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} — SKOR: ${cat.score}/4${autoSuffix}`;
-      const titleWrap = doc.splitTextToSize(titleLine, pageW - 36);
-      titleWrap.forEach(t => { doc.text(t, 18, y); y += 5; });
-      y += 1;
-      printParagraph(cat.narrative, 22, 9);
-      y += 6;
+      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} - SKOR: ${cat.score}/4${autoSuffix}`;
+      const titleWrap = doc.splitTextToSize(titleLine, CONTENT_W);
+      titleWrap.forEach(t => {
+        if (y > pageH - 15) { doc.addPage(); y = 15; }
+        doc.text(t, MARGIN + 1, y); y += 3.8;
+      });
+      y += 0.5;
+      printParagraph(cat.narrative, MARGIN + 4, 7, 3.2);
+      y += 3;
     });
 
-    if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setDrawColor(220); doc.line(15, y, pageW - 15, y); y += 8;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('KESIMPULAN KESELURUHAN', 15, y); y += 7;
-    printParagraph(state.conclusion, 18, 9);
-    y += 8;
+    /* ===== KESIMPULAN KESELURUHAN ===== */
+    if (y > pageH - 25) { doc.addPage(); y = 15; }
+    doc.setDrawColor(220); doc.line(MARGIN, y, pageW - MARGIN, y); y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('KESIMPULAN KESELURUHAN', MARGIN, y); y += 4.5;
+    printParagraph(state.conclusion, MARGIN + 2, 7.5, 3.4);
+    y += 4;
 
+    /* ===== TINGKAT REKOMENDASI ===== */
     const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
     const recLabel = recOpt ? recOpt.label : '-';
     const recColor = recOpt ? recOpt.color : [0, 0, 0];
-    if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('TINGKAT REKOMENDASI', 15, y); y += 7;
-    doc.setFontSize(12);
+    if (y > pageH - 25) { doc.addPage(); y = 15; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('TINGKAT REKOMENDASI', MARGIN, y); y += 4.5;
+    doc.setFontSize(10);
     doc.setTextColor(recColor[0], recColor[1], recColor[2]);
-    doc.splitTextToSize(cleanForPDF(recLabel), pageW - 36).forEach(line => {
-      doc.text(line, 18, y); y += 6;
+    doc.splitTextToSize(cleanForPDF(recLabel), CONTENT_W - 4).forEach(line => {
+      if (y > pageH - 15) { doc.addPage(); y = 15; }
+      doc.text(line, MARGIN + 2, y); y += 4.5;
     });
-    doc.setTextColor(0, 0, 0); y += 6;
+    doc.setTextColor(0, 0, 0); y += 3.5;
 
-    if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('ALASAN REKOMENDASI', 15, y); y += 7;
-    printParagraph(state.reasons, 18, 9);
+    /* ===== ALASAN REKOMENDASI ===== */
+    if (y > pageH - 25) { doc.addPage(); y = 15; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('ALASAN REKOMENDASI', MARGIN, y); y += 4.5;
+    printParagraph(state.reasons, MARGIN + 2, 7.5, 3.4);
+    y += 4;
+
+    /* ===== REKOMENDASI PENGEMBANGAN ===== */
+    if (y > pageH - 25) { doc.addPage(); y = 15; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('REKOMENDASI PENGEMBANGAN', MARGIN, y); y += 4.5;
+    printParagraph(state.development, MARGIN + 2, 7.5, 3.4);
     y += 8;
 
-    if (y > pageH - 40) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('REKOMENDASI PENGEMBANGAN', 15, y); y += 7;
-    printParagraph(state.development, 18, 9);
-    y += 12;
-
-    if (y > pageH - 50) { doc.addPage(); y = 20; }
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text('Assessor,', pageW - 60, y); y += 20;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.text(ADMIN_ASSESSOR, pageW - 60, y);
+    /* ===== TANDA TANGAN ===== */
+    if (y > pageH - 35) { doc.addPage(); y = 20; }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    doc.text('(Admin)', pageW - 60, y + 4);
+    doc.text('Assessor,', pageW - 55, y); y += 15;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text(ADMIN_ASSESSOR, pageW - 55, y);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    doc.text('(Admin)', pageW - 55, y + 3.5);
 
     return doc.output('blob');
   }
