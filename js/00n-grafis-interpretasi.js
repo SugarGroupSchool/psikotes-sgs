@@ -1,9 +1,9 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.1
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v8.2
    ------------------------------------------------------------
-   v8.1 [2026-09-25]
+   v8.2 [2026-10-02]
+   🤖 Auto-scoring engine + conclusion generator
    🎨 Gambar referensi per item & sub-item — selalu tampil di kiri
-   🆕 Font diperbesar untuk label & ciri visual
    ============================================================ */
 
 (function () {
@@ -172,10 +172,342 @@
     { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                      color: [220, 38, 38]  }
   ];
 
+  /* ============================================================
+     🔥 AUTO-SCORING ENGINE v1.0
+     ------------------------------------------------------------
+     Basis literatur:
+     - Machover (1949), Buck (1948), Koch (1952), Hammer (1958)
+     - Prinsip: konvergensi minimal 2 indikator searah (no single-sign)
+     - Red flags dipisah, TIDAK di-average ke skor
+     ============================================================ */
+  const SCORING_CONFIG = {
+    SKOR_BASE: 3.0,
+    SKOR_MIN: 1.0,
+    SKOR_MAX: 4.0,
+    DELTA_SCALE: 1.2,
+    MIN_BOBOT_CONFIDENCE: 6,
+    MIN_KONVERGENSI: 2,
+    THRESHOLD: { SANGAT_BAIK: 3.5, BAIK: 3.0, CUKUP: 2.5 }
+  };
+
+  const SCORING_BOBOT_RULES = {
+    RED_FLAG: [
+      /mutilasi/i, /dipotong/i, /terpotong/i, /terputus/i, /terbakar/i,
+      /runtuh/i, /tumbang/i, /kematian/i, /\bmati\b/i, /mayat/i, /hantu/i,
+      /kuburan/i, /bunuh/i, /kastrasi/i, /transparan/i, /x.?ray/i, /kerangka/i,
+      /menembus.*kepala/i, /organ.*hilang/i
+    ],
+    BERAT: [
+      /agresif/i, /bermusuhan/i, /marah/i, /meledak/i, /depresi/i,
+      /psikosis/i, /skizo/i, /paranoid/i, /manik/i, /\bkacau\b/i,
+      /histeris/i, /destruktif/i, /bunuh diri/i, /suicid/i, /curiga/i
+    ],
+    SEDANG: [
+      /cemas/i, /takut/i, /sedih/i, /murung/i, /gelisah/i, /tegang/i,
+      /impulsif/i, /\bkaku\b/i, /regres/i, /infantil/i, /defensif/i,
+      /menarik diri/i, /insecure/i, /rendah diri/i, /tertekan/i,
+      /neurotik/i, /kompulsif/i, /obsesif/i
+    ]
+  };
+
+  const SCORING_KEYWORDS = {
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING': {
+      n: [/kebingungan/i, /bingung/i, /tidak jelas/i, /kabur/i, /tidak logis/i, /tidak teratur/i, /\bkacau\b/i, /disorientasi/i, /tidak mampu/i, /kesulitan berpikir/i, /retardasi/i, /debil/i, /gangguan kognitif/i, /tidak fokus/i, /konsentrasi kurang/i, /pelupa/i, /tidak konsisten/i, /tidak sistematis/i, /berpikir asosiatif/i, /kekacauan/i],
+      p: [/jelas/i, /teratur/i, /sistematis/i, /logis/i, /konsisten/i, /terorganisir/i, /fokus/i, /analitis/i, /intelegensi tinggi/i, /cerdas/i]
+    },
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK': {
+      n: [/menarik diri/i, /isolasi/i, /penyendiri/i, /tidak bergaul/i, /kesulitan.*sosial/i, /hambatan.*interaksi/i, /permusuhan/i, /bermusuhan/i, /agresif.*sosial/i, /tidak percaya/i, /curiga/i, /sulit.*berhubungan/i, /dingin/i, /\bcuek\b/i, /tidak peduli/i, /\bego\b/i, /individualis/i, /terisolasi/i, /kesepian/i, /canggung/i, /pemalu/i, /menghindar/i],
+      p: [/empati/i, /hangat/i, /ramah/i, /kooperatif/i, /bersahabat/i, /peduli/i, /suka membantu/i, /sosial.*baik/i, /mudah bergaul/i, /interpersonal.*baik/i, /terbuka/i, /kolaboratif/i]
+    },
+    'STABILITAS EMOSI & KONTROL IMPULS': {
+      n: [/agresif/i, /marah/i, /impulsif/i, /cemas/i, /takut/i, /depresi/i, /sedih/i, /murung/i, /\bkacau\b/i, /gelisah/i, /tegang/i, /panik/i, /nervous/i, /manik/i, /meledak/i, /kontrol.*lemah/i, /tidak stabil/i, /emosional/i, /histeris/i, /frustrasi/i, /putus asa/i, /melankolis/i, /labilitas/i, /moody/i, /sensitif/i, /mudah tersinggung/i, /mudah marah/i],
+      p: [/tenang/i, /stabil/i, /damai/i, /terkendali/i, /seimbang/i, /sabar/i, /kalem/i, /harmonis/i, /matang.*emosi/i, /kontrol.*baik/i]
+    },
+    'MOTIVATION & ACHIEVEMENT DRIVE': {
+      n: [/tidak termotivasi/i, /kurang semangat/i, /pasif/i, /malas/i, /tidak ambisi/i, /kurang dorongan/i, /mudah menyerah/i, /lemah.*kemauan/i, /tidak ada tujuan/i, /stagnan/i, /tidak produktif/i, /\bloyo\b/i, /lemas/i, /tidak bertenaga/i, /energi.*lemah/i, /lesu/i],
+      p: [/ambisi/i, /berprestasi/i, /termotivasi/i, /semangat/i, /vitalitas/i, /energi.*tinggi/i, /rajin/i, /tekun/i, /gigih/i, /berusaha keras/i, /optimis/i, /aspirasi/i, /produktif/i, /inisiatif/i]
+    },
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY': {
+      n: [/\bkaku\b/i, /rigid/i, /tidak fleksibel/i, /sulit beradaptasi/i, /stagnan/i, /monoton/i, /tidak bisa berubah/i, /resistensi/i, /menolak perubahan/i, /tidak dinamis/i, /statis/i, /menentang/i, /keras kepala/i, /kepala batu/i, /tertutup.*pengalaman baru/i],
+      p: [/fleksibel/i, /adaptif/i, /dinamis/i, /mudah menyesuaikan/i, /terbuka/i, /mengeksplorasi/i, /mencoba.*baru/i, /inovatif/i, /kreatif/i, /cepat belajar/i, /inisiatif/i, /responsif/i, /spontan/i]
+    },
+    'INTEGRITY & RULE COMPLIANCE': {
+      n: [/curang/i, /manipulasi/i, /eksploitasi/i, /melanggar/i, /antisosial/i, /psikopat/i, /tidak jujur/i, /menyembunyikan/i, /berbohong/i, /mengelak/i, /menentang aturan/i, /melawan.*otoritas/i, /tidak bertanggung jawab/i],
+      p: [/integritas/i, /jujur/i, /bertanggung jawab/i, /disiplin/i, /patuh.*aturan/i, /moral.*baik/i, /etis/i, /dapat dipercaya/i, /dedikasi/i, /loyal/i, /amanah/i]
+    },
+    'TEACHING CREATIVITY': {
+      n: [/tidak kreatif/i, /monoton/i, /kaku.*mengajar/i, /tidak inovatif/i, /repetitif/i, /tidak imajinatif/i, /kurang ide/i, /tidak variatif/i],
+      p: [/kreatif/i, /inovatif/i, /imajinatif/i, /ide.*baru/i, /ekspresif/i, /artistik/i, /orisinil/i, /variatif/i, /mengeksplorasi/i, /inventif/i, /kaya ide/i]
+    }
+  };
+
+  const SCORING_DEVELOPMENT_KAMUS = {
+    'KEMAMPUAN BERPIKIR & PROBLEM SOLVING':
+      'Latih kemampuan analisis melalui studi kasus, brainstorming terstruktur, dan problem-solving exercise. Rekomendasi: pelatihan critical thinking, mind mapping, dan latihan pengambilan keputusan berbasis data.',
+    'EMPATHY, INTERPERSONAL SKILL & TEAMWORK':
+      'Kembangkan empati melalui active listening, role-play, dan feedback 360°. Rekomendasi: pelatihan komunikasi interpersonal, team building, dan mentoring sebaya.',
+    'STABILITAS EMOSI & KONTROL IMPULS':
+      'Pelatihan manajemen emosi, mindfulness, dan teknik regulasi stres. Rekomendasi: konseling rutin, journaling emosi, dan teknik relaksasi (breathing exercise).',
+    'MOTIVATION & ACHIEVEMENT DRIVE':
+      'Bantu tetapkan tujuan SMART, bangun sistem reward, dan mentoring rutin. Rekomendasi: coaching motivasi, perencanaan karier, dan umpan balik positif berkala.',
+    'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY':
+      'Ekspos ke situasi baru, dorong learning by doing, dan rotasi tugas. Rekomendasi: pelatihan adaptability, project-based learning, dan exposure lintas fungsi.',
+    'INTEGRITY & RULE COMPLIANCE':
+      'Perkuat pemahaman nilai, studi kasus etika, dan konsistensi konsekuensi. Rekomendasi: workshop integritas, mentoring etika, dan penegakan aturan yang konsisten.',
+    'TEACHING CREATIVITY':
+      'Latih metode kreatif (mind mapping, project-based, gamifikasi) dan apresiasi inovasi. Rekomendasi: workshop kreativitas, peer teaching, dan observasi kelas inovatif.'
+  };
+
+  /* ---------- Helper Deteksi ---------- */
+  function __scoringDetectBobot(text) {
+    if (!text) return 1;
+    for (const rx of SCORING_BOBOT_RULES.RED_FLAG) if (rx.test(text)) return 3;
+    for (const rx of SCORING_BOBOT_RULES.BERAT)    if (rx.test(text)) return 3;
+    for (const rx of SCORING_BOBOT_RULES.SEDANG)   if (rx.test(text)) return 2;
+    return 1;
+  }
+
+  function __scoringDetectRedFlag(text) {
+    if (!text) return false;
+    for (const rx of SCORING_BOBOT_RULES.RED_FLAG) if (rx.test(text)) return true;
+    return false;
+  }
+
+  function __scoringAutoMap(text) {
+    const katPos = new Set(), katNeg = new Set();
+    Object.entries(SCORING_KEYWORDS).forEach(([kat, rules]) => {
+      rules.p.forEach(rx => { if (rx.test(text)) katPos.add(kat); });
+      rules.n.forEach(rx => { if (rx.test(text)) katNeg.add(kat); });
+    });
+    const katNegArr = [...katNeg];
+    const katPosArr = [...katPos].filter(k => !katNeg.has(k));
+    if (katNegArr.length > 0) return { kategori: katNegArr, polaritas: '-' };
+    if (katPosArr.length > 0) return { kategori: katPosArr, polaritas: '+' };
+    return { kategori: [], polaritas: null };
+  }
+
+  /* ---------- SCORER ---------- */
+  function hitungSkorKategori(selectedItems) {
+    if (!selectedItems || typeof selectedItems !== 'object') selectedItems = {};
+
+    const acc = {};
+    KATEGORI.forEach(k => {
+      acc[k] = { kategori: k, nPos: 0, nNeg: 0, itemsPos: [], itemsNeg: [],
+                 redFlags: [], totalBobot: 0,
+                 skor: SCORING_CONFIG.SKOR_BASE, confidence: 0, status: 'NO_DATA' };
+    });
+
+    const autoData = window.GRAFIS_AUTO_DATA || {};
+
+    ['dap','baum','htp'].forEach(testKey => {
+      const data = autoData[testKey];
+      if (!data || !Array.isArray(data.slides)) return;
+      const selected = selectedItems[testKey] || {};
+
+      data.slides.forEach(slide => {
+        (slide.sections || []).forEach(section => {
+          const sectionId = section.id;
+          const val = selected[sectionId];
+          if (!val) return;
+          const itemIds = Array.isArray(val) ? val : [val];
+
+          itemIds.forEach(itemId => {
+            const item = (section.items || []).find(i => i.id === itemId);
+            if (!item) return;
+
+            const fullText = [item.label, item.ciri, item.interpret].filter(Boolean).join(' ');
+            const meta = __scoringAutoMap(fullText);
+            if (!meta.kategori.length) return;
+
+            const bobot = __scoringDetectBobot(fullText);
+            const redFlag = __scoringDetectRedFlag(fullText);
+
+            meta.kategori.forEach(kat => {
+              const kd = acc[kat]; if (!kd) return;
+              kd.totalBobot += bobot;
+              const entry = { label: item.label || item.id, bobot, redFlag };
+              if (meta.polaritas === '+') { kd.nPos += bobot; kd.itemsPos.push(entry); }
+              else if (meta.polaritas === '-') {
+                kd.nNeg += bobot; kd.itemsNeg.push(entry);
+                if (redFlag) kd.redFlags.push(item.label || item.id);
+              }
+            });
+
+            (item.subItems || []).forEach(sub => {
+              const subKey = sectionId + '::' + sub.id;
+              if (!selected[subKey]) return;
+              const subFull = [sub.label, sub.ciri, sub.interpret].filter(Boolean).join(' ');
+              const subMeta = __scoringAutoMap(subFull);
+              if (!subMeta.kategori.length) return;
+              const subBobot = __scoringDetectBobot(subFull);
+              const subRed = __scoringDetectRedFlag(subFull);
+
+              subMeta.kategori.forEach(kat => {
+                const kd = acc[kat]; if (!kd) return;
+                kd.totalBobot += subBobot;
+                const entry = { label: '↳ ' + (sub.label || sub.id), bobot: subBobot, redFlag: subRed };
+                if (subMeta.polaritas === '+') { kd.nPos += subBobot; kd.itemsPos.push(entry); }
+                else if (subMeta.polaritas === '-') {
+                  kd.nNeg += subBobot; kd.itemsNeg.push(entry);
+                  if (subRed) kd.redFlags.push(entry.label);
+                }
+              });
+            });
+          });
+        });
+      });
+    });
+
+    KATEGORI.forEach(k => {
+      const kd = acc[k];
+      const total = kd.nPos + kd.nNeg;
+      if (total === 0) { kd.status = 'NO_DATA'; return; }
+
+      const delta = (kd.nPos - kd.nNeg) / total;
+      const skorRaw = SCORING_CONFIG.SKOR_BASE + delta * SCORING_CONFIG.DELTA_SCALE;
+      const confidence = Math.min(1.0, total / SCORING_CONFIG.MIN_BOBOT_CONFIDENCE);
+      const skorAkhir = SCORING_CONFIG.SKOR_BASE + (skorRaw - SCORING_CONFIG.SKOR_BASE) * confidence;
+
+      kd.skor = Math.max(SCORING_CONFIG.SKOR_MIN, Math.min(SCORING_CONFIG.SKOR_MAX, skorAkhir));
+      kd.confidence = confidence;
+
+      if (kd.skor >= SCORING_CONFIG.THRESHOLD.SANGAT_BAIK)  kd.status = 'SANGAT_BAIK';
+      else if (kd.skor >= SCORING_CONFIG.THRESHOLD.BAIK)    kd.status = 'BAIK';
+      else if (kd.skor >= SCORING_CONFIG.THRESHOLD.CUKUP)   kd.status = 'CUKUP';
+      else                                                   kd.status = 'PERHATIAN';
+    });
+
+    return acc;
+  }
+
+  /* ---------- GENERATOR KESIMPULAN ---------- */
+  function generateKesimpulan(scoring, identity) {
+    identity = identity || {};
+    const kategoriArr = Object.values(scoring);
+    const kategoriValid = kategoriArr.filter(k => k.status !== 'NO_DATA');
+
+    if (kategoriValid.length === 0) {
+      return {
+        rataRata: 0, overallLabel: 'TIDAK CUKUP DATA', overallColor: '#94a3b8',
+        overallConfidence: 'RENDAH', totalBobot: 0,
+        strengths: [], weaknesses: [], allRedFlags: [],
+        text: 'Tidak cukup indikator terpilih untuk menghasilkan kesimpulan yang valid. ' +
+              'Mohon lengkapi checklist interpretasi terlebih dahulu.'
+      };
+    }
+
+    const skorArr = kategoriValid.map(k => k.skor);
+    const rataRata = skorArr.reduce((a, b) => a + b, 0) / skorArr.length;
+    const totalBobot = kategoriArr.reduce((s, k) => s + k.totalBobot, 0);
+
+    let overallConfidence = 'RENDAH';
+    if (totalBobot >= 18)      overallConfidence = 'TINGGI';
+    else if (totalBobot >= 10) overallConfidence = 'SEDANG';
+
+    let overallLabel, overallColor;
+    if (rataRata >= SCORING_CONFIG.THRESHOLD.SANGAT_BAIK) { overallLabel = 'HIGHLY RECOMMENDED'; overallColor = '#166534'; }
+    else if (rataRata >= SCORING_CONFIG.THRESHOLD.BAIK)   { overallLabel = 'RECOMMENDED';        overallColor = '#16a34a'; }
+    else if (rataRata >= SCORING_CONFIG.THRESHOLD.CUKUP)  { overallLabel = 'FAIRLY RECOMMENDED'; overallColor = '#d97706'; }
+    else                                                   { overallLabel = 'NOT RECOMMENDED';    overallColor = '#dc2626'; }
+
+    const sorted = [...kategoriArr].sort((a, b) => b.skor - a.skor);
+    const strengths = sorted
+      .filter(k => k.skor >= 3.0 && k.itemsPos.length >= SCORING_CONFIG.MIN_KONVERGENSI)
+      .slice(0, 3);
+    const weaknesses = sorted
+      .filter(k => k.skor < 3.0 && k.itemsNeg.length >= SCORING_CONFIG.MIN_KONVERGENSI)
+      .reverse().slice(0, 3);
+
+    const allRedFlags = [];
+    kategoriArr.forEach(k => {
+      if (k.redFlags.length > 0 && k.skor < 2.5) {
+        allRedFlags.push({ kategori: k.kategori, skor: k.skor, items: k.redFlags });
+      }
+    });
+
+    const lines = [];
+    const sep = '─'.repeat(55);
+
+    lines.push('KESIMPULAN INTERPRETASI GRAFIS');
+    lines.push(sep); lines.push('');
+    lines.push(`Kandidat   : ${identity.name || '-'}`);
+    lines.push(`Posisi     : ${identity.position || '-'}`);
+    lines.push(`Tanggal    : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+    lines.push('');
+    lines.push(`Skor rata-rata       : ${rataRata.toFixed(2)} / 4.00`);
+    lines.push(`Tingkat kecocokan    : ${overallLabel}`);
+    lines.push(`Tingkat keyakinan    : ${overallConfidence} (total bobot: ${totalBobot})`);
+    lines.push(`Kategori terukur     : ${kategoriValid.length} dari ${KATEGORI.length}`);
+    lines.push(''); lines.push(sep); lines.push('');
+
+    if (strengths.length > 0) {
+      lines.push('◆ KEKUATAN UTAMA'); lines.push('');
+      strengths.forEach((k, i) => {
+        lines.push(`${i + 1}. ${k.kategori}`);
+        lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsPos.length} indikator positif)`);
+        const c = k.itemsPos.sort((a,b)=>b.bobot-a.bobot).slice(0,3).map(x=>`"${x.label}"`).join(', ');
+        if (c) lines.push(`   Indikator: ${c}`);
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    if (weaknesses.length > 0) {
+      lines.push('◆ AREA YANG PERLU PERHATIAN'); lines.push('');
+      weaknesses.forEach((k, i) => {
+        lines.push(`${i + 1}. ${k.kategori}`);
+        lines.push(`   Skor: ${k.skor.toFixed(2)} / 4.00  (${k.itemsNeg.length} indikator negatif)`);
+        const c = k.itemsNeg.sort((a,b)=>b.bobot-a.bobot).slice(0,3).map(x=>`"${x.label}"`).join(', ');
+        if (c) lines.push(`   Indikator: ${c}`);
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    if (allRedFlags.length > 0) {
+      lines.push('⚠️  INDIKATOR KRITIS (PERLU PENELAAHAN LANJUT)'); lines.push('');
+      allRedFlags.forEach((rf, i) => {
+        lines.push(`${i + 1}. ${rf.kategori} (skor: ${rf.skor.toFixed(2)})`);
+        rf.items.forEach(it => lines.push(`   • ${it}`));
+        lines.push('');
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    if (weaknesses.length > 0) {
+      lines.push('◆ REKOMENDASI PENGEMBANGAN'); lines.push('');
+      weaknesses.forEach((k, i) => {
+        const dev = SCORING_DEVELOPMENT_KAMUS[k.kategori];
+        if (dev) { lines.push(`${i + 1}. ${k.kategori}`); lines.push(`   ${dev}`); lines.push(''); }
+      });
+      lines.push(sep); lines.push('');
+    }
+
+    lines.push('CATATAN PENTING'); lines.push('');
+    lines.push('Skor ini dihasilkan dari analisis checklist indikator visual pada');
+    lines.push('tes grafis (DAP, BAUM, HTP). Interpretasi ini bersifat SCREENING,');
+    lines.push('BUKAN diagnosis klinis. Keputusan akhir seleksi tetap harus');
+    lines.push('mempertimbangkan: wawancara, tes objektif lain, referensi kerja,');
+    lines.push('dan pertimbangan profesional psikolog.');
+    lines.push('');
+    lines.push('Prinsip interpretasi: konvergensi minimal 2 indikator searah,');
+    lines.push('tidak menggunakan single-sign interpretation.');
+    lines.push('');
+    lines.push(`Dokumen ini dihasilkan otomatis pada ${new Date().toLocaleString('id-ID')}.`);
+
+    return {
+      rataRata: Number(rataRata.toFixed(2)),
+      overallLabel, overallColor, overallConfidence, totalBobot,
+      kategoriValidCount: kategoriValid.length,
+      strengths, weaknesses, allRedFlags,
+      text: lines.join('\n')
+    };
+  }
+
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] v8.1 —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] v8.2 —', { candidateName, candidatePosition });
 
   /* ============================================================
      TOAST SYSTEM
@@ -306,7 +638,9 @@
     development: '',
     compactMode: false,
     gridOverlay: false,
-    searchQuery: ''
+    searchQuery: '',
+    autoScoring: null,
+    autoKesimpulan: null
   };
 
   try {
@@ -1043,10 +1377,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="margin-bottom: 24px; padding: 22px 22px 20px; background: #f8fafc;
             border: 2px solid #e2e8f0; border-radius: 16px;">
             <div style="font-size: 15px; font-weight: 900; color: #1e293b; margin-bottom: 6px;">
-              📊 KESIMPULAN PER KATEGORI (Manual)
+              📊 KESIMPULAN PER KATEGORI
             </div>
             <div style="font-size: 12px; color: #64748b; margin-bottom: 18px; line-height: 1.6;">
-              Isi skor (1–4) dan tulis narasi analisis untuk setiap kategori.
+              Klik <b>🤖 Hitung Skor Otomatis</b> di bawah untuk mengisi skor & narasi otomatis, atau isi manual.
             </div>
             <div id="category-list"></div>
           </div>
@@ -1054,10 +1388,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fffbeb;
             border: 2px solid #fde68a; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #92400e; margin-bottom: 14px;">
-              📝 KESIMPULAN KESELURUHAN (Manual)
+              📝 KESIMPULAN KESELURUHAN
             </div>
             <textarea id="giConclusion" rows="6"
-              placeholder="Tulis kesimpulan keseluruhan..."
+              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fcd34d;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
@@ -1083,10 +1417,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="margin-bottom: 22px; padding: 20px 22px; background: #fef2f2;
             border: 2px solid #fecaca; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #991b1b; margin-bottom: 14px;">
-              📌 ALASAN REKOMENDASI (Manual)
+              📌 ALASAN REKOMENDASI
             </div>
             <textarea id="giReasons" rows="5"
-              placeholder="Tulis alasan mengapa tingkat rekomendasi tersebut diberikan..."
+              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fca5a5;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
@@ -1096,15 +1430,25 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="margin-bottom: 26px; padding: 20px 22px; background: #f5f3ff;
             border: 2px solid #ddd6fe; border-radius: 16px;">
             <div style="font-size: 14px; font-weight: 900; color: #5b21b6; margin-bottom: 14px;">
-              🚀 REKOMENDASI PENGEMBANGAN (Manual)
+              🚀 REKOMENDASI PENGEMBANGAN
             </div>
             <textarea id="giDevelopment" rows="5"
-              placeholder="Tulis saran pengembangan untuk kandidat..."
+              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #c4b5fd;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
                 line-height: 1.6; min-height: 110px;">${escapeHtml(state.development)}</textarea>
           </div>
+
+          <button type="button" id="giAutoScoreBtn"
+            style="width: 100%; padding: 15px; margin-bottom: 12px;
+              border: 2px solid #10b981; border-radius: 14px;
+              background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+              color: #065f46; font-size: 15px; font-weight: 900; font-family: inherit;
+              cursor: pointer; box-shadow: 0 4px 14px rgba(16,185,129,.18);
+              display: flex; align-items: center; justify-content: center; gap: 8px;">
+            🤖 Hitung Skor Otomatis
+          </button>
 
           <button type="button" id="giSubmitBtn"
             style="width: 100%; padding: 16px; border: 0; border-radius: 14px;
@@ -1121,13 +1465,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </div>
     `;
 
-  root.querySelectorAll('.js-open-test').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    state.searchQuery = '';
-    renderTestDetail(btn.getAttribute('data-test'));
-  });
-});
+    root.querySelectorAll('.js-open-test').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        state.searchQuery = '';
+        renderTestDetail(btn.getAttribute('data-test'));
+      });
+    });
 
     renderCombinedNotes();
     renderCategories();
@@ -1145,6 +1489,97 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     const submit = document.getElementById('giSubmitBtn');
     if (submit) submit.addEventListener('click', handleSubmit);
+
+    const autoBtn = document.getElementById('giAutoScoreBtn');
+    if (autoBtn) autoBtn.addEventListener('click', () => __runAutoScoring(true));
+  }
+
+  /* ============================================================
+     🔥 RUN AUTO SCORING
+     ============================================================ */
+  function __runAutoScoring(showToastMsg) {
+    const totalItems = countSelectedItems('dap') + countSelectedItems('baum') + countSelectedItems('htp');
+    if (totalItems === 0) {
+      if (showToastMsg) toast('Pilih minimal 1 item di DAP/BAUM/HTP terlebih dahulu', 'warn');
+      return null;
+    }
+
+    const scoring = hitungSkorKategori(state.selectedItems);
+    const kesimpulan = generateKesimpulan(scoring, {
+      name: candidateName,
+      position: candidatePosition
+    });
+
+    state.autoScoring = scoring;
+    state.autoKesimpulan = kesimpulan;
+
+    state.categories.forEach(cat => {
+      const k = scoring[cat.name];
+      if (!k || k.status === 'NO_DATA') return;
+      cat.score = Math.max(1, Math.min(4, Math.round(k.skor)));
+      if (!cat.narrative || cat.narrative.trim() === '') {
+        const parts = [];
+        parts.push(`Skor otomatis: ${k.skor.toFixed(2)} / 4.00 (${k.status}).`);
+        if (k.itemsPos.length > 0) {
+          parts.push(`Indikator positif (${k.itemsPos.length}): ${k.itemsPos.slice(0,3).map(x=>x.label).join('; ')}.`);
+        }
+        if (k.itemsNeg.length > 0) {
+          parts.push(`Indikator negatif (${k.itemsNeg.length}): ${k.itemsNeg.slice(0,3).map(x=>x.label).join('; ')}.`);
+        }
+        cat.narrative = parts.join(' ');
+      }
+    });
+
+    if (!state.conclusion || state.conclusion.trim() === '') {
+      state.conclusion = kesimpulan.text;
+    }
+
+    if (!state.recommendation) {
+      if (kesimpulan.rataRata >= 3.5)      state.recommendation = 'HIGHLY_RECOMMENDED';
+      else if (kesimpulan.rataRata >= 3.0) state.recommendation = 'RECOMMENDED';
+      else if (kesimpulan.rataRata >= 2.5) state.recommendation = 'FAIRLY_RECOMMENDED';
+      else                                 state.recommendation = 'NOT_RECOMMENDED';
+    }
+
+    if (!state.reasons || state.reasons.trim() === '') {
+      const strengths = kesimpulan.strengths.map(s => s.kategori).slice(0, 2);
+      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 2);
+      const parts = [];
+      if (strengths.length) parts.push(`Kekuatan utama pada: ${strengths.join(', ')}.`);
+      if (weaknesses.length) parts.push(`Area perhatian pada: ${weaknesses.join(', ')}.`);
+      if (kesimpulan.allRedFlags.length) parts.push(`Terdapat ${kesimpulan.allRedFlags.length} indikator kritis yang perlu penelaahan lanjut.`);
+      state.reasons = parts.join(' ') || 'Berdasarkan analisis checklist indikator grafis.';
+    }
+
+    if (!state.development || state.development.trim() === '') {
+      const devList = kesimpulan.weaknesses
+        .map(w => SCORING_DEVELOPMENT_KAMUS[w.kategori])
+        .filter(Boolean);
+      state.development = devList.length
+        ? devList.join('\n\n')
+        : 'Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist. Perkuat kompetensi umum sesuai kebutuhan posisi.';
+    }
+
+    saveDraft();
+    renderCategories();
+
+    const concEl = document.getElementById('giConclusion');
+    if (concEl) concEl.value = state.conclusion;
+
+    const recEl = document.getElementById('giRecommendation');
+    if (recEl) recEl.value = state.recommendation;
+
+    const reasonsEl = document.getElementById('giReasons');
+    if (reasonsEl) reasonsEl.value = state.reasons;
+
+    const devEl = document.getElementById('giDevelopment');
+    if (devEl) devEl.value = state.development;
+
+    if (showToastMsg) {
+      toast(`Skor dihitung: ${kesimpulan.rataRata.toFixed(2)}/4.00 — ${kesimpulan.overallLabel}`, 'success');
+    }
+
+    return kesimpulan;
   }
 
   /* ============================================================
@@ -1159,14 +1594,12 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     root.style.overflowY = 'hidden';
     state.activePage = testKey;
-    
 
     const theme = data.theme || { primary: '#6d28d9', primaryDark: '#5b21b6', bg: '#f5f3ff', border: '#ddd6fe' };
     const selected    = state.selectedItems[testKey] || {};
     const currentImg  = state.candidateImages[testKey] || '';
     const imgState    = state.imageState[testKey];
 
-    /* ===== Konten pilihan ===== */
     const sectionsHTML = (data.slides || []).map((group, stepIdx) => {
       const sectionsInner = (group.sections || []).map(section => {
         const val = selected[section.id];
@@ -1177,7 +1610,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           if (isRadio) isChecked = (val === item.id);
           else isChecked = Array.isArray(val) && val.includes(item.id);
 
-          /* 🖼️ Gambar item — posisi fleksibel: left / top / bottom */
           const imgPos = section.imagePosition || 'left';
           const imgSize = section.imageSize || 160;
 
@@ -1265,7 +1697,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             }).join('');
           }
 
-          /* ===== Layout fleksibel: left / top / bottom ===== */
           const isVertical = (imgPos === 'top' || imgPos === 'bottom');
           const labelFlexStyle = isVertical
             ? 'display: flex; flex-direction: column; align-items: stretch; gap: 10px;'
@@ -1346,11 +1777,15 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       `;
     }).join('');
 
-    /* ===== Render ===== */
     const gridVisible = state.gridOverlay ? 'block' : 'none';
 
     root.innerHTML = `
       <style>
+        @keyframes pulse-red {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: .65; }
+        }
+
         .gi-page { display: flex; flex-direction: column;
           height: calc(100vh - 40px); max-width: 1600px; margin: 0 auto; gap: 8px; }
 
@@ -1507,7 +1942,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           left: 10px; top: 50%; transform: translateY(-50%);
           font-size: 13px; pointer-events: none; }
 
-        /* ===== Justified text ===== */
         .gi-detail-right .js-option-item > div:last-child,
         .gi-detail-right .js-subitem > div:last-child,
         .gi-notes-content,
@@ -1546,8 +1980,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       </style>
 
       <div class="gi-page">
-
-        <!-- Header -->
         <div class="gi-header">
           <button type="button" id="giBackBtn"
             style="width: 38px; height: 38px; flex: 0 0 38px;
@@ -1561,7 +1993,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px;
               color: ${theme.primary}; margin-bottom: 2px;">
-              INTERPRETASI OTOMATIS · v8.1
+              INTERPRETASI OTOMATIS · v8.2
             </div>
             <div style="font-size: 15px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
@@ -1569,13 +2001,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
           <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
             text-align: right; line-height: 1.4;">
-            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.1</div>
+            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v8.2</div>
           </div>
         </div>
 
         <div class="gi-detail-layout">
-
-          <!-- Kolom kiri: gambar -->
           <div class="gi-detail-left">
             <div class="gi-detail-left-header">
               <div>📷 Gambar Kandidat</div>
@@ -1690,7 +2120,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             ` : ''}
           </div>
 
-          <!-- Kolom kanan: pilihan -->
           <div class="gi-detail-right">
             <div class="gi-search-box">
               <input type="text" id="giSearchInput"
@@ -1726,12 +2155,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               </button>
             </div>
           </div>
-
         </div>
       </div>
     `;
 
-    /* ===== Stepper ===== */
     const steps   = root.querySelectorAll('.gi-step');
     const navInfo = root.querySelector('.gi-step-info');
     const btnPrev = root.querySelector('.gi-prev');
@@ -1759,109 +2186,98 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     });
     renderStep();
 
-    /* ============================================================
-       Helper: re-render sambil menjaga posisi scroll
-       ============================================================ */
-function __rerenderPreserveScroll(testKey, anchorSelector) {
-  const root = getRoot();
-  if (!root) return;
+    function __rerenderPreserveScroll(testKey, anchorSelector) {
+      const root = getRoot();
+      if (!root) return;
 
-  const panel = root.querySelector('.gi-detail-right');
-  if (!panel) {
-    renderTestDetail(testKey);
-    return;
-  }
-
-  /* 1. Simpan posisi scroll panel SEBELUM render */
-  const savedScrollTop = panel.scrollTop;
-
-  /* 2. Simpan posisi relatif anchor terhadap panel (dalam koordinat panel content) */
-  let anchorOffsetTop = null;
-  if (anchorSelector) {
-    const anchorEl = panel.querySelector(anchorSelector);
-    if (anchorEl) {
-      anchorOffsetTop = anchorEl.offsetTop;
-    }
-  }
-
-  /* 3. Re-render */
-  renderTestDetail(testKey);
-
-  /* 4. Restore setelah DOM siap */
-  requestAnimationFrame(() => {
-    const newRoot = getRoot();
-    if (!newRoot) return;
-    const newPanel = newRoot.querySelector('.gi-detail-right');
-    if (!newPanel) return;
-
-    if (anchorSelector && anchorOffsetTop !== null) {
-      const newAnchorEl = newPanel.querySelector(anchorSelector);
-      if (newAnchorEl) {
-        const delta = newAnchorEl.offsetTop - anchorOffsetTop;
-        newPanel.scrollTop = savedScrollTop + delta;
-      } else {
-        newPanel.scrollTop = savedScrollTop;
+      const panel = root.querySelector('.gi-detail-right');
+      if (!panel) {
+        renderTestDetail(testKey);
+        return;
       }
-    } else {
-      newPanel.scrollTop = savedScrollTop;
-    }
-  });
-}
 
-    /* ============================================================
-       Item click — pakai helper preserve scroll
-       ============================================================ */
-root.querySelectorAll('.js-option-item').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const sectionId = label.getAttribute('data-section');
-    const itemId = label.getAttribute('data-item');
-    const type = label.getAttribute('data-type');
+      const savedScrollTop = panel.scrollTop;
 
-    const section = (data.slides || [])
-      .flatMap(g => g.sections || [])
-      .find(s => s.id === sectionId);
+      let anchorOffsetTop = null;
+      if (anchorSelector) {
+        const anchorEl = panel.querySelector(anchorSelector);
+        if (anchorEl) {
+          anchorOffsetTop = anchorEl.offsetTop;
+        }
+      }
 
-    const clearSubItems = (parentItemId) => {
-      const parentItem = (section?.items || []).find(i => i.id === parentItemId);
-      (parentItem?.subItems || []).forEach(sub => {
-        delete state.selectedItems[testKey][sectionId + '::' + sub.id];
+      renderTestDetail(testKey);
+
+      requestAnimationFrame(() => {
+        const newRoot = getRoot();
+        if (!newRoot) return;
+        const newPanel = newRoot.querySelector('.gi-detail-right');
+        if (!newPanel) return;
+
+        if (anchorSelector && anchorOffsetTop !== null) {
+          const newAnchorEl = newPanel.querySelector(anchorSelector);
+          if (newAnchorEl) {
+            const delta = newAnchorEl.offsetTop - anchorOffsetTop;
+            newPanel.scrollTop = savedScrollTop + delta;
+          } else {
+            newPanel.scrollTop = savedScrollTop;
+          }
+        } else {
+          newPanel.scrollTop = savedScrollTop;
+        }
       });
-    };
-
-    if (type === 'radio') {
-      const oldVal = state.selectedItems[testKey][sectionId];
-      if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
-      state.selectedItems[testKey][sectionId] = itemId;
-    } else {
-      let arr = state.selectedItems[testKey][sectionId];
-      if (!Array.isArray(arr)) arr = [];
-      const idx = arr.indexOf(itemId);
-      if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
-      else arr.push(itemId);
-      state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
     }
-    saveDraft();
 
-    const anchor = `.js-option-item[data-section="${sectionId}"][data-item="${itemId}"]`;
-    __rerenderPreserveScroll(testKey, anchor);
-  });
-});
-root.querySelectorAll('.js-subitem').forEach(label => {
-  label.addEventListener('click', (e) => {
-    e.preventDefault();
-    const key = label.getAttribute('data-key');
-    const cur = state.selectedItems[testKey][key];
-    if (cur) delete state.selectedItems[testKey][key];
-    else state.selectedItems[testKey][key] = 'checked';
-    saveDraft();
+    root.querySelectorAll('.js-option-item').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionId = label.getAttribute('data-section');
+        const itemId = label.getAttribute('data-item');
+        const type = label.getAttribute('data-type');
 
-    const anchor = `.js-subitem[data-key="${key}"]`;
-    __rerenderPreserveScroll(testKey, anchor);
-  });
-});
+        const section = (data.slides || [])
+          .flatMap(g => g.sections || [])
+          .find(s => s.id === sectionId);
 
-    /* ===== Search ===== */
+        const clearSubItems = (parentItemId) => {
+          const parentItem = (section?.items || []).find(i => i.id === parentItemId);
+          (parentItem?.subItems || []).forEach(sub => {
+            delete state.selectedItems[testKey][sectionId + '::' + sub.id];
+          });
+        };
+
+        if (type === 'radio') {
+          const oldVal = state.selectedItems[testKey][sectionId];
+          if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
+          state.selectedItems[testKey][sectionId] = itemId;
+        } else {
+          let arr = state.selectedItems[testKey][sectionId];
+          if (!Array.isArray(arr)) arr = [];
+          const idx = arr.indexOf(itemId);
+          if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
+          else arr.push(itemId);
+          state.selectedItems[testKey][sectionId] = arr.length ? arr : undefined;
+        }
+        saveDraft();
+
+        const anchor = `.js-option-item[data-section="${sectionId}"][data-item="${itemId}"]`;
+        __rerenderPreserveScroll(testKey, anchor);
+      });
+    });
+    root.querySelectorAll('.js-subitem').forEach(label => {
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const key = label.getAttribute('data-key');
+        const cur = state.selectedItems[testKey][key];
+        if (cur) delete state.selectedItems[testKey][key];
+        else state.selectedItems[testKey][key] = 'checked';
+        saveDraft();
+
+        const anchor = `.js-subitem[data-key="${key}"]`;
+        __rerenderPreserveScroll(testKey, anchor);
+      });
+    });
+
     const searchInput = document.getElementById('giSearchInput');
     if (searchInput) {
       searchInput.addEventListener('input', debounce((e) => {
@@ -1875,7 +2291,6 @@ root.querySelectorAll('.js-subitem').forEach(label => {
       }, 200));
     }
 
-    /* ===== Tombol bawah ===== */
     document.getElementById('giBackBtn').addEventListener('click', () => {
       saveDraft(); renderLanding();
     });
@@ -1891,14 +2306,12 @@ root.querySelectorAll('.js-subitem').forEach(label => {
       saveDraft(); renderLanding();
     });
 
-    /* ===== Image Viewer Init ===== */
     if (currentImg) {
       const viewport = document.getElementById('giViewport');
       const img = document.getElementById('giCandidateImg');
       createImageViewer({ viewport, img, testKey });
     }
 
-    /* ===== Image Upload Handlers ===== */
     __attachImageUploadHandlers(testKey, theme);
   }
 
@@ -1997,45 +2410,90 @@ root.querySelectorAll('.js-subitem').forEach(label => {
     const container = document.getElementById('category-list');
     if (!container) return;
 
-    container.innerHTML = state.categories.map((cat, idx) => `
-      <div class="gi-category" data-idx="${idx}"
-        style="margin-bottom: 14px; padding: 16px 18px; background: #fff;
-          border: 1.5px solid #e2e8f0; border-radius: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;
-          margin-bottom: 10px; flex-wrap: wrap;">
-          <div style="width: 34px; height: 34px; flex: 0 0 34px;
-            display: grid; place-items: center;
-            background: linear-gradient(135deg, #6d28d9, #a855f7);
-            color: #fff; font-size: 13px; font-weight: 900; border-radius: 9px;">
-            ${idx + 1}
+    const auto = state.autoScoring || null;
+
+    container.innerHTML = state.categories.map((cat, idx) => {
+      const autoData = auto ? auto[cat.name] : null;
+      const hasAuto = autoData && autoData.status !== 'NO_DATA';
+
+      let badgeHTML = '';
+      if (hasAuto) {
+        const statusColors = {
+          'SANGAT_BAIK': { bg: '#dcfce7', br: '#86efac', txt: '#166534', label: 'Sangat Baik' },
+          'BAIK':        { bg: '#dbeafe', br: '#93c5fd', txt: '#1e40af', label: 'Baik' },
+          'CUKUP':       { bg: '#fef3c7', br: '#fde68a', txt: '#92400e', label: 'Cukup' },
+          'PERHATIAN':   { bg: '#fee2e2', br: '#fca5a5', txt: '#991b1b', label: 'Perlu Perhatian' }
+        };
+        const sc = statusColors[autoData.status] || statusColors['CUKUP'];
+
+        badgeHTML = `
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="padding: 4px 10px; border-radius: 999px;
+              background: ${sc.bg}; border: 1px solid ${sc.br}; color: ${sc.txt};
+              font-size: 10.5px; font-weight: 800; white-space: nowrap;">
+              🤖 ${autoData.skor.toFixed(2)} / 4.00 · ${sc.label}
+            </span>
+            <span style="padding: 4px 10px; border-radius: 999px;
+              background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569;
+              font-size: 10px; font-weight: 700; white-space: nowrap;">
+              +${autoData.nPos} / −${autoData.nNeg}
+            </span>
+            ${autoData.redFlags.length > 0 ? `
+              <span style="padding: 4px 10px; border-radius: 999px;
+                background: #7f1d1d; color: #fff;
+                font-size: 10px; font-weight: 800; white-space: nowrap;
+                animation: pulse-red 1.4s ease-in-out infinite;">
+                ⚠️ ${autoData.redFlags.length} red flag
+              </span>
+            ` : ''}
           </div>
-          <div style="flex: 1; min-width: 200px; font-size: 13px;
-            font-weight: 900; color: #1e293b; line-height: 1.4;">
-            ${escapeHtml(cat.name)}
+        `;
+      }
+
+      return `
+        <div class="gi-category" data-idx="${idx}"
+          style="margin-bottom: 14px; padding: 16px 18px; background: #fff;
+            border: 1.5px solid ${hasAuto ? '#c7d2fe' : '#e2e8f0'}; border-radius: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;
+            margin-bottom: 10px; flex-wrap: wrap;">
+            <div style="width: 34px; height: 34px; flex: 0 0 34px;
+              display: grid; place-items: center;
+              background: linear-gradient(135deg, #6d28d9, #a855f7);
+              color: #fff; font-size: 13px; font-weight: 900; border-radius: 9px;">
+              ${idx + 1}
+            </div>
+            <div style="flex: 1; min-width: 200px; font-size: 13px;
+              font-weight: 900; color: #1e293b; line-height: 1.4;">
+              ${escapeHtml(cat.name)}
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
+              <span style="font-size: 11px; font-weight: 800; color: #64748b;">SKOR:</span>
+              <select class="gi-cat-score" data-idx="${idx}"
+                style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
+                  font-family: inherit; font-size: 13px; font-weight: 900;
+                  color: #1e293b; background: #fff; cursor: pointer; outline: none;">
+                <option value="">-- /4</option>
+                <option value="1" ${cat.score == 1 ? 'selected' : ''}>1 / 4</option>
+                <option value="2" ${cat.score == 2 ? 'selected' : ''}>2 / 4</option>
+                <option value="3" ${cat.score == 3 ? 'selected' : ''}>3 / 4</option>
+                <option value="4" ${cat.score == 4 ? 'selected' : ''}>4 / 4</option>
+              </select>
+            </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
-            <span style="font-size: 11px; font-weight: 800; color: #64748b;">SKOR:</span>
-            <select class="gi-cat-score" data-idx="${idx}"
-              style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
-                font-family: inherit; font-size: 13px; font-weight: 900;
-                color: #1e293b; background: #fff; cursor: pointer; outline: none;">
-              <option value="">-- /4</option>
-              <option value="1" ${cat.score == 1 ? 'selected' : ''}>1 / 4</option>
-              <option value="2" ${cat.score == 2 ? 'selected' : ''}>2 / 4</option>
-              <option value="3" ${cat.score == 3 ? 'selected' : ''}>3 / 4</option>
-              <option value="4" ${cat.score == 4 ? 'selected' : ''}>4 / 4</option>
-            </select>
-          </div>
+
+          ${hasAuto ? `<div style="margin-bottom: 10px;">${badgeHTML}</div>` : ''}
+
+          <textarea class="gi-cat-narrative" data-idx="${idx}" rows="4"
+            placeholder="Tulis narasi analisis untuk kategori ini..."
+            style="width: 100%; padding: 12px 14px;
+              border: 2px solid ${hasAuto ? '#c7d2fe' : '#e2e8f0'}; border-radius: 10px;
+              font-family: inherit; font-size: 13.5px; line-height: 1.6;
+              outline: none; resize: vertical; box-sizing: border-box;
+              background: ${hasAuto ? '#f5f3ff' : '#fff'};"
+          >${escapeHtml(cat.narrative)}</textarea>
         </div>
-        <textarea class="gi-cat-narrative" data-idx="${idx}" rows="4"
-          placeholder="Tulis narasi analisis untuk kategori ini..."
-          style="width: 100%; padding: 12px 14px;
-            border: 2px solid #e2e8f0; border-radius: 10px;
-            font-family: inherit; font-size: 13.5px; line-height: 1.6;
-            outline: none; resize: vertical; box-sizing: border-box;"
-        >${escapeHtml(cat.narrative)}</textarea>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     container.querySelectorAll('.gi-cat-score').forEach(sel => {
       sel.addEventListener('change', (e) => {
@@ -2066,22 +2524,29 @@ root.querySelectorAll('.js-subitem').forEach(label => {
       toast('Pilih minimal 1 item di DAP/BAUM/HTP', 'error'); return;
     }
 
+    __runAutoScoring(false);
+
+    const concEl = document.getElementById('giConclusion');
+    if (concEl) state.conclusion = (concEl.value || '').trim();
+
+    const recEl = document.getElementById('giRecommendation');
+    if (recEl) state.recommendation = recEl.value || '';
+
+    const reasonsEl = document.getElementById('giReasons');
+    if (reasonsEl) state.reasons = (reasonsEl.value || '').trim();
+
+    const devEl = document.getElementById('giDevelopment');
+    if (devEl) state.development = (devEl.value || '').trim();
+
     for (let i = 0; i < state.categories.length; i++) {
       const c = state.categories[i];
       if (!c.score) { toast(`Kategori ${i+1} (${c.name}) belum diisi skor`, 'error'); return; }
       if (!c.narrative.trim()) { toast(`Kategori ${i+1} (${c.name}) belum diisi narasi`, 'error'); return; }
     }
 
-    state.conclusion = (document.getElementById('giConclusion')?.value || '').trim();
     if (!state.conclusion) { toast('Kesimpulan keseluruhan wajib diisi', 'error'); return; }
-
-    state.recommendation = document.getElementById('giRecommendation')?.value || '';
     if (!state.recommendation) { toast('Pilih tingkat rekomendasi', 'error'); return; }
-
-    state.reasons = (document.getElementById('giReasons')?.value || '').trim();
     if (!state.reasons) { toast('Alasan rekomendasi wajib diisi', 'error'); return; }
-
-    state.development = (document.getElementById('giDevelopment')?.value || '').trim();
     if (!state.development) { toast('Rekomendasi pengembangan wajib diisi', 'error'); return; }
 
     const btn = document.getElementById('giSubmitBtn');
@@ -2113,6 +2578,9 @@ root.querySelectorAll('.js-subitem').forEach(label => {
     const slug = candidateSlug(candidateName);
     const recLabel = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation)?.label || '-';
 
+    const autoScoring = state.autoScoring || null;
+    const autoKesimpulan = state.autoKesimpulan || null;
+
     await firebase.database()
       .ref('sgs_grafis_interp/' + slug + '/' + ADMIN_ASSESSOR)
       .set({
@@ -2129,9 +2597,25 @@ root.querySelectorAll('.js-subitem').forEach(label => {
         recommendationLabel: recLabel,
         reasons: state.reasons,
         development: state.development,
+
+        autoScoring: autoScoring ? {
+          rataRata: autoKesimpulan?.rataRata || 0,
+          overallLabel: autoKesimpulan?.overallLabel || '-',
+          overallConfidence: autoKesimpulan?.overallConfidence || '-',
+          totalBobot: autoKesimpulan?.totalBobot || 0,
+          perKategori: Object.values(autoScoring).map(k => ({
+            kategori: k.kategori,
+            skor: Number(k.skor.toFixed(2)),
+            status: k.status,
+            nPos: k.nPos,
+            nNeg: k.nNeg,
+            redFlags: k.redFlags
+          }))
+        } : null,
+
         ts: firebase.database.ServerValue.TIMESTAMP
       });
-    console.log('[GRAFIS-INTERP] ✅ Saved');
+    console.log('[GRAFIS-INTERP] ✅ Saved (with auto-scoring)');
   }
 
   /* ============================================================
@@ -2228,10 +2712,16 @@ root.querySelectorAll('.js-subitem').forEach(label => {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
     doc.text('KESIMPULAN', 15, y); y += 8;
 
+    /* 🔥 FIX: forEach wrapper ditambahkan di sini */
     state.categories.forEach((cat, idx) => {
       if (y > pageH - 40) { doc.addPage(); y = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} — SKOR: ${cat.score}/4`;
+
+      const autoData = state.autoScoring ? state.autoScoring[cat.name] : null;
+      const autoSuffix = (autoData && autoData.status !== 'NO_DATA')
+        ? ` [auto: ${autoData.skor.toFixed(2)}/4, +${autoData.nPos}/−${autoData.nNeg}]`
+        : '';
+      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} — SKOR: ${cat.score}/4${autoSuffix}`;
       const titleWrap = doc.splitTextToSize(titleLine, pageW - 36);
       titleWrap.forEach(t => { doc.text(t, 18, y); y += 5; });
       y += 1;
