@@ -278,7 +278,11 @@ function startListeningAllowRetake() {
   __allowRetakeListenCb = (snap) => {
     const allow = snap.val() === true;
     if (!allow) return;
-    if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
+     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
+  
+  // 🆕 Guard: kalau disqualifikasi, biarkan listener lain yang handle
+  const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
+  if (wasDisqualified) return;  // ← skip, biarkan subject.js/excel.js handle
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
     const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
