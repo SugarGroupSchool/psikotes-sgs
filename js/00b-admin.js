@@ -2220,6 +2220,13 @@ function renderAdminPanel() {
 async function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
+  /* ✅ BONUS: Kalau ini device admin, clear flag kandidat
+     (biar tidak konflik dengan layar request izin) */
+  try {
+    localStorage.removeItem('_sgs_finished');
+    localStorage.removeItem('_sgs_disqualified');
+  } catch (e) {}
+
   const loading = document.createElement('div');
   loading.id = 'adminAuthLoading';
   loading.style.cssText = `position: fixed; inset: 0; z-index: 99999;
