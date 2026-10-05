@@ -335,54 +335,53 @@
      ============================================================ */
 async function runInit() {
   /* Cek device finished — tampilkan layar request */
-    /* Cek device finished — tampilkan layar request */
-    if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
-      // 🆕 Clear resume — device sudah selesai
-      if (typeof window.__resumeClear === 'function') {
-        try { window.__resumeClear(); } catch (e) {}
-      }
-
-      const pwdScreen = document.getElementById('passwordScreen');
-      if (pwdScreen) pwdScreen.classList.add('hidden');
-      if (typeof showRequestAccessScreen === 'function') {
-        showRequestAccessScreen();
-        console.log('[INIT] Device finished → layar request izin');
-        return;
-      }
+  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+    // 🆕 Clear resume — device sudah selesai
+    if (typeof window.__resumeClear === 'function') {
+      try { window.__resumeClear(); } catch (e) {}
     }
 
-    /* Cek URL admin */
-    if (typeof window.checkAdminUrlAndRender === 'function') {
-      if (window.checkAdminUrlAndRender()) {
-        console.log('[INIT] Mode admin — init normal di-skip');
-        return;
-      }
+    const pwdScreen = document.getElementById('passwordScreen');
+    if (pwdScreen) pwdScreen.classList.add('hidden');
+    if (typeof showRequestAccessScreen === 'function') {
+      showRequestAccessScreen();
+      console.log('[INIT] Device finished → layar request izin');
+      return;
     }
-
-    /* ✅ Login anonim Firebase untuk kandidat */
-    if (typeof window.initAnonymousAuth === 'function') {
-      try {
-        await window.initAnonymousAuth();
-      } catch (e) {
-        console.warn('[INIT] Anonymous auth error:', e);
-      }
-    }
-
-    /* Init normal */
-    refreshActivePassword();
-    initAppState();
-    attachPasswordEnter();
-    autoFocusPassword();
-    attachAntiCheat();
-    attachCopyGuards();
-    attachBeforeUnload();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runInit);
-  } else {
-    runInit();
+  /* Cek URL admin */
+  if (typeof window.checkAdminUrlAndRender === 'function') {
+    if (window.checkAdminUrlAndRender()) {
+      console.log('[INIT] Mode admin — init normal di-skip');
+      return;
+    }
   }
+
+  /* ✅ Login anonim Firebase untuk kandidat */
+  if (typeof window.initAnonymousAuth === 'function') {
+    try {
+      await window.initAnonymousAuth();
+    } catch (e) {
+      console.warn('[INIT] Anonymous auth error:', e);
+    }
+  }
+
+  /* Init normal */
+  refreshActivePassword();
+  initAppState();
+  attachPasswordEnter();
+  autoFocusPassword();
+  attachAntiCheat();
+  attachCopyGuards();
+  attachBeforeUnload();
+
+  /* ✅ FIX [2026-10-05]: Clear flag anti double-reload
+     Dipakai oleh 00i-request.js dan 00e-presence.js saat admin approve.
+     Setelah halaman selesai load (init app selesai), flag dihapus
+     agar reload berikutnya bisa jalan lagi. */
+  try { sessionStorage.removeItem('_sgs_reloading'); } catch (e) {}
+}
 
   /* ============================================================
      13. EXPOSE HELPER KE WINDOW
