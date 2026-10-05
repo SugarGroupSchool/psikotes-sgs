@@ -6,6 +6,15 @@
      * P1-3: Heartbeat dynamic (5s saat tes, 20s idle)
      * P1-7: Auto-register device ownership sebelum write
      * P1-8: Handle error rule dengan pesan jelas
+   ------------------------------------------------------------
+   ✅ FIX [2026-10-05]:
+   - Hapus duplikasi `const wasDisqualified` (SyntaxError)
+   - Hapus reset `_sgs_device_id` (agar session tidak terbelah)
+   - Hapus reset `usedPragas` / `identity` / `completed` /
+     `selectedTests` di listener allow_retake — agar data kandidat
+     tetap utuh & login pakai USED (bukan FRESH)
+   - Listener allow_retake TIDAK reload sendiri; biarkan
+     00i-request.js yang handle reload (anti double-reload)
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY       = '_sgs_device_id';
@@ -262,8 +271,12 @@ window.addEventListener('beforeunload', markPresenceOffline);
    LISTEN allow_retake
    ------------------------------------------------------------
    ✅ FIX [2026-10-05]:
-   - Hapus duplikasi `const wasDisqualified` (SyntaxError)
-   - Hapus reset `_sgs_device_id` (agar session tidak terbelah)
+   - Guard: hanya proses kalau allow === true
+   - Guard: anti-duplikat via sessionStorage
+   - Clear flags: hanya _sgs_finished/_sgs_lock/_sgs_disqualified
+   - JANGAN hapus: _sgs_device_id, usedPragas, identity,
+     completed, selectedTests
+   - TIDAK reload sendiri (biar 00i-request.js yang handle)
    ============================================================ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -280,45 +293,41 @@ function startListeningAllowRetake() {
     .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake');
 
   __allowRetakeListenCb = (snap) => {
+    /* ✅ GUARD 1: hanya proses kalau allow === true */
     const allow = snap.val() === true;
     if (!allow) return;
+
+    /* ✅ GUARD 2: anti-duplikat */
     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
-    // ✅ HANYA SATU deklarasi wasDisqualified
-    const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
-
     console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
 
+    /* ✅ Clear flags (hanya 3 ini) */
     try {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
-      /* ✅ FIX: JANGAN hapus _sgs_device_id — biar session tidak terbelah */
+      /* ❌ SENGAJA TIDAK DIHAPUS:
+         - _sgs_device_id  → biar session tidak terbelah
+         - usedPragas      → biar login pakai USED
+         - identity        → biar data kandidat tetap
+         - completed       → biar history tes tetap
+         - selectedTests   → biar kartu tes tetap muncul
+      */
     } catch (e) {}
 
-    if (!wasDisqualified) {
-      try {
-        localStorage.removeItem('identity');
-        localStorage.removeItem('completed');
-        localStorage.removeItem('selectedTests');
-        localStorage.removeItem('usedPragas');
-        sessionStorage.removeItem('dlClick');
-      } catch (e) {}
-    }
+    /* ✅ Reset allow_retake = false di Firebase (WAJIB — anti loop) */
+    try {
+      firebase.database()
+        .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
+        .set(false).catch(() => {});
+    } catch (e) {}
 
-    firebase.database()
-      .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
-      .set(false).catch(() => {});
-
-if (typeof showRetakeBanner === 'function') showRetakeBanner();
-else {
-  setTimeout(() => {
-    if (sessionStorage.getItem('_sgs_reloading') === '1') return;
-    try { sessionStorage.setItem('_sgs_reloading', '1'); } catch (e) {}
-    try { window.location.reload(); } catch (e) {}
-  }, 1500);
-}
+    /* ✅ TIDAK reload dari sini.
+       Biarkan 00i-request.js yang tampilkan layar "Disetujui" + reload.
+       Listener ini hanya bersihkan flags agar state siap setelah reload. */
+    console.log('[PRESENCE] Flags di-reset. Reload diserahkan ke 00i-request.js (jika dari diskualifikasi).');
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
@@ -331,8 +340,9 @@ function stopListeningAllowRetake() {
     __allowRetakeListenCb = null;
   }
 }
+
 /* ============================================================
-   LISTEN SEMUA SINYAL ADMIN (tetap seperti aslinya)
+   LISTEN SEMUA SINYAL ADMIN
    ============================================================ */
 let __adminSignalsRef = null;
 let __adminSignalCb = null;
@@ -425,7 +435,7 @@ function stopListeningAdminSignals() {
 }
 
 /* ============================================================
-   BANNER (fungsi asli tidak berubah — bisa reuse)
+   BANNER
    ============================================================ */
 function showAdminSignalBanner(icon, title, message, countdownSec, color) {
   var old = document.getElementById('adminSignalBanner');
@@ -524,13 +534,12 @@ function showRetakeBanner() {
 }
 
 /* ============================================================
-   ADMIN PANEL — fetch & listen active sessions (sama)
+   ADMIN PANEL — filter & listen active sessions
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
   const ACTIVE_THRESHOLD_MS = 2 * 60 * 1000; // aktif = lastSeen < 2 menit
 
-  // Exclude device admin yang sedang buka panel
   let adminDeviceId = null;
   try {
     if (typeof isAdminUrl === 'function' && isAdminUrl()) {
@@ -541,24 +550,12 @@ function __presenceFilterFresh(data) {
   return Object.keys(data || {})
     .map(k => ({ deviceId: k, ...data[k] }))
     .filter(s => {
-      // Wajib ada lastSeen
       if (!s.lastSeen) return false;
-
-      // Exclude device admin sendiri
       if (adminDeviceId && s.deviceId === adminDeviceId) return false;
-
-      // Exclude yang sudah selesai
       if (s.finished === true) return false;
-
-      // Exclude yang diskualifikasi
       if (s.disqualified === true) return false;
-
-      // Exclude offline
       if (s.status === 'offline') return false;
-
-      // ✅ HANYA kandidat aktif (lastSeen < 2 menit)
       if ((now - s.lastSeen) >= ACTIVE_THRESHOLD_MS) return false;
-
       return true;
     })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
