@@ -330,7 +330,6 @@ function __renderApprovedScreen() {
   try {
     localStorage.removeItem('_sgs_finished');
     localStorage.removeItem('_sgs_disqualified');
-    localStorage.removeItem('usedPragas');
     sessionStorage.removeItem('_sgs_retake_processed');
     sessionStorage.removeItem('dlClick');
   } catch (e) {}
@@ -383,8 +382,8 @@ function __renderApprovedScreen() {
           line-height: 1.65;
         ">
           Admin sudah menyetujui permintaan Anda.<br>
-          Silakan login dengan <b>password FRESH</b> yang diberikan admin.
-        </p>
+  Silakan login ulang untuk melanjutkan.
+</p>
 
         <div style="
           padding: 12px 14px;
@@ -397,11 +396,10 @@ function __renderApprovedScreen() {
           text-align: left;
           margin-bottom: 20px;
         ">
-          <b>⚠️ Penting</b><br>
-          Password FRESH akan diberikan oleh admin.<br>
-          Login dengan password USED akan <b>gagal</b>.
-        </div>
-
+    <b>⚠️ Penting</b><br>
+  Hubungi admin untuk mendapatkan password login.<br>
+  Setelah login, Anda bisa melanjutkan tes yang belum selesai.
+</div>
         <div style="
           font-size: 13px;
           color: #94a3b8;
@@ -432,11 +430,13 @@ function __renderApprovedScreen() {
   }, 100);
 
   // Reload setelah 2 detik (sekali saja)
-  setTimeout(() => {
-    try { window.location.reload(); } catch (e) {
-      window.location.href = window.location.href;
-    }
-  }, 2000);
+setTimeout(() => {
+  if (sessionStorage.getItem('_sgs_reloading') === '1') return;
+  try { sessionStorage.setItem('_sgs_reloading', '1'); } catch (e) {}
+  try { window.location.reload(); } catch (e) {
+    window.location.href = window.location.href;
+  }
+}, 2000);
 }
   /* ============================================================
      RENDER: REJECTED
