@@ -311,8 +311,14 @@ function startListeningAllowRetake() {
       .ref('sgs_state/sessions/' + __presenceDeviceId + '/allow_retake')
       .set(false).catch(() => {});
 
-    if (typeof showRetakeBanner === 'function') showRetakeBanner();
-    else setTimeout(() => window.location.reload(), 1500);
+if (typeof showRetakeBanner === 'function') showRetakeBanner();
+else {
+  setTimeout(() => {
+    if (sessionStorage.getItem('_sgs_reloading') === '1') return;
+    try { sessionStorage.setItem('_sgs_reloading', '1'); } catch (e) {}
+    try { window.location.reload(); } catch (e) {}
+  }, 1500);
+}
   };
 
   __allowRetakeListenRef.on('value', __allowRetakeListenCb);
