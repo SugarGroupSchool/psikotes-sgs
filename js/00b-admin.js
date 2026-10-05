@@ -15,6 +15,12 @@
    - G5: Tombol 📦 ZIP per kandidat
    - G6: __candidateFilesMap — map file per kandidat
    - G7: downloadCandidateZip() — download semua file jadi .zip
+
+   ✅ FIX [2026-10-05]:
+   - A: approveAccessRequest() → pesan "password USED" (bukan FRESH)
+   - B: approveAccessRequest() → auto-cleanup sgs_requests setelah 5 menit
+   - C: rejectAccessRequest()  → auto-cleanup sgs_requests setelah 1 menit
+   - D: renderAccessRequestsHTML() → tampilkan reason (SUBJECT/EXCEL)
    ============================================================ */
 
 /* ============================================================
@@ -33,6 +39,10 @@ const CHAT_CLEANUP_DELETE_SESSION = true;
 const RESULT_CACHE_TTL_MS         = 10000;
 const RECENTLY_DELETED_TTL_MS     = 10000;
 const DRIVE_PROPAGATION_DELAY_MS  = 2000;
+
+/* ✅ FIX [2026-10-05] — Konstanta baru untuk auto-cleanup request */
+const REQUEST_CLEANUP_APPROVED_MS = 5 * 60 * 1000;  // 5 menit
+const REQUEST_CLEANUP_REJECTED_MS = 1 * 60 * 1000;  // 1 menit
 
 /* ============================================================
    HELPER: Firebase ID Token
@@ -778,7 +788,7 @@ function __extractCandidateInfo(file) {
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
   if (/-wawancara-/.test(n))  return 'wawancara';
-  if (/-grafis-/.test(n))     return 'grafis';   // 🆕
+  if (/-grafis-/.test(n))     return 'grafis';
   if (/\.pdf$/.test(n))       return 'pdf';
   if (/\.xlsx?$/.test(n))     return 'excel';
   if (/\.(csv|ods)$/.test(n)) return 'excel';
@@ -1097,7 +1107,6 @@ function renderResultFilesHTML(files) {
     return lb - la;
   });
 
-  /* 🆕 Simpan map file per kandidat untuk fitur ZIP */
   window.__candidateFilesMap = window.__candidateFilesMap || {};
   groupArr.forEach(g => {
     const k = __normalizeCandidateKey(g.name);
@@ -1414,13 +1423,33 @@ function stopListeningAccessRequests() {
   }
 }
 
+/* ============================================================
+   ✅ FIX [2026-10-05] D: renderAccessRequestsHTML()
+   - Tambah badge reason (SUBJECT / EXCEL / lainnya)
+   ============================================================ */
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
     return `<div style="padding: 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada request izin akses</div>`;
   }
+
+  /* ✅ FIX D: Map reason → label + warna badge */
+  const reasonMap = {
+    'diskualifikasi_subject': { label: '📚 Diskualifikasi SUBJECT', bg: '#fef3c7', br: '#fde68a', text: '#92400e' },
+    'diskualifikasi_excel':   { label: '📊 Diskualifikasi EXCEL',   bg: '#fef3c7', br: '#fde68a', text: '#92400e' }
+  };
+
   return requests.map(r => {
     const ago = r.requestedAt ? Math.round((Date.now() - r.requestedAt) / 1000) : null;
     const agoStr = ago === null ? '-' : ago < 60 ? ago + 's lalu' : ago < 3600 ? Math.floor(ago / 60) + 'm lalu' : ago < 86400 ? Math.floor(ago / 3600) + 'j lalu' : Math.floor(ago / 86400) + 'h lalu';
+
+    /* ✅ FIX D: Ambil info reason */
+    const reason = reasonMap[r.reason] || null;
+    const reasonBadge = reason
+      ? `<span style="display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 10px;
+           font-weight: 800; background: ${reason.bg}; border: 1px solid ${reason.br}; color: ${reason.text};
+           margin-left: 6px; white-space: nowrap;">${reason.label}</span>`
+      : '';
+
     return `
       <div style="padding: 12px 14px; background: #fff; border: 1px solid #fde68a; border-radius: 10px; font-size: 12px; line-height: 1.5;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
@@ -1429,6 +1458,7 @@ function renderAccessRequestsHTML(requests) {
         </div>
         <div style="color: #64748b; font-size: 11px; margin-bottom: 8px;">
           ${r.position ? '📍 ' + __adminEscape(r.position) + ' &nbsp;·&nbsp; ' : ''}🕐 ${agoStr}</div>
+        ${reason ? `<div style="margin-bottom: 8px;">${reasonBadge}</div>` : ''}
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 6px; border-top: 1px dashed #fde68a;">
           <div style="color: #94a3b8; font-size: 10px;">ID: ${__adminEscape(String(r.deviceId || '').slice(-8))}</div>
           <div style="display: flex; gap: 6px;">
@@ -1444,13 +1474,27 @@ function renderAccessRequestsHTML(requests) {
   }).join('');
 }
 
+/* ============================================================
+   ✅ FIX [2026-10-05] A + B: approveAccessRequest()
+   - A: pesan "password USED" (bukan FRESH)
+   - B: auto-cleanup sgs_requests setelah 5 menit
+   ============================================================ */
 async function approveAccessRequest(deviceId, name) {
   const n = name || 'kandidat';
   const ok = await __confirm(
-    'Setujui izin akses untuk "' + n + '"?\n\n• Device akan di-reset\n• Kandidat pakai password FRESH\n• Kandidat harus login ulang',
+    'Setujui izin akses untuk "' + n + '"?\n\n' +
+    '• Device akan di-reset\n' +
+    '• Kandidat pakai password USED\n' +           /* ✅ FIX A */
+    '• Kandidat harus login ulang',
     { title: '✓ Setujui Akses', okText: 'Ya, Setujui', okStyle: 'success' }
   );
   if (!ok) return;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    await __alert('Firebase belum siap', '❌ Error');
+    return;
+  }
+
   try {
     await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
       allow_retake: true,
@@ -1465,21 +1509,55 @@ async function approveAccessRequest(deviceId, name) {
       respondedAt: firebase.database.ServerValue.TIMESTAMP,
       respondedBy: 'admin'
     });
+
+    /* ✅ FIX B: Auto-cleanup sgs_requests setelah 5 menit */
+    setTimeout(() => {
+      try {
+        firebase.database().ref('sgs_requests/' + deviceId).remove()
+          .then(() => console.log('[ADMIN] 🧹 Request approved dibersihkan:', deviceId.slice(-8)))
+          .catch(() => {});
+      } catch (e) {}
+    }, REQUEST_CLEANUP_APPROVED_MS);
+
     await __alert('Izin akses diberikan untuk "' + n + '".', '✅ Sukses');
-  } catch (e) { await __alert('Gagal: ' + e.message, '❌ Error'); }
+  } catch (e) {
+    await __alert('Gagal: ' + e.message, '❌ Error');
+  }
 }
 
+/* ============================================================
+   ✅ FIX [2026-10-05] C: rejectAccessRequest()
+   - Auto-cleanup sgs_requests setelah 1 menit
+   ============================================================ */
 async function rejectAccessRequest(deviceId) {
   const ok = await __confirmDanger('Tolak request izin ini?', { title: '✕ Tolak Request', okText: 'Ya, Tolak' });
   if (!ok) return;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    await __alert('Firebase belum siap', '❌ Error');
+    return;
+  }
+
   try {
     await firebase.database().ref('sgs_requests/' + deviceId).update({
       status: 'rejected',
       respondedAt: firebase.database.ServerValue.TIMESTAMP,
       respondedBy: 'admin'
     });
+
+    /* ✅ FIX C: Auto-cleanup sgs_requests setelah 1 menit */
+    setTimeout(() => {
+      try {
+        firebase.database().ref('sgs_requests/' + deviceId).remove()
+          .then(() => console.log('[ADMIN] 🧹 Request rejected dibersihkan:', deviceId.slice(-8)))
+          .catch(() => {});
+      } catch (e) {}
+    }, REQUEST_CLEANUP_REJECTED_MS);
+
     await __alert('Request ditolak.', '✅ Sukses');
-  } catch (e) { await __alert('Gagal: ' + e.message, '❌ Error'); }
+  } catch (e) {
+    await __alert('Gagal: ' + e.message, '❌ Error');
+  }
 }
 
 /* ============================================================
@@ -1664,7 +1742,6 @@ function __renderResultPageContent() {
     return lb - la;
   });
 
-  /* 🆕 Simpan map file per kandidat untuk fitur ZIP */
   window.__candidateFilesMap = window.__candidateFilesMap || {};
   groupArr.forEach(g => {
     const k = __normalizeCandidateKey(g.name);
