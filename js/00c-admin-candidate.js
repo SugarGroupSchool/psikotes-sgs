@@ -764,6 +764,7 @@
       if (typeof firebase === 'undefined' || !firebase.apps.length) return;
       firebase.database().ref('sgs_state/sessions/' + deviceId).update({
         disqualified: true,
+         force_used_password: true,
         disqualified_at: firebase.database.ServerValue.TIMESTAMP,
         disqualified_by: 'admin',
         finished: true
