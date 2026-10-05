@@ -334,7 +334,27 @@
      12. RUN BOOTSTRAP
      ============================================================ */
 async function runInit() {
-  /* Cek device finished — tampilkan layar request */
+  /* ============================================================
+     ✅ FIX [2026-10-05]: URUTAN DIPERBAIKI
+     ------------------------------------------------------------
+     Cek URL admin HARUS sebelum cek DEVICE_FINISHED.
+     Admin adalah role terpisah yang bisa login dari device apapun,
+     bahkan kalau device pernah dipakai tes (_sgs_finished = '1').
+
+     Kalau urutan salah, buka ?admin=... di device finished →
+     akan di-redirect ke layar "Minta Izin Akses" padahal admin
+     hanya ingin buka panel admin.
+     ============================================================ */
+
+  /* ✅ PRIORITAS #1: Cek URL admin */
+  if (typeof window.checkAdminUrlAndRender === 'function') {
+    if (window.checkAdminUrlAndRender()) {
+      console.log('[INIT] Mode admin — init normal di-skip');
+      return;
+    }
+  }
+
+  /* ✅ PRIORITAS #2: Cek device finished */
   if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
     // 🆕 Clear resume — device sudah selesai
     if (typeof window.__resumeClear === 'function') {
@@ -346,14 +366,6 @@ async function runInit() {
     if (typeof showRequestAccessScreen === 'function') {
       showRequestAccessScreen();
       console.log('[INIT] Device finished → layar request izin');
-      return;
-    }
-  }
-
-  /* Cek URL admin */
-  if (typeof window.checkAdminUrlAndRender === 'function') {
-    if (window.checkAdminUrlAndRender()) {
-      console.log('[INIT] Mode admin — init normal di-skip');
       return;
     }
   }
@@ -376,13 +388,9 @@ async function runInit() {
   attachCopyGuards();
   attachBeforeUnload();
 
-  /* ✅ FIX [2026-10-05]: Clear flag anti double-reload
-     Dipakai oleh 00i-request.js dan 00e-presence.js saat admin approve.
-     Setelah halaman selesai load (init app selesai), flag dihapus
-     agar reload berikutnya bisa jalan lagi. */
+  /* Clear flag anti double-reload */
   try { sessionStorage.removeItem('_sgs_reloading'); } catch (e) {}
 }
-
   /* ============================================================
      13. EXPOSE HELPER KE WINDOW
      ============================================================ */
