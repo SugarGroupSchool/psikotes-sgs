@@ -2220,12 +2220,23 @@ function renderAdminPanel() {
 async function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
-  /* ✅ BONUS: Kalau ini device admin, clear flag kandidat
-     (biar tidak konflik dengan layar request izin) */
-  try {
-    localStorage.removeItem('_sgs_finished');
-    localStorage.removeItem('_sgs_disqualified');
-  } catch (e) {}
+  /* ============================================================
+     ✅ FIX [2026-10-05]: Tunggu Firebase ready dulu
+     ------------------------------------------------------------
+     Sebelumnya fungsi ini dipanggil oleh runInit() SEBELUM Firebase
+     selesai init → firebase.auth() undefined → crash silent →
+     form login tidak muncul. Sekarang tunggu max 3 detik dulu.
+     ============================================================ */
+  let waited = 0;
+  while ((typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) && waited < 30) {
+    await new Promise(r => setTimeout(r, 100));
+    waited++;
+  }
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+    console.error('[ADMIN] Firebase tidak siap setelah 3s — abort');
+    return false;
+  }
+  console.log('[ADMIN] Firebase ready setelah ' + (waited * 100) + 'ms');
 
   const loading = document.createElement('div');
   loading.id = 'adminAuthLoading';
