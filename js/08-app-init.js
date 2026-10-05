@@ -412,4 +412,16 @@ async function runInit() {
 
   console.log('[APP-INIT] ✓ Loaded — helper: __debugState(), __forceReset(), __forceFresh()');
 
+  /* ============================================================
+     ✅ FIX [2026-10-05]: AUTO-CALL runInit()
+     ------------------------------------------------------------
+     Sebelumnya runInit() dideklarasikan tapi TIDAK PERNAH dipanggil
+     otomatis → auto-login admin tidak pernah jalan.
+     ============================================================ */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runInit);
+  } else {
+    runInit();
+  }
+
 })();
