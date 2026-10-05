@@ -335,32 +335,21 @@
      ============================================================ */
 async function runInit() {
   /* ============================================================
-     ✅ FIX [2026-10-05]: URUTAN DIPERBAIKI
+     ✅ FIX [2026-10-05]: TUNGGU FIREBASE READY SEBELUM CEK ADMIN
      ------------------------------------------------------------
-     Cek URL admin HARUS sebelum cek DEVICE_FINISHED.
-     Admin adalah role terpisah yang bisa login dari device apapun,
-     bahkan kalau device pernah dipakai tes (_sgs_finished = '1').
+     Race condition sebelumnya:
+     - 08-app-init.js jalan duluan → firebase.auth() belum ada
+     - 00d-firebase.js baru init Firebase setelahnya
+     → checkAdminUrlAndRender() error senyap, form login tidak muncul
 
-     Kalau urutan salah, buka ?admin=... di device finished →
-     akan di-redirect ke layar "Minta Izin Akses" padahal admin
-     hanya ingin buka panel admin.
+     Solusi: tunggu Firebase siap (max 2 detik) sebelum cek URL admin.
      ============================================================ */
 
-  /* ✅ PRIORITAS #1: Cek URL admin */
-  if (typeof window.checkAdminUrlAndRender === 'function') {
-    if (window.checkAdminUrlAndRender()) {
-      console.log('[INIT] Mode admin — init normal di-skip');
-      return;
-    }
-  }
-
-  /* ✅ PRIORITAS #2: Cek device finished */
+  /* 1. Cek device finished */
   if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
-    // 🆕 Clear resume — device sudah selesai
     if (typeof window.__resumeClear === 'function') {
       try { window.__resumeClear(); } catch (e) {}
     }
-
     const pwdScreen = document.getElementById('passwordScreen');
     if (pwdScreen) pwdScreen.classList.add('hidden');
     if (typeof showRequestAccessScreen === 'function') {
@@ -370,7 +359,28 @@ async function runInit() {
     }
   }
 
-  /* ✅ Login anonim Firebase untuk kandidat */
+  /* ✅ 2. TUNGGU FIREBASE READY (max 2 detik) */
+  let waited = 0;
+  while ((typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) && waited < 20) {
+    await new Promise(r => setTimeout(r, 100));
+    waited++;
+  }
+  console.log('[INIT] Firebase ready setelah ' + (waited * 100) + 'ms');
+
+  /* ✅ 3. CEK URL ADMIN (dengan await — sebelumnya tanpa await, bug!) */
+  if (typeof window.checkAdminUrlAndRender === 'function') {
+    try {
+      const isAdmin = await window.checkAdminUrlAndRender();
+      if (isAdmin) {
+        console.log('[INIT] Mode admin — init normal di-skip');
+        return;
+      }
+    } catch (e) {
+      console.warn('[INIT] checkAdminUrlAndRender error:', e.message);
+    }
+  }
+
+  /* 4. Login anonim Firebase untuk kandidat */
   if (typeof window.initAnonymousAuth === 'function') {
     try {
       await window.initAnonymousAuth();
@@ -379,7 +389,7 @@ async function runInit() {
     }
   }
 
-  /* Init normal */
+  /* 5. Init normal */
   refreshActivePassword();
   initAppState();
   attachPasswordEnter();
@@ -388,7 +398,7 @@ async function runInit() {
   attachCopyGuards();
   attachBeforeUnload();
 
-  /* Clear flag anti double-reload */
+  /* 6. Clear flag anti double-reload */
   try { sessionStorage.removeItem('_sgs_reloading'); } catch (e) {}
 }
   /* ============================================================
