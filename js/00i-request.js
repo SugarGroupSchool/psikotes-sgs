@@ -331,9 +331,6 @@ function __renderApprovedScreen() {
     localStorage.removeItem('_sgs_finished');
     localStorage.removeItem('_sgs_disqualified');
     localStorage.removeItem('usedPragas');
-    localStorage.removeItem('identity');
-    localStorage.removeItem('completed');
-    localStorage.removeItem('selectedTests');
     sessionStorage.removeItem('_sgs_retake_processed');
     sessionStorage.removeItem('dlClick');
   } catch (e) {}
