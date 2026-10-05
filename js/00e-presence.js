@@ -289,7 +289,6 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
-      localStorage.removeItem('_sgs_device_id');   // reset device ID
     } catch (e) {}
 
     if (!wasDisqualified) {
