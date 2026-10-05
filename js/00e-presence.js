@@ -260,6 +260,10 @@ window.addEventListener('beforeunload', markPresenceOffline);
 
 /* ============================================================
    LISTEN allow_retake
+   ------------------------------------------------------------
+   ✅ FIX [2026-10-05]:
+   - Hapus duplikasi `const wasDisqualified` (SyntaxError)
+   - Hapus reset `_sgs_device_id` (agar session tidak terbelah)
    ============================================================ */
 let __allowRetakeListenRef = null;
 let __allowRetakeListenCb  = null;
@@ -278,13 +282,10 @@ function startListeningAllowRetake() {
   __allowRetakeListenCb = (snap) => {
     const allow = snap.val() === true;
     if (!allow) return;
-     if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
-  
-  // 🆕 Guard: kalau disqualifikasi, biarkan listener lain yang handle
-  const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
-  if (wasDisqualified) return;  // ← skip, biarkan subject.js/excel.js handle
+    if (sessionStorage.getItem('_sgs_retake_processed') === '1') return;
     try { sessionStorage.setItem('_sgs_retake_processed', '1'); } catch (e) {}
 
+    // ✅ HANYA SATU deklarasi wasDisqualified
     const wasDisqualified = localStorage.getItem('_sgs_disqualified') === '1';
 
     console.log('[PRESENCE] 🔓 Admin izinkan tes lagi.');
@@ -293,6 +294,7 @@ function startListeningAllowRetake() {
       localStorage.removeItem('_sgs_finished');
       localStorage.removeItem('_sgs_lock');
       localStorage.removeItem('_sgs_disqualified');
+      /* ✅ FIX: JANGAN hapus _sgs_device_id — biar session tidak terbelah */
     } catch (e) {}
 
     if (!wasDisqualified) {
@@ -323,7 +325,6 @@ function stopListeningAllowRetake() {
     __allowRetakeListenCb = null;
   }
 }
-
 /* ============================================================
    LISTEN SEMUA SINYAL ADMIN (tetap seperti aslinya)
    ============================================================ */
