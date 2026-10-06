@@ -4,7 +4,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar */
-const BASE_AKAR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/akar/';
+const BASE_AKAR = 'https://cdn.jsdelivr.net/gh/SugarGroupSchool/psikotes-sgs@main/js/data/grafis/assets/akar/';
 
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-05-akar',

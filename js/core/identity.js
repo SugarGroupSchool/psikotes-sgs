@@ -17,7 +17,7 @@
           <header class="identity-header">
             <div class="identity-header-left">
               <div class="identity-logo">
-                <img src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png" alt="Sugar Group Schools">
+                <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" alt="Sugar Group Schools">
               </div>
               <div class="identity-title-block">
                 <div class="identity-kicker">SUGAR GROUP SCHOOLS</div>

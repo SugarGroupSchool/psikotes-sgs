@@ -4,7 +4,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-04',
   title: '4. Kualitas Garis',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'kualitas_garis',

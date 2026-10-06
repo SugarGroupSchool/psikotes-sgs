@@ -4,7 +4,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-01',
   title: 'Ukuran Gambar',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'ukuran_gambar',

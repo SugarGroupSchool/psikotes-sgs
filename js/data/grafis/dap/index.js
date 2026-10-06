@@ -6,7 +6,7 @@ window.GRAFIS_AUTO_DATA_DAP = {
     primary: '#a855f7', primaryDark: '#7e22ce',
     bg: '#faf5ff', border: '#e9d5ff'
   },
-  defaultImage: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  defaultImage: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   slides: window.GRAFIS_AUTO_DATA_DAP_SLIDES || []
 };
 

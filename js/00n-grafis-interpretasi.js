@@ -973,7 +973,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     root.style.overflowY = 'auto';
 
     const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
-      || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+      || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
 
     const autoData = window.GRAFIS_AUTO_DATA || {};
     const testKeys = ['dap', 'baum', 'htp'];
@@ -2657,7 +2657,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     try {
       const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
-        || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+        || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
       const imgData = await fetchImageAsDataURL(logoUrl);
       doc.addImage(imgData, 'PNG', pageW / 2 - 8, 8, 16, 13);
     } catch (e) {}

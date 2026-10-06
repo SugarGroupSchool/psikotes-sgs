@@ -86,7 +86,7 @@ function scrollToElement(el, block = 'start') {
 function renderTestLogoBadge(size = 'normal') {
   const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
     ? APP_CONFIG.LOGO
-    : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+    : 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
 
   const cls = size === 'small'
     ? 'test-logo-badge test-logo-badge--small'
@@ -199,7 +199,7 @@ function renderTestPageHeader({
 } = {}) {
   const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
     ? APP_CONFIG.LOGO
-    : 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+    : 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
 
   return `
     <div class="test-page-header">

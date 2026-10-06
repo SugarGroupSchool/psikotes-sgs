@@ -1,7 +1,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar dahan */
-const BASE_DAHAN = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/dahan/';
+const BASE_DAHAN = 'https://cdn.jsdelivr.net/gh/SugarGroupSchool/psikotes-sgs@main/js/data/grafis/assets/dahan/';
 
 /* ============================================================
    Slide 1 — Bentuk Dasar Dahan

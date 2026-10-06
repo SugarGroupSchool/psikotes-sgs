@@ -1,7 +1,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar mahkota */
-const BASE_MAHKOTA = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/mahkota/';
+const BASE_MAHKOTA = 'https://cdn.jsdelivr.net/gh/SugarGroupSchool/psikotes-sgs@main/js/data/grafis/assets/mahkota/';
 
 /* ===========================================================
    Slide 1 — Pengantar & Proporsi Umum

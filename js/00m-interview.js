@@ -496,7 +496,7 @@ if (!isInterviewMode) return;
           padding: 26px 30px; display: flex; align-items: center; gap: 16px;">
           <div style="width: 60px; height: 60px; flex: 0 0 60px; background: #fff; border-radius: 16px;
             display: grid; place-items: center; overflow: hidden; padding: 8px;">
-            <img src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png'}"
+            <img src="${(typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png'}"
               alt="Logo" style="width: 100%; height: 100%; object-fit: contain;"
               onerror="this.style.display='none';this.parentElement.textContent='SGS';">
           </div>
@@ -840,7 +840,7 @@ if (!isInterviewMode) return;
 
     try {
       const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
-        || 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+        || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
       const imgData = await fetchImageAsDataURL(logoUrl);
       doc.addImage(imgData, 'PNG', pageW / 2 - 12, 10, 24, 20);
     } catch (e) {

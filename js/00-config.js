@@ -14,8 +14,8 @@ if (typeof window !== 'undefined' && window.jspdf && window.jspdf.jsPDF) {
 }
 
 const APP_CONFIG = {
-  ASSETS: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main',
-  LOGO:   'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  ASSETS: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main',
+  LOGO:   'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
 
   /* ============================================================
      🔒 PASSWORDS — TIDAK ADA DEFAULT!

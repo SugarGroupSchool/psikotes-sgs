@@ -9,7 +9,7 @@ window.GRAFIS_AUTO_DATA_BAUM = {
     bg: '#f0fdf4',
     border: '#bbf7d0'
   },
-  defaultImage: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  defaultImage: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   slides: window.GRAFIS_AUTO_DATA_BAUM_SLIDES || []
 };
 

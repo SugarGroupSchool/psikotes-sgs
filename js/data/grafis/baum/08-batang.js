@@ -1,7 +1,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar batang */
-const BASE_BATANG = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/batang/';
+const BASE_BATANG = 'https://cdn.jsdelivr.net/gh/SugarGroupSchool/psikotes-sgs@main/js/data/grafis/assets/batang/';
 
 /* ============================================================
    Slide 1 — Bentuk Dasar Batang

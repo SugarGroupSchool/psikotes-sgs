@@ -334,7 +334,7 @@ const doc = new jsPDF({
     /* ============================================================
        LOGO
        ============================================================ */
-    const logoURL = 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png';
+    const logoURL = 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
   
     async function loadImageAsDataURL(url) {
       const response = await fetch(url, { cache: 'no-cache' });

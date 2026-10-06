@@ -7,7 +7,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-kejelasan-gambar',
   title: 'Kejelasan Gambar',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'kejelasan_gambar',
@@ -37,7 +37,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-kehidupan-pohon',
   title: '',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'kehidupan_pohon',
@@ -67,7 +67,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-statis-dinamis',
   title: '',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'statis_dinamis',
@@ -97,7 +97,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-02-ekspresi-keseluruhan',
   title: '',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'ekspresi_keseluruhan',

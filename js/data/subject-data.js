@@ -2,7 +2,7 @@
    SUBJECT DATA — Mata Pelajaran
    ========================================================= */
 
-   const ASSET = 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main';
+   const ASSET = 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main';
 
    const SUBJECT_DATA = {
      name: "Tes Subjek",

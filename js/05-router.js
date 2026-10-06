@@ -40,7 +40,7 @@ function renderTestSelection() {
     <div class="card tes-selection-main"
       style="max-width:940px;margin:44px auto 0 auto;padding:40px 38px 36px 38px;border-radius:25px;box-shadow:0 10px 38px #b6ccff35;background:linear-gradient(120deg,#f8fcff 87%,#ecf6fd 100%);border:1.5px solid #c7dbfc;">
       <div style="text-align:center;margin-bottom:24px;">
-        <img src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png"
+        <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png"
           alt="Logo"
           style="max-width:120px;box-shadow:0 4px 18px #c2e3fc40;border-radius:18px;">
       </div>
@@ -204,7 +204,7 @@ function renderHome() {
   let html = `
     <div class="card" id="homeCard" style="max-width:900px;margin:30px auto 0;padding:0 0 34px;border-radius:24px;background:linear-gradient(135deg,#f8fcff 0%,#f3f9fd 78%,#eaf6ff 100%);box-shadow:0 12px 38px rgba(52,119,170,.10);border:1px solid #cfe5f5;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:17px;padding:30px 32px 2px;">
-        <img src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png"
+        <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png"
           alt="Logo Psikotes"
           style="width:62px;height:62px;object-fit:contain;border-radius:14px;flex-shrink:0;">
         <div style="min-width:0;">
@@ -496,7 +496,7 @@ function showInstruksiOverlay(nickname) {
       <h2 style="text-align:center;margin:0 0 16px;color:#263746;font-size:1.58rem;font-weight:850;">Selamat Datang di Platform Tes</h2>
       <div style="max-height:60vh;overflow-y:auto;padding:4px 2px;">
         <div style="text-align:center;">
-          <img src="https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/Aturan.png"
+          <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/Aturan.png"
                alt="Instruksi" style="width:100%;max-width:1000px;height:auto;display:block;margin:auto;border-radius:11px;border:1px solid #dce8f1;">
         </div>
       </div>

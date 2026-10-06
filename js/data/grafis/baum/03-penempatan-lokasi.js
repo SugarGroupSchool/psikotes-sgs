@@ -8,7 +8,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-03-zona-utama',
   title: 'Zona Utama',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'zona_utama',
@@ -56,7 +56,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-03-sudut-spesifik',
   title: '',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'sudut',
@@ -98,7 +98,7 @@ window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES.push({
   id: 'baum-03-arah-gerak-khusus',
   title: '',
-  image: 'https://raw.githubusercontent.com/Pragas123/assets/refs/heads/main/nmqo6a.png',
+  image: 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png',
   sections: [
     {
       id: 'arah_gerak',

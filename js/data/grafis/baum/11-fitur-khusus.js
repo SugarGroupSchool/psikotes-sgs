@@ -1,7 +1,7 @@
 window.GRAFIS_AUTO_DATA_BAUM_SLIDES = window.GRAFIS_AUTO_DATA_BAUM_SLIDES || [];
 
 /* 🖼️ Base URL folder gambar fitur khusus */
-const BASE_FITUR = 'https://raw.githubusercontent.com/SugarGroupSchool/psikotes-sgs/refs/heads/main/js/data/grafis/assets/fitur%20khusus/';
+const BASE_FITUR = 'https://cdn.jsdelivr.net/gh/SugarGroupSchool/psikotes-sgs@main/js/data/grafis/assets/fitur%20khusus/';
 
 /* ============================================================
    Slide 1 — Batas, Pagar & Dasar
