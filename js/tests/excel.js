@@ -1300,3 +1300,75 @@ window.renderAdminExcelSheet = renderAdminExcelSheet;
 console.log('[TEST-EXCEL] ✓ Loaded — Luckysheet + anti-cheat 1× warning + minta izin admin');
 
 })();
+
+
+/* ============================================================
+   🆕 LAZY LOAD WRAPPER — Load Luckysheet + SheetJS on-demand
+   ============================================================ */
+(function () {
+  'use strict';
+  if (typeof window === 'undefined') return;
+  if (window.__excelLazyWrapApplied) return;
+  window.__excelLazyWrapApplied = true;
+
+  const _original = window.renderAdminExcelSheet;
+  if (typeof _original !== 'function') {
+    console.warn('[EXCEL-LOADER] renderAdminExcelSheet tidak ditemukan');
+    return;
+  }
+
+  window.renderAdminExcelSheet = async function () {
+    const needsLuckysheet = (typeof window.luckysheet === 'undefined');
+    const needsXLSX = (typeof window.XLSX === 'undefined');
+
+    if (needsLuckysheet || needsXLSX) {
+      // Tampilkan loading screen
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.innerHTML = [
+          '<div style="display:flex;align-items:center;justify-content:center;',
+          'min-height:60vh;flex-direction:column;gap:18px;',
+          'font-family:Inter,system-ui,sans-serif;">',
+          '  <div style="width:54px;height:54px;border:4px solid #e2e8f0;',
+          '    border-top-color:#3b82f6;border-radius:50%;',
+          '    animation:excelSpin .8s linear infinite;"></div>',
+          '  <div style="font-size:14px;font-weight:700;color:#475569;">',
+          '    Memuat library Excel…</div>',
+          '  <style>@keyframes excelSpin{to{transform:rotate(360deg)}}</style>',
+          '</div>'
+        ].join('');
+      }
+
+      try {
+        if (typeof window.loadExcelLibs === 'function') {
+          await window.loadExcelLibs();
+        } else {
+          throw new Error('libs-loader.js tidak ter-load');
+        }
+      } catch (err) {
+        console.error('[EXCEL-LOADER] Gagal load library:', err);
+        if (appEl) {
+          appEl.innerHTML = [
+            '<div style="padding:40px;text-align:center;color:#dc2626;',
+            'font-family:Inter,system-ui,sans-serif;">',
+            '  <div style="font-size:48px;margin-bottom:14px;">❌</div>',
+            '  <div style="font-size:16px;font-weight:800;margin-bottom:8px;">',
+            '    Gagal memuat library Excel</div>',
+            '  <div style="font-size:13px;color:#64748b;">' + (err.message || '') + '</div>',
+            '  <button onclick="location.reload()" style="',
+            '    margin-top:20px;padding:12px 24px;background:#3b82f6;',
+            '    color:#fff;border:0;border-radius:10px;font-weight:800;',
+            '    cursor:pointer;font-family:inherit;font-size:14px;">',
+            '    🔄 Coba Lagi</button>',
+            '</div>'
+          ].join('');
+        }
+        return;
+      }
+    }
+
+    return _original.apply(this, arguments);
+  };
+
+  console.log('[EXCEL-LOADER] ✓ renderAdminExcelSheet wrapped for lazy load');
+})();
