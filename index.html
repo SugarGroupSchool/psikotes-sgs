@@ -4,6 +4,18 @@
 <head>
   <meta charset="UTF-8">
 
+
+  <!-- ============================================================
+       ⚡ PERFORMANCE: Preconnect & DNS-prefetch
+       ============================================================ -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://sgs-psikotes-default-rtdb.asia-southeast1.firebasedatabase.app" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.sheetjs.com">
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
@@ -19,7 +31,9 @@
   >
 
   <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap"></noscript>
 
   <!-- ============================================================
        CSS — URUT DARI VARIABEL KE KOMPONEN
@@ -328,158 +342,158 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/plugins.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/css/luckysheet.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/assets/iconfont/iconfont.css">
-  <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/plugins/js/plugin.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/luckysheet@2.1.13/dist/luckysheet.umd.js" defer></script>
 
   <!-- SheetJS untuk export .xlsx -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js" defer></script>
 
   <!-- JSZip untuk download ZIP -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 
   <!-- jsPDF untuk generate PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 
   <!-- Firebase SDK v9 compat -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
 
   <!-- ============================================================
        CORE UTILITIES — URUTAN PENTING!
        ============================================================ -->
-  <script src="./js/00-config.js"></script>
-  <script src="./js/00b-admin.js"></script>
-  <script src="./js/00c-admin-candidate.js"></script>
-  <script src="./js/00d-firebase.js"></script>
-  <script src="./js/00e-presence.js"></script>
-  <script src="./js/00f-chat.js"></script>
-  <script src="./js/00g-chat-sync.js"></script>
-  <script src="./js/00h-chat-notify.js"></script>
-  <script src="./js/00i-request.js"></script>
-  <script src="./js/00j-admin-password.js"></script>
+  <script src="./js/00-config.js" defer></script>
+  <script src="./js/00b-admin.js" defer></script>
+  <script src="./js/00c-admin-candidate.js" defer></script>
+  <script src="./js/00d-firebase.js" defer></script>
+  <script src="./js/00e-presence.js" defer></script>
+  <script src="./js/00f-chat.js" defer></script>
+  <script src="./js/00g-chat-sync.js" defer></script>
+  <script src="./js/00h-chat-notify.js" defer></script>
+  <script src="./js/00i-request.js" defer></script>
+  <script src="./js/00j-admin-password.js" defer></script>
 
   <!-- 🔒 SECURITY LAYER -->
-  <script src="./js/00k-modal.js"></script>
-  <script src="./js/00l-security.js"></script>
+  <script src="./js/00k-modal.js" defer></script>
+  <script src="./js/00l-security.js" defer></script>
 
   <!-- ============================================================
        ⚠️ 00m & 00n DIPINDAH KE BAWAH SETELAH DATA GRAFIS
        (karena mereka butuh GRAFIS_SCORING & GRAFIS_AUTO_DATA)
        ============================================================ -->
 
-  <script src="./js/01-state.js"></script>
-  <script src="./js/01b-resume.js"></script>
-  <script src="./js/02-utils.js"></script>
-  <script src="./js/03-audio.js"></script>
-  <script src="./js/04-auth.js"></script>
+  <script src="./js/01-state.js" defer></script>
+  <script src="./js/01b-resume.js" defer></script>
+  <script src="./js/02-utils.js" defer></script>
+  <script src="./js/03-audio.js" defer></script>
+  <script src="./js/04-auth.js" defer></script>
 
   <!-- ============================================================
        DATA — File data (dimuat setelah core)
        ============================================================ -->
 
   <!-- IST -->
-  <script src="./js/data/ist-data.js"></script>
-  <script src="./js/data/ist-keys.js"></script>
-  <script src="./js/data/ist-norms.js"></script>
+  <script src="./js/data/ist-data.js" defer></script>
+  <script src="./js/data/ist-keys.js" defer></script>
+  <script src="./js/data/ist-norms.js" defer></script>
 
   <!-- DISC -->
-  <script src="./js/data/disc-data.js"></script>
-  <script src="./js/data/disc-implications.js"></script>
-  <script src="./js/data/disc-roles.js"></script>
+  <script src="./js/data/disc-data.js" defer></script>
+  <script src="./js/data/disc-implications.js" defer></script>
+  <script src="./js/data/disc-roles.js" defer></script>
 
   <!-- PAPI -->
-  <script src="./js/data/papi-data.js"></script>
-  <script src="./js/data/papi-kamus.js"></script>
+  <script src="./js/data/papi-data.js" defer></script>
+  <script src="./js/data/papi-kamus.js" defer></script>
 
   <!-- BIG FIVE -->
-  <script src="./js/data/bigfive-data.js"></script>
-  <script src="./js/data/bigfive-position-analysis.js"></script>
+  <script src="./js/data/bigfive-data.js" defer></script>
+  <script src="./js/data/bigfive-position-analysis.js" defer></script>
 
   <!-- ============================================================
        GRAFIS DATA — BAUM, DAP, HTP
        ============================================================ -->
-  <script src="./js/data/grafis-data.js"></script>
+  <script src="./js/data/grafis-data.js" defer></script>
 
   <!-- BAUM -->
-  <script src="./js/data/grafis/baum/01-ukuran-gambar.js"></script>
-  <script src="./js/data/grafis/baum/02-kesan-gambar.js"></script>
-  <script src="./js/data/grafis/baum/03-penempatan-lokasi.js"></script>
-  <script src="./js/data/grafis/baum/04-kualitas-garis.js"></script>
-  <script src="./js/data/grafis/baum/06-bagian-pohon.js"></script>
-  <script src="./js/data/grafis/baum/07-stambasis.js"></script>
-  <script src="./js/data/grafis/baum/08-batang.js"></script>
-  <script src="./js/data/grafis/baum/09-dahan.js"></script>
-  <script src="./js/data/grafis/baum/10-mahkota.js"></script>
-  <script src="./js/data/grafis/baum/11-fitur-khusus.js"></script>
-  <script src="./js/data/grafis/baum/index.js"></script>
+  <script src="./js/data/grafis/baum/01-ukuran-gambar.js" defer></script>
+  <script src="./js/data/grafis/baum/02-kesan-gambar.js" defer></script>
+  <script src="./js/data/grafis/baum/03-penempatan-lokasi.js" defer></script>
+  <script src="./js/data/grafis/baum/04-kualitas-garis.js" defer></script>
+  <script src="./js/data/grafis/baum/06-bagian-pohon.js" defer></script>
+  <script src="./js/data/grafis/baum/07-stambasis.js" defer></script>
+  <script src="./js/data/grafis/baum/08-batang.js" defer></script>
+  <script src="./js/data/grafis/baum/09-dahan.js" defer></script>
+  <script src="./js/data/grafis/baum/10-mahkota.js" defer></script>
+  <script src="./js/data/grafis/baum/11-fitur-khusus.js" defer></script>
+  <script src="./js/data/grafis/baum/index.js" defer></script>
 
   <!-- DAP -->
-  <script src="./js/data/grafis/dap/01-ukuran-gambar.js"></script>
-  <script src="./js/data/grafis/dap/02-kesan-umum.js"></script>
-  <script src="./js/data/grafis/dap/03-penempatan-lokasi.js"></script>
-  <script src="./js/data/grafis/dap/04-simbolisme-garis.js"></script>
-  <script src="./js/data/grafis/dap/05-bagian-kepala.js"></script>
-  <script src="./js/data/grafis/dap/06-bagian-tubuh.js"></script>
-  <script src="./js/data/grafis/dap/07-fitur-khusus.js"></script>
-  <script src="./js/data/grafis/dap/index.js"></script>
+  <script src="./js/data/grafis/dap/01-ukuran-gambar.js" defer></script>
+  <script src="./js/data/grafis/dap/02-kesan-umum.js" defer></script>
+  <script src="./js/data/grafis/dap/03-penempatan-lokasi.js" defer></script>
+  <script src="./js/data/grafis/dap/04-simbolisme-garis.js" defer></script>
+  <script src="./js/data/grafis/dap/05-bagian-kepala.js" defer></script>
+  <script src="./js/data/grafis/dap/06-bagian-tubuh.js" defer></script>
+  <script src="./js/data/grafis/dap/07-fitur-khusus.js" defer></script>
+  <script src="./js/data/grafis/dap/index.js" defer></script>
 
   <!-- HTP -->
-  <script src="./js/data/grafis/htp/01-rumah.js"></script>
-  <script src="./js/data/grafis/htp/02-pohon.js"></script>
-  <script src="./js/data/grafis/htp/03-orang.js"></script>
-  <script src="./js/data/grafis/htp/04-gambar-selain-instruksi.js"></script>
-  <script src="./js/data/grafis/htp/index.js"></script>
+  <script src="./js/data/grafis/htp/01-rumah.js" defer></script>
+  <script src="./js/data/grafis/htp/02-pohon.js" defer></script>
+  <script src="./js/data/grafis/htp/03-orang.js" defer></script>
+  <script src="./js/data/grafis/htp/04-gambar-selain-instruksi.js" defer></script>
+  <script src="./js/data/grafis/htp/index.js" defer></script>
 
   <!-- Merger — WAJIB paling bawah -->
-  <script src="./js/data/grafis-auto-data.js"></script>
+  <script src="./js/data/grafis-auto-data.js" defer></script>
 
   <!-- ✨ GRAFIS SCORING ENGINE v9.0 — SINGLE SOURCE OF TRUTH ✨ -->
-  <script src="./js/data/grafis-scoring.js"></script>
+  <script src="./js/data/grafis-scoring.js" defer></script>
 
   <!-- SUBJECT & KRAEPLIN DATA -->
-  <script src="./js/data/subject-data.js"></script>
-  <script src="./js/data/kraeplin-data.js"></script>
+  <script src="./js/data/subject-data.js" defer></script>
+  <script src="./js/data/kraeplin-data.js" defer></script>
 
   <!-- INI HARUS PALING BAWAH -->
-  <script src="./js/data/tests-global.js"></script>
+  <script src="./js/data/tests-global.js" defer></script>
 
   <!-- ============================================================
        AUTH & CORE (Identity)
        ============================================================ -->
-  <script src="./js/core/identity.js"></script>
+  <script src="./js/core/identity.js" defer></script>
 
   <!-- ============================================================
        🆕 MODUL FORM KHUSUS — Butuh GRAFIS_SCORING & GRAFIS_AUTO_DATA
        ============================================================ -->
-  <script src="./js/00m-interview.js"></script>
-  <script src="./js/00n-grafis-interpretasi.js"></script>
+  <script src="./js/00m-interview.js" defer></script>
+  <script src="./js/00n-grafis-interpretasi.js" defer></script>
 
   <!-- ============================================================
        TESTS — Semua modul tes
        ============================================================ -->
-  <script src="./js/tests/ist.js"></script>
-  <script src="./js/tests/kraeplin.js"></script>
-  <script src="./js/tests/disc.js"></script>
-  <script src="./js/tests/papi.js"></script>
-  <script src="./js/tests/bigfive.js"></script>
-  <script src="./js/tests/grafis.js"></script>
-  <script src="./js/tests/subject.js"></script>
-  <script src="./js/tests/excel.js"></script>
-  <script src="./js/tests/typing.js"></script>
+  <script src="./js/tests/ist.js" defer></script>
+  <script src="./js/tests/kraeplin.js" defer></script>
+  <script src="./js/tests/disc.js" defer></script>
+  <script src="./js/tests/papi.js" defer></script>
+  <script src="./js/tests/bigfive.js" defer></script>
+  <script src="./js/tests/grafis.js" defer></script>
+  <script src="./js/tests/subject.js" defer></script>
+  <script src="./js/tests/excel.js" defer></script>
+  <script src="./js/tests/typing.js" defer></script>
 
   <!-- ============================================================
        PDF GENERATOR
        ============================================================ -->
-  <script src="./js/core/pdf.js"></script>
+  <script src="./js/core/pdf.js" defer></script>
 
   <!-- ============================================================
        ROUTER, TIMER, DOWNLOAD, INIT — HARUS DI BAWAH
        ============================================================ -->
-  <script src="./js/05-router.js"></script>
-  <script src="./js/06-timer.js"></script>
-  <script src="./js/07-download-v2.js"></script>
-  <script src="./js/08-app-init.js"></script>
+  <script src="./js/05-router.js" defer></script>
+  <script src="./js/06-timer.js" defer></script>
+  <script src="./js/07-download-v2.js" defer></script>
+  <script src="./js/08-app-init.js" defer></script>
 
   <!-- ============================================================
        🔍 SELF-CHECK — Verifikasi semua dependency tersedia
