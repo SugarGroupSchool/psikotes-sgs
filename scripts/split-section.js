@@ -69,11 +69,25 @@ if (!START || !END) {
 
 /* ---------- MARKER FINDER ---------- */
 function findMarker(text, name) {
-  // Escape regex special chars di name
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const rx = new RegExp('/\\*[ \\t]*={3,}[ \\t]*\\r?\\n[ \\t]*' + escaped + '[ \\t]*\\r?\\n[ \\t]*={3,}[ \\t]*\\*/');
-  const m = rx.exec(text);
-  return m ? m.index : -1;
+  
+  // Format 1: BLOCK COMMENT — /* ===\n NAME\n === */
+  const blockRx = new RegExp(
+    '/\\*[ \\t]*={3,}[ \\t]*\\r?\\n[ \\t]*' +
+    escaped +
+    '[^\\n]*\\r?\\n[ \\t]*={3,}[ \\t]*\\*/'
+  );
+  let m = blockRx.exec(text);
+  if (m) return m.index;
+  
+  // Format 2: LINE COMMENT — // ===== NAME =====
+  const lineRx = new RegExp(
+    '//[ \\t]*={3,}[ \\t]*' + escaped + '[ \\t]*={3,}'
+  );
+  m = lineRx.exec(text);
+  if (m) return m.index;
+  
+  return -1;
 }
 
 /* ---------- MAIN ---------- */
