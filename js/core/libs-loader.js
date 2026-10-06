@@ -100,6 +100,13 @@
       for (const src of PDF_LIBS.scripts) {
         await loadJs(src);
       }
+
+      // ✅ FIX: Set global jsPDF setelah load
+      if (window.jspdf && window.jspdf.jsPDF) {
+        window.jsPDF = window.jspdf.jsPDF;
+        console.log('[LIBS-LOADER] ✓ window.jsPDF di-set');
+      }
+
       const t1 = performance.now();
       console.log('[LIBS-LOADER] ✓ PDF libs selesai dalam ' + Math.round(t1 - t0) + 'ms');
       return true;
