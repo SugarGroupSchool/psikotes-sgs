@@ -2959,7 +2959,16 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       toast('⚠️ Scoring engine tidak tersedia. Refresh halaman.', 'error');
     }
 
-    const existing = document.getElementById('grafindoRoot');
+    // 🆕 Fase 4: Load DAP/BAUM/HTP data on-demand
+    if (typeof window.loadGrafisAutoData === 'function') {
+      try {
+        await window.loadGrafisAutoData();
+      } catch (e) {
+        console.warn('[GRAFIS-INTERP] Gagal load data grafis:', e.message);
+      }
+    }
+
+        const existing = document.getElementById('grafindoRoot');
     if (existing) existing.remove();
 
     hideDefaultUI();
