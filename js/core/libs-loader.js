@@ -225,6 +225,41 @@
       }
     } catch (e) {}
   });
+  /* ============================================================
+     IDLE PRELOAD PDF — percepat submit kandidat
+     Hanya di mode kandidat (bukan admin/interview/grafindo)
+     ============================================================ */
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const isSpecialMode =
+        params.get('interview') === '1' ||
+        params.get('grafindo') === '1' ||
+        params.has('admin');
+
+      // Skip kalau bukan mode kandidat
+      if (isSpecialMode) return;
+
+      // Preload setelah 5s idle (beri waktu halaman load dulu)
+      const schedule = window.requestIdleCallback || function(cb) { return setTimeout(cb, 5000); };
+      schedule(() => {
+        // Cek kalau user sudah di halaman utama (bukan password screen)
+        setTimeout(() => {
+          const pwdScreen = document.getElementById('passwordScreen');
+          const pwdVisible = pwdScreen && !pwdScreen.classList.contains('hidden');
+          if (pwdVisible) return; // masih di password, skip
+
+          console.log('[LIBS-LOADER] Idle: preload jsPDF untuk submit cepat');
+          if (typeof window.loadPdfLibs === 'function') {
+            window.loadPdfLibs().catch(() => {});
+          }
+        }, 3000);
+      }, { timeout: 8000 });
+
+    } catch (e) {}
+  });
+
+
 
 
 

@@ -446,7 +446,7 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
       if (attempt > 1) {
         setUI('🔄', `Coba ulang (${attempt}/${maxRetry})...`,
           'Koneksi tidak stabil, mencoba lagi...', null, null);
-        await new Promise(r => setTimeout(r, attempt * 1500));
+        await new Promise(r => setTimeout(r, 800));
       }
 
       setUI('📤', 'Mengunggah...', `Percobaan ke-${attempt}...`, 60, '60%');

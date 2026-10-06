@@ -624,6 +624,42 @@ function confirmCancelTest() {
    EXPORT KE WINDOW
    ============================================================ */
 window.renderTestSelection = renderTestSelection;
+
+/* ============================================================
+   🆕 PRELOAD jsPDF — percepat submit PDF kandidat
+   Dipanggil idle setelah user masuk home
+   ============================================================ */
+function __preloadPdfLibs() {
+  if (window.__pdfPreloaded) return;
+  window.__pdfPreloaded = true;
+  if (typeof window.loadPdfLibs === 'function') {
+    console.log('[PRELOAD] Mulai preload jsPDF…');
+    const t0 = performance.now();
+    window.loadPdfLibs().then(() => {
+      console.log('[PRELOAD] ✓ jsPDF siap dalam ' + Math.round(performance.now() - t0) + 'ms');
+    }).catch(e => {
+      console.warn('[PRELOAD] Gagal:', e.message);
+      window.__pdfPreloaded = false;
+    });
+  }
+}
+
+/* Auto-preload saat idle setelah renderHome */
+(function() {
+  const _origRender = window.renderHome;
+  if (typeof _origRender === 'function' && !window.__renderHomePreloadWrapped) {
+    window.__renderHomePreloadWrapped = true;
+    window.renderHome = function() {
+      const result = _origRender.apply(this, arguments);
+      // Delay 3 detik supaya halaman home selesai render dulu
+      setTimeout(__preloadPdfLibs, 3000);
+      return result;
+    };
+  }
+})();
+
+window.__preloadPdfLibs = __preloadPdfLibs;
+
 window.renderHome = renderHome;
 window.showInstruksiOverlay = showInstruksiOverlay;
 window.showResumeModal = showResumeModal;

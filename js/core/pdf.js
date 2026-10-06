@@ -1600,7 +1600,7 @@ if (appState.completed.GRAFIS && appState.grafis) {
   for (const key of grafisKeys) {
     if (appState.grafis[key]) {
       // ↓ KOMPRES GAMBAR DULU sebelum masuk PDF
-      const compressedImg = await __compressImageForPDF(appState.grafis[key], 1200, 0.6);
+      const compressedImg = await __compressImageForPDF(appState.grafis[key], 1000, 0.55);
 
       await new Promise(resolve => {
         doc.addPage();
@@ -1787,7 +1787,7 @@ if (
   /* ---------- BAGIAN 2: JAWABAN KANDIDAT ---------- */
   if (Array.isArray(appState.subjectUpload) && appState.subjectUpload.length > 0) {
     for (let i = 0; i < appState.subjectUpload.length; i++) {
-      const compressedImg = await __compressImageForPDF(appState.subjectUpload[i], 1400, 0.6);
+      const compressedImg = await __compressImageForPDF(appState.subjectUpload[i], 1000, 0.55);
 
       await new Promise(resolve => {
         doc.addPage();
