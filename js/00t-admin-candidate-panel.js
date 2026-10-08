@@ -7,6 +7,7 @@
    - Subject rating (1-4) hanya untuk Guru/Dosen
    - Excel tab hanya untuk Admin/Staff
    - Tab Tes: auto-label TAHAP 1, TAHAP 2 jika > 1 file
+   - File item: layout vertikal (stack) untuk panel sempit
    ============================================================ */
 
 (function () {
@@ -165,6 +166,60 @@
   }
 
   /* ============================================================
+     COMPACT FILE ITEM — stack vertikal untuk panel sempit
+     ============================================================ */
+  function compactFileItem(el) {
+    if (!el || el.dataset.compact === '1') return;
+    el.dataset.compact = '1';
+
+    const kids = Array.from(el.children);
+    if (kids.length < 3) return;
+
+    const icon = kids[0];
+    const content = kids[1];
+    const btns = kids[2];
+
+    // Style outer jadi vertikal
+    el.style.display = 'flex';
+    el.style.flexDirection = 'column';
+    el.style.alignItems = 'stretch';
+    el.style.gap = '8px';
+    el.style.padding = '10px';
+
+    // Top row: icon + content
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;align-items:flex-start;gap:8px;width:100%;';
+
+    if (icon) {
+      icon.style.width = '28px';
+      icon.style.height = '28px';
+      icon.style.flex = '0 0 28px';
+      icon.style.fontSize = '14px';
+      icon.style.borderRadius = '7px';
+    }
+    if (content) {
+      content.style.flex = '1';
+      content.style.minWidth = '0';
+      content.style.overflow = 'hidden';
+    }
+
+    el.innerHTML = '';
+    if (icon) topRow.appendChild(icon);
+    if (content) topRow.appendChild(content);
+    el.appendChild(topRow);
+
+    // Bottom row: buttons
+    if (btns) {
+      btns.style.display = 'flex';
+      btns.style.gap = '6px';
+      btns.style.flexWrap = 'wrap';
+      btns.style.width = '100%';
+      btns.style.justifyContent = 'flex-end';
+      el.appendChild(btns);
+    }
+  }
+
+  /* ============================================================
      RESTRUCTURE CARD
      ============================================================ */
   async function restructureCard(card) {
@@ -236,17 +291,17 @@
     // Bikin wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'js-tabs-wrap';
-    wrapper.style.cssText = 'display:flex;gap:14px;margin-top:12px;';
+    wrapper.style.cssText = 'display:flex;gap:12px;margin-top:12px;';
 
     // Nav sidebar HTML
     const navHTML = tabs.map((t, i) => {
       const active = i === 0;
       return '<button class="js-tab-btn" data-tab="' + t.id + '" ' +
-        'style="text-align:left;padding:11px 14px;border-radius:10px;' +
+        'style="text-align:left;padding:9px 11px;border-radius:10px;' +
         'border:1.5px solid ' + (active ? '#3b82f6' : 'rgba(255,255,255,.1)') + ';' +
         'background:' + (active ? 'linear-gradient(135deg,#3b82f6,#1e40af)' : 'rgba(255,255,255,.04)') + ';' +
         'color:' + (active ? '#fff' : '#cbd5e1') + ';' +
-        'font-family:inherit;font-size:12px;font-weight:800;' +
+        'font-family:inherit;font-size:11px;font-weight:800;' +
         'cursor:pointer;transition:all .15s ease;white-space:nowrap;">' +
         t.label + '</button>';
     }).join('');
@@ -259,7 +314,7 @@
     }).join('');
 
     wrapper.innerHTML =
-      '<div class="js-tabs-nav" style="flex:0 0 140px;display:flex;flex-direction:column;gap:8px;align-self:flex-start;position:sticky;top:0;">' +
+      '<div class="js-tabs-nav" style="flex:0 0 110px;display:flex;flex-direction:column;gap:8px;align-self:flex-start;position:sticky;top:0;">' +
         navHTML +
       '</div>' +
       '<div class="js-tabs-content" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">' +
@@ -318,6 +373,7 @@
       if (t.items && t.items.length > 0) {
         const showLabel = t.multiLabel && t.items.length > 1;
         t.items.forEach((el, idx) => {
+          compactFileItem(el);
           if (showLabel) {
             const wrap = document.createElement('div');
             wrap.style.cssText = 'margin-bottom:8px;';
