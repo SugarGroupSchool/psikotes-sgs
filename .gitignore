@@ -1,3 +1,7 @@
+# Windows shortcuts & scratch files
+*.lnk
+psikotes-sgs.txt
+
 # Backup files from scripts
 *.bak
 *.bak-*
