@@ -430,17 +430,19 @@
         document.body.appendChild(loading); // reattach
       }
 
-      // 3. Build PDF
+       // 3. Build PDF
       setMsg('Membangun PDF...', 'Menyusun halaman & tabel');
       const doc = await buildCombinedPDF(candidateName, candidatePosition, data, interviewers);
 
-      // 4. Download
-      setMsg('Menyimpan...', 'PDF siap diunduh');
-      const filename = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-Wawancara-Combined.pdf';
-      doc.save(filename);
+      // 4. Upload ke Drive (bukan download)
+      setMsg('Mengunggah ke Drive...', 'Menyimpan PDF gabungan');
+      const filename = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-Wawancara-COMBINED.pdf';
+      const blob = doc.output('blob');
+      await uploadCombinedToGAS(blob, filename, candidateName, candidatePosition);
 
       loading.remove();
-      console.log('[INTERVIEW-PDF] ✓ Generated:', filename);
+      console.log('[INTERVIEW-PDF] ✓ Uploaded:', filename);
+      showCombinedSuccess(filename);
 
     } catch (err) {
       loading.remove();
@@ -448,6 +450,112 @@
       alert('❌ Gagal generate PDF: ' + (err.message || 'Unknown error'));
     }
   };
+
+  /* ============================================================
+     UPLOAD KE GOOGLE DRIVE via GAS
+     ============================================================ */
+  async function uploadCombinedToGAS(blob, filename, candidateName, candidatePosition) {
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    let idToken = '';
+    try {
+      const user = firebase.auth().currentUser;
+      if (user) idToken = await user.getIdToken();
+    } catch (e) {}
+
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        idToken: idToken,
+        action: 'upload',
+        deviceId: 'ivcombined_' + Date.now(),
+        filename: filename,
+        name: candidateName,
+        position: candidatePosition || '',
+        email: '',
+        pdfBase64: base64,
+        pdfPassword: '-'
+      })
+    });
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    try {
+      firebase.database().ref('sgs_state/lastUpload').set({
+        ts: firebase.database.ServerValue.TIMESTAMP,
+        type: 'pdf',
+        name: candidateName,
+        position: candidatePosition || '',
+        deviceId: 'ivcombined'
+      }).catch(() => {});
+    } catch (e) {}
+
+    if (typeof window.__invalidateResultCache === 'function') {
+      try { window.__invalidateResultCache(); } catch (e) {}
+    }
+
+    if (typeof window.fetchResultFiles === 'function') {
+      try {
+        const files = await window.fetchResultFiles(true);
+        window.__resultFilesCache = files;
+        if (document.getElementById('resultFilesPageOverlay') &&
+            typeof window.__renderResultPageContent === 'function') {
+          window.__renderResultPageContent();
+        }
+        if (typeof window.refreshResultFilesList === 'function') {
+          window.refreshResultFilesList();
+        }
+      } catch (e) {}
+    }
+  }
+
+  /* ============================================================
+     SUCCESS OVERLAY
+     ============================================================ */
+  function showCombinedSuccess(filename) {
+    const old = document.getElementById('ivCombinedSuccess');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ivCombinedSuccess';
+    overlay.style.cssText = `position: fixed; inset: 0; z-index: 2147483647;
+      background: rgba(15,23,42,.85); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; font-family: Inter, system-ui, sans-serif;`;
+    overlay.innerHTML = `
+      <div style="background: #fff; border-radius: 20px; padding: 32px 40px;
+        text-align: center; box-shadow: 0 30px 90px rgba(0,0,0,.5); max-width: 480px;">
+        <div style="width: 72px; height: 72px; margin: 0 auto 16px;
+          display: grid; place-items: center; background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+          border: 3px solid #86efac; border-radius: 22px; font-size: 36px;">✅</div>
+        <div style="font-size: 18px; font-weight: 900; color: #065f46; margin-bottom: 8px;">
+          PDF Gabungan Terkirim
+        </div>
+        <div style="font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 20px;">
+          File <b>${filename}</b><br>sudah diupload ke Drive.<br>
+          Cek di kotak <b>Hasil Wawancara</b>.
+        </div>
+        <button id="ivCombinedOkBtn" style="
+          padding: 12px 28px; background: linear-gradient(135deg, #16a34a, #059669);
+          color: #fff; border: 0; border-radius: 10px; font-family: inherit;
+          font-size: 14px; font-weight: 800; cursor: pointer;
+          box-shadow: 0 6px 16px rgba(22,163,74,.3);">
+          OK
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('ivCombinedOkBtn').onclick = () => overlay.remove();
+  }
 
   /* ============================================================
      BUTTON INJECTION
