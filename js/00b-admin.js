@@ -582,6 +582,62 @@ window.__resultFilesFetchPromise = null;
 window.__resultFilesCache        = [];
 window.__recentlyDeletedFileIds  = new Set();
 
+/* ============================================================
+   🆕 Sinkronisasi delete file Drive → Firebase
+   ------------------------------------------------------------
+   Ketika admin hapus PDF di Drive, hapus juga datanya di Firebase
+   agar combined PDF tidak regenerate dari data lama.
+   ============================================================ */
+function __slugifyName(name) {
+  return String(name || 'tanpa-nama').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80) || 'tanpa-nama';
+}
+
+function __syncDeleteToFirebase(fileName, fileId) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+  const n = String(fileName || '');
+  if (!n) return;
+
+  console.log('[ADMIN] 🔄 Sync delete ke Firebase:', n);
+
+  // ── Combined Wawancara → hapus SEMUA interviewer kandidat ini
+  let m = n.match(/^(.+)-Wawancara-COMBINED\.pdf$/i);
+  if (m) {
+    const slug = __slugifyName(m[1]);
+    firebase.database().ref('sgs_interviews/' + slug).remove()
+      .then(() => console.log('[ADMIN] 🧹 Firebase: sgs_interviews/' + slug + ' (combined) dihapus'))
+      .catch(e => console.warn('[ADMIN] Gagal hapus combined:', e.message));
+    return;
+  }
+
+  // ── Individual Wawancara → hapus 1 interviewer
+  m = n.match(/^(.+)-Wawancara-([A-Z0-9]+)\.pdf$/i);
+  if (m) {
+    const slug = __slugifyName(m[1]);
+    const interviewer = m[2].toUpperCase();
+    firebase.database().ref('sgs_interviews/' + slug + '/' + interviewer).remove()
+      .then(() => console.log('[ADMIN] 🧹 Firebase: sgs_interviews/' + slug + '/' + interviewer + ' dihapus'))
+      .catch(e => console.warn('[ADMIN] Gagal hapus individual:', e.message));
+    return;
+  }
+
+  // ── Grafis (Interpretasi) → hapus 1 assessor
+  m = n.match(/^(.+)-Grafis-([A-Z0-9]+)\.pdf$/i);
+  if (m) {
+    const slug = __slugifyName(m[1]);
+    const assessor = m[2].toUpperCase();
+    firebase.database().ref('sgs_grafis_interp/' + slug + '/' + assessor).remove()
+      .then(() => console.log('[ADMIN] 🧹 Firebase: sgs_grafis_interp/' + slug + '/' + assessor + ' dihapus'))
+      .catch(e => console.warn('[ADMIN] Gagal hapus grafis:', e.message));
+    return;
+  }
+
+  // ── FGD tidak diupload ke Drive, skip
+  console.log('[ADMIN] File tidak ada mapping ke Firebase:', n);
+}
+
 function __removeFileFromCache(fileId) {
   if (!fileId) return;
   if (Array.isArray(window.__resultFilesCacheData)) {
@@ -721,10 +777,13 @@ async function deleteResultFile(fileId, fileName) {
         return;
       }
 
-      /* ===== SUKSES ===== */
+       /* ===== SUKSES ===== */
       window.__recentlyDeletedFileIds.add(fileId);
       setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
       __removeFileFromCache(fileId);
+
+      // 🆕 Sync delete ke Firebase (hapus data supaya tidak regenerate di combined PDF)
+      try { __syncDeleteToFirebase(fileName, fileId); } catch (e) {}
 
       if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
       if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();

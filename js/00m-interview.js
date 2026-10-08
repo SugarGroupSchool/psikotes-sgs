@@ -61,8 +61,58 @@ __initAssessorsListener();
       'Fleksibilitas & Adaptasi',
       'Orientasi Hasil'
     ],
-    it:     [],
-    welder: []
+        it: [
+      'COGNITIVE ABILITY & PROBLEM SOLVING',
+      'TECHNICAL SKILL & TOOL MASTERY',
+      'DEBUGGING & TROUBLESHOOTING',
+      'DOCUMENTATION & TECHNICAL COMMUNICATION',
+      'COLLABORATION & TEAM WORK',
+      'LEARNING AGILITY & ADAPTABILITY',
+      'TIME MANAGEMENT & DEADLINE',
+      'INTEGRITY & DATA ETHICS',
+      'INITIATIVE & PROACTIVITY',
+      'ATTENTION TO DETAIL',
+      'RESULT ORIENTATION'
+    ],
+    welder: [
+      'TECHNICAL SKILL & WELDING PRECISION',
+      'SAFETY AWARENESS & PROCEDURE COMPLIANCE',
+      'ATTENTION TO DETAIL',
+      'STABILITY & PHYSICAL ENDURANCE',
+      'INTEGRITY & WORK DISCIPLINE',
+      'TEAM COLLABORATION',
+      'PROBLEM SOLVING DI LAPANGAN',
+      'WORK MOTIVATION & CONSISTENCY',
+      'COMMUNICATION & KOORDINASI',
+      'ADAPTABILITY TERHADAP PERUBAHAN',
+      'ORIENTASI HASIL & QUALITY'
+    ],
+    technical: [
+      'COGNITIVE ABILITY & PROBLEM SOLVING',
+      'TECHNICAL SKILL & EQUIPMENT HANDLING',
+      'SAFETY AWARENESS & PROCEDURE COMPLIANCE',
+      'ATTENTION TO DETAIL & ACCURACY',
+      'WORK DISCIPLINE & RELIABILITY',
+      'TEAM COLLABORATION',
+      'STABILITY UNDER PRESSURE',
+      'INITIATIVE & PROACTIVITY',
+      'TIME MANAGEMENT & DEADLINE',
+      'ADAPTABILITY & LEARNING AGILITY',
+      'RESULT ORIENTATION'
+    ],
+    housekeeping: [
+      'WORK DISCIPLINE & RELIABILITY',
+      'ATTENTION TO DETAIL & CLEANLINESS',
+      'PHYSICAL STAMINA & ENDURANCE',
+      'INTEGRITY & RULE COMPLIANCE',
+      'WORK MOTIVATION & CONSISTENCY',
+      'TEAM COLLABORATION',
+      'TIME MANAGEMENT & PUNCTUALITY',
+      'INITIATIVE & PROACTIVITY',
+      'COMMUNICATION & KOORDINASI',
+      'ADAPTABILITY TERHADAP PERUBAHAN',
+      'RESPONSIBILITY & OWNERSHIP'
+    ]
   };
 
   /* ============================================================
@@ -107,6 +157,8 @@ __initAssessorsListener();
     if (p.includes('admin')) return 'admin';
     if (p.includes('it ') || p === 'it' || p.includes('programmer')) return 'it';
     if (p.includes('welder') || p.includes('las')) return 'welder';
+    if (p.includes('technical')) return 'technical';
+    if (p.includes('housekeeping')) return 'housekeeping';
     return null;
   }
 
@@ -790,22 +842,18 @@ if (!isInterviewMode) return;
     btn.textContent = '⏳ Mengirim...';
 
     try {
-      await saveToFirebase(interviewer, scores, notes, avg, conclusion);
+            await saveToFirebase(interviewer, scores, notes, avg, conclusion);
 
-      btn.textContent = '📄 Membuat PDF...';
-      const pdfBlob = await generateInterviewPDF(interviewer, scores, notes, avg, conclusion);
-
-           btn.textContent = '📤 Mengupload...';
-      await uploadToGAS(pdfBlob, interviewer);
-
-      // Auto-generate combined PDF (semua asesor)
+      // 🆕 HANYA generate COMBINED PDF — tidak ada PDF individual per interviewer
       if (typeof window.autoGenerateInterviewCombined === 'function') {
-        btn.textContent = '🔄 Menggabungkan...';
+        btn.textContent = '🔄 Menggabungkan hasil…';
         try {
           await window.autoGenerateInterviewCombined(candidateName, candidatePosition);
         } catch (e) {
           console.warn('[INTERVIEW] Auto-combine gagal:', e);
         }
+      } else {
+        console.warn('[INTERVIEW] autoGenerateInterviewCombined tidak tersedia');
       }
 
       showSuccess(interviewer, avg, conclusion);
@@ -1042,8 +1090,21 @@ if (!isInterviewMode) return;
       body: JSON.stringify(payload)
     });
 
-    await new Promise(r => setTimeout(r, 1500));
+       await new Promise(r => setTimeout(r, 1500));
     console.log('[INTERVIEW] ✅ Uploaded to GAS');
+
+    // 🆕 Kirim sinyal real-time ke admin
+    try {
+      if (typeof firebase !== 'undefined' && firebase.apps.length) {
+        firebase.database().ref('sgs_state/lastUpload').set({
+          ts: firebase.database.ServerValue.TIMESTAMP,
+          type: 'pdf',
+          name: candidateName,
+          position: candidatePosition || '',
+          deviceId: 'interview_' + interviewer
+        }).catch(() => {});
+      }
+    } catch (e) {}
   }
 
   async function fetchImageAsDataURL(url) {
