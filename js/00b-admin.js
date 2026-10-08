@@ -880,12 +880,26 @@ async function deleteResultFile(fileId, fileName) {
       if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
            try {
+           const _isWawancara = (typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName));
+        let _candidateName = null;
+        let _candidateSlug = null;
+        if (_isWawancara) {
+          try {
+            const _info = (typeof __extractCandidateInfo === 'function')
+              ? __extractCandidateInfo({ name: fileName, description: '' })
+              : null;
+            _candidateName = _info && _info.name && _info.name !== '-' ? _info.name : null;
+            if (_candidateName) {
+              _candidateSlug = String(_candidateName).toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+            }
+          } catch (e) {}
+        }
         firebase.database().ref('sgs_state/lastDelete').set({
           ts: firebase.database.ServerValue.TIMESTAMP,
           fileId: fileId,
-          candidateName: (typeof __extractWawancaraBase === 'function' && typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName))
-            ? __extractWawancaraBase(fileName)
-            : null
+          candidateName: _candidateName,
+          candidateSlug: _candidateSlug
         }).catch(() => {});
       } catch (e) {}
 

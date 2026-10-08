@@ -142,9 +142,24 @@
     const rawData = snap.val() || {};
     const lastDelete = lastDeleteSnap.val() || {};
 
-    const sameCandidate =
-      lastDelete.candidateName &&
-      candidateSlug(lastDelete.candidateName) === slug;
+        // Prioritas 1: pakai candidateSlug (format baru)
+    // Prioritas 2: fallback ke candidateName (handle data lama)
+    let sameCandidate = false;
+    if (lastDelete.candidateSlug) {
+      sameCandidate = (lastDelete.candidateSlug === slug);
+    } else if (lastDelete.candidateName) {
+      const _s = candidateSlug(lastDelete.candidateName);
+      if (_s === slug) {
+        sameCandidate = true;
+      } else {
+        // Fallback untuk data lama: extract nama dari bracket [Nama]
+        const _m = String(lastDelete.candidateName).match(/^\[([^\]]+)\]/);
+        if (_m) {
+          const _clean = _m[1].replace(/-/g, ' ');
+          if (candidateSlug(_clean) === slug) sameCandidate = true;
+        }
+      }
+    }
     const cutoffTs = sameCandidate ? (Number(lastDelete.ts) || 0) : 0;
 
     const data = {};
