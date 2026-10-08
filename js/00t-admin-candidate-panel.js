@@ -237,10 +237,17 @@
     }).join('');
 
     // Buat wrapper baru
-    const wrapper = document.createElement('div');
-    wrapper.className = 'js-tabs-wrap';
-    wrapper.style.cssText = 'display:flex;gap:14px;margin-top:12px;';
-    wrapper.innerHTML =
+       // 🆕 Hapus tombol lama di atas yang sudah jadi tab
+    const removeClasses = [
+      '.js-interview-link',
+      '.js-grafindo-link',
+      '.js-fgd-link'
+    ];
+    removeClasses.forEach(cls => {
+      const btns = card.querySelectorAll(cls);
+      btns.forEach(b => b.remove());
+    });
+
       '<div class="js-tabs-nav" style="flex:0 0 130px;display:flex;flex-direction:column;gap:6px;">' +
         sidebarHTML +
       '</div>' +
