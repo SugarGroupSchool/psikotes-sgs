@@ -1,10 +1,11 @@
 /* ============================================================
    js/00t-admin-candidate-panel.js
    ------------------------------------------------------------
-   - Redesign kartu kandidat: sidebar tab kiri + konten kanan
-   - Subject rating (1-4) HANYA untuk posisi Guru/Dosen
-   - Excel tab HANYA untuk posisi Admin/Staff
-   - Tombol Reset data wawancara (Firebase + Drive)
+   - Kartu kandidat: sidebar tab kiri + konten kanan
+   - Tombol aksi (Wawancara/Grafis/FGD) pindah ke dalam panel
+   - Subject rating (1-4) hanya untuk Guru/Dosen
+   - Excel tab hanya untuk Admin/Staff
+   - Tombol Reset data wawancara
    ============================================================ */
 
 (function () {
@@ -12,10 +13,10 @@
 
   const SUBJECT_RATINGS = [
     { value: 0, label: '— Belum dinilai —' },
-    { value: 1, label: '1 — Not Recommended',       color: '#dc2626', short: 'NOT' },
-    { value: 2, label: '2 — Fairly Recommended',    color: '#f59e0b', short: 'FAIRLY' },
-    { value: 3, label: '3 — Recommended',           color: '#16a34a', short: 'RECOMMENDED' },
-    { value: 4, label: '4 — Highly Recommended',    color: '#065f46', short: 'HIGHLY' }
+    { value: 1, label: '1 — Not Recommended' },
+    { value: 2, label: '2 — Fairly Recommended' },
+    { value: 3, label: '3 — Recommended' },
+    { value: 4, label: '4 — Highly Recommended' }
   ];
 
   function slugify(name) {
@@ -38,7 +39,7 @@
   }
 
   /* ============================================================
-     TOMBOL RESET
+     RESET DATA WAWANCARA
      ============================================================ */
   window.adminResetInterviewData = async function (candidateName, candidatePosition) {
     if (!candidateName) return alert('Nama kandidat kosong.');
@@ -168,7 +169,7 @@
   async function restructureCard(card) {
     if (card.dataset.tabbed === '1') return;
 
-    // Cari file list = div dengan flex-direction: column
+    // Cari file list (div dengan flex-direction: column)
     const kids = Array.from(card.children);
     const fileList = kids.find(el => {
       const s = (el.getAttribute('style') || '') + (el.style.cssText || '');
@@ -177,11 +178,10 @@
     if (!fileList) return;
 
     const items = Array.from(fileList.children);
-    if (items.length === 0) return;
 
     card.dataset.tabbed = '1';
 
-    // Kategorikan
+    // Kategorikan file items
     const groups = { tes: [], grafis: [], fgd: [], wawancara: [], excel: [] };
     items.forEach(el => {
       const cat = detectCat(el.outerHTML);
@@ -189,79 +189,107 @@
       else groups.tes.push(el);
     });
 
-    // Guru / Admin?
-    const ivBtn = card.querySelector('.js-interview-link, .js-grafindo-link');
-    const name = ivBtn ? ivBtn.getAttribute('data-name') : '';
-    const position = (ivBtn ? ivBtn.getAttribute('data-position') : '') || '';
+    // Cari tombol aksi asli
+    const ivBtn  = card.querySelector('.js-interview-link');
+    const grBtn  = card.querySelector('.js-grafindo-link');
+    const fgdBtn = card.querySelector('.js-fgd-link');
+
+    const anyBtn = ivBtn || grBtn || fgdBtn;
+    const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
+    const position = (anyBtn ? anyBtn.getAttribute('data-position') : '') || '';
     const posLower = position.toLowerCase();
     const isGuru = /guru|dosen|teacher|pengajar/.test(posLower);
     const isAdmin = /admin|staff|sekretariat|office/.test(posLower);
     const slug = slugify(name);
 
-    // Definisi tab
-    const tabs = [];
-    if (groups.tes.length > 0)          tabs.push({ id: 'tes',        label: '📄 Tes',       items: groups.tes });
-    if (groups.grafis.length > 0)       tabs.push({ id: 'grafis',     label: '🎨 Grafis',    items: groups.grafis });
-    if (groups.fgd.length > 0)          tabs.push({ id: 'fgd',        label: '🎯 FGD',       items: groups.fgd });
-    if (groups.wawancara.length > 0)    tabs.push({ id: 'wawancara',  label: '🎤 Wawancara', items: groups.wawancara });
-    if (isGuru)                          tabs.push({ id: 'subject',    label: '📚 Subject',   special: 'subject' });
-    if (isAdmin && groups.excel.length)  tabs.push({ id: 'excel',      label: '📊 Excel',     items: groups.excel });
-
-    if (tabs.length === 0) return;
-
     // Ambil rating untuk guru
     let ratingData = null;
     if (isGuru) ratingData = await loadSubjectRating(slug);
 
-    // Build sidebar
-    const sidebarHTML = tabs.map((t, i) => {
-      const active = i === 0 ? 'active' : '';
-      return '<button class="js-tab-btn ' + active + '" data-tab="' + t.id + '" ' +
-        'style="text-align:left;padding:10px 12px;border-radius:9px;' +
-        'border:1px solid ' + (i === 0 ? '#3b82f6' : 'rgba(255,255,255,.1)') + ';' +
-        'background:' + (i === 0 ? 'linear-gradient(135deg,#3b82f6,#1e40af)' : 'rgba(255,255,255,.04)') + ';' +
-        'color:' + (i === 0 ? '#fff' : '#cbd5e1') + ';' +
-        'font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer;' +
-        'transition:all .15s ease;white-space:nowrap;">' + t.label + '</button>';
-    }).join('');
+    // Definisikan tab
+    const tabs = [];
+    tabs.push({ id: 'tes', label: '📄 Tes', items: groups.tes });
 
-    // Build content panels (pindahkan nodes)
-    const contentHTML = tabs.map((t, i) => {
+    if (grBtn || groups.grafis.length > 0) {
+      tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
+    }
+    if (fgdBtn || groups.fgd.length > 0) {
+      tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
+    }
+    if (ivBtn || groups.wawancara.length > 0) {
+      tabs.push({ id: 'wawancara', label: '🎤 Wawancara', items: groups.wawancara, actionBtn: ivBtn });
+    }
+    if (isGuru) {
+      tabs.push({ id: 'subject', label: '📚 Subject', special: 'subject' });
+    }
+    if (isAdmin && groups.excel.length > 0) {
+      tabs.push({ id: 'excel', label: '📊 Excel', items: groups.excel });
+    }
+
+    // Bikin wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'js-tabs-wrap';
+    wrapper.style.cssText = 'display:flex;gap:14px;margin-top:12px;';
+
+    // Nav sidebar HTML
+    const navHTML = tabs.map((t, i) => {
       const active = i === 0;
-      let inner = '';
-      if (t.special === 'subject') {
-        inner = ratingHTML(slug, ratingData);
-      }
-      return '<div class="js-tab-panel" data-panel="' + t.id + '" ' +
-        'style="display:' + (active ? 'block' : 'none') + ';">' + inner + '</div>';
+      return '<button class="js-tab-btn" data-tab="' + t.id + '" ' +
+        'style="text-align:left;padding:11px 14px;border-radius:10px;' +
+        'border:1.5px solid ' + (active ? '#3b82f6' : 'rgba(255,255,255,.1)') + ';' +
+        'background:' + (active ? 'linear-gradient(135deg,#3b82f6,#1e40af)' : 'rgba(255,255,255,.04)') + ';' +
+        'color:' + (active ? '#fff' : '#cbd5e1') + ';' +
+        'font-family:inherit;font-size:12px;font-weight:800;' +
+        'cursor:pointer;transition:all .15s ease;white-space:nowrap;">' +
+        t.label + '</button>';
     }).join('');
 
-    // Buat wrapper baru
-       // 🆕 Hapus tombol lama di atas yang sudah jadi tab
-    const removeClasses = [
-      '.js-interview-link',
-      '.js-grafindo-link',
-      '.js-fgd-link'
-    ];
-    removeClasses.forEach(cls => {
-      const btns = card.querySelectorAll(cls);
-      btns.forEach(b => b.remove());
-    });
+    // Content panels HTML
+    const panelsHTML = tabs.map((t, i) => {
+      const active = i === 0;
+      return '<div class="js-tab-panel" data-panel="' + t.id + '" ' +
+        'style="display:' + (active ? 'block' : 'none') + ';"></div>';
+    }).join('');
 
-      '<div class="js-tabs-nav" style="flex:0 0 130px;display:flex;flex-direction:column;gap:6px;">' +
-        sidebarHTML +
+    wrapper.innerHTML =
+      '<div class="js-tabs-nav" style="flex:0 0 140px;display:flex;flex-direction:column;gap:8px;align-self:flex-start;position:sticky;top:0;">' +
+        navHTML +
       '</div>' +
       '<div class="js-tabs-content" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">' +
-        contentHTML +
+        panelsHTML +
       '</div>';
 
-    // Pindahkan file items ke panel yang sesuai
-    const panels = wrapper.querySelectorAll('.js-tab-panel');
-    panels.forEach(p => {
-      const tabId = p.getAttribute('data-panel');
-      const tabDef = tabs.find(t => t.id === tabId);
-      if (tabDef && tabDef.items) {
-        tabDef.items.forEach(el => p.appendChild(el));
+    // Isi setiap panel
+    tabs.forEach(t => {
+      const panel = wrapper.querySelector('.js-tab-panel[data-panel="' + t.id + '"]');
+      if (!panel) return;
+
+      if (t.special === 'subject') {
+        panel.innerHTML = ratingHTML(slug, ratingData);
+        return;
+      }
+
+      // Pindahkan tombol aksi ke atas panel
+      if (t.actionBtn) {
+        t.actionBtn.style.width = '100%';
+        t.actionBtn.style.padding = '10px 14px';
+        t.actionBtn.style.fontSize = '12px';
+        t.actionBtn.style.marginBottom = '4px';
+        t.actionBtn.style.boxSizing = 'border-box';
+        t.actionBtn.style.display = 'block';
+        panel.appendChild(t.actionBtn);
+      }
+
+      // Pindahkan file items
+      if (t.items && t.items.length > 0) {
+        t.items.forEach(el => panel.appendChild(el));
+      } else if (!t.actionBtn) {
+        const empty = document.createElement('div');
+        empty.style.cssText =
+          'padding:20px;text-align:center;color:#64748b;font-size:12px;' +
+          'background:rgba(255,255,255,.03);border-radius:10px;border:1px dashed rgba(255,255,255,.1);';
+        empty.textContent = 'Belum ada file';
+        panel.appendChild(empty);
       }
     });
 
@@ -274,7 +302,6 @@
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
-    // Tombol reset
     const r = e.target.closest('.js-reset-interview');
     if (r) {
       e.preventDefault();
@@ -287,7 +314,6 @@
       return;
     }
 
-    // Tab click
     const tabBtn = e.target.closest('.js-tab-btn');
     if (tabBtn) {
       e.preventDefault();
@@ -298,7 +324,6 @@
 
       wrap.querySelectorAll('.js-tab-btn').forEach(b => {
         const isActive = b === tabBtn;
-        b.classList.toggle('active', isActive);
         b.style.borderColor = isActive ? '#3b82f6' : 'rgba(255,255,255,.1)';
         b.style.background  = isActive
           ? 'linear-gradient(135deg,#3b82f6,#1e40af)'
@@ -322,9 +347,9 @@
     const slug = sel.getAttribute('data-slug');
     const value = Number(sel.value);
     const card = sel.closest('.rf-card');
-    const ivBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link') : null;
-    const name = ivBtn ? ivBtn.getAttribute('data-name') : '';
-    const position = ivBtn ? ivBtn.getAttribute('data-position') : '';
+    const anyBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link, .js-fgd-link') : null;
+    const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
+    const position = anyBtn ? anyBtn.getAttribute('data-position') : '';
 
     if (!firebase || !firebase.apps.length) return alert('Firebase belum siap');
 
@@ -361,5 +386,5 @@
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab layout + subject rating');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab layout + subject rating + tombol aksi di dalam tab');
 })();
