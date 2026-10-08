@@ -3,9 +3,10 @@
    ------------------------------------------------------------
    - Kartu kandidat: sidebar tab kiri + konten kanan
    - Tombol aksi (Wawancara/Grafis/FGD) pindah ke dalam panel
+   - Tombol Reset HANYA di tab Wawancara
    - Subject rating (1-4) hanya untuk Guru/Dosen
    - Excel tab hanya untuk Admin/Staff
-   - Tombol Reset data wawancara
+   - Tab Tes: auto-label TAHAP 1, TAHAP 2 jika > 1 file
    ============================================================ */
 
 (function () {
@@ -189,6 +190,12 @@
       else groups.tes.push(el);
     });
 
+    // Filter: items.tes hanya yang bukan wawancara/grafis/fgd/excel
+    const pureTesFiles = groups.tes.filter(el => {
+      const h = el.outerHTML.toLowerCase();
+      return !/-wawancara-|-fgd-|-grafis-|xlsx/.test(h);
+    });
+
     // Cari tombol aksi asli
     const ivBtn  = card.querySelector('.js-interview-link');
     const grBtn  = card.querySelector('.js-grafindo-link');
@@ -208,7 +215,7 @@
 
     // Definisikan tab
     const tabs = [];
-    tabs.push({ id: 'tes', label: '📄 Tes', items: groups.tes });
+    tabs.push({ id: 'tes', label: '📄 Tes', items: pureTesFiles, multiLabel: true });
 
     if (grBtn || groups.grafis.length > 0) {
       tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
@@ -269,8 +276,35 @@
         return;
       }
 
-      // Pindahkan tombol aksi ke atas panel
-      if (t.actionBtn) {
+      // Khusus tab WAWANCARA — tombol aksi + tombol RESET sejajar
+      if (t.id === 'wawancara' && t.actionBtn) {
+        const btnWrap = document.createElement('div');
+        btnWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;';
+
+        t.actionBtn.style.flex = '1';
+        t.actionBtn.style.padding = '10px 14px';
+        t.actionBtn.style.fontSize = '12px';
+        t.actionBtn.style.boxSizing = 'border-box';
+        btnWrap.appendChild(t.actionBtn);
+
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'js-reset-interview';
+        resetBtn.setAttribute('data-name', name);
+        resetBtn.setAttribute('data-position', position);
+        resetBtn.textContent = '🔄 Reset';
+        resetBtn.title = 'Hapus semua data wawancara kandidat ini';
+        resetBtn.style.cssText =
+          'padding:10px 14px;border-radius:10px;' +
+          'border:1.5px solid rgba(239,68,68,.5);' +
+          'background:rgba(239,68,68,.15);color:#fca5a5;' +
+          'font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;' +
+          'white-space:nowrap;';
+        btnWrap.appendChild(resetBtn);
+
+        panel.appendChild(btnWrap);
+      }
+      // Untuk tab lain dengan tombol aksi (Grafis/FGD)
+      else if (t.actionBtn) {
         t.actionBtn.style.width = '100%';
         t.actionBtn.style.padding = '10px 14px';
         t.actionBtn.style.fontSize = '12px';
@@ -280,9 +314,29 @@
         panel.appendChild(t.actionBtn);
       }
 
-      // Pindahkan file items
+      // File items
       if (t.items && t.items.length > 0) {
-        t.items.forEach(el => panel.appendChild(el));
+        const showLabel = t.multiLabel && t.items.length > 1;
+        t.items.forEach((el, idx) => {
+          if (showLabel) {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'margin-bottom:8px;';
+
+            const badge = document.createElement('div');
+            badge.style.cssText =
+              'display:inline-block;padding:3px 10px;border-radius:6px;' +
+              'background:linear-gradient(135deg,#3b82f6,#1e40af);' +
+              'color:#fff;font-size:9.5px;font-weight:900;letter-spacing:1px;' +
+              'text-transform:uppercase;margin-bottom:5px;';
+            badge.textContent = 'TAHAP ' + (idx + 1);
+
+            wrap.appendChild(badge);
+            wrap.appendChild(el);
+            panel.appendChild(wrap);
+          } else {
+            panel.appendChild(el);
+          }
+        });
       } else if (!t.actionBtn) {
         const empty = document.createElement('div');
         empty.style.cssText =
@@ -296,6 +350,12 @@
     // Sembunyikan file list asli, insert wrapper
     fileList.style.display = 'none';
     fileList.parentElement.insertBefore(wrapper, fileList.nextSibling);
+
+    // Hapus tombol Reset lama di atas card (kalau ada)
+    setTimeout(() => {
+      card.querySelectorAll(':scope > .js-reset-interview').forEach(b => b.remove());
+      card.querySelectorAll(':scope > button.js-reset-interview').forEach(b => b.remove());
+    }, 100);
   }
 
   /* ============================================================
@@ -386,5 +446,5 @@
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab layout + subject rating + tombol aksi di dalam tab');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab layout + subject rating + reset di wawancara');
 })();
