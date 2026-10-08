@@ -987,186 +987,7 @@ function __renderWawancaraIndividualBox(files) {
   `;
 }
 
-/* ============================================================
-   Render: file gabungan (COMBINED)
-   ============================================================ */
-function __renderWawancaraCombinedBox(combinedFiles, individualFiles) {
-  const file = combinedFiles[0];
-  const safeUrl = __safeUrl(file.url);
-  const sizeMB = file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-  const individualCount = individualFiles.length;
 
-  // Ekstrak nama asesor dari individual
-  const assessors = individualFiles.map(f => __extractInterviewer(f)).filter(x => x !== '?');
-  const uniqueList = [...new Set(assessors)].join(', ') || '(tidak diketahui)';
-
-  return `
-    <div style="padding: 12px 14px;
-      background: linear-gradient(135deg, rgba(250,204,21,.12), rgba(245,158,11,.08));
-      border: 1.5px solid rgba(250,204,21,.5);
-      border-radius: 11px;
-      box-shadow:
-        0 0 0 1px rgba(250,204,21,.15),
-        0 0 20px rgba(250,204,21,.2),
-        inset 0 1px 0 rgba(255,255,255,.05);">
-
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-        <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-          border-radius: 9px; font-size: 16px;
-          box-shadow: 0 0 12px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.2);">🎤</div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 800; color: #fde047; font-size: 12px; margin-bottom: 2px;">
-            Hasil Wawancara Gabungan
-          </div>
-          <div style="color: #94a3b8; font-size: 10.5px; line-height: 1.3;">
-            Gabungan dari <b style="color: #fde047;">${individualCount} pewawancara</b>:
-            ${__adminEscape(uniqueList)}
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-        background: rgba(0,0,0,.3);
-        border: 1px solid rgba(250,204,21,.3);
-        border-radius: 8px;">
-        <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-          border-radius: 9px; font-size: 16px;">📄</div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 800; color: #fde047; font-size: 11.5px; margin-bottom: 2px;">
-            📄 Laporan Lengkap (Combined)
-          </div>
-          <div style="color: #64748b; font-size: 10px; word-break: break-all; line-height: 1.3;">
-            ${__adminEscape((file.name || '').slice(0, 50))} · ${sizeMB}
-          </div>
-        </div>
-        <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-          <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary"
-             style="background: linear-gradient(135deg,#f59e0b,#d97706);">⬇ Buka</a>
-          <button class="js-delete-file rf-btn rf-btn-danger"
-            data-file-id="${__adminEscape(file.id)}"
-            data-file-name="${__adminEscape(file.name)}">🗑</button>
-        </div>
-      </div>
-
-      ${individualCount > 0 ? `
-        <details style="margin-top: 10px;">
-          <summary style="cursor: pointer; color: #94a3b8; font-size: 10.5px;
-            padding: 6px 8px; border-radius: 6px;
-            background: rgba(0,0,0,.2); user-select: none;">
-            ▸ Lihat ${individualCount} file individual per pewawancara
-          </summary>
-          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
-            ${individualFiles.map(f => {
-              const iv = __extractInterviewer(f);
-              const fUrl = __safeUrl(f.url);
-              const fSize = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-              return `
-                <div style="display: flex; align-items: center; gap: 8px;
-                  padding: 6px 10px; background: rgba(0,0,0,.2);
-                  border: 1px solid rgba(250,204,21,.15); border-radius: 6px;">
-                  <div style="width: 24px; height: 24px; flex: 0 0 24px; display: grid; place-items: center;
-                    background: linear-gradient(135deg, #f59e0b, #d97706);
-                    border-radius: 6px; font-size: 9px; font-weight: 900; color: #fff;">
-                    ${__adminEscape(iv.slice(0, 3))}
-                  </div>
-                  <div style="flex: 1; min-width: 0; font-size: 10.5px; color: #cbd5e1;">
-                    <b>${__adminEscape(iv)}</b> · ${fSize}
-                  </div>
-                  <a href="${fUrl}" target="_blank" rel="noopener"
-                     style="padding: 4px 8px; background: rgba(245,158,11,.3);
-                     color: #fde047; border-radius: 5px; font-size: 9.5px;
-                     text-decoration: none; font-weight: 800;">⬇</a>
-                  <button class="js-delete-file"
-                    data-file-id="${__adminEscape(f.id)}"
-                    data-file-name="${__adminEscape(f.name)}"
-                    style="padding: 4px 8px; background: rgba(239,68,68,.15);
-                    color: #fca5a5; border: 1px solid rgba(239,68,68,.3);
-                    border-radius: 5px; font-size: 9.5px; font-weight: 800;
-                    cursor: pointer; font-family: inherit;">🗑</button>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </details>
-      ` : ''}
-    </div>
-  `;
-}
-
-/* ============================================================
-   Render: file individual (original behavior)
-   ============================================================ */
-function __renderWawancaraIndividualBox(files) {
-  if (!Array.isArray(files) || files.length === 0) return '';
-
-  const interviewers = files.map(f => __extractInterviewer(f));
-  const uniqueList = [...new Set(interviewers)].join(', ');
-
-  return `
-    <div style="padding: 12px 14px;
-      background: linear-gradient(135deg, rgba(250,204,21,.12), rgba(245,158,11,.08));
-      border: 1.5px solid rgba(250,204,21,.5);
-      border-radius: 11px;
-      box-shadow:
-        0 0 0 1px rgba(250,204,21,.15),
-        0 0 20px rgba(250,204,21,.2),
-        inset 0 1px 0 rgba(255,255,255,.05);">
-
-      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-        <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-          background: linear-gradient(135deg, #f59e0b, #d97706);
-          border-radius: 9px; font-size: 16px;
-          box-shadow: 0 0 12px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.2);">🎤</div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 800; color: #fde047; font-size: 12px; margin-bottom: 2px;">
-            Hasil Wawancara (${files.length})
-          </div>
-          <div style="color: #94a3b8; font-size: 10.5px; line-height: 1.3;">
-            Pewawancara: <b style="color: #fde047;">${__adminEscape(uniqueList)}</b>
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        ${files.map(f => {
-          const iv = __extractInterviewer(f);
-          const safeUrl = __safeUrl(f.url);
-          const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-          return `
-            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-              background: rgba(0,0,0,.3);
-              border: 1px solid rgba(250,204,21,.25);
-              border-radius: 8px;">
-              <div style="width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center;
-                background: linear-gradient(135deg, #f59e0b, #d97706);
-                border-radius: 8px;
-                font-size: 11px; font-weight: 900; color: #fff; letter-spacing: -.3px;">
-                ${__adminEscape(iv.slice(0, 3))}
-              </div>
-              <div style="flex: 1; min-width: 0;">
-                <div style="font-weight: 800; color: #fde047; font-size: 11.5px; margin-bottom: 2px;">
-                  👤 ${__adminEscape(iv)}
-                </div>
-                <div style="color: #64748b; font-size: 10px; word-break: break-all; line-height: 1.3;">
-                  ${__adminEscape((f.name || '').slice(0, 42))}${(f.name || '').length > 42 ? '...' : ''} · ${sizeMB}
-                </div>
-              </div>
-              <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-                <a href="${safeUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary"
-                   style="background: linear-gradient(135deg,#f59e0b,#d97706);">⬇ Buka</a>
-                <button class="js-delete-file rf-btn rf-btn-danger"
-                  data-file-id="${__adminEscape(f.id)}"
-                  data-file-name="${__adminEscape(f.name)}">🗑</button>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `;
-}
 /* ============================================================
    Render box khusus Interpretasi Grafis
    - Semua PDF grafis digabung jadi 1 box
@@ -1429,10 +1250,16 @@ function renderResultFilesHTML(files) {
 
   return groupArr.map(g => {
     const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
-    const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
-    const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');
-    const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
-    const others   = g.files.filter(f => __detectFileKind(f) === 'other');
+const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+const wawancara = g.files.filter(f => {
+  const k = __detectFileKind(f);
+  return k === 'wawancara' || k === 'wawancara-combined';
+});
+const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
+const others   = g.files.filter(f => {
+  const k = __detectFileKind(f);
+  return k === 'other' || k === 'fgd-combined' || k === 'fgd';
+});
 
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
@@ -2058,10 +1885,16 @@ function __renderResultPageContent() {
 
   const cardsHTML = filtered.map(g => {
     const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
-    const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
-    const wawancara = g.files.filter(f => __detectFileKind(f) === 'wawancara');
-    const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
-    const others   = g.files.filter(f => __detectFileKind(f) === 'other');
+const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+const wawancara = g.files.filter(f => {
+  const k = __detectFileKind(f);
+  return k === 'wawancara' || k === 'wawancara-combined';
+});
+const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
+const others   = g.files.filter(f => {
+  const k = __detectFileKind(f);
+  return k === 'other' || k === 'fgd-combined' || k === 'fgd';
+});
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
