@@ -795,8 +795,18 @@ if (!isInterviewMode) return;
       btn.textContent = '📄 Membuat PDF...';
       const pdfBlob = await generateInterviewPDF(interviewer, scores, notes, avg, conclusion);
 
-      btn.textContent = '📤 Mengupload...';
+           btn.textContent = '📤 Mengupload...';
       await uploadToGAS(pdfBlob, interviewer);
+
+      // Auto-generate combined PDF (semua asesor)
+      if (typeof window.autoGenerateInterviewCombined === 'function') {
+        btn.textContent = '🔄 Menggabungkan...';
+        try {
+          await window.autoGenerateInterviewCombined(candidateName, candidatePosition);
+        } catch (e) {
+          console.warn('[INTERVIEW] Auto-combine gagal:', e);
+        }
+      }
 
       showSuccess(interviewer, avg, conclusion);
 
@@ -1051,7 +1061,7 @@ if (!isInterviewMode) return;
   /* ============================================================
      SHOW SUCCESS
      ============================================================ */
-  function showSuccess(interviewer, avg, conclusion) {
+    function showSuccess(interviewer, avg, conclusion) {
     document.body.innerHTML = `
       <div style="position: fixed; inset: 0; z-index: 2147483647;
         background: linear-gradient(135deg, #065f46, #16a34a);
@@ -1080,20 +1090,72 @@ if (!isInterviewMode) return;
               <div><b>Rata-rata:</b> <span style="font-size: 18px; font-weight: 900;">${fmtScore(avg)}</span></div>
               <div style="color: rgb(${conclusion.color[0]}, ${conclusion.color[1]}, ${conclusion.color[2]});
                 font-weight: 900; font-size: 14px; margin-top: 4px;">
-                ${conclusion.emoji} ${conclusion.label}
+                ${conclusion.label}
               </div>
             </div>
           </div>
 
-          <button onclick="window.close()" style="margin-top: 22px; width: 100%; padding: 14px;
+          <div style="margin-top: 22px; padding: 14px 16px; background: #eff6ff;
+            border: 1px solid #bfdbfe; border-radius: 12px; font-size: 13.5px;
+            color: #1e40af; font-weight: 700; line-height: 1.5;">
+            Halaman ini akan tertutup otomatis dalam
+            <span id="ivAutoCloseCount" style="font-size: 18px; font-weight: 900;">5</span> detik
+          </div>
+
+          <button id="ivCloseNowBtn" style="margin-top: 12px; width: 100%; padding: 14px;
             background: linear-gradient(135deg, #1e3a8a, #3b82f6);
             color: #fff; border: 0; border-radius: 12px;
             font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">
-            Tutup Halaman
+            Tutup Sekarang
           </button>
         </div>
       </div>
     `;
+
+    const tryClose = () => {
+      try {
+        window.open('', '_self');
+        window.close();
+        setTimeout(() => {
+          if (!window.closed) {
+            document.body.innerHTML = `
+              <div style="position: fixed; inset: 0; display: flex; align-items: center;
+                justify-content: center; background: #f8fafc; font-family: Inter, sans-serif;">
+                <div style="text-align: center; color: #64748b; font-size: 16px;">
+                  ✅ Terima kasih. Anda boleh menutup tab ini.
+                </div>
+              </div>`;
+          }
+        }, 200);
+      } catch (e) {
+        document.body.innerHTML = `
+          <div style="position: fixed; inset: 0; display: flex; align-items: center;
+            justify-content: center; background: #f8fafc; font-family: Inter, sans-serif;">
+            <div style="text-align: center; color: #64748b; font-size: 16px;">
+              ✅ Terima kasih. Anda boleh menutup tab ini.
+            </div>
+          </div>`;
+      }
+    };
+
+    let count = 5;
+    const timer = setInterval(() => {
+      count--;
+      const el = document.getElementById('ivAutoCloseCount');
+      if (el) el.textContent = count;
+      if (count <= 0) {
+        clearInterval(timer);
+        tryClose();
+      }
+    }, 1000);
+
+    const closeBtn = document.getElementById('ivCloseNowBtn');
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        clearInterval(timer);
+        tryClose();
+      };
+    }
   }
 
   /* ============================================================
