@@ -638,6 +638,88 @@ function __syncDeleteToFirebase(fileName, fileId) {
   console.log('[ADMIN] File tidak ada mapping ke Firebase:', n);
 }
 
+/* ============================================================
+   🆕 CASCADE DELETE WAWANCARA
+   ------------------------------------------------------------
+   Ketika admin hapus 1 file wawancara (individual / combined),
+   hapus SEMUA file wawancara kandidat + bersihkan Firebase.
+   
+   Contoh: hapus "Budi-Wawancara-NUG.pdf" → 
+   - Hapus semua "Budi-Wawancara-*.pdf" di Drive
+   - Hapus sgs_interviews/budi-* di Firebase
+   ============================================================ */
+
+function __slugifyName(name) {
+  return String(name || 'tanpa-nama').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80) || 'tanpa-nama';
+}
+
+function __isWawancaraFile(name) {
+  return /-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i.test(String(name || ''));
+}
+
+function __extractWawancaraBase(name) {
+  const m = String(name || '').match(/^(.+)-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i);
+  return m ? m[1] : null;
+}
+
+async function __cascadeDeleteWawancara(baseName, keepFileId) {
+  if (!baseName) return;
+  keepFileId = keepFileId || null;
+
+  console.log('[ADMIN] 🔄 Cascade delete wawancara untuk:', baseName);
+
+  // === 1. Hapus SEMUA data Firebase kandidat ===
+  const slug = __slugifyName(baseName);
+  try {
+    await firebase.database().ref('sgs_interviews/' + slug).remove();
+    console.log('[ADMIN] 🧹 Firebase dihapus: sgs_interviews/' + slug);
+  } catch (e) {
+    console.warn('[ADMIN] Gagal hapus Firebase:', e.message);
+  }
+
+  // === 2. Hapus SEMUA file wawancara kandidat di Drive ===
+  const allFiles = Array.isArray(window.__resultFilesCache) ? window.__resultFilesCache : [];
+  const siblings = allFiles.filter(f =>
+    f.id !== keepFileId &&
+    __isWawancaraFile(f.name) &&
+    __extractWawancaraBase(f.name) === baseName
+  );
+
+  if (siblings.length === 0) {
+    console.log('[ADMIN] Tidak ada file wawancara lain untuk dihapus');
+    return;
+  }
+
+  const idToken = await __getFirebaseIdToken();
+  if (!idToken) {
+    console.warn('[ADMIN] Tidak ada ID token, skip hapus file Drive');
+    return;
+  }
+
+  let deletedCount = 0;
+  for (const f of siblings) {
+    try {
+      const res = await fetch(GAS_ADMIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+      });
+      if (res.ok) {
+        window.__recentlyDeletedFileIds.add(f.id);
+        __removeFileFromCache(f.id);
+        console.log('[ADMIN] 🗑️ Cascade hapus:', f.name);
+        deletedCount++;
+      }
+    } catch (e) {
+      console.warn('[ADMIN] Gagal hapus cascade:', f.name, e.message);
+    }
+  }
+  console.log('[ADMIN] ✅ Cascade selesai —', deletedCount, 'file tambahan dihapus');
+}
+
 function __removeFileFromCache(fileId) {
   if (!fileId) return;
   if (Array.isArray(window.__resultFilesCacheData)) {
@@ -777,13 +859,22 @@ async function deleteResultFile(fileId, fileName) {
         return;
       }
 
-       /* ===== SUKSES ===== */
+         /* ===== SUKSES ===== */
       window.__recentlyDeletedFileIds.add(fileId);
       setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
       __removeFileFromCache(fileId);
 
-      // 🆕 Sync delete ke Firebase (hapus data supaya tidak regenerate di combined PDF)
-      try { __syncDeleteToFirebase(fileName, fileId); } catch (e) {}
+      // 🆕 Cascade: kalau ini file wawancara, hapus semua file wawancara kandidat + Firebase
+      if (__isWawancaraFile(fileName)) {
+        const base = __extractWawancaraBase(fileName);
+        if (base) {
+          try {
+            await __cascadeDeleteWawancara(base, fileId);
+          } catch (e) {
+            console.warn('[ADMIN] Cascade error:', e.message);
+          }
+        }
+      }
 
       if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
       if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
