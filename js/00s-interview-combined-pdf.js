@@ -209,9 +209,9 @@
     doc.text(fmtScore(overallAvg), cols.avg, y);
     y += 9;
 
-    /* HALAMAN 2: TABEL KRITERIA */
-    doc.addPage();
-    y = M + 5;
+       /* TABEL KRITERIA — lanjut di halaman yang sama kalau cukup */
+    if (y + 20 > PH - M) { doc.addPage(); y = M + 5; }
+    else { y += 8; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(30, 58, 138);
@@ -277,9 +277,9 @@
       y += rowH;
     });
 
-    /* HALAMAN 3: CATATAN */
-    doc.addPage();
-    y = M + 5;
+        /* CATATAN PER ASESOR — lanjut di halaman yang sama kalau cukup */
+    if (y + 30 > PH - M) { doc.addPage(); y = M + 5; }
+    else { y += 10; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(30, 58, 138);
