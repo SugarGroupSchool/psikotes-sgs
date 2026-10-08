@@ -1280,69 +1280,170 @@ function __renderGrafisBox(files) {
   `;
 }
 
-/* ============================================================
-   Download ZIP — semua file kandidat dalam 1 arsip
-   ============================================================ */
-window.__candidateFilesMap = window.__candidateFilesMap || {};
-
-async function downloadCandidateZip(candidateKey) {
-  const files = window.__candidateFilesMap[candidateKey] || [];
-  if (files.length === 0) {
-    await __alert('Tidak ada file untuk kandidat ini.', '⚠️ Kosong');
-    return;
+  /* ============================================================
+     DOWNLOAD ZIP — dengan fallback anti-CORS
+     ============================================================ */
+  function __extractDriveId(url) {
+    if (!url) return null;
+    let m = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    m = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    return null;
   }
 
-  if (!window.JSZip) {
-    await __alert('Library ZIP belum siap. Refresh halaman lalu coba lagi.', '⚠️ Error');
-    return;
+  function __base64ToBlob(base64, mime) {
+    const bin = atob(base64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime || 'application/pdf' });
   }
 
-  showResultToast('📦', 'Menyiapkan ZIP…', `${files.length} file dari ${candidateKey}`);
+  async function __fetchViaGASProxy(fileId) {
+    if (!window.GAS_ADMIN_URL) throw new Error('GAS URL tidak tersedia');
+    const idToken = (typeof __getFirebaseIdToken === 'function')
+      ? await __getFirebaseIdToken() : '';
+    const res = await fetch(GAS_ADMIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getFileBase64', fileId, idToken })
+    });
+    if (!res.ok) throw new Error('GAS HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.success || !data.base64) throw new Error(data.error || 'GAS gagal');
+    return __base64ToBlob(data.base64, data.mimeType || 'application/pdf');
+  }
 
-  const zip = new JSZip();
-  let okCount = 0, failCount = 0;
+  async function downloadCandidateZip(candidateKey) {
+    const files = window.__candidateFilesMap[candidateKey] || [];
+    if (files.length === 0) {
+      await __alert('Tidak ada file untuk kandidat ini.', '⚠️ Kosong');
+      return;
+    }
 
-  for (const f of files) {
-    try {
-      const res = await fetch(f.url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const blob = await res.blob();
-      const safeName = String(f.name || `file_${okCount + 1}.pdf`)
-        .replace(/[\\/:*?"<>|]/g, '_')
-        .slice(0, 100);
-      zip.file(safeName, blob);
-      okCount++;
-    } catch (e) {
-      console.warn('[ZIP] Gagal:', f.name, e.message);
-      failCount++;
+    if (!window.JSZip) {
+      await __alert('Library ZIP belum siap. Refresh halaman lalu coba lagi.', '⚠️ Error');
+      return;
+    }
+
+    showResultToast('📦', 'Menyiapkan ZIP…', files.length + ' file dari ' + candidateKey);
+
+    const zip = new JSZip();
+    let okCount = 0;
+    let proxyCount = 0;
+    let failCount = 0;
+    const failedFiles = [];
+
+    for (const f of files) {
+      try {
+        const safeName = String(f.name || ('file_' + (okCount + 1) + '.pdf'))
+          .replace(/[\\/:*?"<>|]/g, '_').slice(0, 100);
+
+        let blob = null;
+
+        // ── Coba 1: direct fetch (kadang work kalau file type image)
+        try {
+          const driveId = __extractDriveId(f.url);
+          const directUrl = driveId
+            ? 'https://drive.google.com/uc?export=download&id=' + driveId + '&confirm=t'
+            : f.url;
+          const res = await fetch(directUrl, {
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          if (res.ok) {
+            const tmp = await res.blob();
+            // Deteksi login page HTML
+            if (!tmp.type.includes('text/html') && tmp.size > 100) {
+              blob = tmp;
+            }
+          }
+        } catch (e) {
+          // CORS error — abaikan, lanjut ke fallback
+        }
+
+        // ── Coba 2: GAS proxy (butuh endpoint GAS baru)
+        if (!blob && f.id) {
+          try {
+            blob = await __fetchViaGASProxy(f.id);
+            if (blob) proxyCount++;
+          } catch (e) {
+            console.warn('[ZIP] GAS proxy gagal:', f.name, e.message);
+          }
+        }
+
+        if (blob) {
+          zip.file(safeName, blob);
+          okCount++;
+        } else {
+          failedFiles.push(f);
+          failCount++;
+        }
+
+      } catch (e) {
+        console.warn('[ZIP] Gagal total:', f.name, e.message);
+        failedFiles.push(f);
+        failCount++;
+      }
+    }
+
+    // ── Kalau semua gagal → tawarkan buka tab baru
+    if (okCount === 0) {
+      const ok = await __confirm(
+        'Semua file (' + failCount + ') tidak bisa di-bundle otomatis.\n\n' +
+        'Ini karena Google Drive tidak mengizinkan akses langsung dari browser (CORS).\n\n' +
+        'Mau buka ' + failCount + ' file di tab baru satu per satu?\n' +
+        '(Izinkan popup untuk domain ini)',
+        { title: '📂 Buka Manual', okText: 'Ya, Buka Semua Tab' }
+      );
+      if (ok) {
+        failedFiles.forEach((f, i) => {
+          setTimeout(() => window.open(f.url, '_blank', 'noopener,noreferrer'), i * 300);
+        });
+      }
+      return;
+    }
+
+    // ── Generate ZIP
+    const content = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Hasil_' + candidateKey.replace(/[^a-zA-Z0-9]/g, '_') + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    let msg = '✅ ' + okCount + ' file berhasil';
+    if (proxyCount > 0) msg += ' (' + proxyCount + ' via GAS)';
+    if (failCount > 0) {
+      msg += '\n⚠️ ' + failCount + ' file gagal';
+      showResultToast('⚠️', 'ZIP Selesai (Sebagian)', msg);
+
+      setTimeout(async () => {
+        const openRest = await __confirm(
+          failCount + ' file tidak bisa di-bundle.\n\n' +
+          'Buka ' + failCount + ' file sisa di tab baru?',
+          { title: '📂 Buka Sisa File', okText: 'Ya, Buka' }
+        );
+        if (openRest) {
+          failedFiles.forEach((f, i) => {
+            setTimeout(() => window.open(f.url, '_blank', 'noopener,noreferrer'), i * 300);
+          });
+        }
+      }, 800);
+    } else {
+      showResultToast('✅', 'ZIP Siap', msg);
     }
   }
-
-  if (okCount === 0) {
-    await __alert('Semua file gagal diunduh. Cek koneksi.', '❌ Gagal');
-    return;
-  }
-
-  const content = await zip.generateAsync({
-    type: 'blob',
-    compression: 'DEFLATE',
-    compressionOptions: { level: 6 }
-  });
-
-  const url = URL.createObjectURL(content);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Hasil_${candidateKey.replace(/[^a-zA-Z0-9]/g, '_')}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-  const msg = failCount > 0
-    ? `✅ ${okCount} file terunduh, ${failCount} gagal`
-    : `✅ ${okCount} file berhasil diunduh`;
-  showResultToast('✅', 'ZIP Siap', msg);
-}
 
 /* ============================================================
    RENDER — 1 kandidat = 1 kartu (untuk halaman utama admin)
