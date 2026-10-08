@@ -512,12 +512,35 @@
               <div><b>Kandidat:</b> ${escapeHtml(candidateName)}</div>
               <div><b>Waktu:</b> ${new Date().toLocaleString('id-ID')}</div>
             </div>
-            <button onclick="window.close()" style="margin-top: 22px; width: 100%; padding: 14px;
-              background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-              color: #fff; border: 0; border-radius: 12px;
-              font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">
-              Tutup Halaman
-            </button>
+           <div id="fgdCloseMsg" style="margin-top: 22px; padding: 14px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #1e40af;
+  text-align: center; line-height: 1.5;">
+  ✅ Selesai — Anda bisa menutup tab ini sekarang
+</div>
+<button id="fgdCloseBtn" style="margin-top: 12px; width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: #fff; border: 0; border-radius: 12px;
+  font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;">
+  🏠 Kembali ke Halaman Awal
+</button>
+
+<script>
+  (function() {
+    var closeBtn = document.getElementById('fgdCloseBtn');
+    var closeMsg = document.getElementById('fgdCloseMsg');
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        // Coba window.close() dulu (works kalau tab dibuka via window.open)
+        window.close();
+        // Fallback: redirect ke halaman awal
+        setTimeout(function() {
+          window.location.href = window.location.origin + window.location.pathname;
+        }, 200);
+      };
+    }
+  })();
+</script>
           </div>
         </div>
       `;
