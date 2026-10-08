@@ -661,8 +661,13 @@ function __isWawancaraFile(name) {
 }
 
 function __extractWawancaraBase(name) {
-  const m = String(name || '').match(/^(.+)-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i);
-  return m ? m[1] : null;
+  const n = String(name || '');
+  // Pola 1: [Nama]-...-Wawancara-XXX.pdf  → ambil dari bracket
+  const m1 = n.match(/^\[([^\]]+)\]/);
+  if (m1) return m1[1].replace(/-/g, ' ').trim();
+  // Pola 2: Nama-Wawancara-XXX.pdf  → strip non-greedy
+  const m2 = n.match(/^(.+?)-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i);
+  return m2 ? m2[1].trim() : null;
 }
 
 async function __cascadeDeleteWawancara(baseName, keepFileId) {
