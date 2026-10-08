@@ -14,7 +14,22 @@
   /* ============================================================
      KONFIGURASI
      ============================================================ */
-  const ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+// Daftar asesor FGD dinamis
+let ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+
+function __syncAssessorList() {
+  if (typeof window.ASSESSORS === 'undefined') {
+    setTimeout(__syncAssessorList, 500);
+    return;
+  }
+  window.ASSESSORS.load('fgd').then(list => {
+    if (Array.isArray(list) && list.length > 0) ASSESSOR_LIST = list;
+  });
+  window.ASSESSORS.onChange('fgd', list => {
+    ASSESSOR_LIST = list;
+  });
+}
+__syncAssessorList();
 
   function escapeHtml(s) {
     return String(s || '')
@@ -112,16 +127,11 @@
       `;
 
       modal.querySelectorAll('.fgd-pick-item').forEach(lbl => {
-        lbl.addEventListener('click', (e) => {
-          if (e.target.tagName !== 'INPUT') {
-            const cb = lbl.querySelector('input');
-            cb.checked = !cb.checked;
-          }
-          setTimeout(updatePickState, 0);
-        });
-        const cb = lbl.querySelector('input');
-        cb.addEventListener('change', updatePickState);
-      });
+  const cb = lbl.querySelector('input');
+  cb.addEventListener('change', () => {
+    setTimeout(updatePickState, 0);
+  });
+});
 
       document.getElementById('fgdGenBtn').onclick = () => {
         const picked = getChecked();

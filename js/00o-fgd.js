@@ -17,7 +17,25 @@
   /* ============================================================
      KONFIGURASI
      ============================================================ */
-  const ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+// Daftar asesor FGD dinamis dari Firebase (kategori: 'fgd')
+let ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+
+function __initAssessorsListener() {
+  if (typeof window.ASSESSORS === 'undefined') {
+    setTimeout(__initAssessorsListener, 500);
+    return;
+  }
+  window.ASSESSORS.load('fgd').then(list => {
+    if (Array.isArray(list) && list.length > 0) {
+      ASSESSOR_LIST = list;
+      console.log('[FGD] Asesor dinamis:', list.join(', '));
+    }
+  });
+  window.ASSESSORS.onChange('fgd', list => {
+    ASSESSOR_LIST = list;
+  });
+}
+__initAssessorsListener();
 
   const ASPEK = [
     {

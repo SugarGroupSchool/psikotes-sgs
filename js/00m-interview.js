@@ -14,7 +14,25 @@
   /* ============================================================
      KONFIGURASI
      ============================================================ */
-  const INTERVIEWER_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+// Daftar interviewer dinamis dari Firebase (kategori: 'interview')
+let INTERVIEWER_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+
+function __initAssessorsListener() {
+  if (typeof window.ASSESSORS === 'undefined') {
+    setTimeout(__initAssessorsListener, 500);
+    return;
+  }
+  window.ASSESSORS.load('interview').then(list => {
+    if (Array.isArray(list) && list.length > 0) {
+      INTERVIEWER_LIST = list;
+      console.log('[INTERVIEW] Interviewer dinamis:', list.join(', '));
+    }
+  });
+  window.ASSESSORS.onChange('interview', list => {
+    INTERVIEWER_LIST = list;
+  });
+}
+__initAssessorsListener();
 
   const CRITERIA = {
     guru: [
@@ -204,19 +222,12 @@
       `;
 
       // Attach event listeners
-      modal.querySelectorAll('.iv-pick-item').forEach(lbl => {
-        lbl.addEventListener('click', (e) => {
-          if (e.target.tagName !== 'INPUT') {
-            const cb = lbl.querySelector('input');
-            cb.checked = !cb.checked;
-          }
-          setTimeout(updatePickState, 0);
-        });
-
-        const cb = lbl.querySelector('input');
-        cb.addEventListener('change', updatePickState);
-      });
-
+modal.querySelectorAll('.iv-pick-item').forEach(lbl => {
+  const cb = lbl.querySelector('input');
+  cb.addEventListener('change', () => {
+    setTimeout(updatePickState, 0);
+  });
+});
       document.getElementById('ivGenBtn').onclick = () => {
         const picked = getChecked();
         if (picked.length === 0) return;

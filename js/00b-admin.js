@@ -2077,7 +2077,21 @@ function renderAdminPanel() {
           <div style="padding: 10px 18px; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff;
             border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
         </button>
-
+<button onclick="openAssessorSettingsPage()" style="width: 100%; padding: 20px 22px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #93c5fd;
+  border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;">
+  <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+    <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+      background: linear-gradient(135deg, #3b82f6, #1e40af); border-radius: 14px; font-size: 22px;">👥</div>
+    <div style="min-width: 0;">
+      <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px;">Kelola Asesor</div>
+      <div style="font-size: 12px; font-weight: 700; color: #1e40af;">Daftar nama untuk Interview &amp; FGD</div>
+    </div>
+  </div>
+  <div style="padding: 10px 18px; background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff;
+    border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
+</button>
         <button onclick="openPasswordSettingsPage()" style="width: 100%; padding: 20px 22px;
           background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #fcd34d;
           border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
