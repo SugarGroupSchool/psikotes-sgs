@@ -778,9 +778,22 @@ function __extractCandidateInfo(file) {
       if (t.startsWith('Password PDF:')) password = t.replace('Password PDF:', '').trim();
     });
   } catch (e) {}
+
   if (name === '-' && file.name) {
-    const m = String(file.name).match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2})/i);
-    if (m) name = m[1].replace(/-/g, ' ').trim();
+    const fileName = String(file.name);
+    let m;
+
+    // 🆕 Fallback 1: pattern [Nama-Kandidat]-...
+    m = fileName.match(/^\[([^\]]+)\]-/);
+    if (m) {
+      name = m[1].replace(/-/g, ' ').trim();
+    }
+
+    // Fallback 2: pattern SGS lama
+    if (name === '-' || !name) {
+      m = fileName.match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2})/i);
+      if (m) name = m[1].replace(/-/g, ' ').trim();
+    }
   }
   return { name, position, password };
 }
