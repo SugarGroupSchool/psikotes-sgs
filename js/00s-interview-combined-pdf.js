@@ -133,13 +133,33 @@
       throw new Error('Firebase belum siap');
     }
     const slug = candidateSlug(candidateName);
-    const snap = await firebase.database()
-      .ref('sgs_interviews/' + slug).once('value');
-    const data = snap.val() || {};
+
+    const [snap, lastDeleteSnap] = await Promise.all([
+      firebase.database().ref('sgs_interviews/' + slug).once('value'),
+      firebase.database().ref('sgs_state/lastDelete').once('value')
+    ]);
+
+    const rawData = snap.val() || {};
+    const lastDelete = lastDeleteSnap.val() || {};
+
+    const sameCandidate =
+      lastDelete.candidateName &&
+      candidateSlug(lastDelete.candidateName) === slug;
+    const cutoffTs = sameCandidate ? (Number(lastDelete.ts) || 0) : 0;
+
+    const data = {};
+    Object.keys(rawData).forEach(iv => {
+      const item = rawData[iv] || {};
+      const ts = Number(item.ts) || 0;
+      if (ts > cutoffTs) data[iv] = item;
+    });
+
     const interviewers = Object.keys(data).sort();
+    console.log('[INTERVIEW-COMBINED] Fetched:', interviewers.length,
+      'interviewer (cutoff:', cutoffTs > 0 ?
+      new Date(cutoffTs).toLocaleString('id-ID') : 'tidak ada delete');
     return { slug, data, interviewers };
   }
-
   async function loadLogoDataURL() {
     const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO)
       || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';

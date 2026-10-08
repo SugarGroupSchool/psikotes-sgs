@@ -879,10 +879,13 @@ async function deleteResultFile(fileId, fileName) {
       if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
       if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-      try {
+           try {
         firebase.database().ref('sgs_state/lastDelete').set({
           ts: firebase.database.ServerValue.TIMESTAMP,
-          fileId: fileId
+          fileId: fileId,
+          candidateName: (typeof __extractWawancaraBase === 'function' && typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName))
+            ? __extractWawancaraBase(fileName)
+            : null
         }).catch(() => {});
       } catch (e) {}
 
