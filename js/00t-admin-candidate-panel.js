@@ -6,10 +6,13 @@
    - Tombol Reset HANYA di tab Wawancara
    - Subject rating (1-4) hanya untuk Guru/Dosen
    - Excel tab hanya untuk Admin/Staff
+   - FGD hanya untuk posisi Guru/Dosen
    - Tab Tes: auto-label TAHAP 1, TAHAP 2 jika > 1 file
    - File item: layout vertikal (stack) untuk panel sempit
    - 🆕 Status Lolos / Tidak Lolos + tombol WhatsApp + Kirim Email
-   - 🆕 Auto-fetch email & phone dari Firebase (multi-source)
+   - 🆕 Auto-fetch email & phone dari Firebase + Drive
+   - 🆕 Layout baru: Tabs di atas → Status collapsible di bawah
+   - 🆕 Tombol 🗑️ hapus total kandidat
    ============================================================ */
 
 (function () {
@@ -138,13 +141,8 @@
 
   /* ============================================================
      CARI EMAIL KANDIDAT — AUTO dari Firebase + Drive
-     Prioritas:
-       1. sgs_candidate_status/{slug}/email  (cache)
-       2. sgs_state/sessions/* by name       (presence)
-       3. sgs_interviews/{slug}/*
-       4. Drive file description             (PDF submission)
-   ============================================================ */
-   async function findEmail(slug, candidateName) {
+     ============================================================ */
+  async function findEmail(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
     // 1. Cache
@@ -188,19 +186,17 @@
       }
     } catch (e) {}
 
-    // 4. 🆕 Drive file description (untuk kandidat lama yang sudah submit)
+    // 4. Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
         const nameLower = String(candidateName || '').toLowerCase().trim();
-
         for (const f of files) {
           const desc = String(f.description || '');
           const namaMatch = desc.match(/Nama:\s*(.+)/i);
           if (!namaMatch) continue;
           const fileNama = String(namaMatch[1]).toLowerCase().trim();
           if (fileNama !== nameLower) continue;
-
           const emailMatch = desc.match(/Email:\s*([^\s\n]+@[^\s\n]+)/i);
           if (emailMatch && emailMatch[1] && emailMatch[1].includes('@')) {
             const email = emailMatch[1].trim();
@@ -217,9 +213,9 @@
   }
 
   /* ============================================================
-     CARI PHONE (WA) KANDIDAT — AUTO dari Firebase
+     CARI PHONE (WA) KANDIDAT — AUTO dari Firebase + Drive
      ============================================================ */
-    async function findPhone(slug, candidateName) {
+  async function findPhone(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
     // 1. Cache
@@ -230,7 +226,7 @@
       if (cached && String(cached).replace(/\D/g, '').length >= 9) return cached;
     } catch (e) {}
 
-    // 2. sgs_state/sessions (by name match)
+    // 2. sgs_state/sessions
     try {
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
@@ -248,19 +244,17 @@
       }
     } catch (e) {}
 
-    // 3. 🆕 Drive file description
+    // 3. Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
         const nameLower = String(candidateName || '').toLowerCase().trim();
-
         for (const f of files) {
           const desc = String(f.description || '');
           const namaMatch = desc.match(/Nama:\s*(.+)/i);
           if (!namaMatch) continue;
           const fileNama = String(namaMatch[1]).toLowerCase().trim();
           if (fileNama !== nameLower) continue;
-
           const phoneMatch = desc.match(/(?:No\.?\s*HP|Phone|HP):\s*([0-9+\-\s]{8,20})/i);
           if (phoneMatch && phoneMatch[1]) {
             const phone = phoneMatch[1].replace(/\D/g, '');
@@ -589,6 +583,140 @@
   }
 
   /* ============================================================
+     🗑️ HAPUS TOTAL KANDIDAT — semua resource
+     ============================================================ */
+  window.adminDeleteCandidateCompletely = async function (candidateName, candidatePosition) {
+    if (!candidateName) return alert('Nama kandidat kosong.');
+    const slug = slugify(candidateName);
+
+    const ok1 = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
+          '👤 ' + candidateName + '\n' +
+          '💼 ' + (candidatePosition || '-') + '\n\n' +
+          'Yang akan dihapus PERMANEN:\n' +
+          '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
+          '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
+          '  subject_ratings, candidate_status\n' +
+          '• Chat room (jika ada)\n\n' +
+          'Tidak bisa dibatalkan!',
+          { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
+        )
+      : confirm('Hapus total kandidat ' + candidateName + '?');
+
+    if (!ok1) return;
+
+    const ok2 = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          'Konfirmasi terakhir:\n\nHapus permanen "' + candidateName + '"?',
+          { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
+        )
+      : confirm('Yakin 100%? Tindakan ini permanen.');
+
+    if (!ok2) return;
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      return alert('Firebase belum siap');
+    }
+
+    let driveDeleted = 0;
+    let fbDeleted = 0;
+
+    // === 1. HAPUS FILE DI DRIVE ===
+    try {
+      const files = (typeof window.fetchResultFiles === 'function')
+        ? await window.fetchResultFiles(true) : [];
+
+      const nameLower = String(candidateName).toLowerCase().trim();
+
+      const targets = files.filter(f => {
+        const n = String(f.name || '').toLowerCase();
+        const desc = String(f.description || '').toLowerCase();
+
+        const descMatch = desc.match(/nama:\s*(.+)/i);
+        if (descMatch && descMatch[1].trim() === nameLower) return true;
+
+        if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
+        if (n.startsWith(slug + '-')) return true;
+
+        return false;
+      });
+
+      if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
+        const idToken = (typeof window.__getFirebaseIdToken === 'function')
+          ? await window.__getFirebaseIdToken() : '';
+
+        for (const f of targets) {
+          try {
+            const res = await fetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+            });
+            if (res.ok) {
+              if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
+              if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
+              driveDeleted++;
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) { console.warn('[DELETE] Drive:', e.message); }
+
+    // === 2. HAPUS DATA DI FIREBASE ===
+    const paths = [
+      'sgs_interviews/' + slug,
+      'sgs_grafis_interp/' + slug,
+      'sgs_grafis_images/' + slug,
+      'sgs_fgd/' + slug,
+      'sgs_subject_ratings/' + slug,
+      'sgs_candidate_status/' + slug
+    ];
+
+    for (const path of paths) {
+      try {
+        await firebase.database().ref(path).remove();
+        fbDeleted++;
+      } catch (e) {}
+    }
+
+    // === 3. HAPUS CHAT ROOM (kalau ada) ===
+    try {
+      const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = sessionsSnap.val() || {};
+      const nameLower = String(candidateName).toLowerCase().trim();
+
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          try {
+            await firebase.database().ref('sgs_state/chats/' + devId).remove();
+            await firebase.database().ref('sgs_state/sessions/' + devId).remove();
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // === 4. INVALIDATE CACHE & REFRESH ===
+    if (typeof window.__invalidateResultCache === 'function') window.__invalidateResultCache();
+    setTimeout(() => {
+      if (document.getElementById('resultFilesPageOverlay') && typeof window.__renderResultPageContent === 'function') {
+        window.__renderResultPageContent();
+      }
+    }, 500);
+
+    const card = document.querySelector('.rf-card[data-candidate-slug="' + slug + '"]');
+    if (card) card.remove();
+
+    alert(
+      '✅ Hapus total selesai:\n\n' +
+      '• Firebase paths: ' + fbDeleted + ' dihapus\n' +
+      '• File Drive: ' + driveDeleted + ' dihapus\n\n' +
+      'Kandidat "' + candidateName + '" sudah dihapus permanen.'
+    );
+  };
+
+  /* ============================================================
      COMPACT FILE ITEM
      ============================================================ */
   function compactFileItem(el) {
@@ -641,7 +769,6 @@
 
   /* ============================================================
      BACKFILL GLOBAL — Scan sessions + Drive, cache semua kontak
-     Jalankan sekali saat panel admin load
      ============================================================ */
   let __backfillDone = false;
   async function backfillAllContacts() {
@@ -651,7 +778,7 @@
     if (typeof firebase === 'undefined' || !firebase.apps.length) return;
 
     console.log('[BACKFILL] Memulai sinkronisasi kontak...');
-    const map = {}; // nameLower → { name, email, phone }
+    const map = {};
 
     // 1. Dari sessions
     try {
@@ -671,7 +798,7 @@
       console.warn('[BACKFILL] Sessions gagal:', e.message);
     }
 
-    // 2. Dari Drive file description (backfill kandidat lama)
+    // 2. Dari Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -700,8 +827,7 @@
       console.warn('[BACKFILL] Drive gagal:', e.message);
     }
 
-    // 3. Push ke sgs_candidate_status (per-slug, batch via Promise.all)
-    // ⚠️ Firebase Rules butuh: candidateName + ts (validate), jadi harus per-slug
+    // 3. Push ke sgs_candidate_status (per-slug)
     let saved = 0;
     const promises = [];
 
@@ -739,9 +865,32 @@
     console.log('[BACKFILL] ✓ Selesai');
   }
 
+  /* ============================================================
+     KONTAK CHIP — info email & phone
+     ============================================================ */
+  function contactChipHTML(statusData) {
+    const email = statusData?.email || '';
+    const phone = statusData?.phone || '';
+    if (!email && !phone) return '';
+    let html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;font-size:10.5px;">';
+    if (email) {
+      html += '<span style="padding:3px 9px;border-radius:999px;' +
+        'background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);' +
+        'color:#c4b5fd;font-weight:700;">📧 ' + esc(email) + '</span>';
+    }
+    if (phone) {
+      html += '<span style="padding:3px 9px;border-radius:999px;' +
+        'background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.3);' +
+        'color:#86efac;font-weight:700;">📱 ' + esc(phone) + '</span>';
+    }
+    html += '</div>';
+    return html;
+  }
 
   /* ============================================================
-     STATUS BAR HTML
+     STATUS BAR HTML — Collapsible
+     Default: badge compact "📋 Status: X ▾"
+     Klik: expand → dropdown + WA + Email
      ============================================================ */
   function statusBarHTML(slug, statusData, name, position) {
     const cur = statusData?.status || '';
@@ -753,39 +902,76 @@
     ).join('');
 
     return (
-      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;' +
-      'padding:10px 12px;background:rgba(255,255,255,.03);' +
-      'border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-top:10px;">' +
-        '<span style="font-size:10.5px;font-weight:800;color:#94a3b8;' +
-        'letter-spacing:1px;text-transform:uppercase;">Status Kelulusan</span>' +
-        '<select class="js-candidate-status" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-          'style="padding:6px 10px;border-radius:8px;' +
-          'background:' + curOpt.bg + ';border:1.5px solid ' + curOpt.border + ';' +
-          'color:' + curOpt.color + ';font-family:inherit;font-size:11.5px;' +
-          'font-weight:800;cursor:pointer;outline:none;">' +
-          opts +
-        '</select>' +
-        '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-          'style="padding:7px 14px;border-radius:8px;' +
-          'background:linear-gradient(135deg,#25d366,#128c7e);' +
-          'border:1px solid rgba(37,211,102,.5);color:#fff;' +
-          'font-family:inherit;font-size:11.5px;font-weight:800;' +
-          'cursor:pointer;white-space:nowrap;' +
-          'box-shadow:0 4px 12px rgba(37,211,102,.2);">' +
-          '📱 Hubungi WA' +
+      '<div class="js-status-box" data-slug="' + esc(slug) + '" ' +
+      'style="margin-top:14px;border-radius:14px;overflow:hidden;' +
+      'background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.06));' +
+      'border:1.5px solid rgba(99,102,241,.25);">' +
+
+        // Toggle header
+        '<button type="button" class="js-status-toggle" ' +
+          'style="width:100%;display:flex;align-items:center;justify-content:space-between;' +
+          'gap:10px;padding:12px 16px;background:transparent;border:0;cursor:pointer;' +
+          'font-family:inherit;text-align:left;">' +
+          '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
+            '<span style="font-size:18px;">📋</span>' +
+            '<div style="min-width:0;">' +
+              '<div style="font-size:10.5px;font-weight:800;color:#818cf8;' +
+                'letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;">' +
+                'Status Kelulusan</div>' +
+              '<div class="js-status-label" style="font-size:14px;font-weight:900;' +
+                'color:' + curOpt.color + ';white-space:nowrap;overflow:hidden;' +
+                'text-overflow:ellipsis;">' +
+                curOpt.label +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<span class="js-status-chevron" style="font-size:14px;color:#818cf8;' +
+            'transition:transform .2s ease;">▾</span>' +
         '</button>' +
-        '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-          'style="padding:7px 14px;border-radius:8px;' +
-          'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
-          'border:1px solid rgba(139,92,246,.5);color:#fff;' +
-          'font-family:inherit;font-size:11.5px;font-weight:800;' +
-          'cursor:pointer;white-space:nowrap;' +
-          'box-shadow:0 4px 12px rgba(139,92,246,.2);">' +
-          '📧 Kirim Email' +
-        '</button>' +
+
+        // Expanded content
+        '<div class="js-status-content" style="display:none;padding:0 16px 16px;' +
+          'border-top:1px solid rgba(99,102,241,.15);">' +
+
+          // Dropdown status
+          '<div style="margin-top:14px;margin-bottom:12px;">' +
+            '<div style="font-size:10.5px;font-weight:800;color:#94a3b8;' +
+              'letter-spacing:1px;margin-bottom:6px;">UBAH STATUS</div>' +
+            '<select class="js-candidate-status" data-slug="' + esc(slug) + '" ' +
+              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+              'style="width:100%;padding:10px 12px;border-radius:10px;' +
+              'background:' + curOpt.bg + ';border:1.5px solid ' + curOpt.border + ';' +
+              'color:' + curOpt.color + ';font-family:inherit;font-size:13px;' +
+              'font-weight:800;cursor:pointer;outline:none;">' +
+              opts +
+            '</select>' +
+          '</div>' +
+
+          // Aksi: WA + Email
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
+              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+              'style="flex:1;padding:11px 14px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#25d366,#128c7e);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+              'font-weight:800;cursor:pointer;' +
+              'box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
+              '📱 Hubungi WA' +
+            '</button>' +
+            '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
+              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+              'style="flex:1;padding:11px 14px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+              'font-weight:800;cursor:pointer;' +
+              'box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
+              '📧 Kirim Email' +
+            '</button>' +
+          '</div>' +
+
+          contactChipHTML(statusData) +
+
+        '</div>' +
       '</div>'
     );
   }
@@ -804,7 +990,6 @@
     if (!fileList) return;
 
     const items = Array.from(fileList.children);
-
     card.dataset.tabbed = '1';
 
     const groups = { tes: [], grafis: [], fgd: [], wawancara: [], excel: [] };
@@ -842,9 +1027,12 @@
     if (grBtn || groups.grafis.length > 0) {
       tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
     }
-    if (fgdBtn || groups.fgd.length > 0) {
+
+    // 🆕 FGD hanya untuk posisi Guru/Dosen
+    if (isGuru && (fgdBtn || groups.fgd.length > 0)) {
       tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
     }
+
     if (ivBtn || groups.wawancara.length > 0) {
       tabs.push({ id: 'wawancara', label: '🎤 Wawancara', items: groups.wawancara, actionBtn: ivBtn });
     }
@@ -965,12 +1153,52 @@
 
     fileList.style.display = 'none';
 
+    // Set data-slug di card
+    card.setAttribute('data-candidate-slug', slug);
+
+    // Pastikan card relative untuk tombol sampah
+    if (getComputedStyle(card).position === 'static') {
+      card.style.position = 'relative';
+    }
+
+    // Buat status bar collapsible
     const statusBar = document.createElement('div');
     statusBar.className = 'js-status-bar';
     statusBar.innerHTML = statusBarHTML(slug, statusData, name, position);
 
-    fileList.parentElement.insertBefore(statusBar, fileList);
-    fileList.parentElement.insertBefore(wrapper, fileList.nextSibling);
+    // 🆕 Tombol sampah — pojok kanan atas kartu
+    if (!card.querySelector('.js-delete-candidate')) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'js-delete-candidate';
+      deleteBtn.setAttribute('data-name', name);
+      deleteBtn.setAttribute('data-position', position);
+      deleteBtn.title = 'Hapus total kandidat (semua tes)';
+      deleteBtn.style.cssText =
+        'position:absolute;top:12px;right:12px;' +
+        'width:34px;height:34px;' +
+        'display:grid;place-items:center;' +
+        'background:rgba(239,68,68,.12);' +
+        'border:1.5px solid rgba(239,68,68,.35);' +
+        'border-radius:10px;' +
+        'color:#fca5a5;font-size:15px;' +
+        'cursor:pointer;font-family:inherit;' +
+        'transition:all .15s ease;z-index:5;';
+      deleteBtn.textContent = '🗑️';
+      deleteBtn.onmouseenter = () => {
+        deleteBtn.style.background = 'rgba(239,68,68,.25)';
+        deleteBtn.style.transform = 'scale(1.08)';
+      };
+      deleteBtn.onmouseleave = () => {
+        deleteBtn.style.background = 'rgba(239,68,68,.12)';
+        deleteBtn.style.transform = 'scale(1)';
+      };
+
+      card.appendChild(deleteBtn);
+    }
+
+    // 🆕 INSERT: Tabs DULU → Status di BAWAH
+    fileList.parentElement.insertBefore(wrapper, fileList);
+    fileList.parentElement.insertBefore(statusBar, wrapper.nextSibling);
 
     setTimeout(() => {
       card.querySelectorAll(':scope > .js-reset-interview').forEach(b => b.remove());
@@ -981,7 +1209,37 @@
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
-    // Reset
+    // 🆕 TOMBOL SAMPAH
+    const delBtn = e.target.closest('.js-delete-candidate');
+    if (delBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const name = delBtn.getAttribute('data-name');
+      const position = delBtn.getAttribute('data-position');
+      if (name && typeof window.adminDeleteCandidateCompletely === 'function') {
+        window.adminDeleteCandidateCompletely(name, position);
+      }
+      return;
+    }
+
+    // 🆕 STATUS TOGGLE
+    const statusToggle = e.target.closest('.js-status-toggle');
+    if (statusToggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      const box = statusToggle.closest('.js-status-box');
+      if (!box) return;
+      const content = box.querySelector('.js-status-content');
+      const chevron = box.querySelector('.js-status-chevron');
+      if (!content) return;
+
+      const isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : 'block';
+      if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+      return;
+    }
+
+    // Reset interview
     const r = e.target.closest('.js-reset-interview');
     if (r) {
       e.preventDefault();
@@ -1003,8 +1261,8 @@
       const name = wa.getAttribute('data-name');
       const position = wa.getAttribute('data-position');
 
-      const bar = wa.closest('.js-status-bar');
-      const statusSel = bar ? bar.querySelector('.js-candidate-status') : null;
+      const box = wa.closest('.js-status-box');
+      const statusSel = box ? box.querySelector('.js-candidate-status') : null;
       const statusValue = statusSel ? statusSel.value : '';
 
       openWhatsApp(slug, name, position, statusValue);
@@ -1020,8 +1278,8 @@
       const name = emailBtn.getAttribute('data-name');
       const position = emailBtn.getAttribute('data-position');
 
-      const bar = emailBtn.closest('.js-status-bar');
-      const statusSel = bar ? bar.querySelector('.js-candidate-status') : null;
+      const box = emailBtn.closest('.js-status-box');
+      const statusSel = box ? box.querySelector('.js-candidate-status') : null;
       const statusValue = statusSel ? statusSel.value : '';
 
       if (!statusValue) {
@@ -1184,6 +1442,16 @@
 
         statSel.style.boxShadow = '0 0 0 3px rgba(34,197,94,.3)';
         setTimeout(() => { statSel.style.boxShadow = ''; }, 1200);
+
+        // 🆕 Update label di header status
+        const box = statSel.closest('.js-status-box');
+        if (box) {
+          const label = box.querySelector('.js-status-label');
+          if (label) {
+            label.textContent = opt.label;
+            label.style.color = opt.color;
+          }
+        }
       }
     }
   }, true);
@@ -1206,12 +1474,11 @@
     });
   }
 
-  /* 🆕 Backfill otomatis semua kontak (1× per sesi) */
+  /* 🆕 Backfill otomatis semua kontak */
   if (!window.__sgsBackfillDone) {
     window.__sgsBackfillDone = true;
     setTimeout(() => {
       backfillAllContacts().then(() => {
-        // Re-scan setelah backfill untuk update chip
         setTimeout(scanAndRestructure, 500);
       }).catch(() => {});
     }, 800);
@@ -1219,9 +1486,11 @@
 
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
+
   /* 🆕 Expose untuk debugging/testing via Console */
   window.__findEmail = findEmail;
   window.__findPhone = findPhone;
   window.__backfillAllContacts = backfillAllContacts;
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + reset');
+
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + reset + delete');
 })();
