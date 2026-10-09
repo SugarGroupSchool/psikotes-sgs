@@ -649,13 +649,6 @@ function __syncDeleteToFirebase(fileName, fileId) {
    - Hapus sgs_interviews/budi-* di Firebase
    ============================================================ */
 
-function __slugifyName(name) {
-  return String(name || 'tanpa-nama').toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80) || 'tanpa-nama';
-}
-
 function __isWawancaraFile(name) {
   return /-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i.test(String(name || ''));
 }
@@ -961,9 +954,9 @@ function __extractCandidateInfo(file) {
       name = m[1].replace(/-/g, ' ').trim();
     }
 
-    // Fallback 2: pattern SGS lama
+    // Fallback 2: pattern SGS lama + Wawancara + Grafis + FGD
     if (name === '-' || !name) {
-      m = fileName.match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2})/i);
+      m = fileName.match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2}|Wawancara-(?:COMBINED|[A-Z0-9]+)|Grafis-[A-Z0-9]+|FGD-[A-Z0-9]+)/i);
       if (m) name = m[1].replace(/-/g, ' ').trim();
     }
   }

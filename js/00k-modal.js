@@ -148,46 +148,55 @@
       const inputEl = ov.querySelector('#sgsModalInput');
       if (inputEl) setTimeout(() => { inputEl.focus(); inputEl.select(); }, 80);
 
+      /* =========================================================
+         FINISH — dipanggil saat modal ditutup (OK / Cancel / Esc / Overlay)
+         Memastikan listener keyHandler SELALU dihapus
+         ========================================================= */
+      let __finished = false;
       function finish(value) {
+        if (__finished) return;
+        __finished = true;
+        document.removeEventListener('keydown', keyHandler);
         closeOverlay();
         resolve(value);
       }
 
+      /* =========================================================
+         KEY HANDLER — Enter = OK, Escape = Cancel
+         Dideklarasikan SEKALI saja
+         ========================================================= */
+      function keyHandler(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (type === 'prompt') finish(inputEl ? inputEl.value : null);
+          else finish(true);
+        } else if (e.key === 'Escape' && type !== 'alert') {
+          if (type === 'prompt') finish(null);
+          else finish(false);
+        }
+      }
+      document.addEventListener('keydown', keyHandler);
+
+      /* ---------- OK BUTTON ---------- */
       ov.querySelector('[data-act="ok"]').onclick = () => {
         if (type === 'prompt') finish(inputEl ? inputEl.value : null);
-        else if (type === 'confirm') finish(true);
         else finish(true);
       };
 
+      /* ---------- CANCEL BUTTON ---------- */
       const cancelBtn = ov.querySelector('[data-act="cancel"]');
       if (cancelBtn) cancelBtn.onclick = () => {
         if (type === 'prompt') finish(null);
         else finish(false);
       };
 
-      // Klik overlay → cancel (bukan untuk alert)
+      /* ---------- OVERLAY CLICK → CANCEL (kecuali alert) ---------- */
       ov.addEventListener('click', (e) => {
         if (e.target === ov && type !== 'alert') {
           if (type === 'prompt') finish(null);
           else finish(false);
         }
       });
-
-      // Enter → OK; Escape → cancel
-      const keyHandler = (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          if (type === 'prompt') finish(inputEl ? inputEl.value : null);
-          else if (type === 'confirm') finish(true);
-          else finish(true);
-          document.removeEventListener('keydown', keyHandler);
-        } else if (e.key === 'Escape' && type !== 'alert') {
-          if (type === 'prompt') finish(null);
-          else finish(false);
-          document.removeEventListener('keydown', keyHandler);
-        }
-      };
-      document.addEventListener('keydown', keyHandler);
     });
   }
 
@@ -229,5 +238,53 @@
       inputType: opts.inputType || 'text'
     });
 
-  console.log('[MODAL] ✓ Loaded — sgsAlert(), sgsConfirm(), sgsPrompt()');
+  /* ============================================================
+     TOAST — notifikasi kecil di kanan bawah
+     Dipanggil oleh: 00m-interview.js, 00t-admin-candidate-panel.js
+     ============================================================ */
+  window.__showToast = function(msg, type) {
+    type = type || 'info';
+    const colors = {
+      success: '#16a34a',
+      error:   '#dc2626',
+      warn:    '#f59e0b',
+      info:    '#3b82f6'
+    };
+    const color = colors[type] || colors.info;
+
+    let container = document.getElementById('sgsToastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'sgsToastContainer';
+      container.style.cssText =
+        'position:fixed;bottom:24px;right:24px;z-index:2147483647;' +
+        'display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+      document.body.appendChild(container);
+    }
+
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText =
+      'padding:12px 18px;border-radius:10px;' +
+      'background:' + color + ';color:#fff;font-weight:800;font-size:13px;' +
+      'font-family:Inter,system-ui,sans-serif;' +
+      'box-shadow:0 10px 26px ' + color + '55;' +
+      'pointer-events:auto;' +
+      'opacity:0;transform:translateX(20px);' +
+      'transition:opacity .22s ease,transform .22s ease;';
+    container.appendChild(t);
+
+    requestAnimationFrame(() => {
+      t.style.opacity = '1';
+      t.style.transform = 'translateX(0)';
+    });
+
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(20px)';
+      setTimeout(() => t.remove(), 250);
+    }, 2500);
+  };
+
+  console.log('[MODAL] ✓ Loaded — sgsAlert(), sgsConfirm(), sgsConfirmDanger(), sgsPrompt(), __showToast()');
 })();

@@ -36,12 +36,6 @@ function __getDeviceId() {
 let __requestScreenRendered = false;
 
 function showRequestAccessScreen() {
-  // ✅ FIX: izinkan re-render setelah disqualification ulang
-  if (window.__sgs_requestScreenRendered === false) {
-    __requestScreenRendered = false;
-    window.__sgs_requestScreenRendered = undefined;
-  }
-
   if (__requestScreenRendered) return;
   __requestScreenRendered = true;
   __requestDeviceId = __getDeviceId();

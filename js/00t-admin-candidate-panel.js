@@ -1358,7 +1358,7 @@
       return !/-wawancara-|-fgd-|-grafis-|xlsx/.test(h);
     });
 
-    const ivBtn  = card.querySelector('.js-interview-link');
+       const ivBtn  = card.querySelector('.js-interview-link');
     const grBtn  = card.querySelector('.js-grafindo-link');
     const fgdBtn = card.querySelector('.js-fgd-link');
 
@@ -1367,6 +1367,14 @@
     const position = (anyBtn ? anyBtn.getAttribute('data-position') : '') || '';
     const posLower = position.toLowerCase();
     const isGuru = /guru|dosen|teacher|pengajar/.test(posLower);
+
+    /* 🐛 FIX: Race condition — kalau posisi guru tapi tombol FGD
+       belum di-inject oleh 00p-fgd-admin.js (delay), tunda restructure */
+    if (isGuru && grBtn && !fgdBtn) {
+      delete card.dataset.tabbed;
+      setTimeout(function() { restructureCard(card).catch(function() {}); }, 300);
+      return;
+    }
     const isAdmin = /admin|staff|sekretariat|office/.test(posLower);
     const slug = slugify(name);
 

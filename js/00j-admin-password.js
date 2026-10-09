@@ -3,6 +3,7 @@
    - Halaman baru: Pengaturan Password (FRESH & USED)
    - Dibuka dari panel admin via openPasswordSettingsPage()
    - CSP-safe: event delegation (tanpa onclick inline)
+   - ✅ FIX: Konsisten pakai sgsAlert/sgsConfirmDanger (fallback native)
    ============================================================ */
 
 (function() {
@@ -35,6 +36,21 @@
     setTimeout(function() { t.remove(); }, 2500);
   }
 
+  /* 🔒 Wrapper modal — pakai sgsAlert/sgsConfirmDanger kalau ada, fallback native */
+  function __alert(text, title) {
+    if (typeof window.sgsAlert === 'function') {
+      return window.sgsAlert(text, title || 'Informasi');
+    }
+    alert(text);
+    return Promise.resolve();
+  }
+  function __confirmDanger(text, opts) {
+    if (typeof window.sgsConfirmDanger === 'function') {
+      return window.sgsConfirmDanger(text, opts || { title: '⚠️ Konfirmasi' });
+    }
+    return Promise.resolve(confirm(text));
+  }
+
   /* ============================================================
      OPEN / CLOSE
      ============================================================ */
@@ -44,9 +60,9 @@
 
     var overlay = document.createElement('div');
     overlay.id = 'passwordSettingsPageOverlay';
-   overlay.style.cssText = [
-  'position:fixed;inset:0;z-index:100002;',   // ← GANTI
-  'background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);',
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:100002;',
+      'background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);',
       'display:flex;flex-direction:column;',
       'font-family:Inter,system-ui,-apple-system,sans-serif;',
       'color:#e2e8f0;overflow:hidden;',
@@ -116,9 +132,8 @@
   function closePasswordSettingsPage() {
     var overlay = document.getElementById('passwordSettingsPageOverlay');
     if (overlay) overlay.remove();
-    if (typeof window.renderAdminPanel === 'function') {
-      try { window.renderAdminPanel(); } catch(e) {}
-    }
+    /* ✅ FIX: tidak perlu re-render seluruh admin panel
+       (menghindari leak listener & recreate state) */
   }
 
   /* ============================================================
@@ -226,16 +241,22 @@
     document.body.removeChild(ta);
   }
 
-  function handleAction(action, btn) {
+  async function handleAction(action, btn) {
+
+    /* ---------- TOGGLE LOCK ---------- */
     if (action === 'toggle-lock') {
       var locked = (typeof window.getLockState === 'function') ? window.getLockState() : false;
       var next = !locked;
+
       if (typeof window.setLockStateCloud === 'function') {
-        window.setLockStateCloud(next).then(function() {
+        try {
+          await window.setLockStateCloud(next);
           try { localStorage.setItem('_sgs_lock', next ? '1' : '0'); } catch(e){}
           toast(next ? '🔒 Login dikunci' : '🔓 Login dibuka', next ? '#dc2626' : '#16a34a');
           renderContent();
-        }).catch(function(e) { alert('Gagal: ' + e.message); });
+        } catch (e) {
+          await __alert('Gagal: ' + e.message, '❌ Error');
+        }
       } else if (typeof window.setLockState === 'function') {
         window.setLockState(next);
         toast(next ? '🔒 Login dikunci' : '🔓 Login dibuka', next ? '#dc2626' : '#16a34a');
@@ -244,70 +265,119 @@
       return;
     }
 
+    /* ---------- COPY ---------- */
     if (action === 'copy-fresh' || action === 'copy-used') {
       var val = btn.getAttribute('data-ps-value');
       copyToClipboard(val, btn);
       return;
     }
 
+    /* ---------- REGEN FRESH ---------- */
     if (action === 'regen-fresh') {
-  var newFresh = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
+      var okFresh = await __confirmDanger(
+        'Generate password FRESH baru? Password lama akan hangus.',
+        { title: '🔄 Regenerate FRESH', okText: 'Ya, Generate' }
+      );
+      if (!okFresh) return;
+
+      var newFresh = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
         ? APP_CONFIG.generateRandomPassword('SGS-F-')
         : 'SGS-F-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
       if (typeof window.setFreshPwdCloud === 'function') {
-        window.setFreshPwdCloud(newFresh).then(function() {
+        try {
+          await window.setFreshPwdCloud(newFresh);
           try { localStorage.setItem('_sgs_pwd_fresh', newFresh); } catch(e){}
           toast('✅ Password FRESH diganti');
           renderContent();
-        }).catch(function(e) { alert('Gagal: ' + e.message); });
+        } catch (e) {
+          await __alert('Gagal: ' + e.message, '❌ Error');
+        }
       }
       return;
     }
 
- if (action === 'regen-used') {
-  var newUsed = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
+    /* ---------- REGEN USED ---------- */
+    if (action === 'regen-used') {
+      var okUsed = await __confirmDanger(
+        'Generate password USED baru? Password lama akan hangus.',
+        { title: '🔄 Regenerate USED', okText: 'Ya, Generate' }
+      );
+      if (!okUsed) return;
+
+      var newUsed = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.generateRandomPassword)
         ? APP_CONFIG.generateRandomPassword('SGS-U-')
         : 'SGS-U-' + Math.random().toString(36).slice(2, 10).toUpperCase();
 
       if (typeof window.setUsedPwdCloud === 'function') {
-        window.setUsedPwdCloud(newUsed).then(function() {
+        try {
+          await window.setUsedPwdCloud(newUsed);
           try { localStorage.setItem('_sgs_pwd_used', newUsed); } catch(e){}
           toast('✅ Password USED diganti');
           renderContent();
-        }).catch(function(e) { alert('Gagal: ' + e.message); });
+        } catch (e) {
+          await __alert('Gagal: ' + e.message, '❌ Error');
+        }
       }
       return;
     }
 
+    /* ---------- SET FRESH MANUAL ---------- */
     if (action === 'set-fresh') {
       var freshInput = document.getElementById('psFreshInput');
       var freshVal = freshInput ? freshInput.value.trim() : '';
-      if (freshVal.length < 6) { alert('Password minimal 6 karakter'); return; }
-      if (!confirm('Set password FRESH ke: "' + freshVal + '"? Password lama hangus.')) return;
+
+      if (freshVal.length < 6) {
+        await __alert('Password minimal 6 karakter', '⚠️ Validasi');
+        return;
+      }
+
+      var okSetFresh = await __confirmDanger(
+        'Set password FRESH ke: "' + freshVal + '"?\nPassword lama akan hangus.',
+        { title: '⚠️ Konfirmasi Set FRESH', okText: 'Ya, Set Password' }
+      );
+      if (!okSetFresh) return;
 
       if (typeof window.setFreshPwdCloud === 'function') {
-        window.setFreshPwdCloud(freshVal).then(function() {
+        try {
+          await window.setFreshPwdCloud(freshVal);
           try { localStorage.setItem('_sgs_pwd_fresh', freshVal); } catch(e){}
+          if (freshInput) freshInput.value = '';
           toast('✅ Password FRESH diganti');
           renderContent();
-        }).catch(function(e) { alert('Gagal: ' + e.message); });
+        } catch (e) {
+          await __alert('Gagal: ' + e.message, '❌ Error');
+        }
       }
       return;
     }
 
+    /* ---------- SET USED MANUAL ---------- */
     if (action === 'set-used') {
       var usedInput = document.getElementById('psUsedInput');
       var usedVal = usedInput ? usedInput.value.trim() : '';
-      if (usedVal.length < 6) { alert('Password minimal 6 karakter'); return; }
-      if (!confirm('Set password USED ke: "' + usedVal + '"? Password lama hangus.')) return;
+
+      if (usedVal.length < 6) {
+        await __alert('Password minimal 6 karakter', '⚠️ Validasi');
+        return;
+      }
+
+      var okSetUsed = await __confirmDanger(
+        'Set password USED ke: "' + usedVal + '"?\nPassword lama akan hangus.',
+        { title: '⚠️ Konfirmasi Set USED', okText: 'Ya, Set Password' }
+      );
+      if (!okSetUsed) return;
 
       if (typeof window.setUsedPwdCloud === 'function') {
-        window.setUsedPwdCloud(usedVal).then(function() {
+        try {
+          await window.setUsedPwdCloud(usedVal);
           try { localStorage.setItem('_sgs_pwd_used', usedVal); } catch(e){}
+          if (usedInput) usedInput.value = '';
           toast('✅ Password USED diganti');
           renderContent();
-        }).catch(function(e) { alert('Gagal: ' + e.message); });
+        } catch (e) {
+          await __alert('Gagal: ' + e.message, '❌ Error');
+        }
       }
       return;
     }
