@@ -1146,8 +1146,7 @@
       tabs.push({ id: 'excel', label: '📊 Excel', items: groups.excel });
     }
     // 🆕 Tab "Kirim Tahap 2" — SELALU tampil
-    tabs.push({ id: 'retake', label: '📤 Kirim Tahap 2', special: 'retake' });
-
+    // 🆕 Retake panel akan ditambahkan DI DALAM tab "tes" (bukan tab sendiri)
     // 🆕 Cleanup: hapus tombol action yang TIDAK dipakai
     // (fix bug "FGD muncul di non-guru")
     if (!isGuru && fgdBtn) {
@@ -1191,10 +1190,7 @@
         panel.innerHTML = ratingHTML(slug, ratingData);
         return;
       }
-      if (t.special === 'retake') {
-        panel.innerHTML = retakeHTML(slug, statusData, name, position);
-        return;
-      }
+
       if (t.id === 'wawancara' && t.actionBtn) {
         const btnWrap = document.createElement('div');
         btnWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;';
@@ -1231,7 +1227,7 @@
         panel.appendChild(t.actionBtn);
       }
 
-      if (t.items && t.items.length > 0) {
+           if (t.items && t.items.length > 0) {
         const showLabel = t.multiLabel && t.items.length > 1;
         t.items.forEach((el, idx) => {
           compactFileItem(el);
@@ -1261,6 +1257,14 @@
           'background:rgba(255,255,255,.03);border-radius:10px;border:1px dashed rgba(255,255,255,.1);';
         empty.textContent = 'Belum ada file';
         panel.appendChild(empty);
+      }
+
+      // 🆕 Panel Retake — hanya di tab "tes", di bawah semua file PDF
+      if (t.id === 'tes') {
+        const retakeWrap = document.createElement('div');
+        retakeWrap.style.cssText = 'margin-top:14px;';
+        retakeWrap.innerHTML = retakeHTML(slug, statusData, name, position);
+        panel.appendChild(retakeWrap);
       }
     });
 
