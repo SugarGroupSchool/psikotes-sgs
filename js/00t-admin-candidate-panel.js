@@ -8,11 +8,11 @@
    - Excel tab hanya untuk Admin/Staff
    - FGD hanya untuk posisi Guru/Dosen
    - Tab Tes: auto-label TAHAP 1, TAHAP 2 jika > 1 file
-   - File item: layout vertikal (stack) untuk panel sempit
-   - 🆕 Status Lolos / Tidak Lolos + tombol WhatsApp + Kirim Email
-   - 🆕 Auto-fetch email & phone dari Firebase + Drive
-   - 🆕 Layout baru: Tabs di atas → Status collapsible di bawah
-   - 🆕 Tombol 🗑️ hapus total kandidat
+   - Status Lolos / Tidak Lolos + tombol WhatsApp + Kirim Email
+   - Auto-fetch email & phone dari Firebase + Drive
+   - Layout: Tabs di atas → Status collapsible di bawah
+   - Tombol 🗑️ hapus total kandidat
+   - 🆕 Retake panel DI DALAM tab Tes + modal filter tes selesai
    ============================================================ */
 
 (function () {
@@ -145,7 +145,6 @@
   async function findEmail(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
-    // 1. Cache
     try {
       const snap = await firebase.database()
         .ref('sgs_candidate_status/' + slug + '/email').once('value');
@@ -153,7 +152,6 @@
       if (cached && String(cached).includes('@')) return cached;
     } catch (e) {}
 
-    // 2. sgs_state/sessions (by name match)
     try {
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
@@ -171,7 +169,6 @@
       }
     } catch (e) {}
 
-    // 3. sgs_interviews
     try {
       const snap = await firebase.database().ref('sgs_interviews/' + slug).once('value');
       const data = snap.val() || {};
@@ -186,7 +183,6 @@
       }
     } catch (e) {}
 
-    // 4. Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -218,7 +214,6 @@
   async function findPhone(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
-    // 1. Cache
     try {
       const snap = await firebase.database()
         .ref('sgs_candidate_status/' + slug + '/phone').once('value');
@@ -226,7 +221,6 @@
       if (cached && String(cached).replace(/\D/g, '').length >= 9) return cached;
     } catch (e) {}
 
-    // 2. sgs_state/sessions
     try {
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
@@ -244,7 +238,6 @@
       }
     } catch (e) {}
 
-    // 3. Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -561,109 +554,6 @@
     } catch (e) { return false; }
   }
 
-  /* ============================================================
-     🆕 RETAKE TAB — Kirim link tes tahap 2
-     ============================================================ */
-  function retakeHTML(slug, statusData, name, position) {
-    const tests = [
-      { id: 'IST',      label: 'Kecerdasan' },
-      { id: 'KRAEPLIN', label: 'Koran' },
-      { id: 'DISC',     label: 'Kepemimpinan' },
-      { id: 'PAPI',     label: 'Sikap Kerja' },
-      { id: 'BIGFIVE',  label: 'Kepribadian' },
-      { id: 'GRAFIS',   label: 'Gambar' },
-      { id: 'EXCEL',    label: 'Excel' },
-      { id: 'TYPING',   label: 'Mengetik' },
-      { id: 'SUBJECT',  label: 'Subjek' }
-    ];
-
-    const checkboxes = tests.map(t =>
-      '<label style="display:flex;align-items:center;gap:8px;' +
-      'padding:8px 12px;background:rgba(255,255,255,.03);' +
-      'border:1px solid rgba(255,255,255,.08);border-radius:8px;' +
-      'cursor:pointer;font-size:11.5px;">' +
-        '<input type="checkbox" class="js-retake-test" value="' + t.id + '" ' +
-          'style="width:15px;height:15px;accent-color:#3b82f6;cursor:pointer;">' +
-        '<span style="font-weight:700;color:#cbd5e1;">' + t.label + '</span>' +
-      '</label>'
-    ).join('');
-
-    const email = statusData?.email || '';
-    const phone = statusData?.phone || '';
-
-    return (
-      '<div class="js-retake-panel" style="padding:14px;' +
-      'background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.05));' +
-      'border:1.5px solid rgba(59,130,246,.25);border-radius:12px;">' +
-
-        '<div style="font-size:12px;font-weight:800;color:#93c5fd;' +
-        'margin-bottom:8px;">📤 Kirim Link Tes Tahap 2</div>' +
-
-        '<div style="font-size:11px;color:#94a3b8;line-height:1.5;' +
-        'margin-bottom:12px;">' +
-          'Pilih tes yang akan dikerjakan ulang. Kandidat akan menerima ' +
-          'link & <b>langsung masuk ke tes</b> tanpa isi identitas & pilih tes lagi.' +
-        '</div>' +
-
-        '<div style="display:grid;grid-template-columns:repeat(2,1fr);' +
-        'gap:6px;margin-bottom:12px;">' +
-          checkboxes +
-        '</div>' +
-
-        (email ? '<div style="font-size:10.5px;color:#c4b5fd;' +
-                 'margin-bottom:6px;">📧 ' + esc(email) + '</div>' : '') +
-        (phone ? '<div style="font-size:10.5px;color:#86efac;' +
-                 'margin-bottom:6px;">📱 ' + esc(phone) + '</div>' : '') +
-
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<button class="js-retake-copy" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-            'style="flex:1;min-width:80px;padding:10px;border-radius:9px;' +
-            'background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.4);' +
-            'color:#93c5fd;font-family:inherit;font-size:11px;font-weight:800;' +
-            'cursor:pointer;">📋 Copy Link</button>' +
-
-          '<button class="js-retake-wa" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-            'style="flex:1;min-width:80px;padding:10px;border-radius:9px;' +
-            'background:linear-gradient(135deg,#25d366,#128c7e);' +
-            'border:0;color:#fff;font-family:inherit;font-size:11px;' +
-            'font-weight:800;cursor:pointer;">📱 Kirim WA</button>' +
-
-          '<button class="js-retake-email" data-slug="' + esc(slug) + '" ' +
-          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-            'style="flex:1;min-width:80px;padding:10px;border-radius:9px;' +
-            'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
-            'border:0;color:#fff;font-family:inherit;font-size:11px;' +
-            'font-weight:800;cursor:pointer;">📧 Kirim Email</button>' +
-        '</div>' +
-
-      '</div>'
-    );
-  }
-
-  /* ============================================================
-     Helper: ambil tes yang dipilih di panel retake
-     ============================================================ */
-  function __getSelectedRetakeTests(btn) {
-    const panel = btn.closest('.js-retake-panel');
-    if (!panel) return [];
-    const checked = panel.querySelectorAll('.js-retake-test:checked');
-    return Array.from(checked).map(c => c.value);
-  }
-
-  /* ============================================================
-     Build URL retake
-     ============================================================ */
-  function __buildRetakeUrl(name, position, tests) {
-    const base = window.location.origin + window.location.pathname;
-    return base + '?retake=1' +
-      '&n=' + encodeURIComponent(name) +
-      '&p=' + encodeURIComponent(position || '') +
-      '&tests=' + encodeURIComponent(tests.join(','));
-  }
-
-
   function ratingHTML(slug, current) {
     const val = Number(current?.rating) || 0;
     const opts = SUBJECT_RATINGS.map(r =>
@@ -684,6 +574,380 @@
       '</div>'
     );
   }
+
+  /* ============================================================
+     🆕 RETAKE — Tombol pembuka modal
+     ============================================================ */
+  function retakeHTML(slug, statusData, name, position) {
+    return (
+      '<div style="padding:14px;' +
+      'background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.05));' +
+      'border:1.5px solid rgba(59,130,246,.25);border-radius:12px;">' +
+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+          '<div style="width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;' +
+          'background:linear-gradient(135deg,#3b82f6,#1e40af);border-radius:10px;font-size:18px;">📤</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:12px;font-weight:900;color:#93c5fd;margin-bottom:2px;">' +
+              'Tes Tahap 2</div>' +
+            '<div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">' +
+              'Kirim link tes ulang — kandidat langsung masuk tanpa isi data.</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<button class="js-retake-open" ' +
+          'data-slug="' + esc(slug) + '" ' +
+          'data-name="' + esc(name) + '" ' +
+          'data-position="' + esc(position) + '" ' +
+          'style="width:100%;padding:11px 14px;border-radius:10px;' +
+          'background:linear-gradient(135deg,#3b82f6,#1e40af);' +
+          'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+          'font-weight:900;cursor:pointer;' +
+          'box-shadow:0 4px 12px rgba(59,130,246,.3);">' +
+          '📤 Kirim Link Tes Tahap 2' +
+        '</button>' +
+
+      '</div>'
+    );
+  }
+
+  /* ============================================================
+     Build URL retake
+     ============================================================ */
+  function __buildRetakeUrl(name, position, tests) {
+    const base = window.location.origin + window.location.pathname;
+    return base + '?retake=1' +
+      '&n=' + encodeURIComponent(name) +
+      '&p=' + encodeURIComponent(position || '') +
+      '&tests=' + encodeURIComponent(tests.join(','));
+  }
+
+  /* ============================================================
+     🆕 RETAKE MODAL — Filter tes yang belum selesai
+     ============================================================ */
+  window.__openRetakeModal = async function (slug, name, position) {
+    // 1. Fetch completed dari Firebase sessions
+    let completed = {};
+    try {
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      const nameLower = String(name || '').toLowerCase().trim();
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          completed = s.completed || {};
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('[RETAKE] Gagal ambil completed:', e);
+    }
+
+    // 2. List semua tes + filter yang sudah selesai
+    const ALL_TESTS = [
+      { id: 'IST',      label: 'Kecerdasan',    icon: '🧠' },
+      { id: 'KRAEPLIN', label: 'Koran',         icon: '🧮' },
+      { id: 'DISC',     label: 'Kepemimpinan',  icon: '👤' },
+      { id: 'PAPI',     label: 'Sikap Kerja',   icon: '📊' },
+      { id: 'BIGFIVE',  label: 'Kepribadian',   icon: '📝' },
+      { id: 'GRAFIS',   label: 'Gambar',        icon: '🎨' },
+      { id: 'EXCEL',    label: 'Excel',         icon: '📑' },
+      { id: 'TYPING',   label: 'Mengetik',      icon: '⌨️' },
+      { id: 'SUBJECT',  label: 'Subjek',        icon: '📚' }
+    ];
+
+    const available = ALL_TESTS.filter(t => completed[t.id] !== true);
+    const alreadyDone = ALL_TESTS.filter(t => completed[t.id] === true);
+
+    // 3. Hapus modal lama
+    const old = document.getElementById('retakeModalOverlay');
+    if (old) old.remove();
+
+    // 4. Buat modal
+    const overlay = document.createElement('div');
+    overlay.id = 'retakeModalOverlay';
+    overlay.style.cssText = [
+      'position: fixed', 'inset: 0', 'z-index: 2147483640',
+      'background: rgba(10,20,35,.85)',
+      'backdrop-filter: blur(8px)',
+      '-webkit-backdrop-filter: blur(8px)',
+      'display: flex', 'align-items: center', 'justify-content: center',
+      'padding: 20px', 'overflow-y: auto',
+      'font-family: Inter, system-ui, sans-serif'
+    ].join(';');
+
+    const checkboxHTML = available.length > 0
+      ? available.map(t =>
+          '<label class="js-retake-test-item" data-test="' + t.id + '" ' +
+            'style="display:flex;align-items:center;gap:10px;' +
+            'padding:11px 14px;background:#fff;' +
+            'border:1.5px solid #e2e8f0;border-radius:10px;' +
+            'cursor:pointer;font-size:12.5px;font-weight:700;color:#1e293b;' +
+            'transition:all .15s ease;user-select:none;">' +
+            '<input type="checkbox" class="js-retake-test" value="' + t.id + '" ' +
+              'style="width:16px;height:16px;accent-color:#3b82f6;cursor:pointer;">' +
+            '<span style="font-size:16px;line-height:1;">' + t.icon + '</span>' +
+            '<span style="flex:1;">' + t.label + '</span>' +
+          '</label>'
+        ).join('')
+      : '<div style="padding:20px;text-align:center;color:#94a3b8;' +
+        'font-size:13px;background:#f8fafc;border-radius:10px;">' +
+        '✨ Semua tes sudah selesai — tidak ada tes yang perlu diulang.' +
+        '</div>';
+
+    const doneHTML = alreadyDone.length > 0
+      ? '<div style="margin-top:14px;padding:10px 12px;' +
+          'background:#f0fdf4;border:1px solid #86efac;border-radius:9px;' +
+          'font-size:11px;color:#166534;line-height:1.5;">' +
+          '<b>✅ Sudah selesai (' + alreadyDone.length + '):</b> ' +
+          alreadyDone.map(t => t.label).join(', ') +
+        '</div>'
+      : '';
+
+    overlay.innerHTML =
+      '<div style="width: min(520px, 100%); background: #fff; border-radius: 20px; ' +
+      'overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.55);">' +
+
+        // Header
+        '<div style="padding: 22px 24px; ' +
+        'background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+            '<div style="min-width:0;">' +
+              '<div style="font-size:10.5px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:4px;">' +
+                'TES TAHAP 2</div>' +
+              '<div style="font-size:18px;font-weight:900;letter-spacing:-.2px;">📤 Kirim Link Tes</div>' +
+            '</div>' +
+            '<button id="retakeCloseBtn" ' +
+              'style="width:32px;height:32px;display:grid;place-items:center;' +
+              'background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);' +
+              'border-radius:9px;color:#fff;font-size:15px;cursor:pointer;font-family:inherit;">✕</button>' +
+          '</div>' +
+          '<div style="font-size:12px;opacity:.9;margin-top:8px;line-height:1.45;">' +
+            '👤 ' + esc(name) + (position ? ' · 💼 ' + esc(position) : '') +
+          '</div>' +
+        '</div>' +
+
+        // Body
+        '<div style="padding: 22px 24px 24px;">' +
+
+          '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
+          'padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;">' +
+            '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
+            'Kandidat akan menerima link dan <b>langsung masuk ke tes</b> tanpa isi data ulang.' +
+          '</div>' +
+
+          '<div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;' +
+          'margin-bottom:8px;">PILIH TES YANG AKAN DIULANG</div>' +
+
+          '<div id="retakeCheckboxGrid" style="display:grid;' +
+          'grid-template-columns:repeat(2,1fr);gap:8px;">' +
+            checkboxHTML +
+          '</div>' +
+
+          doneHTML +
+
+          // Actions
+          '<div style="display:flex;gap:8px;margin-top:18px;">' +
+            '<button id="retakeCopyBtn" ' +
+              'style="flex:1;padding:11px 12px;border-radius:10px;' +
+              'background:rgba(59,130,246,.12);border:1.5px solid rgba(59,130,246,.35);' +
+              'color:#1e40af;font-family:inherit;font-size:12px;font-weight:800;' +
+              'cursor:pointer;">📋 Copy Link</button>' +
+
+            '<button id="retakeWaBtn" ' +
+              'style="flex:1;padding:11px 12px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#25d366,#128c7e);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12px;' +
+              'font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
+              '📱 Kirim WA</button>' +
+
+            '<button id="retakeEmailBtn" ' +
+              'style="flex:1;padding:11px 12px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12px;' +
+              'font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
+              '📧 Kirim Email</button>' +
+          '</div>' +
+
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+
+    const closeModal = () => overlay.remove();
+    document.getElementById('retakeCloseBtn').onclick = closeModal;
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay) closeModal();
+    });
+
+    // Highlight checkbox saat dicentang
+    overlay.querySelectorAll('.js-retake-test-item').forEach(label => {
+      const cb = label.querySelector('input');
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          label.style.background = '#eff6ff';
+          label.style.borderColor = '#3b82f6';
+          label.style.color = '#1e40af';
+        } else {
+          label.style.background = '#fff';
+          label.style.borderColor = '#e2e8f0';
+          label.style.color = '#1e293b';
+        }
+      });
+    });
+
+    const getSelected = () => Array.from(
+      overlay.querySelectorAll('.js-retake-test:checked')
+    ).map(cb => cb.value);
+
+    // === COPY LINK ===
+    document.getElementById('retakeCopyBtn').onclick = () => {
+      const tests = getSelected();
+      if (tests.length === 0) {
+        alert('Pilih minimal 1 tes terlebih dahulu.');
+        return;
+      }
+      const url = __buildRetakeUrl(name, position, tests);
+      try {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(() => {
+            const btn = document.getElementById('retakeCopyBtn');
+            const prev = btn.textContent;
+            btn.textContent = '✅ Tersalin';
+            btn.style.background = 'rgba(34,197,94,.15)';
+            btn.style.borderColor = 'rgba(34,197,94,.4)';
+            btn.style.color = '#16a34a';
+            if (typeof window.__showToast === 'function') {
+              window.__showToast('📋 Link tes tahap 2 tersalin', 'success');
+            }
+            setTimeout(() => {
+              btn.textContent = prev;
+              btn.style.background = 'rgba(59,130,246,.12)';
+              btn.style.borderColor = 'rgba(59,130,246,.35)';
+              btn.style.color = '#1e40af';
+            }, 1800);
+          }).catch(() => window.prompt('Copy link ini:', url));
+        } else {
+          window.prompt('Copy link ini:', url);
+        }
+      } catch (e) {
+        window.prompt('Copy link ini:', url);
+      }
+    };
+
+    // === KIRIM WA ===
+    document.getElementById('retakeWaBtn').onclick = async () => {
+      const tests = getSelected();
+      if (tests.length === 0) {
+        alert('Pilih minimal 1 tes terlebih dahulu.');
+        return;
+      }
+      const phone = await findPhone(slug, name);
+      if (!phone) {
+        alert('Nomor WA kandidat tidak tersedia.\n\nIsi dulu via tombol "Hubungi WA" di tab Status.');
+        return;
+      }
+      const norm = normalizePhoneWA(phone);
+      if (!norm) {
+        alert('Nomor WA tidak valid: ' + phone);
+        return;
+      }
+      const url = __buildRetakeUrl(name, position, tests);
+      const message =
+        'Halo ' + name + ',\n\n' +
+        'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap 2*.\n\n' +
+        '📋 Tes yang harus dikerjakan: *' + tests.join(', ') + '*\n\n' +
+        '🔗 Link: ' + url + '\n\n' +
+        'Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.\n\n' +
+        'Terima kasih.';
+      window.open('https://wa.me/' + norm + '?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
+    };
+
+    // === KIRIM EMAIL ===
+    document.getElementById('retakeEmailBtn').onclick = async () => {
+      const tests = getSelected();
+      if (tests.length === 0) {
+        alert('Pilih minimal 1 tes terlebih dahulu.');
+        return;
+      }
+      const email = await findEmail(slug, name);
+      if (!email || !isValidEmail(email)) {
+        alert('Email kandidat tidak tersedia / tidak valid.\n\nIsi dulu via tombol "Kirim Email" di tab Status.');
+        return;
+      }
+
+      const url = __buildRetakeUrl(name, position, tests);
+      const subject = '🔗 Link Tes Tahap 2 — ' + name;
+
+      const htmlBody =
+        '<div style="font-family:-apple-system,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;">' +
+          '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
+            '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
+            '<div style="font-size:18px;font-weight:900;">Tes Tahap 2</div>' +
+          '</div>' +
+          '<div style="background:#fff;padding:28px 24px;">' +
+            '<p>Halo <b>' + name + '</b>,</p>' +
+            '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap 2</b>.</p>' +
+            '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
+              '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
+              '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
+            '</div>' +
+            '<div style="text-align:center;margin:24px 0;">' +
+              '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap 2</a>' +
+            '</div>' +
+            '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
+              '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
+            '</div>' +
+            '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
+          '</div>' +
+          '<div style="background:#0f172a;color:#94a3b8;padding:16px;text-align:center;font-size:11px;border-radius:0 0 12px 12px;">Email otomatis · Jangan balas langsung</div>' +
+        '</div>';
+
+      const btn = document.getElementById('retakeEmailBtn');
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '⏳ Mengirim...';
+
+      let idToken = '';
+      try {
+        const u = firebase.auth().currentUser;
+        if (u) idToken = await u.getIdToken();
+      } catch (e) {}
+
+      try {
+        await fetch(EMAIL_GAS_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'send_status_email',
+            idToken: idToken,
+            to: email,
+            name: name,
+            position: position || '',
+            status: 'retake',
+            subject: subject,
+            htmlBody: htmlBody
+          })
+        });
+
+        btn.textContent = '✅ Terkirim';
+        btn.style.background = 'linear-gradient(135deg,#16a34a,#059669)';
+        if (typeof window.__showToast === 'function') {
+          window.__showToast('📧 Link tes tahap 2 terkirim ke ' + email, 'success');
+        }
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = prev;
+          btn.style.background = 'linear-gradient(135deg,#8b5cf6,#6d28d9)';
+        }, 2200);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = prev;
+        alert('Gagal kirim email: ' + err.message);
+      }
+    };
+  };
 
   /* ============================================================
      🗑️ HAPUS TOTAL KANDIDAT — semua resource
@@ -725,7 +989,6 @@
     let driveDeleted = 0;
     let fbDeleted = 0;
 
-    // === 1. HAPUS FILE DI DRIVE ===
     try {
       const files = (typeof window.fetchResultFiles === 'function')
         ? await window.fetchResultFiles(true) : [];
@@ -766,7 +1029,6 @@
       }
     } catch (e) { console.warn('[DELETE] Drive:', e.message); }
 
-    // === 2. HAPUS DATA DI FIREBASE ===
     const paths = [
       'sgs_interviews/' + slug,
       'sgs_grafis_interp/' + slug,
@@ -783,7 +1045,6 @@
       } catch (e) {}
     }
 
-    // === 3. HAPUS CHAT ROOM (kalau ada) ===
     try {
       const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = sessionsSnap.val() || {};
@@ -800,7 +1061,6 @@
       }
     } catch (e) {}
 
-    // === 4. INVALIDATE CACHE & REFRESH ===
     if (typeof window.__invalidateResultCache === 'function') window.__invalidateResultCache();
     setTimeout(() => {
       if (document.getElementById('resultFilesPageOverlay') && typeof window.__renderResultPageContent === 'function') {
@@ -883,7 +1143,6 @@
     console.log('[BACKFILL] Memulai sinkronisasi kontak...');
     const map = {};
 
-    // 1. Dari sessions
     try {
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
@@ -901,7 +1160,6 @@
       console.warn('[BACKFILL] Sessions gagal:', e.message);
     }
 
-    // 2. Dari Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -930,7 +1188,6 @@
       console.warn('[BACKFILL] Drive gagal:', e.message);
     }
 
-    // 3. Push ke sgs_candidate_status (per-slug)
     let saved = 0;
     const promises = [];
 
@@ -992,8 +1249,6 @@
 
   /* ============================================================
      STATUS BAR HTML — Collapsible
-     Default: badge compact "📋 Status: X ▾"
-     Klik: expand → dropdown + WA + Email
      ============================================================ */
   function statusBarHTML(slug, statusData, name, position) {
     const cur = statusData?.status || '';
@@ -1010,7 +1265,6 @@
       'background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.06));' +
       'border:1.5px solid rgba(99,102,241,.25);">' +
 
-        // Toggle header
         '<button type="button" class="js-status-toggle" ' +
           'style="width:100%;display:flex;align-items:center;justify-content:space-between;' +
           'gap:10px;padding:12px 16px;background:transparent;border:0;cursor:pointer;' +
@@ -1032,11 +1286,9 @@
             'transition:transform .2s ease;">▾</span>' +
         '</button>' +
 
-        // Expanded content
         '<div class="js-status-content" style="display:none;padding:0 16px 16px;' +
           'border-top:1px solid rgba(99,102,241,.15);">' +
 
-          // Dropdown status
           '<div style="margin-top:14px;margin-bottom:12px;">' +
             '<div style="font-size:10.5px;font-weight:800;color:#94a3b8;' +
               'letter-spacing:1px;margin-bottom:6px;">UBAH STATUS</div>' +
@@ -1050,7 +1302,6 @@
             '</select>' +
           '</div>' +
 
-          // Aksi: WA + Email
           '<div style="display:flex;gap:8px;">' +
             '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
               'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
@@ -1131,7 +1382,7 @@
       tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
     }
 
-    // 🆕 FGD hanya untuk posisi Guru/Dosen
+    // FGD hanya untuk Guru/Dosen
     if (isGuru && (fgdBtn || groups.fgd.length > 0)) {
       tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
     }
@@ -1145,13 +1396,12 @@
     if (isAdmin && groups.excel.length > 0) {
       tabs.push({ id: 'excel', label: '📊 Excel', items: groups.excel });
     }
-    // 🆕 Tab "Kirim Tahap 2" — SELALU tampil
-    // 🆕 Retake panel akan ditambahkan DI DALAM tab "tes" (bukan tab sendiri)
-    // 🆕 Cleanup: hapus tombol action yang TIDAK dipakai
-    // (fix bug "FGD muncul di non-guru")
+
+    // Cleanup tombol FGD kalau bukan guru
     if (!isGuru && fgdBtn) {
       try { fgdBtn.remove(); } catch (e) {}
     }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'js-tabs-wrap';
     wrapper.style.cssText = 'display:flex;gap:12px;margin-top:12px;';
@@ -1227,7 +1477,7 @@
         panel.appendChild(t.actionBtn);
       }
 
-           if (t.items && t.items.length > 0) {
+      if (t.items && t.items.length > 0) {
         const showLabel = t.multiLabel && t.items.length > 1;
         t.items.forEach((el, idx) => {
           compactFileItem(el);
@@ -1270,20 +1520,17 @@
 
     fileList.style.display = 'none';
 
-    // Set data-slug di card
     card.setAttribute('data-candidate-slug', slug);
 
-    // Pastikan card relative untuk tombol sampah
     if (getComputedStyle(card).position === 'static') {
       card.style.position = 'relative';
     }
 
-    // Buat status bar collapsible
     const statusBar = document.createElement('div');
     statusBar.className = 'js-status-bar';
     statusBar.innerHTML = statusBarHTML(slug, statusData, name, position);
 
-    // 🆕 Tombol sampah — pojok kanan atas kartu
+    // Tombol sampah
     if (!card.querySelector('.js-delete-candidate')) {
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'js-delete-candidate';
@@ -1313,7 +1560,7 @@
       card.appendChild(deleteBtn);
     }
 
-    // 🆕 INSERT: Tabs DULU → Status di BAWAH
+    // INSERT: Tabs DULU → Status di BAWAH
     fileList.parentElement.insertBefore(wrapper, fileList);
     fileList.parentElement.insertBefore(statusBar, wrapper.nextSibling);
 
@@ -1326,7 +1573,7 @@
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
-    // 🆕 TOMBOL SAMPAH
+    // TOMBOL SAMPAH
     const delBtn = e.target.closest('.js-delete-candidate');
     if (delBtn) {
       e.preventDefault();
@@ -1339,7 +1586,7 @@
       return;
     }
 
-    // 🆕 STATUS TOGGLE
+    // STATUS TOGGLE
     const statusToggle = e.target.closest('.js-status-toggle');
     if (statusToggle) {
       e.preventDefault();
@@ -1482,171 +1729,18 @@
       return;
     }
 
-    // 🆕 RETAKE — Copy Link
-    const copyRetake = e.target.closest('.js-retake-copy');
-    if (copyRetake) {
+    // 🆕 RETAKE — Buka modal
+    const retakeOpen = e.target.closest('.js-retake-open');
+    if (retakeOpen) {
       e.preventDefault();
       e.stopPropagation();
-      const name = copyRetake.getAttribute('data-name');
-      const position = copyRetake.getAttribute('data-position');
-      const tests = __getSelectedRetakeTests(copyRetake);
+      const slug = retakeOpen.getAttribute('data-slug');
+      const name = retakeOpen.getAttribute('data-name');
+      const position = retakeOpen.getAttribute('data-position');
 
-      if (tests.length === 0) {
-        alert('Pilih minimal 1 tes terlebih dahulu.');
-        return;
+      if (typeof window.__openRetakeModal === 'function') {
+        window.__openRetakeModal(slug, name, position);
       }
-
-      const url = __buildRetakeUrl(name, position, tests);
-
-      try {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(() => {
-            const prev = copyRetake.textContent;
-            copyRetake.textContent = '✅ Tersalin';
-            if (typeof window.__showToast === 'function') {
-              window.__showToast('📋 Link tes tahap 2 tersalin', 'success');
-            }
-            setTimeout(() => { copyRetake.textContent = prev; }, 1800);
-          }).catch(() => {
-            window.prompt('Copy link ini:', url);
-          });
-        } else {
-          window.prompt('Copy link ini:', url);
-        }
-      } catch (err) {
-        window.prompt('Copy link ini:', url);
-      }
-      return;
-    }
-
-    // 🆕 RETAKE — Kirim WA
-    const waRetake = e.target.closest('.js-retake-wa');
-    if (waRetake) {
-      e.preventDefault();
-      e.stopPropagation();
-      const slug = waRetake.getAttribute('data-slug');
-      const name = waRetake.getAttribute('data-name');
-      const position = waRetake.getAttribute('data-position');
-      const tests = __getSelectedRetakeTests(waRetake);
-
-      if (tests.length === 0) {
-        alert('Pilih minimal 1 tes terlebih dahulu.');
-        return;
-      }
-
-      (async () => {
-        const phone = await findPhone(slug, name);
-        if (!phone) {
-          alert('Nomor WA kandidat tidak tersedia. Isi manual dulu via tombol "Hubungi WA".');
-          return;
-        }
-
-        const norm = normalizePhoneWA(phone);
-        if (!norm) {
-          alert('Nomor WA tidak valid: ' + phone);
-          return;
-        }
-
-        const url = __buildRetakeUrl(name, position, tests);
-        const message =
-          'Halo ' + name + ',\n\n' +
-          'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap 2*.\n\n' +
-          '📋 Tes yang harus dikerjakan: *' + tests.join(', ') + '*\n\n' +
-          '🔗 Link: ' + url + '\n\n' +
-          'Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.\n\n' +
-          'Terima kasih.';
-
-        window.open('https://wa.me/' + norm + '?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
-      })();
-      return;
-    }
-
-    // 🆕 RETAKE — Kirim Email
-    const emailRetake = e.target.closest('.js-retake-email');
-    if (emailRetake) {
-      e.preventDefault();
-      e.stopPropagation();
-      const slug = emailRetake.getAttribute('data-slug');
-      const name = emailRetake.getAttribute('data-name');
-      const position = emailRetake.getAttribute('data-position');
-      const tests = __getSelectedRetakeTests(emailRetake);
-
-      if (tests.length === 0) {
-        alert('Pilih minimal 1 tes terlebih dahulu.');
-        return;
-      }
-
-      (async () => {
-        const email = await findEmail(slug, name);
-        if (!email || !isValidEmail(email)) {
-          alert('Email kandidat tidak tersedia atau tidak valid. Isi manual dulu via tombol "Kirim Email" utama.');
-          return;
-        }
-
-        const url = __buildRetakeUrl(name, position, tests);
-
-        const subject = '🔗 Link Tes Tahap 2 — ' + name;
-        const htmlBody =
-          '<div style="font-family:-apple-system,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;">' +
-            '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
-              '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
-              '<div style="font-size:18px;font-weight:900;">Tes Tahap 2</div>' +
-            '</div>' +
-            '<div style="background:#fff;padding:28px 24px;">' +
-              '<p>Halo <b>' + name + '</b>,</p>' +
-              '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap 2</b>.</p>' +
-              '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
-                '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
-                '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
-              '</div>' +
-              '<div style="text-align:center;margin:24px 0;">' +
-                '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap 2</a>' +
-              '</div>' +
-              '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
-                '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
-              '</div>' +
-              '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
-            '</div>' +
-            '<div style="background:#0f172a;color:#94a3b8;padding:16px;text-align:center;font-size:11px;border-radius:0 0 12px 12px;">Email otomatis · Jangan balas langsung</div>' +
-          '</div>';
-
-        let idToken = '';
-        try {
-          const u = firebase.auth().currentUser;
-          if (u) idToken = await u.getIdToken();
-        } catch (e) {}
-
-        try {
-          await fetch(EMAIL_GAS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'send_status_email',
-              idToken: idToken,
-              to: email,
-              name: name,
-              position: position || '',
-              status: 'retake',
-              subject: subject,
-              htmlBody: htmlBody
-            })
-          });
-
-          const prev = emailRetake.textContent;
-          emailRetake.textContent = '✅ Terkirim';
-          emailRetake.style.background = 'linear-gradient(135deg,#16a34a,#059669)';
-          if (typeof window.__showToast === 'function') {
-            window.__showToast('📧 Link tes tahap 2 terkirim ke ' + email, 'success');
-          }
-          setTimeout(() => {
-            emailRetake.textContent = prev;
-            emailRetake.style.background = 'linear-gradient(135deg,#8b5cf6,#6d28d9)';
-          }, 2200);
-        } catch (err) {
-          alert('Gagal kirim email: ' + err.message);
-        }
-      })();
       return;
     }
 
@@ -1728,7 +1822,7 @@
         statSel.style.boxShadow = '0 0 0 3px rgba(34,197,94,.3)';
         setTimeout(() => { statSel.style.boxShadow = ''; }, 1200);
 
-        // 🆕 Update label di header status
+        // Update label di header status
         const box = statSel.closest('.js-status-box');
         if (box) {
           const label = box.querySelector('.js-status-label');
@@ -1759,7 +1853,7 @@
     });
   }
 
-  /* 🆕 Backfill otomatis semua kontak */
+  /* Backfill otomatis semua kontak */
   if (!window.__sgsBackfillDone) {
     window.__sgsBackfillDone = true;
     setTimeout(() => {
@@ -1772,10 +1866,11 @@
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
-  /* 🆕 Expose untuk debugging/testing via Console */
+  /* Expose untuk debugging/testing via Console */
   window.__findEmail = findEmail;
   window.__findPhone = findPhone;
   window.__backfillAllContacts = backfillAllContacts;
+  window.__buildRetakeUrl = __buildRetakeUrl;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + reset + delete');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal');
 })();
