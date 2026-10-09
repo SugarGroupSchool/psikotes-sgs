@@ -22,12 +22,214 @@
     { value: 4, label: '4 — Highly Recommended' }
   ];
 
+/* ============================================================
+   KONFIGURASI EMAIL
+   ============================================================ */
+const EMAIL_GAS_URL = window.GAS_ADMIN_URL ||
+  'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+
+
   const STATUS_OPTIONS = [
     { value: '',                label: '⏳ Pending',          color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' },
     { value: 'lolos',           label: '✅ Lolos',             color: '#86efac', bg: 'rgba(34,197,94,.15)',   border: 'rgba(34,197,94,.5)' },
     { value: 'tidak_lolos',     label: '❌ Tidak Lolos',       color: '#fca5a5', bg: 'rgba(239,68,68,.15)',   border: 'rgba(239,68,68,.5)' },
     { value: 'dipertimbangkan', label: '⭐ Dipertimbangkan',   color: '#fcd34d', bg: 'rgba(245,158,11,.15)',  border: 'rgba(245,158,11,.5)' }
   ];
+
+/* ============================================================
+   BUILD EMAIL CONTENT PER STATUS
+   ============================================================ */
+function buildEmailContent(status, candidateName, position) {
+  const nama = candidateName || 'Kandidat';
+  const pos = position || 'posisi yang dilamar';
+  const timestamp = new Date().toLocaleDateString('id-ID', {
+    day: '2-digit', month: 'long', year: 'numeric'
+  });
+
+  const baseStyle = "font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;padding:0;background:#f8fafc;";
+
+  const header =
+    '<div style="background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);padding:28px 24px;text-align:center;border-radius:12px 12px 0 0;">' +
+      '<div style="font-size:11px;font-weight:800;letter-spacing:3px;color:rgba(255,255,255,.85);margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
+      '<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px;">Human Capital Recruitment</div>' +
+    '</div>';
+
+  const footer =
+    '<div style="background:#0f172a;color:#94a3b8;padding:20px 24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;line-height:1.7;">' +
+      '<div style="font-weight:800;color:#fff;margin-bottom:6px;">Sugar Group Schools</div>' +
+      '<div>Human Capital Recruitment Division</div>' +
+      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;">Email ini dikirim otomatis pada ' + timestamp + '.<br>Mohon tidak membalas langsung ke alamat ini.</div>' +
+    '</div>';
+
+  function card(icon, color, inner) {
+    return '<div style="' + baseStyle + '">' + header +
+      '<div style="background:#fff;padding:32px 28px;">' +
+        '<div style="width:68px;height:68px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;background:' + color + '15;border:2px solid ' + color + '40;border-radius:18px;font-size:34px;">' + icon + '</div>' +
+        inner +
+      '</div>' + footer + '</div>';
+  }
+
+  const greeting =
+    '<div style="font-size:15px;color:#475569;margin-bottom:16px;">' +
+      'Yth. <b style="color:#1e293b;">' + nama + '</b>,<br>' +
+      'Pelamar <b style="color:#1e293b;">' + pos + '</b>' +
+    '</div>';
+
+  const signature =
+    '<div style="margin-top:28px;padding-top:20px;border-top:1px dashed #e2e8f0;font-size:13px;color:#64748b;line-height:1.8;">' +
+      'Hormat kami,<br>' +
+      '<b style="color:#1e293b;font-size:14px;">Tim Recruitment</b><br>' +
+      'Sugar Group Schools' +
+    '</div>';
+
+  if (status === 'lolos') {
+    return {
+      subject: '\uD83C\uDF89 Selamat! Anda Lolos Seleksi \u2014 ' + pos,
+      htmlBody: card('\uD83C\uDF89', '#16a34a',
+        greeting +
+        '<h1 style="font-size:22px;font-weight:900;color:#166534;margin:0 0 16px;line-height:1.3;">Selamat, Anda Lolos!</h1>' +
+        '<p style="margin:0 0 16px;font-size:14.5px;color:#334155;">Kami dengan senang hati menginformasikan bahwa Anda <b style="color:#166534;">DINYATAKAN LOLOS</b> dalam proses seleksi untuk posisi <b>' + pos + '</b> di Sugar Group Schools.</p>' +
+        '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;padding:16px 18px;margin:20px 0;font-size:13.5px;color:#166534;line-height:1.7;"><b>\uD83D\uDCCC Langkah Selanjutnya:</b><br>Tim HR akan segera menghubungi Anda untuk proses onboarding dan penjadwalan. Mohon pastikan nomor telepon dan email Anda aktif.</div>' +
+        '<p style="margin:0;font-size:14px;color:#475569;">Terima kasih atas partisipasi dan kepercayaan Anda kepada Sugar Group Schools.</p>' +
+        signature
+      )
+    };
+  }
+
+  if (status === 'tidak_lolos') {
+    return {
+      subject: 'Hasil Seleksi \u2014 ' + pos + ' \u2014 Sugar Group Schools',
+      htmlBody: card('\uD83D\uDCCB', '#dc2626',
+        greeting +
+        '<h1 style="font-size:20px;font-weight:900;color:#991b1b;margin:0 0 16px;line-height:1.3;">Informasi Hasil Seleksi</h1>' +
+        '<p style="margin:0 0 16px;font-size:14.5px;color:#334155;">Terima kasih atas partisipasi Anda dalam proses seleksi untuk posisi <b>' + pos + '</b> di Sugar Group Schools.</p>' +
+        '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 18px;margin:20px 0;font-size:13.5px;color:#7f1d1d;line-height:1.7;">Setelah melalui pertimbangan yang matang, kami belum dapat melanjutkan proses Anda ke tahap berikutnya.</div>' +
+        '<p style="margin:0 0 16px;font-size:14px;color:#475569;">Namun, kami sangat mengapresiasi waktu, usaha, dan minat Anda. Semoga sukses di kesempatan berikutnya.</p>' +
+        signature
+      )
+    };
+  }
+
+  if (status === 'dipertimbangkan') {
+    return {
+      subject: 'Status Seleksi Anda \u2014 ' + pos + ' \u2014 Sugar Group Schools',
+      htmlBody: card('\u2B50', '#d97706',
+        greeting +
+        '<h1 style="font-size:20px;font-weight:900;color:#92400e;margin:0 0 16px;line-height:1.3;">Berkas Anda Sedang Dipertimbangkan</h1>' +
+        '<p style="margin:0 0 16px;font-size:14.5px;color:#334155;">Terima kasih atas kesabaran Anda selama proses seleksi untuk posisi <b>' + pos + '</b>.</p>' +
+        '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px 18px;margin:20px 0;font-size:13.5px;color:#78350f;line-height:1.7;">Saat ini berkas Anda <b>masih dalam tahap pertimbangan</b>. Kami akan menghubungi Anda kembali setelah proses seleksi selesai.</div>' +
+        '<p style="margin:0;font-size:14px;color:#475569;">Mohon tetap aktif dan pastikan kontak Anda dapat dihubungi.</p>' +
+        signature
+      )
+    };
+  }
+
+  return {
+    subject: 'Konfirmasi Proses Seleksi \u2014 ' + pos,
+    htmlBody: card('\u2139\uFE0F', '#3b82f6',
+      greeting +
+      '<h1 style="font-size:20px;font-weight:900;color:#1e40af;margin:0 0 16px;line-height:1.3;">Konfirmasi Proses Seleksi</h1>' +
+      '<p style="margin:0 0 16px;font-size:14.5px;color:#334155;">Kami dari Sugar Group Schools ingin mengonfirmasi mengenai proses seleksi Anda untuk posisi <b>' + pos + '</b>.</p>' +
+      '<p style="margin:0;font-size:14px;color:#475569;">Mohon hubungi tim recruitment untuk informasi lebih lanjut.</p>' +
+      signature
+    )
+  };
+}
+
+/* ============================================================
+   CARI EMAIL KANDIDAT
+   ============================================================ */
+async function findEmail(slug, candidateName) {
+  try {
+    const snap = await firebase.database()
+      .ref('sgs_candidate_status/' + slug + '/email').once('value');
+    const cached = snap.val();
+    if (cached) return cached;
+  } catch (e) {}
+
+  try {
+    const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+    const sessions = snap.val() || {};
+    const nameLower = String(candidateName || '').toLowerCase().trim();
+    for (const devId in sessions) {
+      const s = sessions[devId] || {};
+      if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+        if (s.email) {
+          await firebase.database()
+            .ref('sgs_candidate_status/' + slug + '/email')
+            .set(s.email);
+          return s.email;
+        }
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/* ============================================================
+   VALIDASI EMAIL
+   ============================================================ */
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+/* ============================================================
+   KIRIM EMAIL VIA GAS
+   ============================================================ */
+async function sendStatusEmail(slug, candidateName, position, statusValue, email) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    alert('Firebase belum siap');
+    return false;
+  }
+  if (!isValidEmail(email)) {
+    alert('Format email tidak valid: ' + email);
+    return false;
+  }
+
+  const content = buildEmailContent(statusValue, candidateName, position);
+
+  let idToken = '';
+  try {
+    const user = firebase.auth().currentUser;
+    if (user) idToken = await user.getIdToken();
+  } catch (e) {}
+
+  const payload = {
+    action: 'send_status_email',
+    idToken: idToken,
+    to: email,
+    name: candidateName,
+    position: position,
+    status: statusValue,
+    subject: content.subject,
+    htmlBody: content.htmlBody
+  };
+
+  try {
+    await fetch(EMAIL_GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+
+    await firebase.database()
+      .ref('sgs_candidate_status/' + slug)
+      .update({
+        email: email,
+        emailSentAt: firebase.database.ServerValue.TIMESTAMP,
+        emailSentStatus: statusValue,
+        emailSentBy: 'admin'
+      });
+
+    return true;
+  } catch (e) {
+    console.error('[EMAIL] Gagal:', e);
+    return false;
+  }
+}
+
 
   function slugify(name) {
     return String(name || 'tanpa-nama').toLowerCase()
@@ -386,6 +588,16 @@
           'box-shadow:0 4px 12px rgba(37,211,102,.2);">' +
           '📱 Hubungi WA' +
         '</button>' +
+      '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
+        'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+        'style="padding:7px 14px;border-radius:8px;' +
+        'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
+        'border:1px solid rgba(139,92,246,.5);color:#fff;' +
+        'font-family:inherit;font-size:11.5px;font-weight:800;' +
+        'cursor:pointer;white-space:nowrap;' +
+        'box-shadow:0 4px 12px rgba(139,92,246,.2);">' +
+        '📧 Kirim Email' +
+      '</button>' +
       '</div>'
     );
   }
@@ -616,6 +828,87 @@
       const statusValue = statusSel ? statusSel.value : '';
 
       openWhatsApp(slug, name, position, statusValue);
+      return;
+    }
+
+
+    // EMAIL
+    const emailBtn = e.target.closest('.js-email-btn');
+    if (emailBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const slug = emailBtn.getAttribute('data-slug');
+      const name = emailBtn.getAttribute('data-name');
+      const position = emailBtn.getAttribute('data-position');
+
+      const bar = emailBtn.closest('.js-status-bar');
+      const statusSel = bar ? bar.querySelector('.js-candidate-status') : null;
+      const statusValue = statusSel ? statusSel.value : '';
+
+      if (!statusValue) {
+        alert('Pilih status kelulusan dulu sebelum kirim email.');
+        return;
+      }
+
+      (async () => {
+        let email = await findEmail(slug, name);
+
+        if (!email) {
+          const input = (typeof window.sgsPrompt === 'function')
+            ? await window.sgsPrompt(
+                'Email kandidat untuk ' + name + ':\n\nContoh: kandidat@email.com',
+                '',
+                { title: '📧 Alamat Email', okText: 'Simpan & Kirim' }
+              )
+            : prompt('Email kandidat:');
+          if (!input) return;
+
+          email = String(input).trim();
+          if (!isValidEmail(email)) {
+            alert('Format email tidak valid: ' + email);
+            return;
+          }
+
+          try {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug)
+              .update({
+                email: email,
+                candidateName: name,
+                candidatePosition: position,
+                ts: firebase.database.ServerValue.TIMESTAMP
+              });
+          } catch (err) {}
+        }
+
+        const okMsg = 'Kirim email ke:\n\n👤 ' + name + '\n📧 ' + email +
+          '\n📋 Status: ' + statusValue + '\n\nLanjutkan?';
+
+        const ok = (typeof window.sgsConfirm === 'function')
+          ? await window.sgsConfirm(okMsg, { title: '📧 Konfirmasi Kirim Email', okText: 'Ya, Kirim' })
+          : confirm(okMsg);
+        if (!ok) return;
+
+        const prev = emailBtn.textContent;
+        emailBtn.disabled = true;
+        emailBtn.textContent = '⏳ Mengirim...';
+        emailBtn.style.opacity = '.7';
+        emailBtn.style.cursor = 'wait';
+
+        const success = await sendStatusEmail(slug, name, position, statusValue, email);
+
+        emailBtn.disabled = false;
+        emailBtn.textContent = success ? '✅ Terkirim' : prev;
+        emailBtn.style.opacity = '1';
+        emailBtn.style.cursor = 'pointer';
+
+        if (success) {
+          setTimeout(() => { emailBtn.textContent = prev; }, 2500);
+        } else {
+          alert('❌ Gagal mengirim email. Cek koneksi & coba lagi.');
+        }
+      })();
+
       return;
     }
 
