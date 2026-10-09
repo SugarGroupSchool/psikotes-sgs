@@ -124,6 +124,7 @@
       _sources: { IST:false, PAPI:false, BigFive:false, Wawancara:false, FGD:false, Grafis:false, Subject:false } };
     if (!fbReady()) return raw;
 
+        /* ---------- 1) Prioritas: sgs_psikogram_raw (admin override manual) ---------- */
     try {
       const snap = await firebase.database().ref('sgs_psikogram_raw/' + slug).once('value');
       const d = snap.val() || {};
@@ -131,6 +132,21 @@
       if (d.PAPI && Object.keys(d.PAPI).length)    { raw.PAPI = d.PAPI;    raw._sources.PAPI = true; }
       if (d.BigFive && Object.keys(d.BigFive).length) { raw.BigFive = d.BigFive; raw._sources.BigFive = true; }
       if (d.Subject && typeof d.Subject === 'number' && d.Subject > 0) { raw.Subject = d.Subject; raw._sources.Subject = true; }
+    } catch (e) {}
+
+    /* ---------- 2) Fallback: sgs_scores (auto-push dari kandidat) ---------- */
+    try {
+      const snap = await firebase.database().ref('sgs_scores/' + slug).once('value');
+      const d = snap.val() || {};
+      if (!raw._sources.IST && d.IST && Object.keys(d.IST).length) {
+        raw.IST = d.IST; raw._sources.IST = true;
+      }
+      if (!raw._sources.PAPI && d.PAPI && Object.keys(d.PAPI).length) {
+        raw.PAPI = d.PAPI; raw._sources.PAPI = true;
+      }
+      if (!raw._sources.BigFive && d.BigFive && Object.keys(d.BigFive).length) {
+        raw.BigFive = d.BigFive; raw._sources.BigFive = true;
+      }
     } catch (e) {}
 
     try {

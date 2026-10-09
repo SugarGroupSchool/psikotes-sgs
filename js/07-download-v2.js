@@ -358,10 +358,17 @@ async function startSubmitProcess() {
       throw new Error('Gagal generate PDF');
     }
 
-    setUI('📄', 'PDF Siap',
+       setUI('📄', 'PDF Siap',
       `Ukuran: ${(pdfResult.size / 1024 / 1024).toFixed(2)} MB — Mengunggah...`,
       40, '40%');
     await new Promise(r => setTimeout(r, 300));
+
+    /* 🆕 Auto-push skor IST/PAPI/BigFive ke Firebase (untuk psikogram) */
+    try {
+      await pushScoresToFirebase();
+    } catch (e) {
+      console.warn('[SUBMIT] Auto-push scores gagal (non-fatal):', e.message);
+    }
 
     // Step 2: Upload ke GAS
     await uploadPDFWithRetry(pdfResult, setUI);
@@ -601,6 +608,117 @@ function showSubmitFallback(errorMsg) {
     }
   };
 }
+
+/* ============================================================
+   🆕 AUTO-PUSH SCORES → Firebase (untuk Psikogram admin)
+   ------------------------------------------------------------
+   Push skor IST/PAPI/BigFive dari appState ke Firebase agar
+   admin tidak perlu input manual via "Input Raw" di psikogram.
+   ============================================================ */
+async function pushScoresToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = appState.identity || {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+
+  if (!slug) return false;
+
+  const payload = {
+    candidateName: identity.name,
+    candidatePosition: identity.position || '',
+    updatedAt: firebase.database.ServerValue.TIMESTAMP,
+    deviceId: localStorage.getItem('_sgs_device_id') || ''
+  };
+
+  /* ---------- 1) IST — konversi RW → SW per subtes ---------- */
+  try {
+    if (appState.completed && appState.completed.IST === true
+        && typeof computeISTPerSubtestScores === 'function') {
+      const summary = computeISTPerSubtestScores();
+      if (Array.isArray(summary) && summary.length > 0) {
+        const IST = {};
+        summary.forEach(function(r) {
+          if (r && r.code && typeof r.sw === 'number') {
+            IST[r.code] = Math.round(r.sw);
+          }
+        });
+        if (Object.keys(IST).length > 0) {
+          payload.IST = IST;
+          console.log('[AUTO-SCORE] ✓ IST:', IST);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE] IST error:', e.message);
+  }
+
+  /* ---------- 2) PAPI — dari appState.skorPAPI* ---------- */
+  try {
+    if (appState.completed && appState.completed.PAPI === true) {
+      const PAPI = Object.assign({},
+        appState.skorPAPIArahKerja      || {},
+        appState.skorPAPIKepemimpinan   || {},
+        appState.skorPAPIAktivitas      || {},
+        appState.skorPAPIPergaulan      || {},
+        appState.skorPAPIGayaKerja      || {},
+        appState.skorPAPISifat          || {},
+        appState.skorPAPIKetaatan       || {}
+      );
+      if (Object.keys(PAPI).length > 0) {
+        payload.PAPI = PAPI;
+        console.log('[AUTO-SCORE] ✓ PAPI:', PAPI);
+      }
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE] PAPI error:', e.message);
+  }
+
+  /* ---------- 3) Big Five — dari appState.hasilOCEAN ---------- */
+  try {
+    if (appState.completed && appState.completed.BIGFIVE === true
+        && appState.hasilOCEAN) {
+      const BigFive = {};
+      ['O', 'C', 'E', 'A', 'N'].forEach(function(dim) {
+        const val = appState.hasilOCEAN[dim];
+        if (val && typeof val.percent === 'number') {
+          BigFive[dim] = Math.round(val.percent);
+        }
+      });
+      if (Object.keys(BigFive).length > 0) {
+        payload.BigFive = BigFive;
+        console.log('[AUTO-SCORE] ✓ BigFive:', BigFive);
+      }
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE] BigFive error:', e.message);
+  }
+
+  /* ---------- Push ke Firebase ---------- */
+  if (Object.keys(payload).length <= 4) {
+    console.log('[AUTO-SCORE] Tidak ada skor untuk di-push (IST/PAPI/BigFive kosong)');
+    return false;
+  }
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).set(payload);
+    console.log('[AUTO-SCORE] ✅ Pushed to sgs_scores/' + slug);
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE] Push gagal:', e.message);
+    return false;
+  }
+}
+
+window.pushScoresToFirebase = pushScoresToFirebase;
+
 
 /* ============================================================
    EXPORT
