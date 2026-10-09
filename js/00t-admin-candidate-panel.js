@@ -8,6 +8,7 @@
    - Excel tab hanya untuk Admin/Staff
    - Tab Tes: auto-label TAHAP 1, TAHAP 2 jika > 1 file
    - File item: layout vertikal (stack) untuk panel sempit
+   - 🆕 Status Lolos / Tidak Lolos + tombol WhatsApp
    ============================================================ */
 
 (function () {
@@ -19,6 +20,13 @@
     { value: 2, label: '2 — Fairly Recommended' },
     { value: 3, label: '3 — Recommended' },
     { value: 4, label: '4 — Highly Recommended' }
+  ];
+
+  const STATUS_OPTIONS = [
+    { value: '',                label: '⏳ Pending',          color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' },
+    { value: 'lolos',           label: '✅ Lolos',             color: '#86efac', bg: 'rgba(34,197,94,.15)',   border: 'rgba(34,197,94,.5)' },
+    { value: 'tidak_lolos',     label: '❌ Tidak Lolos',       color: '#fca5a5', bg: 'rgba(239,68,68,.15)',   border: 'rgba(239,68,68,.5)' },
+    { value: 'dipertimbangkan', label: '⭐ Dipertimbangkan',   color: '#fcd34d', bg: 'rgba(245,158,11,.15)',  border: 'rgba(245,158,11,.5)' }
   ];
 
   function slugify(name) {
@@ -38,6 +46,132 @@
     if (/-grafis-/.test(h))    return 'grafis';
     if (/xlsx|xls\b/.test(h))  return 'excel';
     return 'tes';
+  }
+
+  function normalizePhoneWA(phone) {
+    let p = String(phone || '').replace(/[^0-9]/g, '');
+    if (!p) return null;
+    if (p.startsWith('0')) p = '62' + p.slice(1);
+    if (p.startsWith('62')) return p;
+    if (p.length >= 9 && p.length <= 13) return '62' + p;
+    return p;
+  }
+
+  /* ============================================================
+     STATUS LOLOS
+     ============================================================ */
+  async function loadStatus(slug) {
+    try {
+      const snap = await firebase.database().ref('sgs_candidate_status/' + slug).once('value');
+      return snap.val() || {};
+    } catch (e) { return {}; }
+  }
+
+  async function saveStatus(slug, status, name, position) {
+    try {
+      await firebase.database().ref('sgs_candidate_status/' + slug).update({
+        status: status || '',
+        candidateName: name || '',
+        candidatePosition: position || '',
+        ts: firebase.database.ServerValue.TIMESTAMP,
+        updatedBy: 'admin'
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  async function findPhone(slug, candidateName) {
+    // 1. Cek cache di sgs_candidate_status
+    try {
+      const snap = await firebase.database().ref('sgs_candidate_status/' + slug + '/phone').once('value');
+      const cached = snap.val();
+      if (cached) return cached;
+    } catch (e) {}
+
+    // 2. Cari di sgs_state/sessions by name
+    try {
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      const nameLower = String(candidateName || '').toLowerCase().trim();
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          if (s.phone) {
+            // Cache ke sgs_candidate_status
+            await firebase.database().ref('sgs_candidate_status/' + slug + '/phone').set(s.phone);
+            return s.phone;
+          }
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  function buildWAMessage(status, candidateName, position) {
+    const nama = candidateName || 'Kandidat';
+    const pos = position || 'yang dilamar';
+    if (status === 'lolos') {
+      return 'Halo ' + nama + ',\n\n' +
+        'Selamat! Anda dinyatakan LOLOS dalam proses seleksi untuk posisi ' + pos + ' di Sugar Group Schools. 🎉\n\n' +
+        'Tim HR akan menghubungi Anda untuk proses selanjutnya.\n\n' +
+        'Terima kasih,\nSugar Group Schools';
+    }
+    if (status === 'tidak_lolos') {
+      return 'Halo ' + nama + ',\n\n' +
+        'Terima kasih atas partisipasi Anda dalam proses seleksi untuk posisi ' + pos + ' di Sugar Group Schools.\n\n' +
+        'Setelah melalui pertimbangan yang matang, kami belum dapat melanjutkan proses Anda ke tahap berikutnya. Namun, kami mengapresiasi waktu dan usaha Anda.\n\n' +
+        'Semoga sukses di kesempatan berikutnya.\n\n' +
+        'Salam,\nSugar Group Schools';
+    }
+    if (status === 'dipertimbangkan') {
+      return 'Halo ' + nama + ',\n\n' +
+        'Terima kasih atas partisipasi Anda dalam proses seleksi untuk posisi ' + pos + ' di Sugar Group Schools.\n\n' +
+        'Saat ini berkas Anda masih dalam tahap pertimbangan. Kami akan menghubungi Anda kembali setelah proses selesai.\n\n' +
+        'Salam,\nSugar Group Schools';
+    }
+    // Pending
+    return 'Halo ' + nama + ',\n\n' +
+      'Kami dari Sugar Group Schools ingin mengonfirmasi mengenai proses seleksi Anda untuk posisi ' + pos + '.\n\n' +
+      'Mohon info lebih lanjut.\n\nTerima kasih.';
+  }
+
+  async function openWhatsApp(slug, candidateName, position, statusValue) {
+    let phone = await findPhone(slug, candidateName);
+
+    if (!phone) {
+      // Minta input manual
+      const input = (typeof window.sgsPrompt === 'function')
+        ? await window.sgsPrompt(
+            'Nomor WhatsApp untuk ' + candidateName + ':\n\n' +
+            'Format: 08xxx atau 628xxx',
+            '',
+            { title: '📱 Nomor WhatsApp', okText: 'Simpan & Buka WA' }
+          )
+        : prompt('Nomor WhatsApp (08xxx):');
+      if (!input) return;
+
+      phone = String(input).trim();
+      // Simpan ke cache
+      try {
+        await firebase.database().ref('sgs_candidate_status/' + slug).update({
+          phone: phone,
+          candidateName: candidateName,
+          candidatePosition: position,
+          ts: firebase.database.ServerValue.TIMESTAMP
+        });
+      } catch (e) {}
+    }
+
+    const norm = normalizePhoneWA(phone);
+    if (!norm) {
+      alert('Nomor WA tidak valid: ' + phone);
+      return;
+    }
+
+    const message = buildWAMessage(statusValue, candidateName, position);
+    const url = 'https://wa.me/' + norm + '?text=' + encodeURIComponent(message);
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   /* ============================================================
@@ -166,7 +300,7 @@
   }
 
   /* ============================================================
-     COMPACT FILE ITEM — stack vertikal untuk panel sempit
+     COMPACT FILE ITEM
      ============================================================ */
   function compactFileItem(el) {
     if (!el || el.dataset.compact === '1') return;
@@ -179,14 +313,12 @@
     const content = kids[1];
     const btns = kids[2];
 
-    // Style outer jadi vertikal
     el.style.display = 'flex';
     el.style.flexDirection = 'column';
     el.style.alignItems = 'stretch';
     el.style.gap = '8px';
     el.style.padding = '10px';
 
-    // Top row: icon + content
     const topRow = document.createElement('div');
     topRow.style.cssText = 'display:flex;align-items:flex-start;gap:8px;width:100%;';
 
@@ -208,7 +340,6 @@
     if (content) topRow.appendChild(content);
     el.appendChild(topRow);
 
-    // Bottom row: buttons
     if (btns) {
       btns.style.display = 'flex';
       btns.style.gap = '6px';
@@ -220,12 +351,51 @@
   }
 
   /* ============================================================
+     STATUS BAR HTML
+     ============================================================ */
+  function statusBarHTML(slug, statusData, name, position) {
+    const cur = statusData?.status || '';
+    const curOpt = STATUS_OPTIONS.find(s => s.value === cur) || STATUS_OPTIONS[0];
+
+    const opts = STATUS_OPTIONS.map(s =>
+      '<option value="' + s.value + '"' + (s.value === cur ? ' selected' : '') + '>' +
+      esc(s.label) + '</option>'
+    ).join('');
+
+    return (
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;' +
+      'padding:10px 12px;background:rgba(255,255,255,.03);' +
+      'border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-top:10px;">' +
+        '<span style="font-size:10.5px;font-weight:800;color:#94a3b8;' +
+        'letter-spacing:1px;text-transform:uppercase;">Status Kelulusan</span>' +
+        '<select class="js-candidate-status" data-slug="' + esc(slug) + '" ' +
+          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+          'style="padding:6px 10px;border-radius:8px;' +
+          'background:' + curOpt.bg + ';border:1.5px solid ' + curOpt.border + ';' +
+          'color:' + curOpt.color + ';font-family:inherit;font-size:11.5px;' +
+          'font-weight:800;cursor:pointer;outline:none;">' +
+          opts +
+        '</select>' +
+        '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
+          'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+          'style="padding:7px 14px;border-radius:8px;' +
+          'background:linear-gradient(135deg,#25d366,#128c7e);' +
+          'border:1px solid rgba(37,211,102,.5);color:#fff;' +
+          'font-family:inherit;font-size:11.5px;font-weight:800;' +
+          'cursor:pointer;white-space:nowrap;' +
+          'box-shadow:0 4px 12px rgba(37,211,102,.2);">' +
+          '📱 Hubungi WA' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  /* ============================================================
      RESTRUCTURE CARD
      ============================================================ */
   async function restructureCard(card) {
     if (card.dataset.tabbed === '1') return;
 
-    // Cari file list (div dengan flex-direction: column)
     const kids = Array.from(card.children);
     const fileList = kids.find(el => {
       const s = (el.getAttribute('style') || '') + (el.style.cssText || '');
@@ -237,7 +407,6 @@
 
     card.dataset.tabbed = '1';
 
-    // Kategorikan file items
     const groups = { tes: [], grafis: [], fgd: [], wawancara: [], excel: [] };
     items.forEach(el => {
       const cat = detectCat(el.outerHTML);
@@ -245,13 +414,11 @@
       else groups.tes.push(el);
     });
 
-    // Filter: items.tes hanya yang bukan wawancara/grafis/fgd/excel
     const pureTesFiles = groups.tes.filter(el => {
       const h = el.outerHTML.toLowerCase();
       return !/-wawancara-|-fgd-|-grafis-|xlsx/.test(h);
     });
 
-    // Cari tombol aksi asli
     const ivBtn  = card.querySelector('.js-interview-link');
     const grBtn  = card.querySelector('.js-grafindo-link');
     const fgdBtn = card.querySelector('.js-fgd-link');
@@ -264,9 +431,11 @@
     const isAdmin = /admin|staff|sekretariat|office/.test(posLower);
     const slug = slugify(name);
 
-    // Ambil rating untuk guru
-    let ratingData = null;
-    if (isGuru) ratingData = await loadSubjectRating(slug);
+    // Load data paralel
+    const [ratingData, statusData] = await Promise.all([
+      isGuru ? loadSubjectRating(slug) : Promise.resolve(null),
+      loadStatus(slug)
+    ]);
 
     // Definisikan tab
     const tabs = [];
@@ -288,12 +457,11 @@
       tabs.push({ id: 'excel', label: '📊 Excel', items: groups.excel });
     }
 
-    // Bikin wrapper
+    // Wrapper utama
     const wrapper = document.createElement('div');
     wrapper.className = 'js-tabs-wrap';
     wrapper.style.cssText = 'display:flex;gap:12px;margin-top:12px;';
 
-    // Nav sidebar HTML
     const navHTML = tabs.map((t, i) => {
       const active = i === 0;
       return '<button class="js-tab-btn" data-tab="' + t.id + '" ' +
@@ -306,7 +474,6 @@
         t.label + '</button>';
     }).join('');
 
-    // Content panels HTML
     const panelsHTML = tabs.map((t, i) => {
       const active = i === 0;
       return '<div class="js-tab-panel" data-panel="' + t.id + '" ' +
@@ -331,7 +498,6 @@
         return;
       }
 
-      // Khusus tab WAWANCARA — tombol aksi + tombol RESET sejajar
       if (t.id === 'wawancara' && t.actionBtn) {
         const btnWrap = document.createElement('div');
         btnWrap.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;';
@@ -358,7 +524,6 @@
 
         panel.appendChild(btnWrap);
       }
-      // Untuk tab lain dengan tombol aksi (Grafis/FGD)
       else if (t.actionBtn) {
         t.actionBtn.style.width = '100%';
         t.actionBtn.style.padding = '10px 14px';
@@ -369,7 +534,6 @@
         panel.appendChild(t.actionBtn);
       }
 
-      // File items
       if (t.items && t.items.length > 0) {
         const showLabel = t.multiLabel && t.items.length > 1;
         t.items.forEach((el, idx) => {
@@ -405,12 +569,18 @@
 
     // Sembunyikan file list asli, insert wrapper
     fileList.style.display = 'none';
+
+    // Insert status bar + tabs wrapper
+    const statusBar = document.createElement('div');
+    statusBar.className = 'js-status-bar';
+    statusBar.innerHTML = statusBarHTML(slug, statusData, name, position);
+
+    fileList.parentElement.insertBefore(statusBar, fileList);
     fileList.parentElement.insertBefore(wrapper, fileList.nextSibling);
 
-    // Hapus tombol Reset lama di atas card (kalau ada)
+    // Cleanup tombol reset lama
     setTimeout(() => {
       card.querySelectorAll(':scope > .js-reset-interview').forEach(b => b.remove());
-      card.querySelectorAll(':scope > button.js-reset-interview').forEach(b => b.remove());
     }, 100);
   }
 
@@ -418,6 +588,7 @@
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
+    // Reset
     const r = e.target.closest('.js-reset-interview');
     if (r) {
       e.preventDefault();
@@ -430,6 +601,25 @@
       return;
     }
 
+    // WA
+    const wa = e.target.closest('.js-wa-btn');
+    if (wa) {
+      e.preventDefault();
+      e.stopPropagation();
+      const slug = wa.getAttribute('data-slug');
+      const name = wa.getAttribute('data-name');
+      const position = wa.getAttribute('data-position');
+
+      // Cari status terkini dari dropdown
+      const bar = wa.closest('.js-status-bar');
+      const statusSel = bar ? bar.querySelector('.js-candidate-status') : null;
+      const statusValue = statusSel ? statusSel.value : '';
+
+      openWhatsApp(slug, name, position, statusValue);
+      return;
+    }
+
+    // Tab click
     const tabBtn = e.target.closest('.js-tab-btn');
     if (tabBtn) {
       e.preventDefault();
@@ -455,29 +645,58 @@
   }, true);
 
   document.addEventListener('change', async function (e) {
+    // Subject rating
     const sel = e.target.closest('.js-subject-rating');
-    if (!sel) return;
-    e.preventDefault();
-    e.stopPropagation();
+    if (sel) {
+      e.preventDefault();
+      e.stopPropagation();
 
-    const slug = sel.getAttribute('data-slug');
-    const value = Number(sel.value);
-    const card = sel.closest('.rf-card');
-    const anyBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link, .js-fgd-link') : null;
-    const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
-    const position = anyBtn ? anyBtn.getAttribute('data-position') : '';
+      const slug = sel.getAttribute('data-slug');
+      const value = Number(sel.value);
+      const card = sel.closest('.rf-card');
+      const anyBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link, .js-fgd-link') : null;
+      const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
+      const position = anyBtn ? anyBtn.getAttribute('data-position') : '';
 
-    if (!firebase || !firebase.apps.length) return alert('Firebase belum siap');
+      if (!firebase || !firebase.apps.length) return;
 
-    sel.disabled = true;
-    const ok = await saveSubjectRating(slug, value, name, position);
-    sel.disabled = false;
+      sel.disabled = true;
+      const ok = await saveSubjectRating(slug, value, name, position);
+      sel.disabled = false;
 
-    if (ok) {
-      sel.style.boxShadow = '0 0 0 3px rgba(34,197,94,.3)';
-      setTimeout(() => { sel.style.boxShadow = ''; }, 1200);
-    } else {
-      alert('Gagal menyimpan. Coba lagi.');
+      if (ok) {
+        sel.style.boxShadow = '0 0 0 3px rgba(34,197,94,.3)';
+        setTimeout(() => { sel.style.boxShadow = ''; }, 1200);
+      }
+      return;
+    }
+
+    // Candidate status
+    const statSel = e.target.closest('.js-candidate-status');
+    if (statSel) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const slug = statSel.getAttribute('data-slug');
+      const name = statSel.getAttribute('data-name');
+      const position = statSel.getAttribute('data-position');
+      const value = statSel.value;
+
+      if (!firebase || !firebase.apps.length) return;
+
+      statSel.disabled = true;
+      const ok = await saveStatus(slug, value, name, position);
+      statSel.disabled = false;
+
+      if (ok) {
+        const opt = STATUS_OPTIONS.find(s => s.value === value) || STATUS_OPTIONS[0];
+        statSel.style.background = opt.bg;
+        statSel.style.borderColor = opt.border;
+        statSel.style.color = opt.color;
+
+        statSel.style.boxShadow = '0 0 0 3px rgba(34,197,94,.3)';
+        setTimeout(() => { statSel.style.boxShadow = ''; }, 1200);
+      }
     }
   }, true);
 
@@ -502,5 +721,5 @@
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab layout + subject rating + reset di wawancara');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + reset');
 })();
