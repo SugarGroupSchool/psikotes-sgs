@@ -62,6 +62,56 @@
   })();
 
   /* ============================================================
+     🆕 HANDLE ?retake=1 — Link Tes Tahap 2 dari admin
+     - Simpan data retake di sessionStorage
+     - Clear state lama supaya form identitas skip
+     ============================================================ */
+  (function handleRetakeParam() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('retake') !== '1') return;
+
+      const n = url.searchParams.get('n') || '';
+      const p = url.searchParams.get('p') || '';
+      const testsRaw = url.searchParams.get('tests') || '';
+      const tests = testsRaw.split(',').map(x => x.trim()).filter(Boolean);
+
+      if (!n || tests.length === 0) {
+        console.warn('[INIT] retake=1 tapi n/tests kosong — skip');
+        return;
+      }
+
+      // Clear completed & selectedTests lama
+      try {
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+        localStorage.removeItem('identity');
+        localStorage.removeItem('_sgs_resume');
+      } catch (e) {}
+
+      // Set mode USED (kandidat login pakai password USED)
+      try {
+        localStorage.setItem('usedPragas', '1');
+      } catch (e) {}
+
+      // Simpan data retake
+      try {
+        sessionStorage.setItem('__sgs_retake', JSON.stringify({
+          name: n,
+          position: p,
+          tests: tests,
+          ts: Date.now()
+        }));
+      } catch (e) {}
+
+      console.log('[INIT] 🎯 Retake mode:', n, '·', tests.join(','));
+    } catch (e) {
+      console.warn('[INIT] Gagal handle retake:', e);
+    }
+  })();
+
+
+  /* ============================================================
      1. AUTO FOCUS PASSWORD SAAT PAGE LOAD
      ============================================================ */
   function autoFocusPassword() {

@@ -154,6 +154,81 @@ async function checkPassword() {
       if (raw) identitySaved = JSON.parse(raw);
     } catch (e) {}
 
+    // 🆕 Cek retake mode
+    let retakeData = null;
+    try {
+      const raw = sessionStorage.getItem('__sgs_retake');
+      if (raw) retakeData = JSON.parse(raw);
+    } catch (e) {}
+
+    if (retakeData && retakeData.name && Array.isArray(retakeData.tests)) {
+      (async () => {
+        let restored = false;
+        try {
+          const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+          const sessions = snap.val() || {};
+          const nameLower = retakeData.name.toLowerCase().trim();
+
+          for (const devId in sessions) {
+            const s = sessions[devId] || {};
+            if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+              const identity = {
+                name: s.name,
+                nickname: s.nickname || s.name.split(' ')[0],
+                email: s.email || '',
+                phone: s.phone || '',
+                position: s.position || retakeData.position || '',
+                dob: s.dob || '',
+                age: s.age || '',
+                status: s.status || '',
+                addressKTP: s.addressKTP || '',
+                addressCurrent: s.addressCurrent || '',
+                education: s.education || '',
+                teacherLevel: s.teacherLevel || '',
+                techRole: s.techRole || '',
+                date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+              };
+
+              window.appState.identity = identity;
+              try { localStorage.setItem('identity', JSON.stringify(identity)); } catch (e) {}
+
+              // Set selectedTests
+              window.appState.selectedTests = retakeData.tests.slice();
+              try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
+
+              // Reset completed untuk tests yg diminta
+              window.appState.completed = window.appState.completed || {};
+              retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
+              try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
+
+              // Skip instruksi
+              window.appState.showTestCards = true;
+
+              restored = true;
+              break;
+            }
+          }
+        } catch (e) {
+          console.warn('[RETAKE] Gagal restore identity:', e);
+        }
+
+        // Clear retake flag
+        try { sessionStorage.removeItem('__sgs_retake'); } catch (e) {}
+
+        if (restored) {
+          console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+          if (typeof window.renderHome === 'function') window.renderHome();
+          else renderIdentityForm();
+        } else {
+          console.warn('[RETAKE] Identity tidak ditemukan, fallback ke form');
+          alert('⚠️ Data identitas tidak ditemukan di sistem.\n\nSilakan isi form identitas untuk melanjutkan.');
+          renderIdentityForm();
+        }
+      })();
+      return;  // Skip flow normal
+    }
+
+
     const hasValidIdentity =
       identitySaved &&
       typeof identitySaved === 'object' &&
