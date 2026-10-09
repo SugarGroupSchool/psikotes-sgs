@@ -1585,10 +1585,17 @@
 
     // Load psikogram async
     if (psikoSlot) {
-      window.renderPsikogramBox(slug, name, position)
+            window.renderPsikogramBox(slug, name, position)
         .then(function (html) {
           if (html && psikoSlot && psikoSlot.parentElement) {
             psikoSlot.innerHTML = html;
+            // Simpan metadata di button untuk dipakai modal
+            const btn = psikoSlot.querySelector('.js-psikogram-open');
+            if (btn) {
+              btn.setAttribute('data-slug', slug);
+              btn.setAttribute('data-name', name);
+              btn.setAttribute('data-position', position || '');
+            }
           } else if (psikoSlot && psikoSlot.parentElement) {
             psikoSlot.remove();
           }
