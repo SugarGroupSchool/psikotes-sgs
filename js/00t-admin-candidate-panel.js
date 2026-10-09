@@ -1561,8 +1561,43 @@
     }
 
     // INSERT: Tabs DULU → Status di BAWAH
+        // INSERT: Tabs DULU → [Psikogram] → Status → FileList (hidden)
     fileList.parentElement.insertBefore(wrapper, fileList);
-    fileList.parentElement.insertBefore(statusBar, wrapper.nextSibling);
+
+    // 🆕 PSIKOGRAM — hanya untuk posisi Guru/Dosen
+    const __posLower = String(position || '').toLowerCase();
+    const __isGuruPos = /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(__posLower);
+
+    let psikoSlot = null;
+    if (__isGuruPos && typeof window.renderPsikogramBox === 'function') {
+      psikoSlot = document.createElement('div');
+      psikoSlot.className = 'js-psikogram-slot';
+      psikoSlot.style.marginTop = '14px';
+      fileList.parentElement.insertBefore(psikoSlot, wrapper.nextSibling);
+    }
+
+    // Status bar selalu di bawah psikogram (atau langsung di bawah tabs kalau bukan guru)
+    if (psikoSlot) {
+      fileList.parentElement.insertBefore(statusBar, psikoSlot.nextSibling);
+    } else {
+      fileList.parentElement.insertBefore(statusBar, wrapper.nextSibling);
+    }
+
+    // Load psikogram async
+    if (psikoSlot) {
+      window.renderPsikogramBox(slug, name, position)
+        .then(function (html) {
+          if (html && psikoSlot && psikoSlot.parentElement) {
+            psikoSlot.innerHTML = html;
+          } else if (psikoSlot && psikoSlot.parentElement) {
+            psikoSlot.remove();
+          }
+        })
+        .catch(function (err) {
+          console.warn('[PANEL] Psikogram load error:', err);
+          if (psikoSlot && psikoSlot.parentElement) psikoSlot.remove();
+        });
+    }
 
     setTimeout(() => {
       card.querySelectorAll(':scope > .js-reset-interview').forEach(b => b.remove());
