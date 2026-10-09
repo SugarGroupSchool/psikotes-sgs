@@ -100,6 +100,10 @@ function renderTestSelection() {
    HOME
    ============================================================ */
 function renderHome() {
+  /* 🆕 Push presence saat masuk home — sync email & phone ke Firebase */
+  if (typeof window.pushPresence === 'function') {
+    try { window.pushPresence('active'); } catch (e) {}
+  }
   /* Guard pintar: cek UI tes di DOM, bukan hanya flag */
   const inTestUI = document.querySelector(
     '.kraeplin-card, .ist-shell, .ist-question-panel, ' +

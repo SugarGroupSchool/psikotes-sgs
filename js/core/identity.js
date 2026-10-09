@@ -473,7 +473,10 @@
        SIMPAN KE LOCAL STORAGE
        ========================================================= */
     localStorage.setItem("identity", JSON.stringify(appState.identity));
-  
+      /* 🆕 Force push presence agar email & phone segera sync ke Firebase */
+    if (typeof window.pushPresence === 'function') {
+      try { window.pushPresence('active'); } catch (e) {}
+    }
     /* =========================================================
        LANJUT KE HALAMAN PEMILIHAN TES
        ========================================================= */

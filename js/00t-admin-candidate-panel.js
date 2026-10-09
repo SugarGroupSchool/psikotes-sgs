@@ -137,8 +137,13 @@
   }
 
   /* ============================================================
-     CARI EMAIL KANDIDAT — AUTO dari Firebase (multi-source)
-     ============================================================ */
+     CARI EMAIL KANDIDAT — AUTO dari Firebase + Drive
+     Prioritas:
+       1. sgs_candidate_status/{slug}/email  (cache)
+       2. sgs_state/sessions/* by name       (presence)
+       3. sgs_interviews/{slug}/*
+       4. Drive file description             (PDF submission)
+   ============================================================ */
   async function findEmail(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
@@ -168,7 +173,7 @@
       }
     } catch (e) {}
 
-    // 3. sgs_interviews (form wawancara)
+    // 3. sgs_interviews
     try {
       const snap = await firebase.database().ref('sgs_interviews/' + slug).once('value');
       const data = snap.val() || {};
@@ -179,6 +184,38 @@
             .ref('sgs_candidate_status/' + slug)
             .update({ email: it.candidateEmail });
           return it.candidateEmail;
+        }
+      }
+    } catch (e) {}
+
+    // 4. Drive file description (backfill untuk kandidat lama)
+    try {
+      if (typeof window.fetchResultFiles === 'function') {
+        const files = await window.fetchResultFiles(false);
+        const nameLower = String(candidateName || '').toLowerCase().trim();
+
+        for (const f of files) {
+          const desc = String(f.description || '');
+          // Cocokkan nama di description
+          const namaMatch = desc.match(/Nama:\s*(.+)/i);
+          if (!namaMatch) continue;
+          const fileNama = String(namaMatch[1]).toLowerCase().trim();
+          if (fileNama !== nameLower) continue;
+
+          // Extract email
+          const emailMatch = desc.match(/Email:\s*([^\s\n]+@[^\s\n]+)/i);
+          const phoneMatch = desc.match(/(?:No\.?\s*HP|Phone|HP):\s*([0-9+\-\s]{8,20})/i);
+
+          const updates = {};
+          if (emailMatch && emailMatch[1]) updates.email = emailMatch[1].trim();
+          if (phoneMatch && phoneMatch[1]) updates.phone = phoneMatch[1].replace(/\D/g, '');
+
+          if (Object.keys(updates).length > 0) {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug)
+              .update(updates);
+            if (updates.email) return updates.email;
+          }
         }
       }
     } catch (e) {}
@@ -213,6 +250,33 @@
               .ref('sgs_candidate_status/' + slug)
               .update({ phone: s.phone, email: s.email || '' });
             return s.phone;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 3. Drive file description
+    try {
+      if (typeof window.fetchResultFiles === 'function') {
+        const files = await window.fetchResultFiles(false);
+        const nameLower = String(candidateName || '').toLowerCase().trim();
+
+        for (const f of files) {
+          const desc = String(f.description || '');
+          const namaMatch = desc.match(/Nama:\s*(.+)/i);
+          if (!namaMatch) continue;
+          const fileNama = String(namaMatch[1]).toLowerCase().trim();
+          if (fileNama !== nameLower) continue;
+
+          const phoneMatch = desc.match(/(?:No\.?\s*HP|Phone|HP):\s*([0-9+\-\s]{8,20})/i);
+          if (phoneMatch && phoneMatch[1]) {
+            const phone = phoneMatch[1].replace(/\D/g, '');
+            if (phone.length >= 9) {
+              await firebase.database()
+                .ref('sgs_candidate_status/' + slug)
+                .update({ phone: phone });
+              return phone;
+            }
           }
         }
       }
@@ -581,6 +645,93 @@
       el.appendChild(btns);
     }
   }
+
+  /* ============================================================
+     BACKFILL GLOBAL — Scan sessions + Drive, cache semua kontak
+     Jalankan sekali saat panel admin load
+     ============================================================ */
+  let __backfillDone = false;
+  async function backfillAllContacts() {
+    if (__backfillDone) return;
+    __backfillDone = true;
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+    console.log('[BACKFILL] Memulai sinkronisasi kontak...');
+    const map = {}; // nameLower → { name, email, phone }
+
+    // 1. Dari sessions
+    try {
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      Object.values(sessions).forEach(s => {
+        if (!s || !s.name || /^IP:/.test(s.name)) return;
+        const key = String(s.name).toLowerCase().trim();
+        if (!map[key]) map[key] = { name: s.name, email: '', phone: '' };
+        if (s.email && String(s.email).includes('@')) map[key].email = s.email;
+        if (s.phone && String(s.phone).replace(/\D/g, '').length >= 9) {
+          map[key].phone = s.phone;
+        }
+      });
+      console.log('[BACKFILL] Dari sessions:', Object.keys(map).length, 'kandidat');
+    } catch (e) {
+      console.warn('[BACKFILL] Sessions gagal:', e.message);
+    }
+
+    // 2. Dari Drive file description (backfill kandidat lama)
+    try {
+      if (typeof window.fetchResultFiles === 'function') {
+        const files = await window.fetchResultFiles(false);
+        files.forEach(f => {
+          const desc = String(f.description || '');
+          const namaMatch = desc.match(/Nama:\s*(.+)/i);
+          if (!namaMatch) return;
+          const name = namaMatch[1].trim();
+          if (!name || name === '-') return;
+          const key = name.toLowerCase().trim();
+          if (!map[key]) map[key] = { name: name, email: '', phone: '' };
+
+          const emailMatch = desc.match(/Email:\s*([^\s\n]+@[^\s\n]+)/i);
+          if (emailMatch && emailMatch[1] && String(emailMatch[1]).includes('@')) {
+            if (!map[key].email) map[key].email = emailMatch[1].trim();
+          }
+          const phoneMatch = desc.match(/(?:No\.?\s*HP|Phone|HP):\s*([0-9+\-\s]{8,20})/i);
+          if (phoneMatch && phoneMatch[1]) {
+            const phone = phoneMatch[1].replace(/\D/g, '');
+            if (phone.length >= 9 && !map[key].phone) map[key].phone = phone;
+          }
+        });
+        console.log('[BACKFILL] Total setelah Drive:', Object.keys(map).length, 'kandidat');
+      }
+    } catch (e) {
+      console.warn('[BACKFILL] Drive gagal:', e.message);
+    }
+
+    // 3. Push ke sgs_candidate_status (hanya yang punya email/phone)
+    const updates = {};
+    let saved = 0;
+    Object.keys(map).forEach(key => {
+      const c = map[key];
+      if (!c.email && !c.phone) return;
+      const slug = slugify(c.name);
+      updates['sgs_candidate_status/' + slug + '/email'] = c.email || '';
+      updates['sgs_candidate_status/' + slug + '/phone'] = c.phone || '';
+      updates['sgs_candidate_status/' + slug + '/candidateName'] = c.name;
+      saved++;
+    });
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        await firebase.database().ref().update(updates);
+        console.log('[BACKFILL] ✓', saved, 'kontak tersimpan ke cache');
+      } catch (e) {
+        console.warn('[BACKFILL] Gagal simpan:', e.message);
+      }
+    }
+
+    console.log('[BACKFILL] ✓ Selesai');
+  }
+
 
   /* ============================================================
      STATUS BAR HTML
@@ -1046,6 +1197,17 @@
     window.__adminPanelObserver.observe(document.body, {
       childList: true, subtree: true
     });
+  }
+
+  /* 🆕 Backfill otomatis semua kontak (1× per sesi) */
+  if (!window.__sgsBackfillDone) {
+    window.__sgsBackfillDone = true;
+    setTimeout(() => {
+      backfillAllContacts().then(() => {
+        // Re-scan setelah backfill untuk update chip
+        setTimeout(scanAndRestructure, 500);
+      }).catch(() => {});
+    }, 800);
   }
 
   setTimeout(scanAndRestructure, 1000);
