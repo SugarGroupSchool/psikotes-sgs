@@ -1270,7 +1270,7 @@ async function uploadExcelToGAS(blob, filename) {
 
   const gasUrl = (typeof GAS_UPLOAD_URL !== 'undefined')
     ? GAS_UPLOAD_URL
-    : 'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+    : 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
   await fetch(gasUrl, {
     method: 'POST',

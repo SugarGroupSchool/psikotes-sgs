@@ -30,7 +30,7 @@ const ADMIN_SESSION_KEY = '_sgs_admin_logged_in';
 const ADMIN_KEY_OK_KEY  = '_sgs_admin_key_ok';
 
 const GAS_ADMIN_URL =
-  'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+  'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
 const CHAT_CLEANUP_ENABLED        = true;
 const CHAT_CLEANUP_AGE_MS         = 60 * 60 * 1000;

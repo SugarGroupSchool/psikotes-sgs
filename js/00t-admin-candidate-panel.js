@@ -30,7 +30,7 @@
      KONFIGURASI EMAIL
      ============================================================ */
   const EMAIL_GAS_URL = window.GAS_ADMIN_URL ||
-    'https://script.google.com/macros/s/AKfycbxCryXLdQXXbB2k6qxkmbZJF-L2ltL-QgTUygKLFAg0UNVm3NfKHDgso9nB-NomM4en/exec';
+    'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
   const STATUS_OPTIONS = [
     { value: '',                label: '⏳ Pending',          color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' },
