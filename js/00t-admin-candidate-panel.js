@@ -144,7 +144,7 @@
        3. sgs_interviews/{slug}/*
        4. Drive file description             (PDF submission)
    ============================================================ */
-  async function findEmail(slug, candidateName) {
+   async function findEmail(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
     // 1. Cache
@@ -188,7 +188,7 @@
       }
     } catch (e) {}
 
-    // 4. Drive file description (backfill untuk kandidat lama)
+    // 4. 🆕 Drive file description (untuk kandidat lama yang sudah submit)
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -196,25 +196,18 @@
 
         for (const f of files) {
           const desc = String(f.description || '');
-          // Cocokkan nama di description
           const namaMatch = desc.match(/Nama:\s*(.+)/i);
           if (!namaMatch) continue;
           const fileNama = String(namaMatch[1]).toLowerCase().trim();
           if (fileNama !== nameLower) continue;
 
-          // Extract email
           const emailMatch = desc.match(/Email:\s*([^\s\n]+@[^\s\n]+)/i);
-          const phoneMatch = desc.match(/(?:No\.?\s*HP|Phone|HP):\s*([0-9+\-\s]{8,20})/i);
-
-          const updates = {};
-          if (emailMatch && emailMatch[1]) updates.email = emailMatch[1].trim();
-          if (phoneMatch && phoneMatch[1]) updates.phone = phoneMatch[1].replace(/\D/g, '');
-
-          if (Object.keys(updates).length > 0) {
+          if (emailMatch && emailMatch[1] && emailMatch[1].includes('@')) {
+            const email = emailMatch[1].trim();
             await firebase.database()
               .ref('sgs_candidate_status/' + slug)
-              .update(updates);
-            if (updates.email) return updates.email;
+              .update({ email: email });
+            return email;
           }
         }
       }
@@ -226,7 +219,7 @@
   /* ============================================================
      CARI PHONE (WA) KANDIDAT — AUTO dari Firebase
      ============================================================ */
-  async function findPhone(slug, candidateName) {
+    async function findPhone(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
 
     // 1. Cache
@@ -255,7 +248,7 @@
       }
     } catch (e) {}
 
-    // 3. Drive file description
+    // 3. 🆕 Drive file description
     try {
       if (typeof window.fetchResultFiles === 'function') {
         const files = await window.fetchResultFiles(false);
@@ -707,26 +700,40 @@
       console.warn('[BACKFILL] Drive gagal:', e.message);
     }
 
-    // 3. Push ke sgs_candidate_status (hanya yang punya email/phone)
-    const updates = {};
+    // 3. Push ke sgs_candidate_status (per-slug, batch via Promise.all)
+    // ⚠️ Firebase Rules butuh: candidateName + ts (validate), jadi harus per-slug
     let saved = 0;
+    const promises = [];
+
     Object.keys(map).forEach(key => {
       const c = map[key];
       if (!c.email && !c.phone) return;
       const slug = slugify(c.name);
-      updates['sgs_candidate_status/' + slug + '/email'] = c.email || '';
-      updates['sgs_candidate_status/' + slug + '/phone'] = c.phone || '';
-      updates['sgs_candidate_status/' + slug + '/candidateName'] = c.name;
-      saved++;
+      if (!slug || slug === 'tanpa-nama') return;
+
+      const payload = {
+        candidateName: c.name,
+        email: c.email || '',
+        phone: c.phone || '',
+        ts: firebase.database.ServerValue.TIMESTAMP
+      };
+
+      promises.push(
+        firebase.database()
+          .ref('sgs_candidate_status/' + slug)
+          .update(payload)
+          .then(() => { saved++; })
+          .catch(err => {
+            console.warn('[BACKFILL] Gagal simpan', slug + ':', err.message);
+          })
+      );
     });
 
-    if (Object.keys(updates).length > 0) {
-      try {
-        await firebase.database().ref().update(updates);
-        console.log('[BACKFILL] ✓', saved, 'kontak tersimpan ke cache');
-      } catch (e) {
-        console.warn('[BACKFILL] Gagal simpan:', e.message);
-      }
+    if (promises.length > 0) {
+      await Promise.all(promises);
+      console.log('[BACKFILL] ✓', saved, '/', promises.length, 'kontak tersimpan ke cache');
+    } else {
+      console.log('[BACKFILL] Tidak ada kontak baru untuk disimpan');
     }
 
     console.log('[BACKFILL] ✓ Selesai');
@@ -1212,6 +1219,9 @@
 
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
-
+  /* 🆕 Expose untuk debugging/testing via Console */
+  window.__findEmail = findEmail;
+  window.__findPhone = findPhone;
+  window.__backfillAllContacts = backfillAllContacts;
   console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + reset');
 })();
