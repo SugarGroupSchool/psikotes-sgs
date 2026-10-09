@@ -426,15 +426,15 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
   // const _gasToken = ...  ← HAPUS BARIS INI
 
   const payload = {
-    idToken: idToken,   // 🆕
+    idToken: idToken,
     deviceId: localStorage.getItem('_sgs_device_id') || 'unknown',
     filename: pdfResult.filename,
     name: identity.name || '(tanpa nama)',
     position: identity.position || '',
     email: identity.email || '',
+    phone: identity.phone || '',      // ← 🆕 TAMBAH
     pdfBase64: pdfBase64,
     pdfPassword: pdfResult.password || window.__lastPdfPassword || '-'
-    // token: _gasToken  ← HAPUS
   };
 
   let attempt = 0;
