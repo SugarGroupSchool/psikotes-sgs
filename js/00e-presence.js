@@ -143,6 +143,12 @@ function pushPresence(status) {
     if (raw) identity = JSON.parse(raw) || {};
   } catch (e) {}
 
+  /* 🆕 FIX: Jangan push kalau belum isi identitas — hindari sampah "IP: xxx" */
+  if (!identity.name || !identity.name.trim()) {
+    console.log('[PRESENCE] ⏭️ Skip push — identity.name kosong');
+    return;
+  }
+
   let completedCount = 0, totalTests = 0;
   let completedObj = {}, selectedArr = [];
   try {

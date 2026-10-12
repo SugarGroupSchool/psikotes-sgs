@@ -13,6 +13,7 @@
    - Layout: Tabs di atas → Status collapsible di bawah
    - Tombol 🗑️ hapus total kandidat
    - 🆕 Retake panel DI DALAM tab Tes + modal filter tes selesai
+   - ✅ FIX [2026-10-12]: reset ke fresh juga hapus completed di server
    ============================================================ */
 
 (function () {
@@ -630,6 +631,8 @@
      - Null guard untuk retakeCopyBtn / retakeWaBtn / retakeEmailBtn
      - Guard sessionInfo.deviceId sebelum .slice()
      - try/finally supaya flag selalu dilepas
+     - Filter device "IP: xxx" dan "(memuat...)"
+     - Prioritas device dengan lastSeen < 10 menit
      ============================================================ */
   window.__openRetakeModal = async function (slug, name, position) {
 
@@ -658,12 +661,22 @@
         const matches = [];
         for (const devId in sessions) {
           const s = sessions[devId] || {};
-          if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          if (!s.name) continue;
+          if (/^IP:/i.test(s.name)) continue;                    // skip "IP: xxx"
+          if (/^\(memuat/.test(s.name)) continue;                // skip "(memuat...)"
+          if (String(s.name).toLowerCase().trim() === nameLower) {
             matches.push({ deviceId: devId, ...s });
           }
         }
 
-        matches.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+        /* 🆕 Prioritaskan device dengan lastSeen < 10 menit */
+        const RECENT_MS = 10 * 60 * 1000;
+        matches.sort((a, b) => {
+          const aR = (Date.now() - (a.lastSeen || 0)) < RECENT_MS ? 1 : 0;
+          const bR = (Date.now() - (b.lastSeen || 0)) < RECENT_MS ? 1 : 0;
+          if (aR !== bR) return bR - aR;
+          return (b.lastSeen || 0) - (a.lastSeen || 0);
+        });
 
         if (matches.length > 0) {
           const active = matches[0];
@@ -1229,6 +1242,9 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
 
 /* ============================================================
    🆕 RESET KE FRESH — Kandidat bisa login ulang pakai FRESH
+   ------------------------------------------------------------
+   ✅ FIX [2026-10-12]: tambah `completed: null` + state lain
+      di server, supaya modal retake tidak baca data lama.
    ============================================================ */
 window.adminResetToFreshByName = async function (candidateName) {
   if (!candidateName) return alert('Nama kandidat kosong.');
@@ -1281,12 +1297,18 @@ window.adminResetToFreshByName = async function (candidateName) {
   }
 
   try {
+    /* ✅ FIX: hapus juga completed, selectedTests, currentTest, dll di server */
     await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
       force_reset_fresh: Date.now(),
       finished: false,
       disqualified: false,
       status: 'active',
-      lastSeen: firebase.database.ServerValue.TIMESTAMP
+      lastSeen: firebase.database.ServerValue.TIMESTAMP,
+      completed: null,
+      selectedTests: null,
+      currentTest: null,
+      currentSubtest: null,
+      currentQuestion: null
     });
 
     const slug = String(candidateName).toLowerCase()

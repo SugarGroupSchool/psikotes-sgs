@@ -41,6 +41,29 @@ function markTestCompleted(testId) {
 
   updateDownloadButtonState();
 
+  /* 🆕 FIX: PUSH LANGSUNG ke Firebase — jangan tunggu heartbeat 20 detik */
+  try {
+    if (typeof firebase !== 'undefined' && firebase.apps.length) {
+      const did = localStorage.getItem('_sgs_device_id');
+      const identity = appState.identity || {};
+      if (did && identity.name) {
+        firebase.database().ref('sgs_state/sessions/' + did).update({
+          completed: appState.completed,
+          selectedTests: appState.selectedTests || [],
+          name: identity.name,
+          position: identity.position || '',
+          email: identity.email || '',
+          phone: identity.phone || '',
+          lastSeen: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+          console.log('[MARK] ✅ ' + testId + ' langsung ke Firebase');
+        }).catch(err => {
+          console.warn('[MARK] ⚠️ Gagal push langsung:', err.message);
+        });
+      }
+    }
+  } catch (e) {}
+
   if (typeof window.pushPresence === 'function') {
     try { window.pushPresence('active'); } catch (e) {}
   }
