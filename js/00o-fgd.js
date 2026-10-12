@@ -4,7 +4,7 @@
    URL akses: ?fgd=1&n=NamaKandidat&p=Posisi&iv=ASESOR
    
    Fitur:
-   - 5 aspek penilaian (skor 1-4 + catatan per aspek)
+   - 5 aspek penilaian (skor 1-4 desimal + catatan per aspek)
    - Catatan keseluruhan (opsional)
    - Rekomendasi (dropdown)
    - Save ke Firebase: sgs_fgd/[slug]/[asesor]
@@ -446,7 +446,6 @@ __initAssessorsListener();
           e.target.style.borderColor = '#8b5cf6';
           e.target.style.background = '#f5f3ff';
           e.target.style.color = '#6d28d9';
-          /* Update border block */
           const block = e.target.closest('.fgd-aspek-block');
           if (block) block.style.borderColor = '#ddd6fe';
         } else {
@@ -486,75 +485,6 @@ __initAssessorsListener();
       };
     });
   }
-
-      const hint = selected && aspek.hints[selected]
-        ? aspek.hints[selected]
-        : 'Pilih skor untuk melihat deskripsi';
-
-      return `
-        <div class="fgd-aspek-block" data-aspek="${aspek.id}"
-          style="margin-bottom: 18px; padding: 16px 18px; background: #fbfdff;
-            border: 1.5px solid #e2e8f0; border-radius: 14px; transition: border-color .15s ease;">
-
-          <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;">
-            <div style="width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center;
-              background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff;
-              font-weight: 900; font-size: 13px; border-radius: 9px;">
-              ${idx + 1}
-            </div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.4;">
-                ${escapeHtml(aspek.label)}
-              </div>
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
-            ${radios}
-          </div>
-
-          <div class="fgd-hint" data-aspek="${aspek.id}"
-            style="font-size: 12px; color: #64748b; line-height: 1.5; padding: 8px 10px;
-              background: #f8fafc; border-left: 3px solid #cbd5e1; border-radius: 4px;
-              font-style: italic; margin-bottom: 12px;">
-            ${escapeHtml(hint)}
-          </div>
-
-          <div>
-            <label style="display: block; font-size: 11px; font-weight: 800; color: #64748b;
-              letter-spacing: .5px; margin-bottom: 6px;">
-              CATATAN UNTUK ASPEK INI
-            </label>
-            <textarea class="fgd-note" data-aspek="${aspek.id}" rows="2"
-              placeholder="Tulis catatan spesifik untuk aspek ini (opsional)..."
-              style="width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
-                font-size: 13px; font-family: inherit; resize: vertical; outline: none;
-                box-sizing: border-box; line-height: 1.5;">${escapeHtml(noteVal)}</textarea>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Event: klik radio → update visual + hint
-    box.querySelectorAll('.fgd-radio-label').forEach(lbl => {
-      lbl.onclick = (e) => {
-        e.preventDefault();
-        const aspekId = lbl.getAttribute('data-aspek');
-        const value = Number(lbl.getAttribute('data-value'));
-        selectScore(aspekId, value);
-      };
-    });
-
-    // Event: input catatan
-    box.querySelectorAll('.fgd-note').forEach(ta => {
-      ta.oninput = (e) => {
-        const aspekId = ta.getAttribute('data-aspek');
-        state.notes[aspekId] = e.target.value;
-      };
-    });
-  }
-
- 
 
   /* ============================================================
      SUBMIT
@@ -607,7 +537,7 @@ __initAssessorsListener();
     btn.textContent = '⏳ Mengirim...';
 
     try {
-            await saveToFirebase();
+      await saveToFirebase();
 
       /* 🆕 Auto-generate PDF combined FGD */
       if (typeof window.autoGenerateFGDCombined === 'function') {
