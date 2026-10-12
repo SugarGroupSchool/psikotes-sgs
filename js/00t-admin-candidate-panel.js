@@ -1067,7 +1067,9 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
         'Yang akan dihapus PERMANEN:\n' +
         '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
         '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
-        '  subject_ratings, candidate_status\n' +
+'  subject_ratings, candidate_status, sgs_scores,\n' +
+'  sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
+'• Request izin & resume state\n' +
         '• Chat room (jika ada)\n\n' +
         'Tidak bisa dibatalkan!',
         { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
@@ -1158,14 +1160,18 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
   /* ============================================================
      STEP 2: Hapus Firebase paths
      ============================================================ */
-  const paths = [
-    'sgs_interviews/' + slug,
-    'sgs_grafis_interp/' + slug,
-    'sgs_grafis_images/' + slug,
-    'sgs_fgd/' + slug,
-    'sgs_subject_ratings/' + slug,
-    'sgs_candidate_status/' + slug
-  ];
+ const paths = [
+  'sgs_interviews/' + slug,
+  'sgs_grafis_interp/' + slug,
+  'sgs_grafis_images/' + slug,
+  'sgs_fgd/' + slug,
+  'sgs_subject_ratings/' + slug,
+  'sgs_candidate_status/' + slug,
+  'sgs_scores/' + slug,              // 🆕
+  'sgs_psikogram/' + slug,           // 🆕
+  'sgs_psikogram_raw/' + slug,       // 🆕
+  'sgs_psikogram_weights/' + slug    // 🆕
+];
 
   for (const path of paths) {
     try {
@@ -1184,15 +1190,17 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
     const sessions = sessionsSnap.val() || {};
     const nameLower = String(candidateName).toLowerCase().trim();
 
-    for (const devId in sessions) {
-      const s = sessions[devId] || {};
-      if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-        try {
-          await firebase.database().ref('sgs_state/chats/' + devId).remove();
-          await firebase.database().ref('sgs_state/sessions/' + devId).remove();
-        } catch (e) {}
-      }
-    }
+ for (const devId in sessions) {
+  const s = sessions[devId] || {};
+  if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+    try {
+      await firebase.database().ref('sgs_state/chats/' + devId).remove();
+      await firebase.database().ref('sgs_state/sessions/' + devId).remove();
+      await firebase.database().ref('sgs_requests/' + devId).remove();       // 🆕
+      await firebase.database().ref('sgs_state/resume/' + devId).remove();   // 🆕
+    } catch (e) {}
+  }
+}
   } catch (e) {}
 
   /* ============================================================
