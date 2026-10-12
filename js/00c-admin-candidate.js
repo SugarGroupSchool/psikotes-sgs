@@ -710,20 +710,28 @@
     html += '<div style="padding:20px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:16px;margin-bottom:20px;">' +
       '<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#818cf8;margin-bottom:14px;">⚡ AKSI CEPAT</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-'<button class="cd-btn cd-btn-primary" data-cd-action="chat" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">💬 Buka Chat</button>' +
-'<button class="cd-btn cd-btn-success" data-cd-action="allow-retake" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">✅ Izinkan Tes Lagi</button>' +
-'<button class="cd-btn cd-btn-warning" data-cd-action="force-refresh" data-device-id="' + deviceId + '">🔄 Force Refresh</button>' +
-'<button class="cd-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;" data-cd-action="reset-to-fresh" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🆕 Reset ke Fresh</button>' +
-'<button class="cd-btn cd-btn-danger" data-cd-action="disqualify" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">⚠️ Diskualifikasi</button>' +
-'<button class="cd-btn cd-btn-danger" data-cd-action="force-logout" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🚪 Force Logout</button>' +
+'<button class="cd-btn cd-btn-primary" data-cd-action="chat" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="💬 Buka panel chat real-time dengan kandidat.\n\nTidak mengubah data apapun — hanya komunikasi.">💬 Buka Chat</button>' +
+'<button class="cd-btn cd-btn-success" data-cd-action="allow-retake" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="✅ Beri izin kandidat melanjutkan tes setelah device-nya &#39;finished&#39;.\n\n• Device kandidat reload otomatis\n• Login ulang pakai password USED\n• Data tes sebelumnya tetap tersimpan\n\nPakai kalau: kandidat submit tak sengaja / ada tes belum selesai.">✅ Izinkan Tes Lagi</button>' +
+'<button class="cd-btn cd-btn-warning" data-cd-action="force-refresh" data-device-id="' + deviceId + '" ' +
+  'title="🔄 Paksa halaman kandidat reload.\n\n• Kandidat tetap login\n• Lanjut di posisi yang sama\n• Tidak reset apapun\n\nPakai kalau: UI kandidat stuck / freeze / lapor halaman rusak.">🔄 Force Refresh</button>' +
+'<button class="cd-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;" data-cd-action="reset-to-fresh" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="🆕 Kembalikan device kandidat ke kondisi SEPERTI BARU (password FRESH).\n\n• Hapus semua data lokal (identity, completed, selectedTests)\n• Reset status kelulusan\n• Kandidat HARUS isi form identitas lagi\n• File hasil tes di Drive TIDAK dihapus\n\nPakai kalau: device mau dipakai kandidat lain / ulang dari nol.">🆕 Reset ke Fresh</button>' +
+'<button class="cd-btn cd-btn-danger" data-cd-action="disqualify" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="⚠️ Kunci device kandidat karena curang / melanggar aturan.\n\n• Kandidat tidak bisa login lagi\n• Device terkunci permanen\n• Kandidat harus Minta Izin Akses ke admin\n• Data kandidat tetap ada (bisa di-restore)\n\nPakai kalau: kandidat ketahuan keluar tab / pakai HP kedua.">⚠️ Diskualifikasi</button>' +
+'<button class="cd-btn cd-btn-danger" data-cd-action="force-logout" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="🚪 Paksa kandidat KELUAR dari sesi sekarang.\n\n• Device kandidat reload otomatis\n• Kembali ke layar password\n• Setelah login ulang → masuk layar Minta Izin Akses\n• Data tidak dihapus\n\nPakai kalau: kandidat login di device lain / mau pindah device.">🚪 Force Logout</button>' +
 '</div></div>';
 
     // Danger zone
     html += '<div style="padding:20px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.2);border-radius:16px;">' +
       '<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#fca5a5;margin-bottom:14px;">🚨 ZONA BAHAYA</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-      '<button class="cd-btn cd-btn-ghost" style="color:#fca5a5;border-color:rgba(239,68,68,.3);" data-cd-action="reset-progress" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🗑️ Reset Semua Progres</button>' +
-      '<button class="cd-btn cd-btn-ghost" style="color:#fca5a5;border-color:rgba(239,68,68,.3);" data-cd-action="delete-session" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">❌ Hapus Sesi Ini</button>' +
+      '<button class="cd-btn cd-btn-ghost" style="color:#fca5a5;border-color:rgba(239,68,68,.3);" data-cd-action="reset-progress" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="🗑️ Hapus semua PROGRES TES, tapi identitas tetap.\n\n• completed & selectedTests dihapus\n• Kandidat harus pilih tes lagi dari awal\n• Identity (nama, posisi) TETAP ADA\n• File hasil tes TIDAK dihapus\n\nPakai kalau: kandidat minta ulang semua tes.">🗑️ Reset Semua Progres</button>' +
+'<button class="cd-btn cd-btn-ghost" style="color:#fca5a5;border-color:rgba(239,68,68,.3);" data-cd-action="delete-session" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '" ' +
+  'title="❌ Hapus record sesi device dari Firebase.\n\n• Sesi + chat history dihapus\n• Kandidat hilang dari Kandidat Aktif\n• File Drive & Firebase lain TIDAK dihapus\n• Kandidat tidak ter-notify\n\nPakai kalau: bersih-bersih device sampah.">❌ Hapus Sesi Ini</button>' +
       '</div></div>';
 
     content.innerHTML = html;
@@ -940,6 +948,149 @@ if (action === 'reset-to-fresh') {
   } else {
     setTimeout(attachEventDelegation, 200);
   }
+
+/* ============================================================
+   🎨 CUSTOM TOOLTIP — pengganti title native browser
+   ============================================================ */
+(function initCustomTooltip() {
+  if (window.__customTooltipInit) return;
+  window.__customTooltipInit = true;
+
+  /* 1. Inject CSS */
+  const style = document.createElement('style');
+  style.id = 'sgs-custom-tooltip-style';
+  style.textContent = `
+    #sgs-tooltip-box {
+      position: fixed;
+      z-index: 2147483647;
+      max-width: 320px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 1.65;
+      font-weight: 600;
+      border: 1px solid rgba(99,102,241,.4);
+      border-radius: 12px;
+      box-shadow:
+        0 20px 50px rgba(0,0,0,.6),
+        0 0 0 1px rgba(99,102,241,.15),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-4px) scale(.96);
+      transition: opacity .15s ease, transform .15s ease;
+      white-space: pre-line;
+    }
+    #sgs-tooltip-box.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    #sgs-tooltip-box::before {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: #0f172a;
+      border-right: 1px solid rgba(99,102,241,.4);
+      border-bottom: 1px solid rgba(99,102,241,.4);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    #sgs-tooltip-box.below::before {
+      top: -6px;
+      bottom: auto;
+      border: 0;
+      border-left: 1px solid rgba(99,102,241,.4);
+      border-top: 1px solid rgba(99,102,241,.4);
+    }
+  `;
+  document.head.appendChild(style);
+
+  /* 2. Buat elemen tooltip sekali saja */
+  let tooltip = document.getElementById('sgs-tooltip-box');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'sgs-tooltip-box';
+    document.body.appendChild(tooltip);
+  }
+
+  /* 3. Show/hide pada elemen dengan atribut title */
+  let showTimer = null;
+  let currentEl = null;
+
+  function showTooltip(el) {
+    const text = el.getAttribute('title');
+    if (!text) return;
+
+    tooltip.textContent = text;
+    tooltip.classList.remove('below');
+
+    const rect = el.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+
+    /* Default: posisi di atas tombol */
+    let top = rect.top - tooltipRect.height - 12;
+    let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+
+    /* Kalau kepotong di atas → pindah ke bawah tombol */
+    if (top < 10) {
+      top = rect.bottom + 12;
+      tooltip.classList.add('below');
+    }
+
+    /* Jaga biar tidak kepotong di kiri/kanan */
+    if (left < 10) left = 10;
+    if (left + tooltipRect.width > window.innerWidth - 10) {
+      left = window.innerWidth - tooltipRect.width - 10;
+    }
+
+    tooltip.style.top = top + 'px';
+    tooltip.style.left = left + 'px';
+    tooltip.classList.add('show');
+  }
+
+  function hideTooltip() {
+    tooltip.classList.remove('show');
+    currentEl = null;
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[title]');
+    if (!el || el === currentEl) return;
+
+    /* Sembunyikan native title agar tidak dobel */
+    if (el.hasAttribute('title')) {
+      el.dataset.originalTitle = el.getAttribute('title');
+      el.removeAttribute('title');
+    }
+
+    currentEl = el;
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => showTooltip(el), 250);
+  }, true);
+
+  document.addEventListener('mouseout', (e) => {
+    const el = e.target.closest('[title]') || currentEl;
+    if (!el) return;
+
+    /* Kembalikan title asli */
+    if (el.dataset && el.dataset.originalTitle) {
+      el.setAttribute('title', el.dataset.originalTitle);
+      delete el.dataset.originalTitle;
+    }
+
+    clearTimeout(showTimer);
+    if (currentEl === el) hideTooltip();
+  }, true);
+
+  /* Sembunyikan saat scroll */
+  window.addEventListener('scroll', hideTooltip, { passive: true });
+
+  console.log('[CUSTOM-TOOLTIP] ✓ Loaded');
+})();
 
   console.log('[ADMIN-CANDIDATE] ✓ Loaded — daftar + detail + event delegation + chat badge + independent listener');
 })();
