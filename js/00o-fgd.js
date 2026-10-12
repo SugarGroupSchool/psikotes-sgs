@@ -350,22 +350,142 @@ __initAssessorsListener();
     if (!box) return;
 
     box.innerHTML = ASPEK.map((aspek, idx) => {
-      const selected = state.scores[aspek.id] || 0;
+      const selected = state.scores[aspek.id];
+      const selectedVal = (typeof selected === 'number' && selected > 0) ? selected : null;
       const noteVal = state.notes[aspek.id] || '';
 
-      const radios = [1, 2, 3, 4].map(n => `
-        <label class="fgd-radio-label" data-aspek="${aspek.id}" data-value="${n}"
-          style="flex: 1; min-width: 60px; display: flex; flex-direction: column; align-items: center;
-            gap: 4px; padding: 12px 8px; border: 2px solid ${selected === n ? '#3b82f6' : '#e2e8f0'};
-            border-radius: 12px; cursor: pointer; background: ${selected === n ? '#eff6ff' : '#fff'};
-            transition: all .15s ease;">
-          <input type="radio" name="skor_${aspek.id}" value="${n}" ${selected === n ? 'checked' : ''}
-            style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer;">
-          <span style="font-weight: 900; font-size: 16px; color: ${selected === n ? '#1e40af' : '#334155'};">
-            ${n}
-          </span>
-        </label>
-      `).join('');
+      const hintText = selectedVal
+        ? (aspek.hints[Math.round(selectedVal)] || 'Skor ' + selectedVal.toFixed(2))
+        : 'Masukkan skor 1.00 – 4.00';
+
+      const scoreInputHTML = `
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;">
+          <input type="number"
+            class="fgd-score-input"
+            data-aspek="${aspek.id}"
+            min="1" max="4" step="0.01"
+            value="${selectedVal !== null ? selectedVal.toFixed(2) : ''}"
+            placeholder="1.00 – 4.00"
+            inputmode="decimal"
+            style="flex: 1; min-width: 120px; padding: 12px 14px;
+              border: 2px solid ${selectedVal !== null ? '#8b5cf6' : '#e2e8f0'};
+              border-radius: 10px; font-family: inherit; font-size: 16px;
+              font-weight: 800; text-align: center; outline: none;
+              color: ${selectedVal !== null ? '#6d28d9' : '#1e293b'};
+              background: ${selectedVal !== null ? '#f5f3ff' : '#fff'};
+              box-sizing: border-box; transition: all .15s ease;">
+          <div style="flex: 0 0 auto; font-size: 11px; color: #94a3b8; font-weight: 700;">
+            / 4.00
+          </div>
+        </div>
+      `;
+
+      return `
+        <div class="fgd-aspek-block" data-aspek="${aspek.id}"
+          style="margin-bottom: 18px; padding: 16px 18px; background: #fbfdff;
+            border: 1.5px solid ${selectedVal !== null ? '#ddd6fe' : '#e2e8f0'};
+            border-radius: 14px; transition: border-color .15s ease;">
+
+          <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;">
+            <div style="width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center;
+              background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff;
+              font-weight: 900; font-size: 13px; border-radius: 9px;">
+              ${idx + 1}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.4;">
+                ${escapeHtml(aspek.label)}
+              </div>
+            </div>
+          </div>
+
+          ${scoreInputHTML}
+
+          <div class="fgd-hint" data-aspek="${aspek.id}"
+            style="font-size: 12px; color: #64748b; line-height: 1.5; padding: 8px 10px;
+              background: #f8fafc; border-left: 3px solid #cbd5e1; border-radius: 4px;
+              font-style: italic; margin-bottom: 12px;">
+            ${escapeHtml(hintText)}
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 11px; font-weight: 800; color: #64748b;
+              letter-spacing: .5px; margin-bottom: 6px;">
+              CATATAN UNTUK ASPEK INI
+            </label>
+            <textarea class="fgd-note" data-aspek="${aspek.id}" rows="2"
+              placeholder="Tulis catatan spesifik untuk aspek ini (opsional)..."
+              style="width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+                font-size: 13px; font-family: inherit; resize: vertical; outline: none;
+                box-sizing: border-box; line-height: 1.5;">${escapeHtml(noteVal)}</textarea>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    /* --- Event: input skor desimal --- */
+    box.querySelectorAll('.fgd-score-input').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const aspekId = inp.getAttribute('data-aspek');
+        let raw = String(e.target.value || '').replace(',', '.').replace(/[^0-9.]/g, '');
+
+        /* Hanya satu titik */
+        const parts = raw.split('.');
+        if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('');
+        /* Max 4 */
+        const v = parseFloat(raw);
+        if (!isNaN(v) && v > 4) raw = '4';
+        /* Min 1 */
+        if (!isNaN(v) && v < 1 && raw.length >= 3) raw = '1';
+
+        if (raw !== e.target.value) e.target.value = raw;
+
+        const val = parseFloat(raw);
+        if (!isNaN(val) && val >= 1 && val <= 4) {
+          state.scores[aspekId] = val;
+          e.target.style.borderColor = '#8b5cf6';
+          e.target.style.background = '#f5f3ff';
+          e.target.style.color = '#6d28d9';
+          /* Update border block */
+          const block = e.target.closest('.fgd-aspek-block');
+          if (block) block.style.borderColor = '#ddd6fe';
+        } else {
+          delete state.scores[aspekId];
+          e.target.style.borderColor = '#e2e8f0';
+          e.target.style.background = '#fff';
+          e.target.style.color = '#1e293b';
+          const block = e.target.closest('.fgd-aspek-block');
+          if (block) block.style.borderColor = '#e2e8f0';
+        }
+
+        /* Update hint */
+        const hint = box.querySelector('.fgd-hint[data-aspek="' + aspekId + '"]');
+        const aspek = ASPEK.find(a => a.id === aspekId);
+        if (hint && aspek) {
+          if (!isNaN(val) && val >= 1 && val <= 4) {
+            hint.textContent = aspek.hints[Math.round(val)] || 'Skor ' + val.toFixed(2);
+          } else {
+            hint.textContent = 'Masukkan skor 1.00 – 4.00';
+          }
+        }
+      });
+
+      inp.addEventListener('blur', (e) => {
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v) && v >= 1 && v <= 4) {
+          e.target.value = v.toFixed(2);
+        }
+      });
+    });
+
+    /* --- Event: input catatan --- */
+    box.querySelectorAll('.fgd-note').forEach(ta => {
+      ta.oninput = (e) => {
+        const aspekId = ta.getAttribute('data-aspek');
+        state.notes[aspekId] = e.target.value;
+      };
+    });
+  }
 
       const hint = selected && aspek.hints[selected]
         ? aspek.hints[selected]
@@ -434,38 +554,7 @@ __initAssessorsListener();
     });
   }
 
-  /* ============================================================
-     SELECT SCORE
-     ============================================================ */
-  function selectScore(aspekId, value) {
-    state.scores[aspekId] = value;
-
-    const aspek = ASPEK.find(a => a.id === aspekId);
-
-    // Update visual semua radio di aspek ini
-    const block = document.querySelector('.fgd-aspek-block[data-aspek="' + aspekId + '"]');
-    if (!block) return;
-
-    block.querySelectorAll('.fgd-radio-label').forEach(lbl => {
-      const v = Number(lbl.getAttribute('data-value'));
-      const isSelected = v === value;
-      lbl.style.borderColor = isSelected ? '#3b82f6' : '#e2e8f0';
-      lbl.style.background = isSelected ? '#eff6ff' : '#fff';
-      const span = lbl.querySelector('span');
-      if (span) span.style.color = isSelected ? '#1e40af' : '#334155';
-      const radio = lbl.querySelector('input');
-      if (radio) radio.checked = isSelected;
-    });
-
-    // Update hint
-    const hint = block.querySelector('.fgd-hint');
-    if (hint && aspek) {
-      hint.textContent = aspek.hints[value] || 'Pilih skor untuk melihat deskripsi';
-    }
-
-    // Update border block
-    block.style.borderColor = '#dbeafe';
-  }
+ 
 
   /* ============================================================
      SUBMIT
@@ -518,7 +607,17 @@ __initAssessorsListener();
     btn.textContent = '⏳ Mengirim...';
 
     try {
-      await saveToFirebase();
+            await saveToFirebase();
+
+      /* 🆕 Auto-generate PDF combined FGD */
+      if (typeof window.autoGenerateFGDCombined === 'function') {
+        btn.textContent = '🔄 Menggabungkan PDF…';
+        try {
+          await window.autoGenerateFGDCombined(candidateName, candidatePosition);
+        } catch (e) {
+          console.warn('[FGD] Auto-combine gagal:', e);
+        }
+      }
 
       document.body.innerHTML = `
         <div style="position: fixed; inset: 0; z-index: 2147483647;

@@ -1369,6 +1369,87 @@ window.adminResetToFreshByName = async function (candidateName) {
 };
 
   /* ============================================================
+     🆕 FGD — Hapus asesor + auto-regenerate PDF combined
+     ============================================================ */
+  async function deleteFGDAsesor(slug, asesor, candidateName, candidatePosition, onDone) {
+    if (!asesor) return alert('Nama asesor kosong.');
+
+    const ok = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          '🗑️ HAPUS ASESOR FGD\n\n' +
+          '👤 Asesor: ' + asesor + '\n' +
+          '🎯 Kandidat: ' + candidateName + '\n\n' +
+          'Yang akan terjadi:\n' +
+          '• Nilai & catatan asesor ini dihapus dari Firebase\n' +
+          '• PDF combined akan di-regenerate tanpa asesor ini\n\n' +
+          'Lanjutkan?',
+          { title: '🗑️ Hapus Asesor FGD', okText: 'Ya, Hapus' }
+        )
+      : confirm('Hapus asesor "' + asesor + '" dari FGD ' + candidateName + '?');
+    if (!ok) return;
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      return alert('Firebase belum siap');
+    }
+
+    try {
+      /* 1) Hapus dari Firebase */
+      await firebase.database().ref('sgs_fgd/' + slug + '/' + asesor).remove();
+      console.log('[FGD-DELETE] ✓ Dihapus dari Firebase:', slug, '/', asesor);
+
+      /* 2) Cari file PDF combined lama di Drive dan hapus */
+      try {
+        if (typeof window.fetchResultFiles === 'function') {
+          const files = await window.fetchResultFiles(true);
+          const combinedName = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-FGD-COMBINED.pdf';
+          const target = files.find(f => String(f.name || '') === combinedName);
+
+          if (target && typeof window.GAS_ADMIN_URL === 'string') {
+            const idToken = (typeof window.__getFirebaseIdToken === 'function')
+              ? await window.__getFirebaseIdToken() : '';
+            await fetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'delete', fileId: target.id, idToken })
+            });
+            if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(target.id);
+            if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(target.id);
+            console.log('[FGD-DELETE] ✓ PDF combined lama dihapus');
+          }
+        }
+      } catch (e) {
+        console.warn('[FGD-DELETE] Gagal hapus PDF lama:', e.message);
+      }
+
+      /* 3) Cek: apakah masih ada asesor lain? */
+      const snapAfter = await firebase.database().ref('sgs_fgd/' + slug).once('value');
+      const dataAfter = snapAfter.val() || {};
+      const remaining = Object.keys(dataAfter);
+
+      /* 4) Regenerate PDF combined (kalau masih ada asesor) */
+      if (remaining.length > 0) {
+        if (typeof window.autoGenerateFGDCombined === 'function') {
+          await new Promise(r => setTimeout(r, 1500));
+          await window.autoGenerateFGDCombined(candidateName, candidatePosition);
+        }
+      } else {
+        console.log('[FGD-DELETE] Tidak ada asesor lagi — PDF combined tidak di-regenerate');
+      }
+
+      /* 5) Refresh cache Drive */
+      if (typeof window.__invalidateResultCache === 'function') {
+        window.__invalidateResultCache();
+      }
+
+      if (typeof onDone === 'function') onDone();
+
+    } catch (e) {
+      console.error('[FGD-DELETE] Gagal:', e);
+      alert('Gagal hapus asesor: ' + e.message);
+    }
+  }
+
+  /* ============================================================
      🆕 FGD — Load & Render dari Firebase
      ------------------------------------------------------------
      Data FGD tidak di-generate jadi PDF, jadi baca langsung dari
@@ -1463,7 +1544,7 @@ window.adminResetToFreshByName = async function (candidateName) {
       return (
         '<div style="padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(139,92,246,.25);border-radius:11px;margin-bottom:8px;">' +
 
-          /* Header asesor */
+           /* Header asesor */
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
             '<div style="width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;' +
             'background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border-radius:9px;' +
@@ -1476,6 +1557,14 @@ window.adminResetToFreshByName = async function (candidateName) {
               'background:' + rec.bg + ';border:1px solid ' + rec.border + ';color:' + rec.color + ';white-space:nowrap;">' +
               rec.label +
             '</div>' +
+            /* 🆕 Tombol hapus asesor */
+            '<button class="js-fgd-delete-asesor" ' +
+              'data-asesor="' + esc(asesor) + '" ' +
+              'title="Hapus asesor ini dari FGD"' +
+              'style="padding:6px 10px;border-radius:8px;' +
+              'background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);' +
+              'color:#fca5a5;font-family:inherit;font-size:11px;font-weight:800;' +
+              'cursor:pointer;white-space:nowrap;">🗑️</button>' +
           '</div>' +
 
           /* Rata-rata */
@@ -2129,6 +2218,42 @@ contactChipHTML(statusData) +
       if (name && typeof window.adminDeleteCandidateCompletely === 'function') {
         window.adminDeleteCandidateCompletely(name, position);
       }
+      return;
+    }
+
+    /* 🆕 FGD — Hapus asesor */
+    const fgdDelBtn = e.target.closest('.js-fgd-delete-asesor');
+    if (fgdDelBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const asesor = fgdDelBtn.getAttribute('data-asesor');
+      const box = fgdDelBtn.closest('.js-fgd-box');
+      const card = fgdDelBtn.closest('.rf-card');
+      const anyBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link, .js-fgd-link') : null;
+      const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
+      const position = anyBtn ? anyBtn.getAttribute('data-position') : '';
+      const slug = slugify(name);
+
+      if (!asesor || !name) return;
+
+      deleteFGDAsesor(slug, asesor, name, position || '', () => {
+        /* Refresh box FGD di tempat */
+        const wrapper = card ? card.querySelector('.js-fgd-wrapper') : null;
+        if (wrapper) {
+          wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat ulang...</div>';
+          (async () => {
+            const fresh = await loadFGDData(slug);
+            wrapper.innerHTML = renderFGDBox(fresh, name, position);
+            /* Refresh cache Drive */
+            if (typeof window.fetchResultFiles === 'function') {
+              try {
+                const files = await window.fetchResultFiles(true);
+                window.__resultFilesCache = files;
+              } catch (e) {}
+            }
+          })();
+        }
+      });
       return;
     }
 
