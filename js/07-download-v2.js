@@ -429,8 +429,13 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
     console.warn('[SUBMIT] Gagal ambil ID token:', e);
   }
 
-  // ── Hapus ambil _gasToken (tidak perlu lagi) ──
-  // const _gasToken = ...  ← HAPUS BARIS INI
+    /* 🔑 FIX: Pastikan password selalu ada */
+  let pdfPassword = pdfResult.password || window.__lastPdfPassword;
+  if (!pdfPassword || pdfPassword === '-') {
+    pdfPassword = 'SGS-' + Math.random().toString(36).slice(2, 10).toUpperCase();
+    window.__lastPdfPassword = pdfPassword;
+    console.warn('[SUBMIT] Password PDF hilang — regenerate:', pdfPassword);
+  }
 
   const payload = {
     idToken: idToken,
@@ -441,7 +446,7 @@ async function uploadPDFWithRetry(pdfResult, setUI, maxRetry = 3) {
     email: identity.email || '',
     phone: identity.phone || '',      // ← 🆕 TAMBAH
     pdfBase64: pdfBase64,
-    pdfPassword: pdfResult.password || window.__lastPdfPassword || '-'
+    pdfPassword: pdfPassword
   };
 
   let attempt = 0;

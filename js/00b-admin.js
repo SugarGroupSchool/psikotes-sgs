@@ -825,109 +825,81 @@ async function deleteResultFile(fileId, fileName) {
     return;
   }
 
-  const idToken = await __getFirebaseIdToken();
-  if (!idToken) {
-    await __alert('Sesi admin berakhir. Login ulang.', '⚠️ Error');
-    return;
-  }
+  /* ===== SUKSES ===== */
+  window.__recentlyDeletedFileIds.add(fileId);
+  setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
+  __removeFileFromCache(fileId);
 
-  const maxRetry = 3;
-  let lastErr = null;
+  /* Cache & UI update DULU (optimistic) */
+  if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+  if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-  for (let attempt = 1; attempt <= maxRetry; attempt++) {
-    try {
-      const res = await fetch(GAS_ADMIN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'delete', fileId, idToken })
-      });
-
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-
-      const text = await res.text();
-
-      if (text.trim().startsWith('<')) {
-        throw new Error('Respon HTML (GAS redirect)');
-      }
-
-      const data = JSON.parse(text);
-
-      if (!data || !data.success) {
-        await __alert('Gagal hapus: ' + (data?.error || 'Unknown error'), '❌ Error');
-        return;
-      }
-
-         /* ===== SUKSES ===== */
-      window.__recentlyDeletedFileIds.add(fileId);
-      setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
-      __removeFileFromCache(fileId);
-
-      // 🆕 Cascade: kalau ini file wawancara, hapus semua file wawancara kandidat + Firebase
-      if (__isWawancaraFile(fileName)) {
-        const base = __extractWawancaraBase(fileName);
-        if (base) {
-          try {
-            await __cascadeDeleteWawancara(base, fileId);
-          } catch (e) {
-            console.warn('[ADMIN] Cascade error:', e.message);
-          }
-        }
-      }
-
-      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-
-           try {
-           const _isWawancara = (typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName));
-        let _candidateName = null;
-        let _candidateSlug = null;
-        if (_isWawancara) {
-          try {
-            const _info = (typeof __extractCandidateInfo === 'function')
-              ? __extractCandidateInfo({ name: fileName, description: '' })
-              : null;
-            _candidateName = _info && _info.name && _info.name !== '-' ? _info.name : null;
-            if (_candidateName) {
-              _candidateSlug = String(_candidateName).toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-            }
-          } catch (e) {}
-        }
-        firebase.database().ref('sgs_state/lastDelete').set({
-          ts: firebase.database.ServerValue.TIMESTAMP,
-          fileId: fileId,
-          candidateName: _candidateName,
-          candidateSlug: _candidateSlug
-        }).catch(() => {});
-      } catch (e) {}
-
-      await __alert('File berhasil dihapus dari Drive', '✅ Sukses');
-
-      setTimeout(async () => {
-        __invalidateResultCache();
-        try {
-          const files = await fetchResultFiles(true);
-          window.__resultFilesCache = files;
-          if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-          if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-        } catch (err) {}
-      }, DRIVE_PROPAGATION_DELAY_MS);
-
-      return;
-
-    } catch (e) {
-      lastErr = e;
-      if (attempt === maxRetry) {
-        console.warn(`[DELETE] Attempt ${attempt}/${maxRetry} gagal:`, e.message);
-      } else {
-        console.log(`[DELETE] Retry ${attempt}/${maxRetry}...`, e.message);
-        await new Promise(r => setTimeout(r, 800));
+  /* Cascade: kalau ini file wawancara, hapus semua file wawancara kandidat + Firebase */
+  if (__isWawancaraFile(fileName)) {
+    const base = __extractWawancaraBase(fileName);
+    if (base) {
+      try {
+        await __cascadeDeleteWawancara(base, fileId);
+      } catch (e) {
+        console.warn('[ADMIN] Cascade error:', e.message);
       }
     }
   }
 
-  console.error('[DELETE] Semua retry gagal:', lastErr?.message);
-  await __alert('Gagal hapus: ' + (lastErr?.message || 'Koneksi bermasalah'), '❌ Error');
+  /* Sinyal ke admin lain */
+  try {
+    const _isWawancara = (typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName));
+    let _candidateName = null;
+    let _candidateSlug = null;
+    if (_isWawancara) {
+      try {
+        const _info = (typeof __extractCandidateInfo === 'function')
+          ? __extractCandidateInfo({ name: fileName, description: '' })
+          : null;
+        _candidateName = _info && _info.name && _info.name !== '-' ? _info.name : null;
+        if (_candidateName) {
+          _candidateSlug = String(_candidateName).toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        }
+      } catch (e) {}
+    }
+    firebase.database().ref('sgs_state/lastDelete').set({
+      ts: firebase.database.ServerValue.TIMESTAMP,
+      fileId: fileId,
+      candidateName: _candidateName,
+      candidateSlug: _candidateSlug
+    }).catch(() => {});
+  } catch (e) {}
+
+  /* ===== KIRIM REQUEST KE GAS (no-cors — GAS tidak bisa baca response) ===== */
+  try {
+    await fetch(GAS_ADMIN_URL, {
+      method: 'POST',
+      mode: 'no-cors',   // 🔑 KUNCI FIX
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', fileId: fileId })
+    });
+  } catch (e) {
+    console.warn('[DELETE] Gagal kirim request:', e.message);
+    await __alert('Gagal kirim request hapus: ' + e.message, '❌ Error');
+    return;
+  }
+
+  /* Tunggu GAS proses */
+  await new Promise(r => setTimeout(r, 1500));
+
+  /* Refresh dari server setelah Drive propagasi */
+  setTimeout(async () => {
+    __invalidateResultCache();
+    try {
+      const files = await fetchResultFiles(true);
+      window.__resultFilesCache = files;
+      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+    } catch (err) {}
+  }, DRIVE_PROPAGATION_DELAY_MS);
+
+  await __alert('File dihapus dari Drive', '✅ Sukses');
 }
 
 /* ============================================================
