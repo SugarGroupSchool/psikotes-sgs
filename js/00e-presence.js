@@ -364,56 +364,69 @@ function startListeningAdminSignals() {
 
   __adminSignalCb = function(snap) {
     var s = snap.val() || {};
-    vvar cur = {
-  force_refresh:      s.force_refresh      || null,
-  force_logout:       s.force_logout       || null,
-  disqualified:       s.disqualified === true ? true : null,
-  reset_progress:     s.reset_progress     || null,
-  force_reset_fresh:  s.force_reset_fresh  || null
-};
+    var cur = {
+      force_refresh:      s.force_refresh      || null,
+      force_logout:       s.force_logout       || null,
+      disqualified:       s.disqualified === true ? true : null,
+      reset_progress:     s.reset_progress     || null,
+      force_reset_fresh:  s.force_reset_fresh  || null
+    };
 
+    /* ✅ Guard: first load, simpan snapshot & keluar */
+    if (__adminLastValues === null) {
+      __adminLastValues = cur;
+      return;
+    }
+
+    /* ============================================================
+       🆕 RESET KE FRESH
+       ============================================================ */
     if (cur.force_reset_fresh && cur.force_reset_fresh !== __adminLastValues.force_reset_fresh) {
-  __adminLastValues.force_reset_fresh = cur.force_reset_fresh;
+      __adminLastValues.force_reset_fresh = cur.force_reset_fresh;
 
-  var rfrKey = '_sgs_rfr_' + cur.force_reset_fresh;
-  if (sessionStorage.getItem(rfrKey) === '1') return;
-  sessionStorage.setItem(rfrKey, '1');
+      var rfrKey = '_sgs_rfr_' + cur.force_reset_fresh;
+      if (sessionStorage.getItem(rfrKey) === '1') return;
+      sessionStorage.setItem(rfrKey, '1');
 
-  console.log('[PRESENCE] 🆕 Admin reset ke fresh — clear semua state lokal');
+      console.log('[PRESENCE] 🆕 Admin reset ke fresh — clear semua state lokal');
 
-  /* Clear semua flag & data lokal */
-  try {
-    localStorage.removeItem('usedPragas');
-    localStorage.removeItem('_sgs_finished');
-    localStorage.removeItem('_sgs_disqualified');
-    localStorage.removeItem('_sgs_lock');
-    localStorage.removeItem('identity');
-    localStorage.removeItem('completed');
-    localStorage.removeItem('selectedTests');
-    localStorage.removeItem('_sgs_resume');
-    sessionStorage.removeItem('_sgs_retake_processed');
-    sessionStorage.removeItem('_sgs_resumeChecked');
-  } catch (e) {}
+      /* Clear semua flag & data lokal */
+      try {
+        localStorage.removeItem('usedPragas');
+        localStorage.removeItem('_sgs_finished');
+        localStorage.removeItem('_sgs_disqualified');
+        localStorage.removeItem('_sgs_lock');
+        localStorage.removeItem('identity');
+        localStorage.removeItem('completed');
+        localStorage.removeItem('selectedTests');
+        localStorage.removeItem('_sgs_resume');
+        sessionStorage.removeItem('_sgs_retake_processed');
+        sessionStorage.removeItem('_sgs_resumeChecked');
+      } catch (e) {}
 
-  /* Reset sinyal di Firebase supaya tidak loop setelah reload */
-  try {
-    firebase.database()
-      .ref('sgs_state/sessions/' + __presenceDeviceId)
-      .update({ force_reset_fresh: null })
-      .catch(() => {});
-  } catch (e) {}
+      /* Reset sinyal di Firebase supaya tidak loop setelah reload */
+      try {
+        firebase.database()
+          .ref('sgs_state/sessions/' + __presenceDeviceId)
+          .update({ force_reset_fresh: null })
+          .catch(() => {});
+      } catch (e) {}
 
-  /* Tampilkan banner + auto reload (3 detik) */
-  showAdminSignalBanner(
-    '🆕',
-    'Reset ke Fresh',
-    'Admin telah mereset device ini. Silakan login dengan password FRESH.',
-    3,
-    '#6366f1'
-  );
-  return;
-}
+      /* Tampilkan banner + auto reload (3 detik) */
+      showAdminSignalBanner(
+        '🆕',
+        'Reset ke Fresh',
+        'Admin telah mereset device ini. Silakan login dengan password FRESH.',
+        3,
+        '#6366f1'
+      );
+      return;
+    }
 
+    /* ============================================================
+       🔄 FORCE REFRESH
+       ============================================================ */
+    if (cur.force_refresh && cur.force_refresh !== __adminLastValues.force_refresh) {
       __adminLastValues.force_refresh = cur.force_refresh;
       var frKey = '_sgs_fr_' + cur.force_refresh;
       if (sessionStorage.getItem(frKey) === '1') return;
@@ -422,6 +435,9 @@ function startListeningAdminSignals() {
       return;
     }
 
+    /* ============================================================
+       🚪 FORCE LOGOUT
+       ============================================================ */
     if (cur.force_logout && cur.force_logout !== __adminLastValues.force_logout) {
       __adminLastValues.force_logout = cur.force_logout;
       var flKey = '_sgs_fl_' + cur.force_logout;
@@ -435,6 +451,9 @@ function startListeningAdminSignals() {
       return;
     }
 
+    /* ============================================================
+       ⚠️ DISKUALIFIKASI
+       ============================================================ */
     if (cur.disqualified && !__adminLastValues.disqualified) {
       __adminLastValues.disqualified = cur.disqualified;
       if (sessionStorage.getItem('_sgs_dq_processed') === '1') return;
@@ -448,6 +467,9 @@ function startListeningAdminSignals() {
       return;
     }
 
+    /* ============================================================
+       🗑️ RESET PROGRESS
+       ============================================================ */
     if (cur.reset_progress && cur.reset_progress !== __adminLastValues.reset_progress) {
       __adminLastValues.reset_progress = cur.reset_progress;
       var rpKey = '_sgs_rp_' + cur.reset_progress;
