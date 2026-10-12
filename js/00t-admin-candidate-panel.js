@@ -1288,12 +1288,27 @@ window.adminResetToFreshByName = async function (candidateName) {
   /* ============================================================
      BACKFILL GLOBAL — Scan sessions + Drive, cache semua kontak
      ============================================================ */
-  let __backfillDone = false;
-  async function backfillAllContacts() {
-    if (__backfillDone) return;
-    __backfillDone = true;
+  /* 🔒 Cek apakah admin login — pakai sessionStorage flag */
+function __isAdminLoggedIn() {
+  try {
+    return sessionStorage.getItem('_sgs_admin_logged_in') === '1';
+  } catch (e) {
+    return false;
+  }
+}
 
-    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+let __backfillDone = false;
+async function backfillAllContacts() {
+  if (__backfillDone) return;
+  __backfillDone = true;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+
+  /* 🔒 Skip kalau bukan admin — Rules melarang baca sessions */
+  if (!__isAdminLoggedIn()) {
+    console.log('[BACKFILL] ⏭️ Skip — bukan mode admin');
+    return;
+  }
 
     console.log('[BACKFILL] Memulai sinkronisasi kontak...');
     const map = {};
@@ -2045,13 +2060,16 @@ contactChipHTML(statusData) +
   /* ============================================================
      SCAN & INIT
      ============================================================ */
-  function scanAndRestructure() {
-    const cards = document.querySelectorAll('.rf-card');
-    cards.forEach(c => { restructureCard(c).catch(() => {}); });
-  }
+ function scanAndRestructure() {
+  /* 🔒 Skip kalau bukan admin */
+  if (!__isAdminLoggedIn()) return;
 
-  if (!window.__adminPanelObserver) {
-    window.__adminPanelObserver = new MutationObserver(() => {
+  const cards = document.querySelectorAll('.rf-card');
+  cards.forEach(c => { restructureCard(c).catch(() => {}); });
+}
+
+ if (!window.__adminPanelObserver && __isAdminLoggedIn()) {
+  window.__adminPanelObserver = new MutationObserver(() => {
       clearTimeout(window.__adminPanelTimer);
       window.__adminPanelTimer = setTimeout(scanAndRestructure, 400);
     });
