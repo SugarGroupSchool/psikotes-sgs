@@ -825,81 +825,60 @@ async function deleteResultFile(fileId, fileName) {
     return;
   }
 
-  /* ===== SUKSES ===== */
+  const idToken = await __getFirebaseIdToken();
+
+  try {
+    /* 🔧 KEMBALI KE MODE CORS — TERBUKTI BERHASIL HAPUS DI DRIVE */
+    await fetch(GAS_ADMIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', fileId: fileId, idToken: idToken })
+    });
+  } catch (e) {
+    console.warn('[DELETE] Fetch error (mungkin CORS):', e.message);
+    /* Lanjut saja — optimistic. Kalau GAS gagal, refresh nanti akan koreksi */
+  }
+
+  /* ===== SUKSES (optimistic) ===== */
   window.__recentlyDeletedFileIds.add(fileId);
   setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
   __removeFileFromCache(fileId);
 
-  /* Cache & UI update DULU (optimistic) */
-  if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-  if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-
-  /* Cascade: kalau ini file wawancara, hapus semua file wawancara kandidat + Firebase */
+  /* Cascade wawancara */
   if (__isWawancaraFile(fileName)) {
     const base = __extractWawancaraBase(fileName);
     if (base) {
-      try {
-        await __cascadeDeleteWawancara(base, fileId);
-      } catch (e) {
-        console.warn('[ADMIN] Cascade error:', e.message);
-      }
+      try { await __cascadeDeleteWawancara(base, fileId); }
+      catch (e) { console.warn('[ADMIN] Cascade error:', e.message); }
     }
   }
+
+  /* Update UI langsung */
+  if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+  if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
   /* Sinyal ke admin lain */
   try {
-    const _isWawancara = (typeof __isWawancaraFile === 'function' && __isWawancaraFile(fileName));
-    let _candidateName = null;
-    let _candidateSlug = null;
-    if (_isWawancara) {
-      try {
-        const _info = (typeof __extractCandidateInfo === 'function')
-          ? __extractCandidateInfo({ name: fileName, description: '' })
-          : null;
-        _candidateName = _info && _info.name && _info.name !== '-' ? _info.name : null;
-        if (_candidateName) {
-          _candidateSlug = String(_candidateName).toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-        }
-      } catch (e) {}
-    }
     firebase.database().ref('sgs_state/lastDelete').set({
       ts: firebase.database.ServerValue.TIMESTAMP,
-      fileId: fileId,
-      candidateName: _candidateName,
-      candidateSlug: _candidateSlug
+      fileId: fileId
     }).catch(() => {});
   } catch (e) {}
 
-  /* ===== KIRIM REQUEST KE GAS (no-cors — GAS tidak bisa baca response) ===== */
-  try {
-    await fetch(GAS_ADMIN_URL, {
-      method: 'POST',
-      mode: 'no-cors',   // 🔑 KUNCI FIX
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', fileId: fileId })
-    });
-  } catch (e) {
-    console.warn('[DELETE] Gagal kirim request:', e.message);
-    await __alert('Gagal kirim request hapus: ' + e.message, '❌ Error');
-    return;
-  }
-
-  /* Tunggu GAS proses */
-  await new Promise(r => setTimeout(r, 1500));
-
-  /* Refresh dari server setelah Drive propagasi */
-  setTimeout(async () => {
-    __invalidateResultCache();
-    try {
-      const files = await fetchResultFiles(true);
-      window.__resultFilesCache = files;
-      if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
-      if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
-    } catch (err) {}
-  }, DRIVE_PROPAGATION_DELAY_MS);
-
   await __alert('File dihapus dari Drive', '✅ Sukses');
+
+  /* 🔧 FIX: tunggu GAS proses + Drive propagasi, lalu refresh list */
+  await new Promise(r => setTimeout(r, 2500));
+
+  __invalidateResultCache();
+  try {
+    const files = await fetchResultFiles(true);
+    window.__resultFilesCache = files;
+    if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
+    if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
+  } catch (err) {
+    console.warn('[DELETE] Refresh gagal:', err.message);
+  }
 }
 
 /* ============================================================
