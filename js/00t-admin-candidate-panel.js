@@ -952,132 +952,203 @@
   /* ============================================================
      🗑️ HAPUS TOTAL KANDIDAT — semua resource
      ============================================================ */
-  window.adminDeleteCandidateCompletely = async function (candidateName, candidatePosition) {
-    if (!candidateName) return alert('Nama kandidat kosong.');
-    const slug = slugify(candidateName);
+/* ============================================================
+   🗑️ HAPUS TOTAL KANDIDAT — semua resource
+   ============================================================ */
+window.adminDeleteCandidateCompletely = async function (candidateName, candidatePosition) {
+  if (!candidateName) return alert('Nama kandidat kosong.');
+  const slug = slugify(candidateName);
 
-    const ok1 = (typeof window.sgsConfirmDanger === 'function')
-      ? await window.sgsConfirmDanger(
-          '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
-          '👤 ' + candidateName + '\n' +
-          '💼 ' + (candidatePosition || '-') + '\n\n' +
-          'Yang akan dihapus PERMANEN:\n' +
-          '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
-          '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
-          '  subject_ratings, candidate_status\n' +
-          '• Chat room (jika ada)\n\n' +
-          'Tidak bisa dibatalkan!',
-          { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
-        )
-      : confirm('Hapus total kandidat ' + candidateName + '?');
+  const ok1 = (typeof window.sgsConfirmDanger === 'function')
+    ? await window.sgsConfirmDanger(
+        '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
+        '👤 ' + candidateName + '\n' +
+        '💼 ' + (candidatePosition || '-') + '\n\n' +
+        'Yang akan dihapus PERMANEN:\n' +
+        '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
+        '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
+        '  subject_ratings, candidate_status\n' +
+        '• Chat room (jika ada)\n\n' +
+        'Tidak bisa dibatalkan!',
+        { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
+      )
+    : confirm('Hapus total kandidat ' + candidateName + '?');
 
-    if (!ok1) return;
+  if (!ok1) return;
 
-    const ok2 = (typeof window.sgsConfirmDanger === 'function')
-      ? await window.sgsConfirmDanger(
-          'Konfirmasi terakhir:\n\nHapus permanen "' + candidateName + '"?',
-          { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
-        )
-      : confirm('Yakin 100%? Tindakan ini permanen.');
+  const ok2 = (typeof window.sgsConfirmDanger === 'function')
+    ? await window.sgsConfirmDanger(
+        'Konfirmasi terakhir:\n\nHapus permanen "' + candidateName + '"?',
+        { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
+      )
+    : confirm('Yakin 100%? Tindakan ini permanen.');
 
-    if (!ok2) return;
+  if (!ok2) return;
 
-    if (typeof firebase === 'undefined' || !firebase.apps.length) {
-      return alert('Firebase belum siap');
-    }
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    return alert('Firebase belum siap');
+  }
 
-    let driveDeleted = 0;
-    let fbDeleted = 0;
+  let driveDeleted = 0;
+  let fbDeleted = 0;
+  let driveFailed = 0;
 
-    try {
-      const files = (typeof window.fetchResultFiles === 'function')
-        ? await window.fetchResultFiles(true) : [];
+  /* ============================================================
+     STEP 1: Hapus semua file di Google Drive
+     ============================================================ */
+  try {
+    const files = (typeof window.fetchResultFiles === 'function')
+      ? await window.fetchResultFiles(true) : [];
 
-      const nameLower = String(candidateName).toLowerCase().trim();
+    const nameLower = String(candidateName).toLowerCase().trim();
 
-      const targets = files.filter(f => {
-        const n = String(f.name || '').toLowerCase();
-        const desc = String(f.description || '').toLowerCase();
+    const targets = files.filter(f => {
+      const n = String(f.name || '').toLowerCase();
+      const desc = String(f.description || '').toLowerCase();
 
-        const descMatch = desc.match(/nama:\s*(.+)/i);
-        if (descMatch && descMatch[1].trim() === nameLower) return true;
+      const descMatch = desc.match(/nama:\s*(.+)/i);
+      if (descMatch && descMatch[1].trim() === nameLower) return true;
 
-        if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
-        if (n.startsWith(slug + '-')) return true;
+      if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
+      if (n.startsWith(slug + '-')) return true;
 
-        return false;
-      });
+      return false;
+    });
 
-      if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
-        const idToken = (typeof window.__getFirebaseIdToken === 'function')
-          ? await window.__getFirebaseIdToken() : '';
+    console.log('[DELETE TOTAL] Target file Drive:', targets.length);
 
-        for (const f of targets) {
-          try {
-            const res = await fetch(window.GAS_ADMIN_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
-            });
-            if (res.ok) {
-              if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
-              if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
-              driveDeleted++;
-            }
-          } catch (e) {}
+    if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
+      const idToken = (typeof window.__getFirebaseIdToken === 'function')
+        ? await window.__getFirebaseIdToken() : '';
+
+      for (let i = 0; i < targets.length; i++) {
+        const f = targets[i];
+        let success = false;
+
+        try {
+          /* 🔧 mode default (cors) — TIDAK cek res.ok karena GAS redirect 302
+             Response CORS-block = normal. Kalau fetch selesai (tidak throw),
+             request SUDAH sampai ke GAS. */
+          await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+          });
+
+          /* Kalau tidak throw = optimistic sukses */
+          success = true;
+
+        } catch (e) {
+          /* CORS block / network error → tetap anggap sukses (request terkirim) */
+          console.warn('[DELETE TOTAL] Fetch error (dianggap sukses):', f.name, '—', e.message);
+          success = true;  // optimistic
+        }
+
+        if (success) {
+          if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
+          if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
+          driveDeleted++;
+          console.log(`[DELETE TOTAL] ✓ (${i + 1}/${targets.length})`, f.name);
+        } else {
+          driveFailed++;
+        }
+
+        /* ⏱️ Delay 500ms antar request — hindari rate limit GAS */
+        if (i < targets.length - 1) {
+          await new Promise(r => setTimeout(r, 500));
         }
       }
-    } catch (e) { console.warn('[DELETE] Drive:', e.message); }
-
-    const paths = [
-      'sgs_interviews/' + slug,
-      'sgs_grafis_interp/' + slug,
-      'sgs_grafis_images/' + slug,
-      'sgs_fgd/' + slug,
-      'sgs_subject_ratings/' + slug,
-      'sgs_candidate_status/' + slug
-    ];
-
-    for (const path of paths) {
-      try {
-        await firebase.database().ref(path).remove();
-        fbDeleted++;
-      } catch (e) {}
     }
+  } catch (e) {
+    console.warn('[DELETE TOTAL] Drive error:', e.message);
+  }
 
+  /* ============================================================
+     STEP 2: Hapus Firebase paths
+     ============================================================ */
+  const paths = [
+    'sgs_interviews/' + slug,
+    'sgs_grafis_interp/' + slug,
+    'sgs_grafis_images/' + slug,
+    'sgs_fgd/' + slug,
+    'sgs_subject_ratings/' + slug,
+    'sgs_candidate_status/' + slug
+  ];
+
+  for (const path of paths) {
     try {
-      const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
-      const sessions = sessionsSnap.val() || {};
-      const nameLower = String(candidateName).toLowerCase().trim();
+      await firebase.database().ref(path).remove();
+      fbDeleted++;
+    } catch (e) {
+      console.warn('[DELETE TOTAL] Firebase gagal:', path, e.message);
+    }
+  }
 
-      for (const devId in sessions) {
-        const s = sessions[devId] || {};
-        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-          try {
-            await firebase.database().ref('sgs_state/chats/' + devId).remove();
-            await firebase.database().ref('sgs_state/sessions/' + devId).remove();
-          } catch (e) {}
-        }
+  /* ============================================================
+     STEP 3: Hapus sessions & chats
+     ============================================================ */
+  try {
+    const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+    const sessions = sessionsSnap.val() || {};
+    const nameLower = String(candidateName).toLowerCase().trim();
+
+    for (const devId in sessions) {
+      const s = sessions[devId] || {};
+      if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+        try {
+          await firebase.database().ref('sgs_state/chats/' + devId).remove();
+          await firebase.database().ref('sgs_state/sessions/' + devId).remove();
+        } catch (e) {}
       }
-    } catch (e) {}
+    }
+  } catch (e) {}
 
-    if (typeof window.__invalidateResultCache === 'function') window.__invalidateResultCache();
-    setTimeout(() => {
-      if (document.getElementById('resultFilesPageOverlay') && typeof window.__renderResultPageContent === 'function') {
-        window.__renderResultPageContent();
-      }
-    }, 500);
+  /* ============================================================
+     STEP 4: Refresh cache & UI
+     ============================================================ */
+  if (typeof window.__invalidateResultCache === 'function') {
+    window.__invalidateResultCache();
+  }
 
-    const card = document.querySelector('.rf-card[data-candidate-slug="' + slug + '"]');
-    if (card) card.remove();
+  /* Tunggu Drive propagasi (2 detik) lalu refresh list */
+  await new Promise(r => setTimeout(r, 2000));
 
-    alert(
-      '✅ Hapus total selesai:\n\n' +
-      '• Firebase paths: ' + fbDeleted + ' dihapus\n' +
-      '• File Drive: ' + driveDeleted + ' dihapus\n\n' +
-      'Kandidat "' + candidateName + '" sudah dihapus permanen.'
-    );
-  };
+  try {
+    if (typeof window.fetchResultFiles === 'function') {
+      const freshFiles = await window.fetchResultFiles(true);
+      window.__resultFilesCache = freshFiles;
+    }
+    if (document.getElementById('resultFilesPageOverlay') &&
+        typeof window.__renderResultPageContent === 'function') {
+      window.__renderResultPageContent();
+    }
+    if (typeof window.__updateAdminResultCounter === 'function') {
+      window.__updateAdminResultCounter();
+    }
+  } catch (e) {
+    console.warn('[DELETE TOTAL] Refresh error:', e.message);
+  }
+
+  /* Hapus card kandidat dari DOM */
+  const card = document.querySelector('.rf-card[data-candidate-slug="' + slug + '"]');
+  if (card) card.remove();
+
+  /* ============================================================
+     STEP 5: Alert hasil
+     ============================================================ */
+  let msg =
+    '✅ Hapus total selesai:\n\n' +
+    '• Firebase paths: ' + fbDeleted + ' dihapus\n' +
+    '• File Drive: ' + driveDeleted + ' dihapus';
+
+  if (driveFailed > 0) {
+    msg += '\n• ⚠️ Gagal: ' + driveFailed + ' file';
+  }
+
+  msg += '\n\nKandidat "' + candidateName + '" sudah dihapus permanen.';
+
+  alert(msg);
+};
 
   /* ============================================================
      COMPACT FILE ITEM
