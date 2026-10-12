@@ -364,19 +364,56 @@ function startListeningAdminSignals() {
 
   __adminSignalCb = function(snap) {
     var s = snap.val() || {};
-    var cur = {
-      force_refresh:   s.force_refresh   || null,
-      force_logout:    s.force_logout    || null,
-      disqualified:    s.disqualified === true ? true : null,
-      reset_progress:  s.reset_progress  || null
-    };
+    vvar cur = {
+  force_refresh:      s.force_refresh      || null,
+  force_logout:       s.force_logout       || null,
+  disqualified:       s.disqualified === true ? true : null,
+  reset_progress:     s.reset_progress     || null,
+  force_reset_fresh:  s.force_reset_fresh  || null
+};
 
-    if (__adminLastValues === null) {
-      __adminLastValues = cur;
-      return;
-    }
+    if (cur.force_reset_fresh && cur.force_reset_fresh !== __adminLastValues.force_reset_fresh) {
+  __adminLastValues.force_reset_fresh = cur.force_reset_fresh;
 
-    if (cur.force_refresh && cur.force_refresh !== __adminLastValues.force_refresh) {
+  var rfrKey = '_sgs_rfr_' + cur.force_reset_fresh;
+  if (sessionStorage.getItem(rfrKey) === '1') return;
+  sessionStorage.setItem(rfrKey, '1');
+
+  console.log('[PRESENCE] 🆕 Admin reset ke fresh — clear semua state lokal');
+
+  /* Clear semua flag & data lokal */
+  try {
+    localStorage.removeItem('usedPragas');
+    localStorage.removeItem('_sgs_finished');
+    localStorage.removeItem('_sgs_disqualified');
+    localStorage.removeItem('_sgs_lock');
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+    localStorage.removeItem('_sgs_resume');
+    sessionStorage.removeItem('_sgs_retake_processed');
+    sessionStorage.removeItem('_sgs_resumeChecked');
+  } catch (e) {}
+
+  /* Reset sinyal di Firebase supaya tidak loop setelah reload */
+  try {
+    firebase.database()
+      .ref('sgs_state/sessions/' + __presenceDeviceId)
+      .update({ force_reset_fresh: null })
+      .catch(() => {});
+  } catch (e) {}
+
+  /* Tampilkan banner + auto reload (3 detik) */
+  showAdminSignalBanner(
+    '🆕',
+    'Reset ke Fresh',
+    'Admin telah mereset device ini. Silakan login dengan password FRESH.',
+    3,
+    '#6366f1'
+  );
+  return;
+}
+
       __adminLastValues.force_refresh = cur.force_refresh;
       var frKey = '_sgs_fr_' + cur.force_refresh;
       if (sessionStorage.getItem(frKey) === '1') return;

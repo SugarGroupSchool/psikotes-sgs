@@ -1150,6 +1150,93 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
   alert(msg);
 };
 
+/* ============================================================
+   🆕 RESET KE FRESH — Kandidat bisa login ulang pakai FRESH
+   ============================================================ */
+window.adminResetToFreshByName = async function (candidateName) {
+  if (!candidateName) return alert('Nama kandidat kosong.');
+
+  const ok = (typeof window.sgsConfirmDanger === 'function')
+    ? await window.sgsConfirmDanger(
+        '🆕 RESET KE FRESH\n\n' +
+        '👤 ' + candidateName + '\n\n' +
+        'Yang akan terjadi di device kandidat:\n' +
+        '• Semua data lokal dihapus (identity, completed, selectedTests)\n' +
+        '• Status kelulusan & diskualifikasi di-reset\n' +
+        '• Device jadi seperti baru → login pakai password FRESH\n' +
+        '• Kandidat harus isi form identitas lagi\n\n' +
+        '⚠️ File hasil tes di Drive & Firebase TIDAK dihapus.\n\n' +
+        'Lanjutkan?',
+        { title: '🆕 Reset ke Fresh', okText: 'Ya, Reset' }
+      )
+    : confirm('Reset ' + candidateName + ' ke FRESH?');
+
+  if (!ok) return;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    return alert('Firebase belum siap');
+  }
+
+  /* Cari deviceId kandidat di sessions */
+  let deviceId = null;
+  try {
+    const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+    const sessions = snap.val() || {};
+    const nameLower = String(candidateName).toLowerCase().trim();
+    for (const devId in sessions) {
+      const s = sessions[devId] || {};
+      if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+        deviceId = devId;
+        break;
+      }
+    }
+  } catch (e) {
+    return alert('Gagal baca sessions: ' + e.message);
+  }
+
+  if (!deviceId) {
+    return alert(
+      '❌ Device kandidat tidak ditemukan di sessions.\n\n' +
+      'Kemungkinan:\n' +
+      '• Kandidat belum pernah login\n' +
+      '• Sesi sudah kadaluarsa (>3 menit offline)\n' +
+      '• Nama tidak cocok (cek ejaan)'
+    );
+  }
+
+  try {
+    /* Kirim sinyal ke device kandidat */
+    await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
+      force_reset_fresh: Date.now(),
+      finished: false,
+      disqualified: false,
+      status: 'active',
+      lastSeen: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    /* Reset status kelulusan di Firebase (biar tidak ada badge "Lolos") */
+    const slug = String(candidateName).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    try {
+      await firebase.database().ref('sgs_candidate_status/' + slug).update({
+        status: '',
+        emailSentAt: null,
+        emailSentStatus: null,
+        ts: firebase.database.ServerValue.TIMESTAMP
+      });
+    } catch (e) {}
+
+    alert(
+      '✅ Sinyal reset terkirim ke device kandidat.\n\n' +
+      '📱 Device kandidat akan otomatis reload.\n' +
+      'Setelah reload, login pakai password FRESH.'
+    );
+
+  } catch (e) {
+    alert('Gagal kirim sinyal: ' + e.message);
+  }
+};
+
   /* ============================================================
      COMPACT FILE ITEM
      ============================================================ */
@@ -1374,27 +1461,39 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
           '</div>' +
 
           '<div style="display:flex;gap:8px;">' +
-            '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
-              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-              'style="flex:1;padding:11px 14px;border-radius:10px;' +
-              'background:linear-gradient(135deg,#25d366,#128c7e);' +
-              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
-              'font-weight:800;cursor:pointer;' +
-              'box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
-              '📱 Hubungi WA' +
-            '</button>' +
-            '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
-              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-              'style="flex:1;padding:11px 14px;border-radius:10px;' +
-              'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
-              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
-              'font-weight:800;cursor:pointer;' +
-              'box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
-              '📧 Kirim Email' +
-            '</button>' +
-          '</div>' +
+  '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
+    'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+    'style="flex:1;padding:11px 14px;border-radius:10px;' +
+    'background:linear-gradient(135deg,#25d366,#128c7e);' +
+    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+    'font-weight:800;cursor:pointer;' +
+    'box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
+    '📱 Hubungi WA' +
+  '</button>' +
+  '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
+    'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+    'style="flex:1;padding:11px 14px;border-radius:10px;' +
+    'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
+    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+    'font-weight:800;cursor:pointer;' +
+    'box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
+    '📧 Kirim Email' +
+  '</button>' +
+'</div>' +
 
-          contactChipHTML(statusData) +
+'<div style="display:flex;gap:8px;margin-top:8px;">' +
+  '<button class="js-reset-fresh-btn" data-name="' + esc(name) + '" ' +
+    'data-position="' + esc(position) + '" ' +
+    'style="flex:1;padding:11px 14px;border-radius:10px;' +
+    'background:linear-gradient(135deg,#6366f1,#4338ca);' +
+    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+    'font-weight:800;cursor:pointer;' +
+    'box-shadow:0 4px 12px rgba(99,102,241,.25);">' +
+    '🆕 Reset ke Fresh' +
+  '</button>' +
+'</div>' +
+
+contactChipHTML(statusData) +
 
         '</div>' +
       '</div>'
@@ -1738,7 +1837,20 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
     }
 
     // WA
-    const wa = e.target.closest('.js-wa-btn');
+    // RESET KE FRESH
+const resetFreshBtn = e.target.closest('.js-reset-fresh-btn');
+if (resetFreshBtn) {
+  e.preventDefault();
+  e.stopPropagation();
+  const name = resetFreshBtn.getAttribute('data-name');
+  if (name && typeof window.adminResetToFreshByName === 'function') {
+    window.adminResetToFreshByName(name);
+  }
+  return;
+}
+
+// WA
+const wa = e.target.closest('.js-wa-btn');
     if (wa) {
       e.preventDefault();
       e.stopPropagation();
