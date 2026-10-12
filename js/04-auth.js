@@ -70,15 +70,20 @@ async function checkPassword() {
     return;
   }
 
-  /* ---------- 🔒 CEK 2: Device finished server-side ---------- */
+    /* ---------- 🔒 CEK 2: Device finished server-side ---------- */
+  /* 🆕 Skip seluruh cek ini kalau sedang retake mode */
+  const __isRetakeFlow = localStorage.getItem('_sgs_retake_mode') === '1' ||
+                         localStorage.getItem('_sgs_retake_skip_form') === '1';
+
   let serverStatus = null;
-  if (deviceId && typeof window.checkDeviceStatusServer === 'function') {
+  if (!__isRetakeFlow && deviceId && typeof window.checkDeviceStatusServer === 'function') {
     serverStatus = await window.checkDeviceStatusServer(deviceId);
   }
 
-  const finishedServer =
+  const finishedServer = !__isRetakeFlow && (
     (serverStatus && serverStatus.finished === true) ||
-    (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1');
+    (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1')
+  );
 
   if (finishedServer) {
     // 🔒 Sync ke server kalau ternyata lokal lebih dulu
