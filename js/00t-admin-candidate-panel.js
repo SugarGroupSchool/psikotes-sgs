@@ -627,17 +627,49 @@
      ============================================================ */
   window.__openRetakeModal = async function (slug, name, position) {
     // 1. Fetch completed dari Firebase sessions
+     // 1. Fetch completed dari Firebase sessions
     let completed = {};
+    let sessionInfo = null;
     try {
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
       const nameLower = String(name || '').toLowerCase().trim();
+
+      /* Kumpulkan semua session yang match nama */
+      const matches = [];
       for (const devId in sessions) {
         const s = sessions[devId] || {};
         if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-          completed = s.completed || {};
-          break;
+          matches.push({ deviceId: devId, ...s });
         }
+      }
+
+      /* Sort by lastSeen desc — ambil yang paling baru */
+      matches.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+
+      if (matches.length > 0) {
+        const active = matches[0];
+        completed = active.completed || {};
+        sessionInfo = {
+          deviceId: active.deviceId,
+          lastSeen: active.lastSeen,
+          totalMatches: matches.length,
+          allMatches: matches.map(m => ({
+            deviceId: m.deviceId.slice(-8),
+            lastSeen: m.lastSeen ? new Date(m.lastSeen).toLocaleString('id-ID') : '-',
+            completed: m.completed
+          }))
+        };
+
+        console.log('[RETAKE] Sessions match:', matches.length,
+          '| Active device:', active.deviceId.slice(-8),
+          '| completed:', JSON.stringify(completed));
+
+        if (matches.length > 1) {
+          console.warn('[RETAKE] ⚠️ Multiple sessions:', sessionInfo.allMatches);
+        }
+      } else {
+        console.warn('[RETAKE] Tidak ada session match untuk nama:', name);
       }
     } catch (e) {
       console.warn('[RETAKE] Gagal ambil completed:', e);
@@ -725,6 +757,22 @@
           '<div style="font-size:12px;opacity:.9;margin-top:8px;line-height:1.45;">' +
             '👤 ' + esc(name) + (position ? ' · 💼 ' + esc(position) : '') +
           '</div>' +
+'<div style="font-size:12px;opacity:.9;margin-top:8px;line-height:1.45;">' +
+  '👤 ' + esc(name) + (position ? ' · 💼 ' + esc(position) : '') +
+'</div>' +
+'<div style="font-size:10.5px;opacity:.75;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);line-height:1.5;">' +
+  (sessionInfo
+    ? '📱 Device: <b>' + sessionInfo.deviceId.slice(-8) + '</b> · ' +
+      '🕐 ' + (sessionInfo.lastSeen
+        ? new Date(sessionInfo.lastSeen).toLocaleString('id-ID', {
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+          })
+        : '-') +
+      (sessionInfo.totalMatches > 1
+        ? ' · ⚠️ <b>' + sessionInfo.totalMatches + ' sesi</b> (dipakai yang terbaru)'
+        : '')
+    : '⚠️ Tidak ada session match — kandidat mungkin belum pernah login atau nama tidak cocok')
+'</div>' +
         '</div>' +
 
         // Body
