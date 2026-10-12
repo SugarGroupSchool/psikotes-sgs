@@ -11,13 +11,44 @@
    - Status Lolos / Tidak Lolos + tombol WhatsApp + Kirim Email
    - Auto-fetch email & phone dari Firebase + Drive
    - Layout: Tabs di atas → Status collapsible di bawah
-   - Tombol 🗑️ hapus total kandidat
+   - Tombol 🗑️ BESAR hapus total kandidat (Drive + Firebase)
    - 🆕 Retake panel DI DALAM tab Tes + modal filter tes selesai
    - ✅ FIX [2026-10-12]: reset ke fresh juga hapus completed di server
+   - ✅ FIX [2026-10-12]: sembunyikan tombol 🗑️ KECIL (per file)
    ============================================================ */
 
 (function () {
   'use strict';
+
+  /* ============================================================
+     🆕 [2026-10-12] HIDE TOMBOL SAMPAH KECIL
+     ------------------------------------------------------------
+     User hanya mau tombol 🗑️ BESAR (kanan atas kartu) yang hapus
+     total kandidat. Tombol 🗑️ kecil (per file) disembunyikan total
+     dari UI — supaya user tidak salah klik & tidak bingung.
+     
+     Cara: inject CSS global. Semua tombol kecil punya class
+     `.js-delete-file` (di-render oleh 00b-admin.js).
+     ============================================================ */
+  (function __hideSmallTrashButtons() {
+    if (document.getElementById('sgs-hide-small-trash')) return;
+    const st = document.createElement('style');
+    st.id = 'sgs-hide-small-trash';
+    st.textContent = `
+      .js-delete-file {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+      }
+    `;
+    document.head.appendChild(st);
+    console.log('[UI] 🗑️ Tombol sampah kecil disembunyikan — hanya tombol BESAR yang aktif');
+  })();
 
   const SUBJECT_RATINGS = [
     { value: 0, label: '— Belum dinilai —' },
@@ -625,23 +656,13 @@
 
   /* ============================================================
      🆕 RETAKE MODAL — Filter tes yang belum selesai
-     ------------------------------------------------------------
-     ✅ FIX [2026-10-12]:
-     - Guard anti klik-dobel (window.__retakeModalOpening + cek overlay existing)
-     - Null guard untuk retakeCopyBtn / retakeWaBtn / retakeEmailBtn
-     - Guard sessionInfo.deviceId sebelum .slice()
-     - try/finally supaya flag selalu dilepas
-     - Filter device "IP: xxx" dan "(memuat...)"
-     - Prioritas device dengan lastSeen < 10 menit
      ============================================================ */
   window.__openRetakeModal = async function (slug, name, position) {
 
-    /* ✅ GUARD 1: anti klik-dobel */
     if (window.__retakeModalOpening) {
       console.warn('[RETAKE] Modal sedang dibuka — abaikan klik dobel');
       return;
     }
-    /* ✅ GUARD 2: kalau modal sudah ada, cukup fokus */
     if (document.getElementById('retakeModalOverlay')) {
       console.warn('[RETAKE] Modal sudah tampil — skip');
       return;
@@ -650,7 +671,6 @@
     window.__retakeModalOpening = true;
 
     try {
-      /* ---------- 1. Fetch completed dari Firebase sessions ---------- */
       let completed = {};
       let sessionInfo = null;
       try {
@@ -662,14 +682,13 @@
         for (const devId in sessions) {
           const s = sessions[devId] || {};
           if (!s.name) continue;
-          if (/^IP:/i.test(s.name)) continue;                    // skip "IP: xxx"
-          if (/^\(memuat/.test(s.name)) continue;                // skip "(memuat...)"
+          if (/^IP:/i.test(s.name)) continue;
+          if (/^\(memuat/.test(s.name)) continue;
           if (String(s.name).toLowerCase().trim() === nameLower) {
             matches.push({ deviceId: devId, ...s });
           }
         }
 
-        /* 🆕 Prioritaskan device dengan lastSeen < 10 menit */
         const RECENT_MS = 10 * 60 * 1000;
         matches.sort((a, b) => {
           const aR = (Date.now() - (a.lastSeen || 0)) < RECENT_MS ? 1 : 0;
@@ -706,7 +725,6 @@
         console.warn('[RETAKE] Gagal ambil completed:', e);
       }
 
-      /* ---------- 2. List semua tes + filter ---------- */
       const ALL_TESTS = [
         { id: 'IST',      label: 'Kecerdasan',    icon: '🧠' },
         { id: 'KRAEPLIN', label: 'Koran',         icon: '🧮' },
@@ -722,11 +740,9 @@
       const available = ALL_TESTS.filter(t => completed[t.id] !== true);
       const alreadyDone = ALL_TESTS.filter(t => completed[t.id] === true);
 
-      /* ---------- 3. Hapus modal lama ---------- */
       const old = document.getElementById('retakeModalOverlay');
       if (old) old.remove();
 
-      /* ---------- 4. Buat modal ---------- */
       const overlay = document.createElement('div');
       overlay.id = 'retakeModalOverlay';
       overlay.style.cssText = [
@@ -789,7 +805,6 @@
         '<div style="width: min(520px, 100%); background: #fff; border-radius: 20px; ' +
         'overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.55);">' +
 
-          // Header
           '<div style="padding: 22px 24px; ' +
           'background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff;">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
@@ -811,7 +826,6 @@
             '</div>' +
           '</div>' +
 
-          // Body
           '<div style="padding: 22px 24px 24px;">' +
 
             '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
@@ -830,7 +844,6 @@
 
             doneHTML +
 
-            // Actions
             '<div style="display:flex;gap:8px;margin-top:18px;">' +
               '<button id="retakeCopyBtn" ' +
                 'style="flex:1;padding:11px 12px;border-radius:10px;' +
@@ -858,7 +871,6 @@
 
       document.body.appendChild(overlay);
 
-      /* ---------- 5. Wire event listeners (dengan null guard) ---------- */
       const closeModal = () => {
         if (overlay && overlay.parentElement) overlay.remove();
       };
@@ -870,7 +882,6 @@
         if (ev.target === overlay) closeModal();
       });
 
-      // Highlight checkbox saat dicentang
       overlay.querySelectorAll('.js-retake-test-item').forEach(label => {
         const cb = label.querySelector('input');
         if (!cb) return;
@@ -891,7 +902,6 @@
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
-      /* ---------- COPY LINK ---------- */
       const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = () => {
@@ -928,7 +938,6 @@
         };
       }
 
-      /* ---------- KIRIM WA ---------- */
       const waBtn = document.getElementById('retakeWaBtn');
       if (waBtn) {
         waBtn.onclick = async () => {
@@ -959,7 +968,6 @@
         };
       }
 
-      /* ---------- KIRIM EMAIL ---------- */
       const emailBtn = document.getElementById('retakeEmailBtn');
       if (emailBtn) {
         emailBtn.onclick = async () => {
@@ -1047,7 +1055,6 @@
       }
 
     } finally {
-      /* ✅ Selalu lepas flag — walau terjadi error apapun */
       window.__retakeModalOpening = false;
     }
   };
@@ -1167,10 +1174,10 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
   'sgs_fgd/' + slug,
   'sgs_subject_ratings/' + slug,
   'sgs_candidate_status/' + slug,
-  'sgs_scores/' + slug,              // 🆕
-  'sgs_psikogram/' + slug,           // 🆕
-  'sgs_psikogram_raw/' + slug,       // 🆕
-  'sgs_psikogram_weights/' + slug    // 🆕
+  'sgs_scores/' + slug,
+  'sgs_psikogram/' + slug,
+  'sgs_psikogram_raw/' + slug,
+  'sgs_psikogram_weights/' + slug
 ];
 
   for (const path of paths) {
@@ -1196,8 +1203,8 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
     try {
       await firebase.database().ref('sgs_state/chats/' + devId).remove();
       await firebase.database().ref('sgs_state/sessions/' + devId).remove();
-      await firebase.database().ref('sgs_requests/' + devId).remove();       // 🆕
-      await firebase.database().ref('sgs_state/resume/' + devId).remove();   // 🆕
+      await firebase.database().ref('sgs_requests/' + devId).remove();
+      await firebase.database().ref('sgs_state/resume/' + devId).remove();
     } catch (e) {}
   }
 }
@@ -1250,9 +1257,6 @@ window.adminDeleteCandidateCompletely = async function (candidateName, candidate
 
 /* ============================================================
    🆕 RESET KE FRESH — Kandidat bisa login ulang pakai FRESH
-   ------------------------------------------------------------
-   ✅ FIX [2026-10-12]: tambah `completed: null` + state lain
-      di server, supaya modal retake tidak baca data lama.
    ============================================================ */
 window.adminResetToFreshByName = async function (candidateName) {
   if (!candidateName) return alert('Nama kandidat kosong.');
@@ -1305,7 +1309,6 @@ window.adminResetToFreshByName = async function (candidateName) {
   }
 
   try {
-    /* ✅ FIX: hapus juga completed, selectedTests, currentTest, dll di server */
     await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
       force_reset_fresh: Date.now(),
       finished: false,
@@ -1887,7 +1890,7 @@ contactChipHTML(statusData) +
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
-    // TOMBOL SAMPAH
+    // TOMBOL SAMPAH BESAR
     const delBtn = e.target.closest('.js-delete-candidate');
     if (delBtn) {
       e.preventDefault();
@@ -2186,5 +2189,5 @@ contactChipHTML(statusData) +
   window.__backfillAllContacts = backfillAllContacts;
   window.__buildRetakeUrl = __buildRetakeUrl;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal + hide small trash');
 })();
