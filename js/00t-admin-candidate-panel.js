@@ -1369,6 +1369,167 @@ window.adminResetToFreshByName = async function (candidateName) {
 };
 
   /* ============================================================
+     🆕 FGD — Load & Render dari Firebase
+     ------------------------------------------------------------
+     Data FGD tidak di-generate jadi PDF, jadi baca langsung dari
+     Firebase sgs_fgd/{slug}/{asesor}.
+     ============================================================ */
+  async function loadFGDData(slug) {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+    try {
+      const snap = await firebase.database().ref('sgs_fgd/' + slug).once('value');
+      return snap.val() || null;
+    } catch (e) {
+      console.warn('[FGD-LOAD] Gagal baca:', e.message);
+      return null;
+    }
+  }
+
+  const FGD_ASPEK_MAP = {
+    analisis:      'Kemampuan Analisis & Pemecahan Masalah',
+    komunikasi:    'Keterampilan Komunikasi',
+    kerjasama:     'Kerjasama Tim',
+    kepemimpinan:  'Kepemimpinan & Inisiatif',
+    adaptabilitas: 'Adaptabilitas'
+  };
+
+  const FGD_REC_MAP = {
+    'HIGHLY_RECOMMENDED': { label: '🌟 Highly Recommended', color: '#22c55e', bg: 'rgba(34,197,94,.15)', border: 'rgba(34,197,94,.45)' },
+    'RECOMMENDED':        { label: '✅ Recommended',        color: '#86efac', bg: 'rgba(34,197,94,.12)', border: 'rgba(34,197,94,.35)' },
+    'FAIRLY_RECOMMENDED': { label: '⚠️ Fairly Recommended', color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)' },
+    'NOT_RECOMMENDED':    { label: '❌ Not Recommended',    color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)' }
+  };
+
+  function renderFGDBox(fgdData, name, position) {
+    if (!fgdData || !Object.keys(fgdData).length) {
+      return (
+        '<div class="js-fgd-box" style="padding:14px;' +
+        'background:rgba(59,130,246,.05);border:1.5px dashed rgba(59,130,246,.3);border-radius:12px;' +
+        'font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">' +
+          '🎯 <b>Belum ada asesor yang submit FGD</b><br>' +
+          '<span style="font-size:10.5px;opacity:.7;">Kirim link FGD ke asesor lewat tombol di atas.</span>' +
+        '</div>'
+      );
+    }
+
+    const asesorList = Object.keys(fgdData);
+
+    /* Rata-rata semua asesor */
+    const allAvgs = asesorList
+      .map(a => Number(fgdData[a]?.average) || 0)
+      .filter(v => v > 0);
+    const grandAvg = allAvgs.length
+      ? (allAvgs.reduce((s, v) => s + v, 0) / allAvgs.length)
+      : 0;
+
+    const asesorCards = asesorList.map(asesor => {
+      const d = fgdData[asesor] || {};
+      const rec = FGD_REC_MAP[d.recommendation] || { label: '—', color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' };
+      const avg = Number(d.average) || 0;
+      const ts = d.ts ? new Date(d.ts).toLocaleString('id-ID', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      }) : '-';
+
+      /* Render skor per aspek */
+      const scoresHTML = Object.keys(d.scores || {}).map(k => {
+        const label = FGD_ASPEK_MAP[k] || k;
+        const val = Number(d.scores[k]) || 0;
+        const barW = (val / 4) * 100;
+        const barColor = val >= 3.5 ? 'linear-gradient(90deg,#16a34a,#22c55e)'
+                      : val >= 2.5 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+                      : val >= 1.5 ? 'linear-gradient(90deg,#ea580c,#f97316)'
+                      : 'linear-gradient(90deg,#dc2626,#ef4444)';
+        return (
+          '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">' +
+            '<div style="flex:1;min-width:0;font-size:10.5px;color:#cbd5e1;line-height:1.3;">' + esc(label) + '</div>' +
+            '<div style="flex:0 0 90px;height:5px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;">' +
+              '<div style="width:' + barW + '%;height:100%;background:' + barColor + ';border-radius:inherit;"></div>' +
+            '</div>' +
+            '<div style="flex:0 0 34px;text-align:right;font-size:11px;font-weight:900;color:#e2e8f0;font-variant-numeric:tabular-nums;">' + val.toFixed(0) + '/4</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      /* Catatan per aspek */
+      const notesArr = Object.keys(d.notes || {})
+        .filter(k => d.notes[k] && d.notes[k].trim())
+        .map(k => {
+          const label = FGD_ASPEK_MAP[k] || k;
+          return '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;line-height:1.5;">' +
+            '<b style="color:#c4b5fd;">' + esc(label) + ':</b> ' + esc(d.notes[k]) +
+          '</div>';
+        }).join('');
+
+      return (
+        '<div style="padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(139,92,246,.25);border-radius:11px;margin-bottom:8px;">' +
+
+          /* Header asesor */
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+            '<div style="width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;' +
+            'background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border-radius:9px;' +
+            'font-weight:900;font-size:11px;letter-spacing:.5px;">' + esc(String(asesor).slice(0,3).toUpperCase()) + '</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="font-weight:900;font-size:12.5px;color:#fff;">' + esc(asesor) + '</div>' +
+              '<div style="font-size:10.5px;color:#94a3b8;">🕐 ' + ts + '</div>' +
+            '</div>' +
+            '<div style="padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;' +
+              'background:' + rec.bg + ';border:1px solid ' + rec.border + ';color:' + rec.color + ';white-space:nowrap;">' +
+              rec.label +
+            '</div>' +
+          '</div>' +
+
+          /* Rata-rata */
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;' +
+            'padding:6px 10px;background:rgba(99,102,241,.1);border-radius:8px;margin-bottom:10px;">' +
+            '<div style="font-size:10.5px;color:#a5b4fc;font-weight:800;">Rata-rata</div>' +
+            '<div style="font-size:14px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;">' + avg.toFixed(2) + ' / 4</div>' +
+          '</div>' +
+
+          /* Skor per aspek */
+          '<div style="margin-bottom:8px;">' + scoresHTML + '</div>' +
+
+          /* Catatan */
+          (notesArr ? '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">' + notesArr + '</div>' : '') +
+
+          /* Overall note */
+          (d.overallNote && d.overallNote.trim() ?
+            '<div style="margin-top:8px;padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:10.5px;color:#fde68a;line-height:1.5;">' +
+            '<b>📝 Catatan Keseluruhan:</b><br>' + esc(d.overallNote) +
+            '</div>'
+          : '') +
+
+        '</div>'
+      );
+    }).join('');
+
+    return (
+      '<div class="js-fgd-box" style="padding:14px;' +
+      'background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(99,102,241,.05));' +
+      'border:1.5px solid rgba(139,92,246,.3);border-radius:14px;">' +
+
+        /* Header */
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+          '<div style="width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;' +
+          'background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:10px;font-size:18px;">🎯</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:12.5px;font-weight:900;color:#c4b5fd;">Hasil FGD</div>' +
+            '<div style="font-size:10.5px;color:#94a3b8;">' + asesorList.length + ' asesor telah submit</div>' +
+          '</div>' +
+          '<div style="padding:6px 12px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);' +
+            'border-radius:999px;font-size:11px;font-weight:900;color:#86efac;white-space:nowrap;' +
+            'font-variant-numeric:tabular-nums;">' +
+            '⭐ Rata-rata: ' + grandAvg.toFixed(2) +
+          '</div>' +
+        '</div>' +
+
+        /* List asesor */
+        asesorCards +
+
+      '</div>'
+    );
+  }
+
+  /* ============================================================
      COMPACT FILE ITEM
      ============================================================ */
   function compactFileItem(el) {
@@ -1691,7 +1852,9 @@ contactChipHTML(statusData) +
       tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
     }
 
-    if (isGuru && (fgdBtn || groups.fgd.length > 0)) {
+       /* 🆕 Tab FGD selalu muncul untuk Guru/Dosen — 
+       karena data FGD ada di Firebase, bukan cuma Drive */
+    if (isGuru) {
       tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
     }
 
@@ -1743,8 +1906,50 @@ contactChipHTML(statusData) +
       const panel = wrapper.querySelector('.js-tab-panel[data-panel="' + t.id + '"]');
       if (!panel) return;
 
-      if (t.special === 'subject') {
+           if (t.special === 'subject') {
         panel.innerHTML = ratingHTML(slug, ratingData);
+        return;
+      }
+
+      /* 🆕 FGD — render data dari Firebase dulu (async) */
+      if (t.id === 'fgd') {
+        /* Tombol di atas */
+        if (t.actionBtn) {
+          t.actionBtn.style.width = '100%';
+          t.actionBtn.style.padding = '10px 14px';
+          t.actionBtn.style.fontSize = '12px';
+          t.actionBtn.style.marginBottom = '4px';
+          t.actionBtn.style.boxSizing = 'border-box';
+          t.actionBtn.style.display = 'block';
+          panel.appendChild(t.actionBtn);
+        }
+
+        /* Placeholder FGD */
+        const fgdWrap = document.createElement('div');
+        fgdWrap.className = 'js-fgd-wrapper';
+        fgdWrap.style.marginTop = '10px';
+        fgdWrap.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat data FGD...</div>';
+        panel.appendChild(fgdWrap);
+
+        /* Async fetch + render */
+        (async () => {
+          const fgdData = await loadFGDData(slug);
+          fgdWrap.innerHTML = renderFGDBox(fgdData, name, position);
+
+          /* Kalau ada file Drive `-fgd-`, tampilkan juga di bawah */
+          if (t.items && t.items.length > 0) {
+            const divider = document.createElement('div');
+            divider.style.cssText = 'margin:12px 0 8px;font-size:10.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;';
+            divider.textContent = '📁 FILE TERKIRIM';
+            fgdWrap.appendChild(divider);
+
+            t.items.forEach(el => {
+              compactFileItem(el);
+              fgdWrap.appendChild(el);
+            });
+          }
+        })();
+
         return;
       }
 
