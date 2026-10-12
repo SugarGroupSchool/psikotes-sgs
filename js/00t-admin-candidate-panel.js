@@ -16,17 +16,23 @@
    - ✅ FIX [2026-10-12]: reset ke fresh juga hapus completed di server
    - ✅ FIX [2026-10-12]: sembunyikan tombol 🗑️ KECIL (per file)
    - ✅ FIX [2026-10-12]: FGD realtime + hapus asesor + stay on tab
+   - ✅ FIX [2026-10-12]: GAS_ADMIN_URL safety net
+   - ✅ FIX [2026-10-12]: FGD delete PDF combined by regex + hide Drive items
    ============================================================ */
 
 (function () {
   'use strict';
-/* 🆕 Fix: define GAS_ADMIN_URL globally kalau belum ada */
-if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
-  window.GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
-  console.log('[INIT] GAS_ADMIN_URL di-set:', window.GAS_ADMIN_URL);
-}
+
   /* ============================================================
-     🆕 [2026-10-12] HIDE TOMBOL SAMPAH KECIL
+     🆕 GAS_ADMIN_URL — safety net
+     ============================================================ */
+  if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
+    window.GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+    console.log('[INIT] GAS_ADMIN_URL di-set (fallback):', window.GAS_ADMIN_URL);
+  }
+
+  /* ============================================================
+     🆕 HIDE TOMBOL SAMPAH KECIL
      ============================================================ */
   (function __hideSmallTrashButtons() {
     if (document.getElementById('sgs-hide-small-trash')) return;
@@ -45,7 +51,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
       }
     `;
     document.head.appendChild(st);
-    console.log('[UI] 🗑️ Tombol sampah kecil disembunyikan — hanya tombol BESAR yang aktif');
+    console.log('[UI] 🗑️ Tombol sampah kecil disembunyikan');
   })();
 
   const SUBJECT_RATINGS = [
@@ -56,8 +62,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
     { value: 4, label: '4 — Highly Recommended' }
   ];
 
-  const EMAIL_GAS_URL = window.GAS_ADMIN_URL ||
-    'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+  const EMAIL_GAS_URL = window.GAS_ADMIN_URL;
 
   const STATUS_OPTIONS = [
     { value: '',                label: '⏳ Pending',          color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' },
@@ -1196,7 +1201,6 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
       }
     } catch (e) {}
 
-    /* Detach FGD realtime listener */
     __detachFGDRealtime(slug);
 
     if (typeof window.__invalidateResultCache === 'function') {
@@ -1328,7 +1332,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   };
 
   /* ============================================================
-     FGD — Hapus asesor (realtime listener akan update UI)
+     FGD — Hapus asesor (realtime listener update UI)
      ============================================================ */
   async function deleteFGDAsesor(slug, asesor, candidateName, candidatePosition) {
     if (!asesor) return alert('Nama asesor kosong.');
@@ -1356,18 +1360,16 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
       await firebase.database().ref('sgs_fgd/' + slug + '/' + asesor).remove();
       console.log('[FGD-DELETE] ✓ Dihapus dari Firebase:', slug, '/', asesor);
 
-            /* 2) Cari SEMUA file PDF combined lama di Drive dan hapus */
+      /* 2) Cari SEMUA file PDF combined lama (by regex) dan hapus */
       try {
         if (typeof window.fetchResultFiles === 'function') {
           const files = await window.fetchResultFiles(true);
 
-          /* 🆕 Match by regex — nama asli punya prefix [nama]-posisi- */
-          const nameSlug = candidateName.replace(/[^a-zA-Z0-9]/g, '-');
+          const nameSlug = String(candidateName || '').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
           const targets = files.filter(f => {
             const n = String(f.name || '');
             if (!/-FGD-COMBINED\.pdf$/i.test(n)) return false;
-            /* Cocokkan slug nama kandidat di dalam bracket atau prefix */
-            return n.toLowerCase().includes(nameSlug.toLowerCase());
+            return n.toLowerCase().includes(nameSlug);
           });
 
           console.log('[FGD-DELETE] PDF combined lama ditemukan:', targets.length);
@@ -1425,7 +1427,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   }
 
   /* ============================================================
-     FGD — Load data (sekali baca)
+     FGD — Load data
      ============================================================ */
   async function loadFGDData(slug) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
@@ -1439,7 +1441,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   }
 
   /* ============================================================
-     FGD — Render box (simple: list nama asesor saja)
+     FGD — Render box (simple: list nama asesor)
      ============================================================ */
   const FGD_REC_MAP = {
     'HIGHLY_RECOMMENDED': { short: '🌟 Highly',  color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)' },
@@ -1535,7 +1537,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   /* ============================================================
      FGD REALTIME LISTENER MANAGER
      ============================================================ */
-  const __fgdRealtimeListeners = new Map(); // slug → { ref, cb }
+  const __fgdRealtimeListeners = new Map();
 
   function __attachFGDRealtime(slug, wrapper, driveItems) {
     __detachFGDRealtime(slug);
@@ -1554,22 +1556,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
         }
 
         const data = snap.val() || {};
-        const fgdBoxHTML = renderFGDBox(data);
-
-                if (driveItems && driveItems.length > 0 && false) {  /* 🆕 disabled — jangan render files */
-          wrapper.innerHTML = fgdBoxHTML;
-          const divider = document.createElement('div');
-          divider.style.cssText = 'margin:12px 0 8px;font-size:10.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;';
-          divider.textContent = '📁 FILE TERKIRIM';
-          wrapper.appendChild(divider);
-
-          driveItems.forEach(el => {
-            compactFileItem(el);
-            wrapper.appendChild(el);
-          });
-        } else {
-          wrapper.innerHTML = fgdBoxHTML;
-        }
+        wrapper.innerHTML = renderFGDBox(data);
       } catch (e) {
         console.warn('[FGD-REALTIME] render error:', e.message);
       }
@@ -1919,7 +1906,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
     }
 
     if (isGuru) {
-      tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
+      tabs.push({ id: 'fgd', label: '🎯 FGD', items: [], actionBtn: fgdBtn });
     }
 
     if (ivBtn || groups.wawancara.length > 0) {
@@ -1975,7 +1962,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
         return;
       }
 
-          /* 🆕 FGD — realtime listener dari Firebase */
+      /* 🆕 FGD — realtime listener dari Firebase */
       if (t.id === 'fgd') {
         if (t.actionBtn) {
           t.actionBtn.style.width = '100%';
@@ -1993,7 +1980,6 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
         fgdWrap.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat data FGD...</div>';
         panel.appendChild(fgdWrap);
 
-        /* 🆕 Tidak kirim driveItems — biar FGD tab bersih, cuma list asesor */
         __attachFGDRealtime(slug, fgdWrap, []);
 
         return;
@@ -2058,7 +2044,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
             panel.appendChild(el);
           }
         });
-      } else if (!t.actionBtn) {
+      } else if (!t.actionBtn && t.id !== 'fgd') {
         const empty = document.createElement('div');
         empty.style.cssText =
           'padding:20px;text-align:center;color:#64748b;font-size:12px;' +
@@ -2178,7 +2164,7 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
       return;
     }
 
-    /* 🆕 FGD — Hapus asesor (listener Firebase akan update UI) */
+    /* FGD — Hapus asesor */
     const fgdDelBtn = e.target.closest('.js-fgd-delete-asesor');
     if (fgdDelBtn) {
       e.preventDefault();
@@ -2457,7 +2443,6 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
 
     const cards = document.querySelectorAll('.rf-card');
 
-    /* 🆕 Detach FGD listener untuk card yang sudah tidak ada di DOM */
     const visibleSlugs = new Set();
     cards.forEach(c => {
       const slug = c.getAttribute('data-candidate-slug');
@@ -2494,7 +2479,6 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
-  /* Cleanup saat admin logout / halaman ditutup */
   window.addEventListener('beforeunload', () => {
     __detachAllFGDRealtime();
   });
@@ -2505,5 +2489,5 @@ if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
   window.__buildRetakeUrl = __buildRetakeUrl;
   window.__detachAllFGDRealtime = __detachAllFGDRealtime;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal + hide small trash + FGD realtime');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — FGD realtime + GAS_ADMIN_URL safety net');
 })();
