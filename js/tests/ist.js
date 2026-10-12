@@ -651,6 +651,23 @@ function showThankYouAndHomeIST() {
     }
   }
 
+  /* 🆕 AUTO-PUSH SKOR IST → Firebase (untuk psikogram admin)
+     --------------------------------------------------------
+     - Push SW per subtes + totalRW + totalSW + IQ + kategori
+     - Fire-and-forget: tidak blocking UI "Terima kasih"
+     - Aman dipanggil berkali-kali (pakai .update()) */
+  try {
+    if (typeof window.pushISTScoresToFirebase === 'function') {
+      window.pushISTScoresToFirebase().catch(err => {
+        console.warn('[IST] Auto-push skor gagal (non-fatal):', err.message);
+      });
+    } else {
+      console.warn('[IST] pushISTScoresToFirebase belum tersedia — skip auto-push');
+    }
+  } catch (e) {
+    console.warn('[IST] Auto-push error (non-fatal):', e.message);
+  }
+
   window.__inTestView = false;
   const app = document.getElementById('app');
   app.innerHTML = `

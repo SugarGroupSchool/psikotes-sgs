@@ -708,7 +708,9 @@ async function pushScoresToFirebase() {
   }
 
   try {
-    await firebase.database().ref('sgs_scores/' + slug).set(payload);
+    // ⚠️ Pakai update() — jangan set(), agar tidak menimpa field
+    // IST_totalRW / IST_totalSW / IST_IQ yang sudah di-push lebih dulu
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
     console.log('[AUTO-SCORE] ✅ Pushed to sgs_scores/' + slug);
     return true;
   } catch (e) {
@@ -716,6 +718,138 @@ async function pushScoresToFirebase() {
     return false;
   }
 }
+
+/* ============================================================
+   🆕 AUTO-PUSH SKOR IST SAJA → Firebase
+   ------------------------------------------------------------
+   Dipanggil langsung saat kandidat selesai IST (sebelum submit PDF).
+   Tujuan: psikogram admin otomatis terisi skor IST tanpa menunggu
+   kandidat menyelesaikan seluruh tes.
+
+   Dipush ke sgs_scores/{slug}:
+     - IST              : { SE:118, WA:105, AN:112, GE:108, ME:100,
+                            RA:102, ZR:98, FA:110, WU:96 }  ← SW per subtes
+     - IST_totalRW      : jumlah RW mentah
+     - IST_totalSW      : SW total (mean 100, SD 12.5)
+     - IST_IQ           : IQ dari SW total
+     - IST_IQ_kategori  : kategori IQ (mis. "Average")
+     - IST_age          : usia saat tes (untuk audit)
+   ============================================================ */
+async function pushISTScoresToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    console.warn('[AUTO-SCORE-IST] Firebase belum siap');
+    return false;
+  }
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE-IST] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 80);
+  if (!slug) {
+    console.warn('[AUTO-SCORE-IST] Skip — slug kosong');
+    return false;
+  }
+
+  // Guard: pastikan IST benar-benar selesai
+  if (!appState.completed || appState.completed.IST !== true) {
+    console.warn('[AUTO-SCORE-IST] Skip — IST belum ditandai selesai');
+    return false;
+  }
+
+  if (typeof computeISTPerSubtestScores !== 'function') {
+    console.warn('[AUTO-SCORE-IST] Skip — computeISTPerSubtestScores tidak tersedia');
+    return false;
+  }
+
+  /* ---------- 1) Ambil SW per subtes ---------- */
+  let IST = {};
+  let totalRW = 0;
+  try {
+    const summary = computeISTPerSubtestScores();
+    if (Array.isArray(summary)) {
+      summary.forEach(r => {
+        if (r && r.code && typeof r.sw === 'number') {
+          IST[r.code] = Math.round(r.sw);
+          totalRW += Number(r.rw) || 0;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE-IST] computeISTPerSubtestScores error:', e.message);
+    return false;
+  }
+
+  if (!Object.keys(IST).length) {
+    console.warn('[AUTO-SCORE-IST] Tidak ada skor subtes untuk di-push');
+    return false;
+  }
+
+  /* ---------- 2) Hitung total SW & IQ ---------- */
+  const ageYears = (typeof getAgeYearsForNorms === 'function')
+    ? getAgeYearsForNorms()
+    : 25;
+
+  let totalSW = null;
+  let iq = null;
+  let iqKategori = null;
+
+  try {
+    if (typeof getTotalSWFromRW === 'function') {
+      totalSW = getTotalSWFromRW(totalRW, ageYears);
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE-IST] getTotalSWFromRW error:', e.message);
+  }
+
+  try {
+    if (totalSW != null && typeof getIQFromSW === 'function') {
+      iq = getIQFromSW(totalSW);
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE-IST] getIQFromSW error:', e.message);
+  }
+
+  try {
+    if (iq != null && typeof iqCategory === 'function') {
+      iqKategori = iqCategory(iq);
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE-IST] iqCategory error:', e.message);
+  }
+
+  /* ---------- 3) Susun payload ---------- */
+  const payload = {
+    IST,
+    IST_totalRW:     Math.round(totalRW * 10) / 10,
+    IST_totalSW:     (totalSW != null) ? Math.round(totalSW * 10) / 10 : null,
+    IST_IQ:          (iq != null) ? Math.round(iq) : null,
+    IST_IQ_kategori: iqKategori || null,
+    IST_age:         ageYears,
+    candidateName:     identity.name,
+    candidatePosition: identity.position || '',
+    deviceId:          localStorage.getItem('_sgs_device_id') || '',
+    updatedAt:         firebase.database.ServerValue.TIMESTAMP
+  };
+
+  /* ---------- 4) Push (update, jangan set) ---------- */
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-IST] ✅ Pushed ke sgs_scores/' + slug,
+      { IST, totalRW: payload.IST_totalRW, totalSW: payload.IST_totalSW,
+        IQ: payload.IST_IQ, kategori: payload.IST_IQ_kategori });
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-IST] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushISTScoresToFirebase = pushISTScoresToFirebase;
 
 window.pushScoresToFirebase = pushScoresToFirebase;
 
