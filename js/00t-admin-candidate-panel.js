@@ -1352,28 +1352,45 @@
       await firebase.database().ref('sgs_fgd/' + slug + '/' + asesor).remove();
       console.log('[FGD-DELETE] ✓ Dihapus dari Firebase:', slug, '/', asesor);
 
-      /* 2) Cari file PDF combined lama di Drive dan hapus */
+            /* 2) Cari SEMUA file PDF combined lama di Drive dan hapus */
       try {
         if (typeof window.fetchResultFiles === 'function') {
           const files = await window.fetchResultFiles(true);
-          const combinedName = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-FGD-COMBINED.pdf';
-          const target = files.find(f => String(f.name || '') === combinedName);
 
-          if (target && typeof window.GAS_ADMIN_URL === 'string') {
+          /* 🆕 Match by regex — nama asli punya prefix [nama]-posisi- */
+          const nameSlug = candidateName.replace(/[^a-zA-Z0-9]/g, '-');
+          const targets = files.filter(f => {
+            const n = String(f.name || '');
+            if (!/-FGD-COMBINED\.pdf$/i.test(n)) return false;
+            /* Cocokkan slug nama kandidat di dalam bracket atau prefix */
+            return n.toLowerCase().includes(nameSlug.toLowerCase());
+          });
+
+          console.log('[FGD-DELETE] PDF combined lama ditemukan:', targets.length);
+
+          if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
             const idToken = (typeof window.__getFirebaseIdToken === 'function')
               ? await window.__getFirebaseIdToken() : '';
-            await fetch(window.GAS_ADMIN_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify({ action: 'delete', fileId: target.id, idToken })
-            });
-            if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(target.id);
-            if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(target.id);
-            console.log('[FGD-DELETE] ✓ PDF combined lama dihapus');
+
+            for (const target of targets) {
+              try {
+                await fetch(window.GAS_ADMIN_URL, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                  body: JSON.stringify({ action: 'delete', fileId: target.id, idToken })
+                });
+                if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(target.id);
+                if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(target.id);
+                console.log('[FGD-DELETE] ✓ Dihapus:', target.name);
+                await new Promise(r => setTimeout(r, 300));
+              } catch (e) {
+                console.warn('[FGD-DELETE] Gagal hapus:', target.name, '—', e.message);
+              }
+            }
           }
         }
       } catch (e) {
-        console.warn('[FGD-DELETE] Gagal hapus PDF lama:', e.message);
+        console.warn('[FGD-DELETE] Gagal cari/hapus PDF lama:', e.message);
       }
 
       /* 3) Cek sisa asesor */
@@ -1535,7 +1552,7 @@
         const data = snap.val() || {};
         const fgdBoxHTML = renderFGDBox(data);
 
-        if (driveItems && driveItems.length > 0) {
+                if (driveItems && driveItems.length > 0 && false) {  /* 🆕 disabled — jangan render files */
           wrapper.innerHTML = fgdBoxHTML;
           const divider = document.createElement('div');
           divider.style.cssText = 'margin:12px 0 8px;font-size:10.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;';
@@ -1954,7 +1971,7 @@
         return;
       }
 
-      /* 🆕 FGD — realtime listener dari Firebase */
+          /* 🆕 FGD — realtime listener dari Firebase */
       if (t.id === 'fgd') {
         if (t.actionBtn) {
           t.actionBtn.style.width = '100%';
@@ -1972,7 +1989,8 @@
         fgdWrap.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat data FGD...</div>';
         panel.appendChild(fgdWrap);
 
-        __attachFGDRealtime(slug, fgdWrap, t.items || []);
+        /* 🆕 Tidak kirim driveItems — biar FGD tab bersih, cuma list asesor */
+        __attachFGDRealtime(slug, fgdWrap, []);
 
         return;
       }
