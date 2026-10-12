@@ -20,7 +20,11 @@
 
 (function () {
   'use strict';
-
+/* 🆕 Fix: define GAS_ADMIN_URL globally kalau belum ada */
+if (typeof window.GAS_ADMIN_URL !== 'string' || !window.GAS_ADMIN_URL) {
+  window.GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+  console.log('[INIT] GAS_ADMIN_URL di-set:', window.GAS_ADMIN_URL);
+}
   /* ============================================================
      🆕 [2026-10-12] HIDE TOMBOL SAMPAH KECIL
      ============================================================ */

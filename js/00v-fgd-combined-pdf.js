@@ -6,6 +6,7 @@
    - Dipanggil dari 00o-fgd.js setelah asesor submit
    - Dipanggil dari 00t-admin-candidate-panel.js saat hapus asesor
    - Fetch data dari sgs_fgd/[slug]
+   - 🆕 CLEANUP: hapus PDF lama sebelum generate baru
    - Generate 1 PDF: Cover + Tabel 5 Aspek + Catatan per Asesor
    - Upload otomatis ke Google Drive via GAS
    ============================================================ */
@@ -13,7 +14,8 @@
 (function () {
   'use strict';
 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+  const GAS_URL = window.GAS_ADMIN_URL ||
+    'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
   const ASPEK_ORDER = [
     { id: 'analisis',      label: 'Kemampuan Analisis & Pemecahan Masalah' },
@@ -124,7 +126,6 @@
     const CW = PW - M * 2;
     let y = M;
 
-    /* KOP */
     const logo = await loadLogoDataURL();
     if (logo) { try { doc.addImage(logo, 'PNG', PW / 2 - 10, y, 20, 16); } catch (e) {} }
     y += 20;
@@ -143,7 +144,6 @@
     doc.line(M, y, PW - M, y);
     y += 6;
 
-    /* IDENTITAS */
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(139, 92, 246);
@@ -167,7 +167,6 @@
     doc.line(M, y, PW - M, y);
     y += 6;
 
-    /* RANGKUMAN PER ASESOR */
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(139, 92, 246);
@@ -217,7 +216,6 @@
     doc.text(fmtScore(overallAvg), cols.avg, y);
     y += 9;
 
-    /* TABEL 5 ASPEK */
     if (y + 20 > PH - M) { doc.addPage(); y = M + 5; }
     else { y += 8; }
     doc.setFont('helvetica', 'bold');
@@ -279,7 +277,6 @@
       y += rowH;
     });
 
-    /* CATATAN PER ASESOR */
     if (y + 30 > PH - M) { doc.addPage(); y = M + 5; }
     else { y += 10; }
     doc.setFont('helvetica', 'bold');
@@ -350,7 +347,6 @@
       y += 6;
     });
 
-    /* FOOTER */
     if (y + 40 > PH - 20) { doc.addPage(); y = M + 5; }
     y += 10;
     doc.setFont('helvetica', 'normal');
@@ -367,6 +363,59 @@
     doc.text('Sugar Group Schools', PW - M - 50, y + 8);
 
     return doc;
+  }
+
+  /* ============================================================
+     🆕 CLEANUP: Hapus semua PDF COMBINED lama untuk kandidat ini
+     ============================================================ */
+  async function cleanupStaleFGDCombined(candidateName) {
+    try {
+      if (typeof window.fetchResultFiles !== 'function') return 0;
+      const files = await window.fetchResultFiles(true);
+
+      const nameSlug = String(candidateName || '').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      if (!nameSlug) return 0;
+
+      const stale = files.filter(f => {
+        const n = String(f.name || '');
+        if (!/-FGD-COMBINED\.pdf$/i.test(n)) return false;
+        return n.toLowerCase().includes(nameSlug);
+      });
+
+      if (stale.length === 0) return 0;
+
+      console.log('[FGD-COMBINED] 🧹 Hapus', stale.length, 'PDF lama');
+      const idToken = (typeof window.__getFirebaseIdToken === 'function')
+        ? await window.__getFirebaseIdToken()
+        : await (async () => {
+            try {
+              const u = firebase.auth().currentUser;
+              return u ? await u.getIdToken() : '';
+            } catch (e) { return ''; }
+          })();
+
+      let deleted = 0;
+      for (const f of stale) {
+        try {
+          await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+          });
+          if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
+          if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
+          console.log('[FGD-COMBINED] 🧹 Hapus:', f.name);
+          deleted++;
+          await new Promise(r => setTimeout(r, 300));
+        } catch (e) {
+          console.warn('[FGD-COMBINED] Gagal hapus:', f.name, '—', e.message);
+        }
+      }
+      return deleted;
+    } catch (e) {
+      console.warn('[FGD-COMBINED] Cleanup error:', e.message);
+      return 0;
+    }
   }
 
   async function uploadCombinedToGAS(blob, filename, candidateName, candidatePosition) {
@@ -427,10 +476,16 @@
 
       if (asesorList.length === 0) {
         console.log('[FGD-COMBINED] Tidak ada asesor — skip generate');
+        /* Hapus PDF lama kalau ada (biar bersih) */
+        await cleanupStaleFGDCombined(candidateName);
         return false;
       }
 
       console.log('[FGD-COMBINED] Generate untuk', candidateName, '·', asesorList.length, 'asesor');
+
+      /* 🆕 CLEANUP: hapus PDF lama sebelum generate baru */
+      await cleanupStaleFGDCombined(candidateName);
+
       const doc = await buildCombinedPDF(candidateName, candidatePosition, data, asesorList);
       const blob = doc.output('blob');
       const filename = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-FGD-COMBINED.pdf';
@@ -444,5 +499,7 @@
     }
   };
 
-  console.log('[FGD-COMBINED] ✓ Loaded — auto-generate mode');
+  window.cleanupStaleFGDCombined = cleanupStaleFGDCombined;
+
+  console.log('[FGD-COMBINED] ✓ Loaded — auto-generate + cleanup mode');
 })();

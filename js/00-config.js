@@ -23,8 +23,6 @@ const APP_CONFIG = {
      Kalau Firebase offline → login DITOLAK (fail-closed).
      ============================================================ */
 
-  /* 🔒 REQUIRE_CLOUD_READY: kalau true, kandidat tidak bisa login
-     sampai Firebase cloud state (lock + password) ter-load. */
   REQUIRE_CLOUD_READY: true,
 
   STORAGE_KEYS: {
@@ -40,16 +38,8 @@ const APP_CONFIG = {
     DEVICE_ID:     '_sgs_device_id',
   },
 
-  /* ============================================================
-     🔒 ADMIN KEY — disimpan sebagai hash SHA-256.
-     Cara generate: buka console browser → jalankan
-       crypto.subtle.digest('SHA-256', new TextEncoder().encode('KEY-BARU-ANDA'))
-         .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
-     Ganti nilai di bawah dengan hasil hash.
-     ============================================================ */
- ADMIN_KEY_HASH: '0f2afae49dbe2d391b056a2c8832a1d99b9680e46aee74739d223730e25158ea',
+  ADMIN_KEY_HASH: '0f2afae49dbe2d391b056a2c8832a1d99b9680e46aee74739d223730e25158ea',
 
-  /* URL fallback Google Form */
   FORM_FINAL_URL: 'https://forms.gle/G69K56TRfxNnBXtr9',
 
   KRAEPLIN: {
@@ -75,7 +65,6 @@ const APP_CONFIG = {
     return prefix + out;
   },
 
-  /* 🔒 Helper: cek admin URL (pakai hash) */
   async isAdminKey(key) {
     if (!key || typeof key !== 'string') return false;
     try {
@@ -90,4 +79,13 @@ const APP_CONFIG = {
 
 window.__inTestView = false;
 
+/* ============================================================
+   🆕 GAS ADMIN URL — centralized
+   ------------------------------------------------------------
+   Define sekali di sini supaya semua file (00b, 00t, 00v)
+   bisa akses window.GAS_ADMIN_URL tanpa redeclare.
+   ============================================================ */
+window.GAS_ADMIN_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
+
 console.log('[CONFIG] ✓ Loaded — secured mode');
+console.log('[CONFIG] GAS_ADMIN_URL:', window.GAS_ADMIN_URL);
