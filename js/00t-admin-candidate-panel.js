@@ -949,9 +949,6 @@
     };
   };
 
-  /* ============================================================
-     🗑️ HAPUS TOTAL KANDIDAT — semua resource
-     ============================================================ */
 /* ============================================================
    🗑️ HAPUS TOTAL KANDIDAT — semua resource
    ============================================================ */
@@ -1481,17 +1478,6 @@ window.adminResetToFreshByName = async function (candidateName) {
   '</button>' +
 '</div>' +
 
-'<div style="display:flex;gap:8px;margin-top:8px;">' +
-  '<button class="js-reset-fresh-btn" data-name="' + esc(name) + '" ' +
-    'data-position="' + esc(position) + '" ' +
-    'style="flex:1;padding:11px 14px;border-radius:10px;' +
-    'background:linear-gradient(135deg,#6366f1,#4338ca);' +
-    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
-    'font-weight:800;cursor:pointer;' +
-    'box-shadow:0 4px 12px rgba(99,102,241,.25);">' +
-    '🆕 Reset ke Fresh' +
-  '</button>' +
-'</div>' +
 
 contactChipHTML(statusData) +
 
@@ -1837,20 +1823,8 @@ contactChipHTML(statusData) +
     }
 
     // WA
-    // RESET KE FRESH
-const resetFreshBtn = e.target.closest('.js-reset-fresh-btn');
-if (resetFreshBtn) {
-  e.preventDefault();
-  e.stopPropagation();
-  const name = resetFreshBtn.getAttribute('data-name');
-  if (name && typeof window.adminResetToFreshByName === 'function') {
-    window.adminResetToFreshByName(name);
-  }
-  return;
-}
+    const wa = e.target.closest('.js-wa-btn');
 
-// WA
-const wa = e.target.closest('.js-wa-btn');
     if (wa) {
       e.preventDefault();
       e.stopPropagation();

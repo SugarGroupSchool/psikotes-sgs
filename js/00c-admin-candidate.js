@@ -710,12 +710,13 @@
     html += '<div style="padding:20px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:16px;margin-bottom:20px;">' +
       '<div style="font-size:11px;font-weight:800;letter-spacing:1.5px;color:#818cf8;margin-bottom:14px;">⚡ AKSI CEPAT</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-      '<button class="cd-btn cd-btn-primary" data-cd-action="chat" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">💬 Buka Chat</button>' +
-      '<button class="cd-btn cd-btn-success" data-cd-action="allow-retake" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">✅ Izinkan Tes Lagi</button>' +
-      '<button class="cd-btn cd-btn-warning" data-cd-action="force-refresh" data-device-id="' + deviceId + '">🔄 Force Refresh</button>' +
-      '<button class="cd-btn cd-btn-danger" data-cd-action="disqualify" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">⚠️ Diskualifikasi</button>' +
-      '<button class="cd-btn cd-btn-danger" data-cd-action="force-logout" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🚪 Force Logout</button>' +
-      '</div></div>';
+'<button class="cd-btn cd-btn-primary" data-cd-action="chat" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">💬 Buka Chat</button>' +
+'<button class="cd-btn cd-btn-success" data-cd-action="allow-retake" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">✅ Izinkan Tes Lagi</button>' +
+'<button class="cd-btn cd-btn-warning" data-cd-action="force-refresh" data-device-id="' + deviceId + '">🔄 Force Refresh</button>' +
+'<button class="cd-btn" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;" data-cd-action="reset-to-fresh" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🆕 Reset ke Fresh</button>' +
+'<button class="cd-btn cd-btn-danger" data-cd-action="disqualify" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">⚠️ Diskualifikasi</button>' +
+'<button class="cd-btn cd-btn-danger" data-cd-action="force-logout" data-device-id="' + deviceId + '" data-name="' + esc(safeName) + '">🚪 Force Logout</button>' +
+'</div></div>';
 
     // Danger zone
     html += '<div style="padding:20px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.2);border-radius:16px;">' +
@@ -731,7 +732,7 @@
   /* ============================================================
      ACTIONS
      ============================================================ */
-  function handleAction(action, deviceId, name) {
+  async function handleAction(action, deviceId, name) {
     if (action === 'chat') {
       closeCandidateDetailPage();
       if (typeof window.openChatForAdmin === 'function') {
@@ -739,6 +740,63 @@
       }
       return;
     }
+
+if (action === 'reset-to-fresh') {
+  const ok = (typeof window.sgsConfirmDanger === 'function')
+    ? await window.sgsConfirmDanger(
+        '🆕 RESET KE FRESH\n\n' +
+        '👤 ' + name + '\n\n' +
+        'Yang akan terjadi di device kandidat:\n' +
+        '• Semua data lokal dihapus (identity, completed, selectedTests)\n' +
+        '• Status kelulusan & diskualifikasi di-reset\n' +
+        '• Device jadi seperti baru → login pakai password FRESH\n' +
+        '• Kandidat harus isi form identitas lagi\n\n' +
+        '⚠️ File hasil tes di Drive & Firebase TIDAK dihapus.\n\n' +
+        'Lanjutkan?',
+        { title: '🆕 Reset ke Fresh', okText: 'Ya, Reset' }
+      )
+    : confirm('Reset ' + name + ' ke FRESH?');
+
+  if (!ok) return;
+
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    alert('Firebase belum siap');
+    return;
+  }
+
+  try {
+    /* Kirim sinyal ke device kandidat */
+    await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
+      force_reset_fresh: Date.now(),
+      finished: false,
+      disqualified: false,
+      status: 'active',
+      lastSeen: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    /* Reset status kelulusan di Firebase (biar tidak ada badge "Lolos") */
+    try {
+      const slug = String(name).toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+      await firebase.database().ref('sgs_candidate_status/' + slug).update({
+        status: '',
+        emailSentAt: null,
+        emailSentStatus: null,
+        ts: firebase.database.ServerValue.TIMESTAMP
+      });
+    } catch (e) {}
+
+    if (typeof toast === 'function') {
+      toast('🆕 Sinyal reset ke Fresh terkirim', '#6366f1');
+    } else {
+      alert('✅ Sinyal reset ke Fresh terkirim ke device kandidat.');
+    }
+  } catch (e) {
+    alert('Gagal: ' + e.message);
+  }
+  return;
+}
+
 
     if (action === 'allow-retake') {
       if (typeof window.adminAllowRetake === 'function') {
