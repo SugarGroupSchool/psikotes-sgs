@@ -387,8 +387,15 @@ function startListeningAdminSignals() {
     /* ============================================================
        🆕 RESET KE FRESH
        ============================================================ */
-    if (cur.force_reset_fresh && cur.force_reset_fresh !== __adminLastValues.force_reset_fresh) {
+ if (cur.force_reset_fresh && cur.force_reset_fresh !== __adminLastValues.force_reset_fresh) {
       __adminLastValues.force_reset_fresh = cur.force_reset_fresh;
+
+      /* 🆕 Skip kalau sedang retake mode — jangan reload */
+      if (localStorage.getItem('_sgs_retake_mode') === '1' ||
+          localStorage.getItem('_sgs_retake_skip_form') === '1') {
+        console.log('[PRESENCE] ⏭️ Skip force_reset_fresh — sedang retake mode');
+        return;
+      }
 
       var rfrKey = '_sgs_rfr_' + cur.force_reset_fresh;
       if (sessionStorage.getItem(rfrKey) === '1') return;

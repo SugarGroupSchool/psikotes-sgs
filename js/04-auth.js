@@ -216,7 +216,14 @@ async function checkPassword() {
         try { sessionStorage.removeItem('__sgs_retake'); } catch (e) {}
 
         if (restored) {
-          console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+  console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+
+  /* 🆕 Hapus flag retake mode setelah dipakai */
+  try {
+    localStorage.removeItem('_sgs_retake_mode');
+    localStorage.removeItem('_sgs_retake_skip_form');
+  } catch (e) {}
+
           if (typeof window.renderHome === 'function') window.renderHome();
           else renderIdentityForm();
         } else {

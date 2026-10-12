@@ -396,7 +396,14 @@ async function runInit() {
      ============================================================ */
 
   /* 1. Cek device finished */
-  if (localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
+  const __isRetakeMode = localStorage.getItem('_sgs_retake_mode') === '1';
+
+  if (__isRetakeMode) {
+    console.log('[INIT] 🎯 Retake mode — skip cek device finished');
+    try { localStorage.removeItem('_sgs_finished'); } catch (e) {}
+  }
+
+  if (!__isRetakeMode && localStorage.getItem(APP_CONFIG.STORAGE_KEYS.DEVICE_FINISHED) === '1') {
     if (typeof window.__resumeClear === 'function') {
       try { window.__resumeClear(); } catch (e) {}
     }
