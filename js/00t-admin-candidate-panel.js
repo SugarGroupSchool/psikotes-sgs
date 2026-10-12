@@ -15,6 +15,7 @@
    - 🆕 Retake panel DI DALAM tab Tes + modal filter tes selesai
    - ✅ FIX [2026-10-12]: reset ke fresh juga hapus completed di server
    - ✅ FIX [2026-10-12]: sembunyikan tombol 🗑️ KECIL (per file)
+   - ✅ FIX [2026-10-12]: FGD realtime + hapus asesor + stay on tab
    ============================================================ */
 
 (function () {
@@ -22,13 +23,6 @@
 
   /* ============================================================
      🆕 [2026-10-12] HIDE TOMBOL SAMPAH KECIL
-     ------------------------------------------------------------
-     User hanya mau tombol 🗑️ BESAR (kanan atas kartu) yang hapus
-     total kandidat. Tombol 🗑️ kecil (per file) disembunyikan total
-     dari UI — supaya user tidak salah klik & tidak bingung.
-     
-     Cara: inject CSS global. Semua tombol kecil punya class
-     `.js-delete-file` (di-render oleh 00b-admin.js).
      ============================================================ */
   (function __hideSmallTrashButtons() {
     if (document.getElementById('sgs-hide-small-trash')) return;
@@ -58,9 +52,6 @@
     { value: 4, label: '4 — Highly Recommended' }
   ];
 
-  /* ============================================================
-     KONFIGURASI EMAIL
-     ============================================================ */
   const EMAIL_GAS_URL = window.GAS_ADMIN_URL ||
     'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
@@ -172,7 +163,7 @@
   }
 
   /* ============================================================
-     CARI EMAIL KANDIDAT — AUTO dari Firebase + Drive
+     CARI EMAIL KANDIDAT
      ============================================================ */
   async function findEmail(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
@@ -241,7 +232,7 @@
   }
 
   /* ============================================================
-     CARI PHONE (WA) KANDIDAT — AUTO dari Firebase + Drive
+     CARI PHONE KANDIDAT
      ============================================================ */
   async function findPhone(slug, candidateName) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
@@ -297,16 +288,10 @@
     return null;
   }
 
-  /* ============================================================
-     VALIDASI EMAIL
-     ============================================================ */
   function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
   }
 
-  /* ============================================================
-     KIRIM EMAIL VIA GAS
-     ============================================================ */
   async function sendStatusEmail(slug, candidateName, position, statusValue, email) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) {
       alert('Firebase belum siap');
@@ -608,14 +593,13 @@
   }
 
   /* ============================================================
-     🆕 RETAKE — Tombol pembuka modal
+     RETAKE — Tombol pembuka modal
      ============================================================ */
   function retakeHTML(slug, statusData, name, position) {
     return (
       '<div style="padding:14px;' +
       'background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.05));' +
       'border:1.5px solid rgba(59,130,246,.25);border-radius:12px;">' +
-
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
           '<div style="width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;' +
           'background:linear-gradient(135deg,#3b82f6,#1e40af);border-radius:10px;font-size:18px;">📤</div>' +
@@ -626,7 +610,6 @@
               'Kirim link tes ulang — kandidat langsung masuk tanpa isi data.</div>' +
           '</div>' +
         '</div>' +
-
         '<button class="js-retake-open" ' +
           'data-slug="' + esc(slug) + '" ' +
           'data-name="' + esc(name) + '" ' +
@@ -638,15 +621,14 @@
           'box-shadow:0 4px 12px rgba(59,130,246,.3);">' +
           '📤 Kirim Link Tes Tahap 2' +
         '</button>' +
-
       '</div>'
     );
   }
 
   /* ============================================================
-     Build URL retake
+     Build URL retake (async — cari device ID target)
      ============================================================ */
-   async function __buildRetakeUrl(name, position, tests) {
+  async function __buildRetakeUrl(name, position, tests) {
     let deviceId = '';
     try {
       if (typeof firebase !== 'undefined' && firebase.apps.length) {
@@ -679,10 +661,9 @@
   }
 
   /* ============================================================
-     🆕 RETAKE MODAL — Filter tes yang belum selesai
+     RETAKE MODAL
      ============================================================ */
   window.__openRetakeModal = async function (slug, name, position) {
-
     if (window.__retakeModalOpening) {
       console.warn('[RETAKE] Modal sedang dibuka — abaikan klik dobel');
       return;
@@ -738,10 +719,6 @@
           console.log('[RETAKE] Sessions match:', matches.length,
             '| Active device:', sessionInfo.deviceId.slice(-8),
             '| completed:', JSON.stringify(completed));
-
-          if (matches.length > 1) {
-            console.warn('[RETAKE] ⚠️ Multiple sessions:', sessionInfo.allMatches);
-          }
         } else {
           console.warn('[RETAKE] Tidak ada session match untuk nama:', name);
         }
@@ -828,7 +805,6 @@
       overlay.innerHTML =
         '<div style="width: min(520px, 100%); background: #fff; border-radius: 20px; ' +
         'overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.55);">' +
-
           '<div style="padding: 22px 24px; ' +
           'background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: #fff;">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
@@ -849,39 +825,31 @@
               sessionLine +
             '</div>' +
           '</div>' +
-
           '<div style="padding: 22px 24px 24px;">' +
-
             '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
             'padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;">' +
               '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
               'Kandidat akan menerima link dan <b>langsung masuk ke tes</b> tanpa isi data ulang.' +
             '</div>' +
-
             '<div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;' +
             'margin-bottom:8px;">PILIH TES YANG AKAN DIULANG</div>' +
-
             '<div id="retakeCheckboxGrid" style="display:grid;' +
             'grid-template-columns:repeat(2,1fr);gap:8px;">' +
               checkboxHTML +
             '</div>' +
-
             doneHTML +
-
             '<div style="display:flex;gap:8px;margin-top:18px;">' +
               '<button id="retakeCopyBtn" ' +
                 'style="flex:1;padding:11px 12px;border-radius:10px;' +
                 'background:rgba(59,130,246,.12);border:1.5px solid rgba(59,130,246,.35);' +
                 'color:#1e40af;font-family:inherit;font-size:12px;font-weight:800;' +
                 'cursor:pointer;">📋 Copy Link</button>' +
-
               '<button id="retakeWaBtn" ' +
                 'style="flex:1;padding:11px 12px;border-radius:10px;' +
                 'background:linear-gradient(135deg,#25d366,#128c7e);' +
                 'border:0;color:#fff;font-family:inherit;font-size:12px;' +
                 'font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
                 '📱 Kirim WA</button>' +
-
               '<button id="retakeEmailBtn" ' +
                 'style="flex:1;padding:11px 12px;border-radius:10px;' +
                 'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
@@ -889,7 +857,6 @@
                 'font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
                 '📧 Kirim Email</button>' +
             '</div>' +
-
           '</div>' +
         '</div>';
 
@@ -926,7 +893,7 @@
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
-           const copyBtn = document.getElementById('retakeCopyBtn');
+      const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = async () => {
           const tests = getSelected();
@@ -980,7 +947,7 @@
             alert('Nomor WA tidak valid: ' + phone);
             return;
           }
-                    const url = await __buildRetakeUrl(name, position, tests);
+          const url = await __buildRetakeUrl(name, position, tests);
           const message =
             'Halo ' + name + ',\n\n' +
             'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap 2*.\n\n' +
@@ -1006,7 +973,7 @@
             return;
           }
 
-                    const url = await __buildRetakeUrl(name, position, tests);
+          const url = await __buildRetakeUrl(name, position, tests);
           const subject = '🔗 Link Tes Tahap 2 — ' + name;
 
           const htmlBody =
@@ -1083,295 +1050,283 @@
     }
   };
 
-/* ============================================================
-   🗑️ HAPUS TOTAL KANDIDAT — semua resource
-   ============================================================ */
-window.adminDeleteCandidateCompletely = async function (candidateName, candidatePosition) {
-  if (!candidateName) return alert('Nama kandidat kosong.');
-  const slug = slugify(candidateName);
-
-  const ok1 = (typeof window.sgsConfirmDanger === 'function')
-    ? await window.sgsConfirmDanger(
-        '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
-        '👤 ' + candidateName + '\n' +
-        '💼 ' + (candidatePosition || '-') + '\n\n' +
-        'Yang akan dihapus PERMANEN:\n' +
-        '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
-        '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
-'  subject_ratings, candidate_status, sgs_scores,\n' +
-'  sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
-'• Request izin & resume state\n' +
-        '• Chat room (jika ada)\n\n' +
-        'Tidak bisa dibatalkan!',
-        { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
-      )
-    : confirm('Hapus total kandidat ' + candidateName + '?');
-
-  if (!ok1) return;
-
-  const ok2 = (typeof window.sgsConfirmDanger === 'function')
-    ? await window.sgsConfirmDanger(
-        'Konfirmasi terakhir:\n\nHapus permanen "' + candidateName + '"?',
-        { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
-      )
-    : confirm('Yakin 100%? Tindakan ini permanen.');
-
-  if (!ok2) return;
-
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    return alert('Firebase belum siap');
-  }
-
-  let driveDeleted = 0;
-  let fbDeleted = 0;
-  let driveFailed = 0;
-
   /* ============================================================
-     STEP 1: Hapus semua file di Google Drive
+     HAPUS TOTAL KANDIDAT
      ============================================================ */
-  try {
-    const files = (typeof window.fetchResultFiles === 'function')
-      ? await window.fetchResultFiles(true) : [];
+  window.adminDeleteCandidateCompletely = async function (candidateName, candidatePosition) {
+    if (!candidateName) return alert('Nama kandidat kosong.');
+    const slug = slugify(candidateName);
 
-    const nameLower = String(candidateName).toLowerCase().trim();
+    const ok1 = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
+          '👤 ' + candidateName + '\n' +
+          '💼 ' + (candidatePosition || '-') + '\n\n' +
+          'Yang akan dihapus PERMANEN:\n' +
+          '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
+          '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
+          '  subject_ratings, candidate_status, sgs_scores,\n' +
+          '  sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
+          '• Request izin & resume state\n' +
+          '• Chat room (jika ada)\n\n' +
+          'Tidak bisa dibatalkan!',
+          { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
+        )
+      : confirm('Hapus total kandidat ' + candidateName + '?');
 
-    const targets = files.filter(f => {
-      const n = String(f.name || '').toLowerCase();
-      const desc = String(f.description || '').toLowerCase();
+    if (!ok1) return;
 
-      const descMatch = desc.match(/nama:\s*(.+)/i);
-      if (descMatch && descMatch[1].trim() === nameLower) return true;
+    const ok2 = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          'Konfirmasi terakhir:\n\nHapus permanen "' + candidateName + '"?',
+          { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
+        )
+      : confirm('Yakin 100%? Tindakan ini permanen.');
 
-      if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
-      if (n.startsWith(slug + '-')) return true;
+    if (!ok2) return;
 
-      return false;
-    });
-
-    console.log('[DELETE TOTAL] Target file Drive:', targets.length);
-
-    if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
-      const idToken = (typeof window.__getFirebaseIdToken === 'function')
-        ? await window.__getFirebaseIdToken() : '';
-
-      for (let i = 0; i < targets.length; i++) {
-        const f = targets[i];
-        let success = false;
-
-        try {
-          await fetch(window.GAS_ADMIN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
-          });
-          success = true;
-        } catch (e) {
-          console.warn('[DELETE TOTAL] Fetch error (dianggap sukses):', f.name, '—', e.message);
-          success = true;
-        }
-
-        if (success) {
-          if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
-          if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
-          driveDeleted++;
-          console.log(`[DELETE TOTAL] ✓ (${i + 1}/${targets.length})`, f.name);
-        } else {
-          driveFailed++;
-        }
-
-        if (i < targets.length - 1) {
-          await new Promise(r => setTimeout(r, 500));
-        }
-      }
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      return alert('Firebase belum siap');
     }
-  } catch (e) {
-    console.warn('[DELETE TOTAL] Drive error:', e.message);
-  }
 
-  /* ============================================================
-     STEP 2: Hapus Firebase paths
-     ============================================================ */
- const paths = [
-  'sgs_interviews/' + slug,
-  'sgs_grafis_interp/' + slug,
-  'sgs_grafis_images/' + slug,
-  'sgs_fgd/' + slug,
-  'sgs_subject_ratings/' + slug,
-  'sgs_candidate_status/' + slug,
-  'sgs_scores/' + slug,
-  'sgs_psikogram/' + slug,
-  'sgs_psikogram_raw/' + slug,
-  'sgs_psikogram_weights/' + slug
-];
+    let driveDeleted = 0;
+    let fbDeleted = 0;
+    let driveFailed = 0;
 
-  for (const path of paths) {
     try {
-      await firebase.database().ref(path).remove();
-      fbDeleted++;
-    } catch (e) {
-      console.warn('[DELETE TOTAL] Firebase gagal:', path, e.message);
-    }
-  }
+      const files = (typeof window.fetchResultFiles === 'function')
+        ? await window.fetchResultFiles(true) : [];
 
-  /* ============================================================
-     STEP 3: Hapus sessions & chats
-     ============================================================ */
-  try {
-    const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
-    const sessions = sessionsSnap.val() || {};
-    const nameLower = String(candidateName).toLowerCase().trim();
+      const nameLower = String(candidateName).toLowerCase().trim();
 
- for (const devId in sessions) {
-  const s = sessions[devId] || {};
-  if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-    try {
-      await firebase.database().ref('sgs_state/chats/' + devId).remove();
-      await firebase.database().ref('sgs_state/sessions/' + devId).remove();
-      await firebase.database().ref('sgs_requests/' + devId).remove();
-      await firebase.database().ref('sgs_state/resume/' + devId).remove();
-    } catch (e) {}
-  }
-}
-  } catch (e) {}
+      const targets = files.filter(f => {
+        const n = String(f.name || '').toLowerCase();
+        const desc = String(f.description || '').toLowerCase();
 
-  /* ============================================================
-     STEP 4: Refresh cache & UI
-     ============================================================ */
-  if (typeof window.__invalidateResultCache === 'function') {
-    window.__invalidateResultCache();
-  }
+        const descMatch = desc.match(/nama:\s*(.+)/i);
+        if (descMatch && descMatch[1].trim() === nameLower) return true;
 
-  await new Promise(r => setTimeout(r, 2000));
+        if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
+        if (n.startsWith(slug + '-')) return true;
 
-  try {
-    if (typeof window.fetchResultFiles === 'function') {
-      const freshFiles = await window.fetchResultFiles(true);
-      window.__resultFilesCache = freshFiles;
-    }
-    if (document.getElementById('resultFilesPageOverlay') &&
-        typeof window.__renderResultPageContent === 'function') {
-      window.__renderResultPageContent();
-    }
-    if (typeof window.__updateAdminResultCounter === 'function') {
-      window.__updateAdminResultCounter();
-    }
-  } catch (e) {
-    console.warn('[DELETE TOTAL] Refresh error:', e.message);
-  }
-
-  const card = document.querySelector('.rf-card[data-candidate-slug="' + slug + '"]');
-  if (card) card.remove();
-
-  /* ============================================================
-     STEP 5: Alert hasil
-     ============================================================ */
-  let msg =
-    '✅ Hapus total selesai:\n\n' +
-    '• Firebase paths: ' + fbDeleted + ' dihapus\n' +
-    '• File Drive: ' + driveDeleted + ' dihapus';
-
-  if (driveFailed > 0) {
-    msg += '\n• ⚠️ Gagal: ' + driveFailed + ' file';
-  }
-
-  msg += '\n\nKandidat "' + candidateName + '" sudah dihapus permanen.';
-
-  alert(msg);
-};
-
-/* ============================================================
-   🆕 RESET KE FRESH — Kandidat bisa login ulang pakai FRESH
-   ============================================================ */
-window.adminResetToFreshByName = async function (candidateName) {
-  if (!candidateName) return alert('Nama kandidat kosong.');
-
-  const ok = (typeof window.sgsConfirmDanger === 'function')
-    ? await window.sgsConfirmDanger(
-        '🆕 RESET KE FRESH\n\n' +
-        '👤 ' + candidateName + '\n\n' +
-        'Yang akan terjadi di device kandidat:\n' +
-        '• Semua data lokal dihapus (identity, completed, selectedTests)\n' +
-        '• Status kelulusan & diskualifikasi di-reset\n' +
-        '• Device jadi seperti baru → login pakai password FRESH\n' +
-        '• Kandidat harus isi form identitas lagi\n\n' +
-        '⚠️ File hasil tes di Drive & Firebase TIDAK dihapus.\n\n' +
-        'Lanjutkan?',
-        { title: '🆕 Reset ke Fresh', okText: 'Ya, Reset' }
-      )
-    : confirm('Reset ' + candidateName + ' ke FRESH?');
-
-  if (!ok) return;
-
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    return alert('Firebase belum siap');
-  }
-
-  let deviceId = null;
-  try {
-    const snap = await firebase.database().ref('sgs_state/sessions').once('value');
-    const sessions = snap.val() || {};
-    const nameLower = String(candidateName).toLowerCase().trim();
-    for (const devId in sessions) {
-      const s = sessions[devId] || {};
-      if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-        deviceId = devId;
-        break;
-      }
-    }
-  } catch (e) {
-    return alert('Gagal baca sessions: ' + e.message);
-  }
-
-  if (!deviceId) {
-    return alert(
-      '❌ Device kandidat tidak ditemukan di sessions.\n\n' +
-      'Kemungkinan:\n' +
-      '• Kandidat belum pernah login\n' +
-      '• Sesi sudah kadaluarsa (>3 menit offline)\n' +
-      '• Nama tidak cocok (cek ejaan)'
-    );
-  }
-
-  try {
-    await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
-      force_reset_fresh: Date.now(),
-      finished: false,
-      disqualified: false,
-      status: 'active',
-      lastSeen: firebase.database.ServerValue.TIMESTAMP,
-      completed: null,
-      selectedTests: null,
-      currentTest: null,
-      currentSubtest: null,
-      currentQuestion: null
-    });
-
-    const slug = String(candidateName).toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-    try {
-      await firebase.database().ref('sgs_candidate_status/' + slug).update({
-        status: '',
-        emailSentAt: null,
-        emailSentStatus: null,
-        ts: firebase.database.ServerValue.TIMESTAMP
+        return false;
       });
+
+      console.log('[DELETE TOTAL] Target file Drive:', targets.length);
+
+      if (targets.length > 0 && typeof window.GAS_ADMIN_URL === 'string') {
+        const idToken = (typeof window.__getFirebaseIdToken === 'function')
+          ? await window.__getFirebaseIdToken() : '';
+
+        for (let i = 0; i < targets.length; i++) {
+          const f = targets[i];
+          let success = false;
+
+          try {
+            await fetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+            });
+            success = true;
+          } catch (e) {
+            console.warn('[DELETE TOTAL] Fetch error (dianggap sukses):', f.name, '—', e.message);
+            success = true;
+          }
+
+          if (success) {
+            if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
+            if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(f.id);
+            driveDeleted++;
+            console.log(`[DELETE TOTAL] ✓ (${i + 1}/${targets.length})`, f.name);
+          } else {
+            driveFailed++;
+          }
+
+          if (i < targets.length - 1) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[DELETE TOTAL] Drive error:', e.message);
+    }
+
+    const paths = [
+      'sgs_interviews/' + slug,
+      'sgs_grafis_interp/' + slug,
+      'sgs_grafis_images/' + slug,
+      'sgs_fgd/' + slug,
+      'sgs_subject_ratings/' + slug,
+      'sgs_candidate_status/' + slug,
+      'sgs_scores/' + slug,
+      'sgs_psikogram/' + slug,
+      'sgs_psikogram_raw/' + slug,
+      'sgs_psikogram_weights/' + slug
+    ];
+
+    for (const path of paths) {
+      try {
+        await firebase.database().ref(path).remove();
+        fbDeleted++;
+      } catch (e) {
+        console.warn('[DELETE TOTAL] Firebase gagal:', path, e.message);
+      }
+    }
+
+    try {
+      const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = sessionsSnap.val() || {};
+      const nameLower = String(candidateName).toLowerCase().trim();
+
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          try {
+            await firebase.database().ref('sgs_state/chats/' + devId).remove();
+            await firebase.database().ref('sgs_state/sessions/' + devId).remove();
+            await firebase.database().ref('sgs_requests/' + devId).remove();
+            await firebase.database().ref('sgs_state/resume/' + devId).remove();
+          } catch (e) {}
+        }
+      }
     } catch (e) {}
 
-    alert(
-      '✅ Sinyal reset terkirim ke device kandidat.\n\n' +
-      '📱 Device kandidat akan otomatis reload.\n' +
-      'Setelah reload, login pakai password FRESH.'
-    );
+    /* Detach FGD realtime listener */
+    __detachFGDRealtime(slug);
 
-  } catch (e) {
-    alert('Gagal kirim sinyal: ' + e.message);
-  }
-};
+    if (typeof window.__invalidateResultCache === 'function') {
+      window.__invalidateResultCache();
+    }
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    try {
+      if (typeof window.fetchResultFiles === 'function') {
+        const freshFiles = await window.fetchResultFiles(true);
+        window.__resultFilesCache = freshFiles;
+      }
+      if (document.getElementById('resultFilesPageOverlay') &&
+          typeof window.__renderResultPageContent === 'function') {
+        window.__renderResultPageContent();
+      }
+      if (typeof window.__updateAdminResultCounter === 'function') {
+        window.__updateAdminResultCounter();
+      }
+    } catch (e) {
+      console.warn('[DELETE TOTAL] Refresh error:', e.message);
+    }
+
+    const card = document.querySelector('.rf-card[data-candidate-slug="' + slug + '"]');
+    if (card) card.remove();
+
+    let msg =
+      '✅ Hapus total selesai:\n\n' +
+      '• Firebase paths: ' + fbDeleted + ' dihapus\n' +
+      '• File Drive: ' + driveDeleted + ' dihapus';
+
+    if (driveFailed > 0) {
+      msg += '\n• ⚠️ Gagal: ' + driveFailed + ' file';
+    }
+
+    msg += '\n\nKandidat "' + candidateName + '" sudah dihapus permanen.';
+
+    alert(msg);
+  };
 
   /* ============================================================
-     🆕 FGD — Hapus asesor + auto-regenerate PDF combined
+     RESET KE FRESH
      ============================================================ */
-  async function deleteFGDAsesor(slug, asesor, candidateName, candidatePosition, onDone) {
+  window.adminResetToFreshByName = async function (candidateName) {
+    if (!candidateName) return alert('Nama kandidat kosong.');
+
+    const ok = (typeof window.sgsConfirmDanger === 'function')
+      ? await window.sgsConfirmDanger(
+          '🆕 RESET KE FRESH\n\n' +
+          '👤 ' + candidateName + '\n\n' +
+          'Yang akan terjadi di device kandidat:\n' +
+          '• Semua data lokal dihapus (identity, completed, selectedTests)\n' +
+          '• Status kelulusan & diskualifikasi di-reset\n' +
+          '• Device jadi seperti baru → login pakai password FRESH\n' +
+          '• Kandidat harus isi form identitas lagi\n\n' +
+          '⚠️ File hasil tes di Drive & Firebase TIDAK dihapus.\n\n' +
+          'Lanjutkan?',
+          { title: '🆕 Reset ke Fresh', okText: 'Ya, Reset' }
+        )
+      : confirm('Reset ' + candidateName + ' ke FRESH?');
+
+    if (!ok) return;
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      return alert('Firebase belum siap');
+    }
+
+    let deviceId = null;
+    try {
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      const nameLower = String(candidateName).toLowerCase().trim();
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+          deviceId = devId;
+          break;
+        }
+      }
+    } catch (e) {
+      return alert('Gagal baca sessions: ' + e.message);
+    }
+
+    if (!deviceId) {
+      return alert(
+        '❌ Device kandidat tidak ditemukan di sessions.\n\n' +
+        'Kemungkinan:\n' +
+        '• Kandidat belum pernah login\n' +
+        '• Sesi sudah kadaluarsa (>3 menit offline)\n' +
+        '• Nama tidak cocok (cek ejaan)'
+      );
+    }
+
+    try {
+      await firebase.database().ref('sgs_state/sessions/' + deviceId).update({
+        force_reset_fresh: Date.now(),
+        finished: false,
+        disqualified: false,
+        status: 'active',
+        lastSeen: firebase.database.ServerValue.TIMESTAMP,
+        completed: null,
+        selectedTests: null,
+        currentTest: null,
+        currentSubtest: null,
+        currentQuestion: null
+      });
+
+      const slug = String(candidateName).toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+      try {
+        await firebase.database().ref('sgs_candidate_status/' + slug).update({
+          status: '',
+          emailSentAt: null,
+          emailSentStatus: null,
+          ts: firebase.database.ServerValue.TIMESTAMP
+        });
+      } catch (e) {}
+
+      alert(
+        '✅ Sinyal reset terkirim ke device kandidat.\n\n' +
+        '📱 Device kandidat akan otomatis reload.\n' +
+        'Setelah reload, login pakai password FRESH.'
+      );
+
+    } catch (e) {
+      alert('Gagal kirim sinyal: ' + e.message);
+    }
+  };
+
+  /* ============================================================
+     FGD — Hapus asesor (realtime listener akan update UI)
+     ============================================================ */
+  async function deleteFGDAsesor(slug, asesor, candidateName, candidatePosition) {
     if (!asesor) return alert('Nama asesor kosong.');
 
     const ok = (typeof window.sgsConfirmDanger === 'function')
@@ -1421,16 +1376,17 @@ window.adminResetToFreshByName = async function (candidateName) {
         console.warn('[FGD-DELETE] Gagal hapus PDF lama:', e.message);
       }
 
-      /* 3) Cek: apakah masih ada asesor lain? */
+      /* 3) Cek sisa asesor */
       const snapAfter = await firebase.database().ref('sgs_fgd/' + slug).once('value');
       const dataAfter = snapAfter.val() || {};
       const remaining = Object.keys(dataAfter);
 
-      /* 4) Regenerate PDF combined (kalau masih ada asesor) */
+      /* 4) Regenerate PDF combined */
       if (remaining.length > 0) {
         if (typeof window.autoGenerateFGDCombined === 'function') {
           await new Promise(r => setTimeout(r, 1500));
           await window.autoGenerateFGDCombined(candidateName, candidatePosition);
+          console.log('[FGD-DELETE] ✓ PDF combined di-regenerate');
         }
       } else {
         console.log('[FGD-DELETE] Tidak ada asesor lagi — PDF combined tidak di-regenerate');
@@ -1441,8 +1397,6 @@ window.adminResetToFreshByName = async function (candidateName) {
         window.__invalidateResultCache();
       }
 
-      if (typeof onDone === 'function') onDone();
-
     } catch (e) {
       console.error('[FGD-DELETE] Gagal:', e);
       alert('Gagal hapus asesor: ' + e.message);
@@ -1450,10 +1404,7 @@ window.adminResetToFreshByName = async function (candidateName) {
   }
 
   /* ============================================================
-     🆕 FGD — Load & Render dari Firebase
-     ------------------------------------------------------------
-     Data FGD tidak di-generate jadi PDF, jadi baca langsung dari
-     Firebase sgs_fgd/{slug}/{asesor}.
+     FGD — Load data (sekali baca)
      ============================================================ */
   async function loadFGDData(slug) {
     if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
@@ -1466,26 +1417,24 @@ window.adminResetToFreshByName = async function (candidateName) {
     }
   }
 
-  const FGD_ASPEK_MAP = {
-    analisis:      'Kemampuan Analisis & Pemecahan Masalah',
-    komunikasi:    'Keterampilan Komunikasi',
-    kerjasama:     'Kerjasama Tim',
-    kepemimpinan:  'Kepemimpinan & Inisiatif',
-    adaptabilitas: 'Adaptabilitas'
-  };
-
+  /* ============================================================
+     FGD — Render box (simple: list nama asesor saja)
+     ============================================================ */
   const FGD_REC_MAP = {
-    'HIGHLY_RECOMMENDED': { label: '🌟 Highly Recommended', color: '#22c55e', bg: 'rgba(34,197,94,.15)', border: 'rgba(34,197,94,.45)' },
-    'RECOMMENDED':        { label: '✅ Recommended',        color: '#86efac', bg: 'rgba(34,197,94,.12)', border: 'rgba(34,197,94,.35)' },
-    'FAIRLY_RECOMMENDED': { label: '⚠️ Fairly Recommended', color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)' },
-    'NOT_RECOMMENDED':    { label: '❌ Not Recommended',    color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)' }
+    'HIGHLY_RECOMMENDED': { short: '🌟 Highly',  color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)' },
+    'RECOMMENDED':        { short: '✅ Rec',      color: '#86efac', bg: 'rgba(34,197,94,.12)',  border: 'rgba(34,197,94,.35)' },
+    'FAIRLY_RECOMMENDED': { short: '⚠️ Fairly',  color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)' },
+    'NOT_RECOMMENDED':    { short: '❌ Not',      color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)' }
   };
 
-  function renderFGDBox(fgdData, name, position) {
-    if (!fgdData || !Object.keys(fgdData).length) {
+  function renderFGDBox(fgdData) {
+    const data = fgdData || {};
+    const asesorList = Object.keys(data).sort();
+
+    if (asesorList.length === 0) {
       return (
         '<div class="js-fgd-box" style="padding:14px;' +
-        'background:rgba(59,130,246,.05);border:1.5px dashed rgba(59,130,246,.3);border-radius:12px;' +
+        'background:rgba(139,92,246,.05);border:1.5px dashed rgba(139,92,246,.3);border-radius:12px;' +
         'font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">' +
           '🎯 <b>Belum ada asesor yang submit FGD</b><br>' +
           '<span style="font-size:10.5px;opacity:.7;">Kirim link FGD ke asesor lewat tombol di atas.</span>' +
@@ -1493,129 +1442,138 @@ window.adminResetToFreshByName = async function (candidateName) {
       );
     }
 
-    const asesorList = Object.keys(fgdData);
-
-    /* Rata-rata semua asesor */
-    const allAvgs = asesorList
-      .map(a => Number(fgdData[a]?.average) || 0)
+    const avgs = asesorList
+      .map(a => Number(data[a]?.average) || 0)
       .filter(v => v > 0);
-    const grandAvg = allAvgs.length
-      ? (allAvgs.reduce((s, v) => s + v, 0) / allAvgs.length)
+    const grandAvg = avgs.length
+      ? (avgs.reduce((s, v) => s + v, 0) / avgs.length)
       : 0;
 
-    const asesorCards = asesorList.map(asesor => {
-      const d = fgdData[asesor] || {};
-      const rec = FGD_REC_MAP[d.recommendation] || { label: '—', color: '#94a3b8', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)' };
+    const rowsHTML = asesorList.map(asesor => {
+      const d = data[asesor] || {};
+      const rec = FGD_REC_MAP[d.recommendation] || null;
       const avg = Number(d.average) || 0;
-      const ts = d.ts ? new Date(d.ts).toLocaleString('id-ID', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-      }) : '-';
 
-      /* Render skor per aspek */
-      const scoresHTML = Object.keys(d.scores || {}).map(k => {
-        const label = FGD_ASPEK_MAP[k] || k;
-        const val = Number(d.scores[k]) || 0;
-        const barW = (val / 4) * 100;
-        const barColor = val >= 3.5 ? 'linear-gradient(90deg,#16a34a,#22c55e)'
-                      : val >= 2.5 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
-                      : val >= 1.5 ? 'linear-gradient(90deg,#ea580c,#f97316)'
-                      : 'linear-gradient(90deg,#dc2626,#ef4444)';
-        return (
-          '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">' +
-            '<div style="flex:1;min-width:0;font-size:10.5px;color:#cbd5e1;line-height:1.3;">' + esc(label) + '</div>' +
-            '<div style="flex:0 0 90px;height:5px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;">' +
-              '<div style="width:' + barW + '%;height:100%;background:' + barColor + ';border-radius:inherit;"></div>' +
-            '</div>' +
-            '<div style="flex:0 0 34px;text-align:right;font-size:11px;font-weight:900;color:#e2e8f0;font-variant-numeric:tabular-nums;">' + val.toFixed(0) + '/4</div>' +
-          '</div>'
-        );
-      }).join('');
-
-      /* Catatan per aspek */
-      const notesArr = Object.keys(d.notes || {})
-        .filter(k => d.notes[k] && d.notes[k].trim())
-        .map(k => {
-          const label = FGD_ASPEK_MAP[k] || k;
-          return '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;line-height:1.5;">' +
-            '<b style="color:#c4b5fd;">' + esc(label) + ':</b> ' + esc(d.notes[k]) +
-          '</div>';
-        }).join('');
+      const recBadge = rec
+        ? '<span style="padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:800;' +
+          'background:' + rec.bg + ';border:1px solid ' + rec.border + ';color:' + rec.color + ';' +
+          'white-space:nowrap;">' + rec.short + '</span>'
+        : '';
 
       return (
-        '<div style="padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(139,92,246,.25);border-radius:11px;margin-bottom:8px;">' +
-
-           /* Header asesor */
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
-            '<div style="width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;' +
-            'background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border-radius:9px;' +
-            'font-weight:900;font-size:11px;letter-spacing:.5px;">' + esc(String(asesor).slice(0,3).toUpperCase()) + '</div>' +
-            '<div style="flex:1;min-width:0;">' +
-              '<div style="font-weight:900;font-size:12.5px;color:#fff;">' + esc(asesor) + '</div>' +
-              '<div style="font-size:10.5px;color:#94a3b8;">🕐 ' + ts + '</div>' +
-            '</div>' +
-            '<div style="padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;' +
-              'background:' + rec.bg + ';border:1px solid ' + rec.border + ';color:' + rec.color + ';white-space:nowrap;">' +
-              rec.label +
-            '</div>' +
-            /* 🆕 Tombol hapus asesor */
-            '<button class="js-fgd-delete-asesor" ' +
-              'data-asesor="' + esc(asesor) + '" ' +
-              'title="Hapus asesor ini dari FGD"' +
-              'style="padding:6px 10px;border-radius:8px;' +
-              'background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);' +
-              'color:#fca5a5;font-family:inherit;font-size:11px;font-weight:800;' +
-              'cursor:pointer;white-space:nowrap;">🗑️</button>' +
+        '<div class="js-fgd-row" data-asesor="' + esc(asesor) + '" ' +
+          'style="display:flex;align-items:center;gap:8px;padding:8px 10px;' +
+          'background:rgba(255,255,255,.03);border:1px solid rgba(139,92,246,.2);' +
+          'border-radius:9px;margin-bottom:6px;flex-wrap:wrap;">' +
+          '<div style="width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;' +
+            'background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border-radius:8px;' +
+            'font-weight:900;font-size:10px;letter-spacing:.5px;">' +
+            esc(String(asesor).slice(0,3).toUpperCase()) +
           '</div>' +
-
-          /* Rata-rata */
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;' +
-            'padding:6px 10px;background:rgba(99,102,241,.1);border-radius:8px;margin-bottom:10px;">' +
-            '<div style="font-size:10.5px;color:#a5b4fc;font-weight:800;">Rata-rata</div>' +
-            '<div style="font-size:14px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;">' + avg.toFixed(2) + ' / 4</div>' +
+          '<div style="flex:1;min-width:100px;">' +
+            '<div style="font-weight:900;font-size:12.5px;color:#fff;line-height:1.2;">' + esc(asesor) + '</div>' +
+            '<div style="font-size:10.5px;color:#94a3b8;margin-top:1px;">⭐ ' + avg.toFixed(2) + '</div>' +
           '</div>' +
-
-          /* Skor per aspek */
-          '<div style="margin-bottom:8px;">' + scoresHTML + '</div>' +
-
-          /* Catatan */
-          (notesArr ? '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1);">' + notesArr + '</div>' : '') +
-
-          /* Overall note */
-          (d.overallNote && d.overallNote.trim() ?
-            '<div style="margin-top:8px;padding:8px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:10.5px;color:#fde68a;line-height:1.5;">' +
-            '<b>📝 Catatan Keseluruhan:</b><br>' + esc(d.overallNote) +
-            '</div>'
-          : '') +
-
+          recBadge +
+          '<button class="js-fgd-delete-asesor" data-asesor="' + esc(asesor) + '" ' +
+            'title="Hapus asesor ini"' +
+            'style="flex:0 0 auto;padding:5px 9px;border-radius:7px;' +
+            'background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);' +
+            'color:#fca5a5;font-family:inherit;font-size:11px;font-weight:800;' +
+            'cursor:pointer;line-height:1;">🗑️</button>' +
         '</div>'
       );
     }).join('');
 
     return (
-      '<div class="js-fgd-box" style="padding:14px;' +
-      'background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(99,102,241,.05));' +
-      'border:1.5px solid rgba(139,92,246,.3);border-radius:14px;">' +
+      '<div class="js-fgd-box" style="padding:12px;' +
+        'background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(99,102,241,.05));' +
+        'border:1.5px solid rgba(139,92,246,.3);border-radius:14px;">' +
 
-        /* Header */
-        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
-          '<div style="width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;' +
-          'background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:10px;font-size:18px;">🎯</div>' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:12.5px;font-weight:900;color:#c4b5fd;">Hasil FGD</div>' +
-            '<div style="font-size:10.5px;color:#94a3b8;">' + asesorList.length + ' asesor telah submit</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">' +
+          '<div style="width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;' +
+            'background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-radius:9px;font-size:16px;">🎯</div>' +
+          '<div style="flex:1;min-width:100px;">' +
+            '<div style="font-size:12px;font-weight:900;color:#c4b5fd;">Hasil FGD</div>' +
+            '<div style="font-size:10px;color:#94a3b8;">' + asesorList.length + ' asesor submit</div>' +
           '</div>' +
-          '<div style="padding:6px 12px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);' +
-            'border-radius:999px;font-size:11px;font-weight:900;color:#86efac;white-space:nowrap;' +
-            'font-variant-numeric:tabular-nums;">' +
-            '⭐ Rata-rata: ' + grandAvg.toFixed(2) +
-          '</div>' +
+          (asesorList.length > 0
+            ? '<div style="padding:5px 10px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);' +
+              'border-radius:999px;font-size:10.5px;font-weight:900;color:#86efac;white-space:nowrap;' +
+              'font-variant-numeric:tabular-nums;">' +
+              '⭐ ' + grandAvg.toFixed(2) + '</div>'
+            : '') +
         '</div>' +
 
-        /* List asesor */
-        asesorCards +
+        rowsHTML +
 
       '</div>'
     );
+  }
+
+  /* ============================================================
+     FGD REALTIME LISTENER MANAGER
+     ============================================================ */
+  const __fgdRealtimeListeners = new Map(); // slug → { ref, cb }
+
+  function __attachFGDRealtime(slug, wrapper, driveItems) {
+    __detachFGDRealtime(slug);
+
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#f87171;font-size:11.5px;">❌ Firebase belum siap</div>';
+      return;
+    }
+
+    const ref = firebase.database().ref('sgs_fgd/' + slug);
+    const cb = (snap) => {
+      try {
+        if (!wrapper.isConnected) {
+          __detachFGDRealtime(slug);
+          return;
+        }
+
+        const data = snap.val() || {};
+        const fgdBoxHTML = renderFGDBox(data);
+
+        if (driveItems && driveItems.length > 0) {
+          wrapper.innerHTML = fgdBoxHTML;
+          const divider = document.createElement('div');
+          divider.style.cssText = 'margin:12px 0 8px;font-size:10.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;';
+          divider.textContent = '📁 FILE TERKIRIM';
+          wrapper.appendChild(divider);
+
+          driveItems.forEach(el => {
+            compactFileItem(el);
+            wrapper.appendChild(el);
+          });
+        } else {
+          wrapper.innerHTML = fgdBoxHTML;
+        }
+      } catch (e) {
+        console.warn('[FGD-REALTIME] render error:', e.message);
+      }
+    };
+
+    ref.on('value', cb, (err) => {
+      console.warn('[FGD-REALTIME] listener error:', err.message);
+    });
+
+    __fgdRealtimeListeners.set(slug, { ref, cb });
+  }
+
+  function __detachFGDRealtime(slug) {
+    if (!slug) return;
+    const item = __fgdRealtimeListeners.get(slug);
+    if (!item) return;
+    try { item.ref.off('value', item.cb); } catch (e) {}
+    __fgdRealtimeListeners.delete(slug);
+  }
+
+  function __detachAllFGDRealtime() {
+    __fgdRealtimeListeners.forEach((item, slug) => {
+      try { item.ref.off('value', item.cb); } catch (e) {}
+    });
+    __fgdRealtimeListeners.clear();
   }
 
   /* ============================================================
@@ -1670,27 +1628,26 @@ window.adminResetToFreshByName = async function (candidateName) {
   }
 
   /* ============================================================
-     BACKFILL GLOBAL — Scan sessions + Drive, cache semua kontak
+     BACKFILL GLOBAL
      ============================================================ */
-function __isAdminLoggedIn() {
-  try {
-    return sessionStorage.getItem('_sgs_admin_logged_in') === '1';
-  } catch (e) {
-    return false;
+  function __isAdminLoggedIn() {
+    try {
+      return sessionStorage.getItem('_sgs_admin_logged_in') === '1';
+    } catch (e) {
+      return false;
+    }
   }
-}
 
-let __backfillDone = false;
-async function backfillAllContacts() {
-  if (__backfillDone) return;
-  __backfillDone = true;
+  let __backfillDone = false;
+  async function backfillAllContacts() {
+    if (__backfillDone) return;
+    __backfillDone = true;
 
-  if (typeof firebase === 'undefined' || !firebase.apps.length) return;
-
-  if (!__isAdminLoggedIn()) {
-    console.log('[BACKFILL] ⏭️ Skip — bukan mode admin');
-    return;
-  }
+    if (typeof firebase === 'undefined' || !firebase.apps.length) return;
+    if (!__isAdminLoggedIn()) {
+      console.log('[BACKFILL] ⏭️ Skip — bukan mode admin');
+      return;
+    }
 
     console.log('[BACKFILL] Memulai sinkronisasi kontak...');
     const map = {};
@@ -1778,7 +1735,7 @@ async function backfillAllContacts() {
   }
 
   /* ============================================================
-     KONTAK CHIP — info email & phone
+     KONTAK CHIP
      ============================================================ */
   function contactChipHTML(statusData) {
     const email = statusData?.email || '';
@@ -1800,7 +1757,7 @@ async function backfillAllContacts() {
   }
 
   /* ============================================================
-     STATUS BAR HTML — Collapsible
+     STATUS BAR HTML
      ============================================================ */
   function statusBarHTML(slug, statusData, name, position) {
     const cur = statusData?.status || '';
@@ -1855,28 +1812,27 @@ async function backfillAllContacts() {
           '</div>' +
 
           '<div style="display:flex;gap:8px;">' +
-  '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
-    'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-    'style="flex:1;padding:11px 14px;border-radius:10px;' +
-    'background:linear-gradient(135deg,#25d366,#128c7e);' +
-    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
-    'font-weight:800;cursor:pointer;' +
-    'box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
-    '📱 Hubungi WA' +
-  '</button>' +
-  '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
-    'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
-    'style="flex:1;padding:11px 14px;border-radius:10px;' +
-    'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
-    'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
-    'font-weight:800;cursor:pointer;' +
-    'box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
-    '📧 Kirim Email' +
-  '</button>' +
-'</div>' +
+            '<button class="js-wa-btn" data-slug="' + esc(slug) + '" ' +
+              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+              'style="flex:1;padding:11px 14px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#25d366,#128c7e);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+              'font-weight:800;cursor:pointer;' +
+              'box-shadow:0 4px 12px rgba(37,211,102,.25);">' +
+              '📱 Hubungi WA' +
+            '</button>' +
+            '<button class="js-email-btn" data-slug="' + esc(slug) + '" ' +
+              'data-name="' + esc(name) + '" data-position="' + esc(position) + '" ' +
+              'style="flex:1;padding:11px 14px;border-radius:10px;' +
+              'background:linear-gradient(135deg,#8b5cf6,#6d28d9);' +
+              'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+              'font-weight:800;cursor:pointer;' +
+              'box-shadow:0 4px 12px rgba(139,92,246,.25);">' +
+              '📧 Kirim Email' +
+            '</button>' +
+          '</div>' +
 
-
-contactChipHTML(statusData) +
+          contactChipHTML(statusData) +
 
         '</div>' +
       '</div>'
@@ -1911,7 +1867,7 @@ contactChipHTML(statusData) +
       return !/-wawancara-|-fgd-|-grafis-|xlsx/.test(h);
     });
 
-       const ivBtn  = card.querySelector('.js-interview-link');
+    const ivBtn  = card.querySelector('.js-interview-link');
     const grBtn  = card.querySelector('.js-grafindo-link');
     const fgdBtn = card.querySelector('.js-fgd-link');
 
@@ -1941,8 +1897,6 @@ contactChipHTML(statusData) +
       tabs.push({ id: 'grafis', label: '🎨 Grafis', items: groups.grafis, actionBtn: grBtn });
     }
 
-       /* 🆕 Tab FGD selalu muncul untuk Guru/Dosen — 
-       karena data FGD ada di Firebase, bukan cuma Drive */
     if (isGuru) {
       tabs.push({ id: 'fgd', label: '🎯 FGD', items: groups.fgd, actionBtn: fgdBtn });
     }
@@ -1995,14 +1949,13 @@ contactChipHTML(statusData) +
       const panel = wrapper.querySelector('.js-tab-panel[data-panel="' + t.id + '"]');
       if (!panel) return;
 
-           if (t.special === 'subject') {
+      if (t.special === 'subject') {
         panel.innerHTML = ratingHTML(slug, ratingData);
         return;
       }
 
-      /* 🆕 FGD — render data dari Firebase dulu (async) */
+      /* 🆕 FGD — realtime listener dari Firebase */
       if (t.id === 'fgd') {
-        /* Tombol di atas */
         if (t.actionBtn) {
           t.actionBtn.style.width = '100%';
           t.actionBtn.style.padding = '10px 14px';
@@ -2013,31 +1966,13 @@ contactChipHTML(statusData) +
           panel.appendChild(t.actionBtn);
         }
 
-        /* Placeholder FGD */
         const fgdWrap = document.createElement('div');
         fgdWrap.className = 'js-fgd-wrapper';
         fgdWrap.style.marginTop = '10px';
         fgdWrap.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat data FGD...</div>';
         panel.appendChild(fgdWrap);
 
-        /* Async fetch + render */
-        (async () => {
-          const fgdData = await loadFGDData(slug);
-          fgdWrap.innerHTML = renderFGDBox(fgdData, name, position);
-
-          /* Kalau ada file Drive `-fgd-`, tampilkan juga di bawah */
-          if (t.items && t.items.length > 0) {
-            const divider = document.createElement('div');
-            divider.style.cssText = 'margin:12px 0 8px;font-size:10.5px;font-weight:800;color:#94a3b8;letter-spacing:1px;';
-            divider.textContent = '📁 FILE TERKIRIM';
-            fgdWrap.appendChild(divider);
-
-            t.items.forEach(el => {
-              compactFileItem(el);
-              fgdWrap.appendChild(el);
-            });
-          }
-        })();
+        __attachFGDRealtime(slug, fgdWrap, t.items || []);
 
         return;
       }
@@ -2179,7 +2114,7 @@ contactChipHTML(statusData) +
     }
 
     if (psikoSlot) {
-            window.renderPsikogramBox(slug, name, position)
+      window.renderPsikogramBox(slug, name, position)
         .then(function (html) {
           if (html && psikoSlot && psikoSlot.parentElement) {
             psikoSlot.innerHTML = html;
@@ -2221,13 +2156,12 @@ contactChipHTML(statusData) +
       return;
     }
 
-    /* 🆕 FGD — Hapus asesor */
+    /* 🆕 FGD — Hapus asesor (listener Firebase akan update UI) */
     const fgdDelBtn = e.target.closest('.js-fgd-delete-asesor');
     if (fgdDelBtn) {
       e.preventDefault();
       e.stopPropagation();
       const asesor = fgdDelBtn.getAttribute('data-asesor');
-      const box = fgdDelBtn.closest('.js-fgd-box');
       const card = fgdDelBtn.closest('.rf-card');
       const anyBtn = card ? card.querySelector('.js-interview-link, .js-grafindo-link, .js-fgd-link') : null;
       const name = anyBtn ? anyBtn.getAttribute('data-name') : '';
@@ -2236,24 +2170,12 @@ contactChipHTML(statusData) +
 
       if (!asesor || !name) return;
 
-      deleteFGDAsesor(slug, asesor, name, position || '', () => {
-        /* Refresh box FGD di tempat */
-        const wrapper = card ? card.querySelector('.js-fgd-wrapper') : null;
-        if (wrapper) {
-          wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#64748b;font-size:11.5px;">⏳ Memuat ulang...</div>';
-          (async () => {
-            const fresh = await loadFGDData(slug);
-            wrapper.innerHTML = renderFGDBox(fresh, name, position);
-            /* Refresh cache Drive */
-            if (typeof window.fetchResultFiles === 'function') {
-              try {
-                const files = await window.fetchResultFiles(true);
-                window.__resultFilesCache = files;
-              } catch (e) {}
-            }
-          })();
-        }
-      });
+      fgdDelBtn.disabled = true;
+      fgdDelBtn.style.opacity = '.5';
+      fgdDelBtn.style.cursor = 'wait';
+      fgdDelBtn.textContent = '⏳';
+
+      deleteFGDAsesor(slug, asesor, name, position || '');
       return;
     }
 
@@ -2289,7 +2211,6 @@ contactChipHTML(statusData) +
 
     // WA
     const wa = e.target.closest('.js-wa-btn');
-
     if (wa) {
       e.preventDefault();
       e.stopPropagation();
@@ -2401,7 +2322,7 @@ contactChipHTML(statusData) +
       return;
     }
 
-    // 🆕 RETAKE — Buka modal
+    // RETAKE
     const retakeOpen = e.target.closest('.js-retake-open');
     if (retakeOpen) {
       e.preventDefault();
@@ -2509,15 +2430,28 @@ contactChipHTML(statusData) +
   /* ============================================================
      SCAN & INIT
      ============================================================ */
- function scanAndRestructure() {
-  if (!__isAdminLoggedIn()) return;
+  function scanAndRestructure() {
+    if (!__isAdminLoggedIn()) return;
 
-  const cards = document.querySelectorAll('.rf-card');
-  cards.forEach(c => { restructureCard(c).catch(() => {}); });
-}
+    const cards = document.querySelectorAll('.rf-card');
 
- if (!window.__adminPanelObserver && __isAdminLoggedIn()) {
-  window.__adminPanelObserver = new MutationObserver(() => {
+    /* 🆕 Detach FGD listener untuk card yang sudah tidak ada di DOM */
+    const visibleSlugs = new Set();
+    cards.forEach(c => {
+      const slug = c.getAttribute('data-candidate-slug');
+      if (slug) visibleSlugs.add(slug);
+    });
+    __fgdRealtimeListeners.forEach((item, slug) => {
+      if (!visibleSlugs.has(slug)) {
+        __detachFGDRealtime(slug);
+      }
+    });
+
+    cards.forEach(c => { restructureCard(c).catch(() => {}); });
+  }
+
+  if (!window.__adminPanelObserver && __isAdminLoggedIn()) {
+    window.__adminPanelObserver = new MutationObserver(() => {
       clearTimeout(window.__adminPanelTimer);
       window.__adminPanelTimer = setTimeout(scanAndRestructure, 400);
     });
@@ -2538,10 +2472,16 @@ contactChipHTML(statusData) +
   setTimeout(scanAndRestructure, 1000);
   setTimeout(scanAndRestructure, 3000);
 
+  /* Cleanup saat admin logout / halaman ditutup */
+  window.addEventListener('beforeunload', () => {
+    __detachAllFGDRealtime();
+  });
+
   window.__findEmail = findEmail;
   window.__findPhone = findPhone;
   window.__backfillAllContacts = backfillAllContacts;
   window.__buildRetakeUrl = __buildRetakeUrl;
+  window.__detachAllFGDRealtime = __detachAllFGDRealtime;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal + hide small trash');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — tab + status + WA + email + retake modal + hide small trash + FGD realtime');
 })();
