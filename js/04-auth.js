@@ -166,53 +166,67 @@ async function checkPassword() {
       if (raw) retakeData = JSON.parse(raw);
     } catch (e) {}
 
-    if (retakeData && retakeData.name && Array.isArray(retakeData.tests)) {
+      if (retakeData && retakeData.name && Array.isArray(retakeData.tests)) {
       (async () => {
         let restored = false;
         try {
-          const snap = await firebase.database().ref('sgs_state/sessions').once('value');
-          const sessions = snap.val() || {};
-          const nameLower = retakeData.name.toLowerCase().trim();
+          /* 🆕 Baca 1 device spesifik — rules allow kandidat baca
+             sgs_state/sessions/{deviceId} (bukan list) */
+          const targetDeviceId = retakeData.deviceId ||
+            localStorage.getItem('_sgs_device_id');
 
-          for (const devId in sessions) {
-            const s = sessions[devId] || {};
-            if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
-              const identity = {
-                name: s.name,
-                nickname: s.nickname || s.name.split(' ')[0],
-                email: s.email || '',
-                phone: s.phone || '',
-                position: s.position || retakeData.position || '',
-                dob: s.dob || '',
-                age: s.age || '',
-                status: s.status || '',
-                addressKTP: s.addressKTP || '',
-                addressCurrent: s.addressCurrent || '',
-                education: s.education || '',
-                teacherLevel: s.teacherLevel || '',
-                techRole: s.techRole || '',
-                date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
-              };
-
-              window.appState.identity = identity;
-              try { localStorage.setItem('identity', JSON.stringify(identity)); } catch (e) {}
-
-              // Set selectedTests
-              window.appState.selectedTests = retakeData.tests.slice();
-              try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
-
-              // Reset completed untuk tests yg diminta
-              window.appState.completed = window.appState.completed || {};
-              retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
-              try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
-
-              // Skip instruksi
-              window.appState.showTestCards = true;
-
-              restored = true;
-              break;
-            }
+          if (!targetDeviceId) {
+            throw new Error('deviceId tidak tersedia di URL / localStorage');
           }
+
+          const snap = await firebase.database()
+            .ref('sgs_state/sessions/' + targetDeviceId)
+            .once('value');
+
+          const s = snap.val();
+
+          if (!s || !s.name) {
+            throw new Error('Session tidak ditemukan untuk device ' + targetDeviceId.slice(-8));
+          }
+
+          /* Verify nama cocok */
+          const nameLower = String(retakeData.name).toLowerCase().trim();
+          const sNameLower = String(s.name).toLowerCase().trim();
+
+          if (sNameLower !== nameLower) {
+            throw new Error('Nama tidak cocok: "' + s.name + '" vs "' + retakeData.name + '"');
+          }
+
+          const identity = {
+            name: s.name,
+            nickname: s.nickname || s.name.split(' ')[0],
+            email: s.email || '',
+            phone: s.phone || '',
+            position: s.position || retakeData.position || '',
+            dob: s.dob || '',
+            age: s.age || '',
+            status: s.status || '',
+            addressKTP: s.addressKTP || '',
+            addressCurrent: s.addressCurrent || '',
+            education: s.education || '',
+            teacherLevel: s.teacherLevel || '',
+            techRole: s.techRole || '',
+            date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+          };
+
+          window.appState.identity = identity;
+          try { localStorage.setItem('identity', JSON.stringify(identity)); } catch (e) {}
+
+          window.appState.selectedTests = retakeData.tests.slice();
+          try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
+
+          window.appState.completed = window.appState.completed || {};
+          retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
+          try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
+
+          window.appState.showTestCards = true;
+
+          restored = true;
         } catch (e) {
           console.warn('[RETAKE] Gagal restore identity:', e);
         }
@@ -221,18 +235,23 @@ async function checkPassword() {
         try { sessionStorage.removeItem('__sgs_retake'); } catch (e) {}
 
         if (restored) {
-  console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+          console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
 
-  /* 🆕 Hapus flag retake mode setelah dipakai */
-  try {
-    localStorage.removeItem('_sgs_retake_mode');
-    localStorage.removeItem('_sgs_retake_skip_form');
-  } catch (e) {}
+          try {
+            localStorage.removeItem('_sgs_retake_mode');
+            localStorage.removeItem('_sgs_retake_skip_form');
+          } catch (e) {}
 
           if (typeof window.renderHome === 'function') window.renderHome();
           else renderIdentityForm();
         } else {
           console.warn('[RETAKE] Identity tidak ditemukan, fallback ke form');
+
+          try {
+            localStorage.removeItem('_sgs_retake_mode');
+            localStorage.removeItem('_sgs_retake_skip_form');
+          } catch (e) {}
+
           alert('⚠️ Data identitas tidak ditemukan di sistem.\n\nSilakan isi form identitas untuk melanjutkan.');
           renderIdentityForm();
         }

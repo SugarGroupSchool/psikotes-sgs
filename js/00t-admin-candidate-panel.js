@@ -646,12 +646,36 @@
   /* ============================================================
      Build URL retake
      ============================================================ */
-  function __buildRetakeUrl(name, position, tests) {
+   async function __buildRetakeUrl(name, position, tests) {
+    let deviceId = '';
+    try {
+      if (typeof firebase !== 'undefined' && firebase.apps.length) {
+        const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+        const sessions = snap.val() || {};
+        const nameLower = String(name || '').toLowerCase().trim();
+        const matches = [];
+        for (const devId in sessions) {
+          const s = sessions[devId] || {};
+          if (!s.name) continue;
+          if (/^IP:/i.test(s.name)) continue;
+          if (/^\(memuat/.test(s.name)) continue;
+          if (String(s.name).toLowerCase().trim() === nameLower) {
+            matches.push({ deviceId: devId, lastSeen: s.lastSeen || 0 });
+          }
+        }
+        matches.sort((a, b) => b.lastSeen - a.lastSeen);
+        if (matches.length > 0) deviceId = matches[0].deviceId;
+      }
+    } catch (e) {
+      console.warn('[RETAKE-URL] Gagal cari deviceId:', e.message);
+    }
+
     const base = window.location.origin + window.location.pathname;
     return base + '?retake=1' +
       '&n=' + encodeURIComponent(name) +
       '&p=' + encodeURIComponent(position || '') +
-      '&tests=' + encodeURIComponent(tests.join(','));
+      '&tests=' + encodeURIComponent(tests.join(',')) +
+      (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
   }
 
   /* ============================================================
@@ -902,15 +926,15 @@
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
-      const copyBtn = document.getElementById('retakeCopyBtn');
+           const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
-        copyBtn.onclick = () => {
+        copyBtn.onclick = async () => {
           const tests = getSelected();
           if (tests.length === 0) {
             alert('Pilih minimal 1 tes terlebih dahulu.');
             return;
           }
-          const url = __buildRetakeUrl(name, position, tests);
+          const url = await __buildRetakeUrl(name, position, tests);
           try {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(url).then(() => {
@@ -956,7 +980,7 @@
             alert('Nomor WA tidak valid: ' + phone);
             return;
           }
-          const url = __buildRetakeUrl(name, position, tests);
+                    const url = await __buildRetakeUrl(name, position, tests);
           const message =
             'Halo ' + name + ',\n\n' +
             'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap 2*.\n\n' +
@@ -982,7 +1006,7 @@
             return;
           }
 
-          const url = __buildRetakeUrl(name, position, tests);
+                    const url = await __buildRetakeUrl(name, position, tests);
           const subject = '🔗 Link Tes Tahap 2 — ' + name;
 
           const htmlBody =

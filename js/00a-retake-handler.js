@@ -16,6 +16,7 @@
 
     const n = url.searchParams.get('n') || '';
     const p = url.searchParams.get('p') || '';
+    const d = url.searchParams.get('d') || '';
     const testsRaw = url.searchParams.get('tests') || '';
     const tests = testsRaw.split(',').map(x => x.trim()).filter(Boolean);
 
@@ -24,7 +25,8 @@
       return;
     }
 
-    console.log('[RETAKE-HANDLER] 🎯 Retake mode aktif:', n, '·', tests.join(','));
+    console.log('[RETAKE-HANDLER] 🎯 Retake mode aktif:', n, '·', tests.join(','),
+      d ? '· deviceId: ' + d.slice(-8) : '· (tanpa deviceId)');
 
     /* --- Clear flag agar tidak tampil layar minta izin --- */
     try {
@@ -41,12 +43,21 @@
       localStorage.setItem('usedPragas', '1');
     } catch (e) {}
 
+    /* --- 🆕 Adopsi device ID target supaya konsisten --- */
+    if (d) {
+      try {
+        localStorage.setItem('_sgs_device_id', d);
+        console.log('[RETAKE-HANDLER] 🔄 Adopsi device ID target:', d.slice(-8));
+      } catch (e) {}
+    }
+
     /* --- Simpan data retake supaya 04-auth.js bisa restore --- */
     try {
       sessionStorage.setItem('__sgs_retake', JSON.stringify({
         name: n,
         position: p,
         tests: tests,
+        deviceId: d,
         ts: Date.now()
       }));
     } catch (e) {}
