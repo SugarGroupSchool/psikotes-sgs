@@ -84,7 +84,7 @@ try {
   localStorage.setItem('_sgs_retake_skip_form', '1');
   localStorage.setItem('_sgs_retake_tahap', String(tahap));
 
-  if (startAt > 0) {                                          ← 3. LOCK
+  if (startAt > 0) {                                          
     localStorage.setItem('_sgs_schedule_lock', String(startAt));
   }
 } catch (e) {}
