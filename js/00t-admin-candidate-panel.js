@@ -1591,6 +1591,17 @@
   window.adminResetToFreshByName = async function (candidateName) {
     if (!candidateName) return alert('Nama kandidat kosong.');
 
+  /* 🆕 Guard: session belum login — bukan kandidat asli */
+  if (/^🔓/.test(candidateName) ||
+      /belum\s*login/i.test(candidateName) ||
+      /^IP\s*:/i.test(candidateName)) {
+    return alert(
+      '⚠️ Ini session belum login — bukan kandidat asli.\n\n' +
+      'Kandidat harus login & submit identitas dulu.\n' +
+      'Setelah itu, tombol Reset ke Fresh bisa dipakai.'
+    );
+  }
+
     const ok = (typeof window.sgsConfirmDanger === 'function')
       ? await window.sgsConfirmDanger(
           '🆕 RESET KE FRESH\n\n' +
