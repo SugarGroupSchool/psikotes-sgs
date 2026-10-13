@@ -72,6 +72,7 @@
   var __chatBadgeInterval = null;
   var __indepChatRefs = [];
   var __indepChatActive = false;
+var __pwViewActive = false;
 
   /* ============================================================
      HALAMAN DAFTAR KANDIDAT
@@ -155,15 +156,11 @@
         document.body.appendChild(overlay);
     document.getElementById('acBackBtn').onclick = closeActiveCandidatesPage;
 
-    /* 🆕 Tombol Pengaturan Password */
+      /* 🆕 Tombol Pengaturan Password — INLINE (bukan overlay) */
     var pwdBtn = document.getElementById('acPasswordBtn');
     if (pwdBtn) {
       pwdBtn.onclick = function() {
-        if (typeof window.openPasswordSettingsPage === 'function') {
-          window.openPasswordSettingsPage();
-        } else {
-          alert('Fitur Pengaturan Password belum tersedia');
-        }
+        openPasswordSettingsInline();
       };
     }
 
@@ -247,6 +244,173 @@
   }
   window.__setTab = __setTab;
 
+  /* ============================================================
+     🔑 PASSWORD SETTINGS — INLINE (bukan overlay)
+     ============================================================ */
+  function openPasswordSettingsInline() {
+    var content = document.getElementById('acContent');
+    var stats = document.getElementById('acStats');
+    if (!content) return;
+
+    __pwViewActive = true;
+    if (stats) stats.style.display = 'none';   // sembunyikan chip filter
+
+    var fresh  = (typeof window.getFreshPwd === 'function') ? window.getFreshPwd() : null;
+    var used   = (typeof window.getUsedPwd === 'function')  ? window.getUsedPwd()  : null;
+    var locked = (typeof window.getLockState === 'function') ? window.getLockState() : false;
+
+    var freshDisp = (fresh && fresh.length) ? fresh : '— (belum tersedia)';
+    var usedDisp  = (used  && used.length)  ? used  : '— (belum tersedia)';
+
+    function pwRow(label, value, color, typeKey) {
+      var isAvailable = value && value !== '— (belum tersedia)';
+      return [
+        '<div style="padding: 18px 20px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; margin-bottom: 12px;">',
+        '  <div style="font-size: 10px; font-weight: 800; letter-spacing: 1.5px; color: ' + color + '; margin-bottom: 10px; text-transform: uppercase;">',
+        '    ' + label + ' PASSWORD',
+        '  </div>',
+        '  <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">',
+        '    <code style="flex: 1; min-width: 0; padding: 12px 16px;',
+        '      background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.1);',
+        '      border-radius: 10px; color: #fff; font-family: \'Courier New\', monospace;',
+        '      font-size: 16px; font-weight: 800; letter-spacing: 1px;',
+        '      word-break: break-all; ' + (!isAvailable ? 'opacity: .5; font-style: italic;' : '') + '">',
+        '      ' + esc(value || '—'),
+        '    </code>',
+        '    <button class="ac-pw-copy" data-pw="' + esc(isAvailable ? value : '') + '"',
+        '      ' + (!isAvailable ? 'disabled' : '') + ' style="',
+        '      padding: 10px 16px; background: ' + (isAvailable ? 'linear-gradient(135deg, #3b82f6, #1e40af)' : 'rgba(255,255,255,.06)') + ';',
+        '      border: 0; border-radius: 10px; color: ' + (isAvailable ? '#fff' : '#94a3b8') + ';',
+        '      font-family: inherit; font-size: 13px; font-weight: 800;',
+        '      cursor: ' + (isAvailable ? 'pointer' : 'not-allowed') + '; white-space: nowrap;',
+        '    ">📋 Copy</button>',
+        '    <button class="ac-pw-regen" data-pw-type="' + typeKey + '" style="',
+        '      padding: 10px 16px; background: linear-gradient(135deg, #f59e0b, #d97706);',
+        '      border: 0; border-radius: 10px; color: #fff;',
+        '      font-family: inherit; font-size: 13px; font-weight: 800;',
+        '      cursor: pointer; white-space: nowrap;',
+        '    ">🔄 Regenerate</button>',
+        '  </div>',
+        '</div>'
+      ].join('');
+    }
+
+    content.innerHTML = [
+      '<div style="max-width: 720px; margin: 0 auto;">',
+
+      /* Back button */
+      '<div style="margin-bottom: 20px;">',
+      '  <button id="acPwBackBtn" style="',
+      '    padding: 10px 16px; background: rgba(255,255,255,.06);',
+      '    border: 1.5px solid rgba(255,255,255,.12); border-radius: 11px;',
+      '    color: #cbd5e1; font-size: 13px; font-weight: 800; cursor: pointer;',
+      '    font-family: inherit; display: inline-flex; align-items: center; gap: 8px;',
+      '    transition: all .18s ease;',
+      '  " onmouseover="this.style.background=\'rgba(255,255,255,.12)\'"',
+      '     onmouseout="this.style.background=\'rgba(255,255,255,.06)\'">← Kembali ke Kandidat</button>',
+      '</div>',
+
+      /* Title */
+      '<div style="padding: 22px 24px;',
+      '  background: linear-gradient(135deg, rgba(245,158,11,.18), rgba(217,119,6,.08));',
+      '  border: 1.5px solid rgba(245,158,11,.4); border-radius: 18px;',
+      '  margin-bottom: 22px;">',
+      '  <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #fcd34d; margin-bottom: 6px;">',
+      '    ADMIN · PENGATURAN PASSWORD',
+      '  </div>',
+      '  <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">',
+      '    🔑 Kelola Password FRESH &amp; USED',
+      '  </div>',
+      '  <div style="font-size: 12px; color: #fde68a; margin-top: 6px; font-weight: 700;">',
+      '    ' + (locked ? '🔒 Login sedang dikunci — semua kandidat ditolak.' : '🔓 Login terbuka — kandidat bisa masuk.'),
+      '  </div>',
+      '</div>',
+
+      /* FRESH row */
+      pwRow('FRESH', freshDisp, '#86efac', 'fresh'),
+
+      /* USED row */
+      pwRow('USED', usedDisp, '#93c5fd', 'used'),
+
+      /* Info */
+      '<div style="padding: 14px 18px;',
+      '  background: rgba(59,130,246,.08);',
+      '  border: 1px solid rgba(59,130,246,.25);',
+      '  border-radius: 12px; margin-top: 12px;">',
+      '  <div style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #93c5fd; margin-bottom: 8px;">',
+      '    ℹ️ INFO',
+      '  </div>',
+      '  <div style="font-size: 12.5px; color: #cbd5e1; line-height: 1.7;">',
+      '    <b style="color: #86efac;">FRESH</b> — password untuk kandidat yang baru pertama kali masuk (belum pernah mengerjakan tes).',
+      '    <br><b style="color: #93c5fd;">USED</b> — password untuk kandidat yang sudah pernah mengerjakan / ingin lanjut tes.',
+      '  </div>',
+      '</div>',
+
+      '</div>'
+    ].join('');
+
+    /* ── Attach handlers ── */
+    var backBtn = document.getElementById('acPwBackBtn');
+    if (backBtn) backBtn.onclick = closePasswordSettingsInline;
+
+    content.querySelectorAll('.ac-pw-copy').forEach(function(btn) {
+      btn.onclick = function() {
+        var pw = btn.getAttribute('data-pw');
+        if (!pw || !pw.length) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(pw).then(function() {
+            var prev = btn.textContent;
+            btn.textContent = '✓ Tersalin';
+            btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+            setTimeout(function() {
+              btn.textContent = prev;
+              btn.style.background = 'linear-gradient(135deg, #3b82f6, #1e40af)';
+            }, 1500);
+          }).catch(function() {});
+        }
+      };
+    });
+
+    content.querySelectorAll('.ac-pw-regen').forEach(function(btn) {
+      btn.onclick = async function() {
+        var type = btn.getAttribute('data-pw-type');
+        var label = type === 'fresh' ? 'FRESH' : 'USED';
+        if (!confirm('Regenerate password ' + label + '?\n\nPassword lama tidak akan berlaku lagi.')) return;
+
+        var prev = btn.textContent;
+        btn.textContent = '⏳ Membuat...';
+        btn.disabled = true;
+
+        try {
+          if (type === 'fresh' && typeof window.regenFreshPwd === 'function') {
+            await window.regenFreshPwd();
+          } else if (type === 'used' && typeof window.regenUsedPwd === 'function') {
+            await window.regenUsedPwd();
+          } else {
+            throw new Error('Fungsi regenerate tidak tersedia');
+          }
+          openPasswordSettingsInline(); // re-render
+        } catch (e) {
+          alert('Gagal regenerate: ' + e.message);
+          btn.textContent = prev;
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+
+  function closePasswordSettingsInline() {
+    __pwViewActive = false;
+    var stats = document.getElementById('acStats');
+    if (stats) stats.style.display = '';
+    // Re-render daftar kandidat dari snapshot terakhir
+    if (typeof window.__lastSessionsSnapshot !== 'undefined' && window.__lastSessionsSnapshot) {
+      renderListContent(window.__lastSessionsSnapshot);
+    }
+  }
+
+  window.__openPasswordSettingsInline = openPasswordSettingsInline;
+
   function renderListContent(sessions) {
     var content = document.getElementById('acContent');
     var stats = document.getElementById('acStats');
@@ -254,6 +418,7 @@
 
     if (!Array.isArray(sessions)) sessions = [];
     window.__lastSessionsSnapshot = sessions;
+ if (__pwViewActive) return;
 
     /* ─── 1. Hitung state + count per kategori ─── */
     var byState = { active: 0, idle: 0, tab_hidden: 0, not_logged_in: 0, finished: 0, disqualified: 0 };

@@ -2413,22 +2413,7 @@ function renderAdminPanel() {
   <div style="padding: 10px 18px; background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff;
     border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
 </button>
-        <button onclick="openPasswordSettingsPage()" style="width: 100%; padding: 20px 22px;
-          background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #fcd34d;
-          border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
-          display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;">
-          <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-            <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
-              background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 14px; font-size: 22px;">🔑</div>
-            <div style="min-width: 0;">
-              <div style="font-size: 15px; font-weight: 900; color: #78350f; margin-bottom: 4px;">Pengaturan Password</div>
-              <div style="font-size: 12px; font-weight: 700; color: #92400e;">
-                ${locked ? '🔒 Login sedang dikunci' : '🔓 Kelola FRESH &amp; USED'}</div>
-            </div>
-          </div>
-          <div style="padding: 10px 18px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
-            border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
-        </button>
+        
 
         <div style="padding: 16px 18px; background: #f1f5f9; border-radius: 12px; margin-bottom: 16px;
           font-size: 13px; color: #334155; line-height: 1.9;">
