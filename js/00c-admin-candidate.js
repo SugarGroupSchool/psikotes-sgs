@@ -125,10 +125,22 @@
       '    cursor: pointer; font-family: inherit; transition: all .18s ease;',
       '  " onmouseover="this.style.background=\'rgba(255,255,255,.15)\'"',
       '     onmouseout="this.style.background=\'rgba(255,255,255,.08)\'">←</button>',
-      '  <div style="flex: 1; min-width: 0;">',
+            '  <div style="flex: 1; min-width: 0;">',
       '    <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #818cf8; margin-bottom: 4px;">ADMIN PANEL · MONITORING</div>',
       '    <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📊 Monitoring Kandidat</div>',
       '  </div>',
+      '  <button id="acPasswordBtn" title="Kelola Password FRESH & USED" style="',
+      '    padding: 10px 16px; flex: 0 0 auto;',
+      '    background: linear-gradient(135deg, #f59e0b, #d97706);',
+      '    border: 0; border-radius: 11px; color: #fff;',
+      '    font-size: 13px; font-weight: 800; cursor: pointer;',
+      '    font-family: inherit; white-space: nowrap;',
+      '    box-shadow: 0 4px 12px rgba(245,158,11,.35);',
+      '    transition: all .18s ease;',
+      '  " onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 16px rgba(245,158,11,.5)\';"',
+      '     onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 4px 12px rgba(245,158,11,.35)\';">',
+      '    🔑 Pengaturan Password',
+      '  </button>',
       '  <div id="acStats" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>',
       '</div>',
 
@@ -140,8 +152,20 @@
       '</div>'
     ].join('');
 
-    document.body.appendChild(overlay);
+        document.body.appendChild(overlay);
     document.getElementById('acBackBtn').onclick = closeActiveCandidatesPage;
+
+    /* 🆕 Tombol Pengaturan Password */
+    var pwdBtn = document.getElementById('acPasswordBtn');
+    if (pwdBtn) {
+      pwdBtn.onclick = function() {
+        if (typeof window.openPasswordSettingsPage === 'function') {
+          window.openPasswordSettingsPage();
+        } else {
+          alert('Fitur Pengaturan Password belum tersedia');
+        }
+      };
+    }
 
     // Attach listener real-time
     if (typeof window.listenActiveSessions === 'function') {
@@ -616,6 +640,7 @@
       '  </div>',
       '</div>'
     ].join('');
+
 
     document.body.appendChild(overlay);
     document.getElementById('cdBackBtn').onclick = closeCandidateDetailPage;
