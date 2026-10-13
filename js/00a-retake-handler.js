@@ -4,6 +4,10 @@
    Handle URL ?retake=1 — kandidat langsung masuk home tes
    TANPA: minta izin akses, isi identitas, pilih tes.
 
+   🆕 v2 [2026-10-13]: Support TAHAP DINAMIS (2, 3, 4, 5, ...)
+   - URL: ?retake=1&n=...&tests=...&tahap=3
+   - Default tahap = 2 (backward compat)
+
    File ini HARUS dimuat SEBELUM 08-app-init.js
    ============================================================ */
 
@@ -17,6 +21,11 @@
     const n = url.searchParams.get('n') || '';
     const p = url.searchParams.get('p') || '';
     const d = url.searchParams.get('d') || '';
+
+    /* 🆕 Baca tahap dari URL (default 2, range 2-20) */
+    const tahapRaw = url.searchParams.get('tahap') || '2';
+    const tahap = Math.max(2, Math.min(20, parseInt(tahapRaw, 10) || 2));
+
     const testsRaw = url.searchParams.get('tests') || '';
     const tests = testsRaw.split(',').map(x => x.trim()).filter(Boolean);
 
@@ -25,8 +34,12 @@
       return;
     }
 
-    console.log('[RETAKE-HANDLER] 🎯 Retake mode aktif:', n, '·', tests.join(','),
-      d ? '· deviceId: ' + d.slice(-8) : '· (tanpa deviceId)');
+    console.log(
+      '%c[RETAKE-HANDLER] 🎯 Retake mode aktif',
+      'color:#6366f1;font-weight:900;',
+      `— Tahap ${tahap} · ${n} · [${tests.join(', ')}]` +
+      (d ? ' · deviceId: ' + d.slice(-8) : ' · (tanpa deviceId)')
+    );
 
     /* --- Clear flag agar tidak tampil layar minta izin --- */
     try {
@@ -34,7 +47,7 @@
       localStorage.removeItem('_sgs_disqualified');
       localStorage.removeItem('_sgs_lock');
       sessionStorage.removeItem('_sgs_retake_processed');
-      sessionStorage.removeItem('_sgs_resumeChecked');
+      sessionStorage.removeItem('__resumeChecked');
       sessionStorage.removeItem('_sgs_reloading');
     } catch (e) {}
 
@@ -43,7 +56,7 @@
       localStorage.setItem('usedPragas', '1');
     } catch (e) {}
 
-    /* --- 🆕 Adopsi device ID target supaya konsisten --- */
+    /* --- Adopsi device ID target supaya konsisten --- */
     if (d) {
       try {
         localStorage.setItem('_sgs_device_id', d);
@@ -57,6 +70,7 @@
         name: n,
         position: p,
         tests: tests,
+        tahap: tahap,        // 🆕
         deviceId: d,
         ts: Date.now()
       }));
@@ -66,12 +80,22 @@
     try {
       localStorage.setItem('_sgs_retake_mode', '1');
       localStorage.setItem('_sgs_retake_skip_form', '1');
+      localStorage.setItem('_sgs_retake_tahap', String(tahap));   // 🆕
     } catch (e) {}
+
+    /* --- 🆕 Set info global untuk file lain --- */
+    window.__RETAKE_INFO = {
+      tahap: tahap,
+      name: n,
+      position: p,
+      tests: tests.slice(),
+      deviceId: d
+    };
 
     /* --- Bersihkan URL supaya tidak loop --- */
     window.history.replaceState({}, '', url.pathname);
 
-    console.log('[RETAKE-HANDLER] ✓ Setup selesai — kandidat tinggal masukkan password USED');
+    console.log(`[RETAKE-HANDLER] ✓ Setup selesai — kandidat tinggal masukkan password USED (Tahap ${tahap})`);
 
   } catch (e) {
     console.warn('[RETAKE-HANDLER] Error:', e.message);
