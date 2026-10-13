@@ -75,6 +75,85 @@
 var __pwViewActive = false;
 
   /* ============================================================
+     🔑 PASSWORD PANEL — Refresh & Regenerate (stabil)
+     ============================================================ */
+
+  /* Refresh nilai password di panel — tidak re-render layout */
+  function __refreshPasswordPanel() {
+    var freshEl = document.getElementById('acPwFreshCode');
+    var usedEl  = document.getElementById('acPwUsedCode');
+    if (!freshEl || !usedEl) return;
+
+    var fresh = (typeof window.getFreshPwd === 'function') ? window.getFreshPwd() : null;
+    var used  = (typeof window.getUsedPwd  === 'function') ? window.getUsedPwd()  : null;
+
+    freshEl.textContent = (fresh && fresh.length) ? fresh : '— (belum tersedia)';
+    usedEl.textContent  = (used  && used.length)  ? used  : '— (belum tersedia)';
+  }
+
+  /* Regenerate password — update HANYA elemen yang berubah */
+  async function __regenPassword(type) {
+    var codeEl = document.getElementById(type === 'fresh' ? 'acPwFreshCode' : 'acPwUsedCode');
+    var btn = document.querySelector('.ac-pw-regen[data-type="' + type + '"]');
+    if (!codeEl || !btn) return;
+
+    var label = type === 'fresh' ? 'FRESH' : 'USED';
+    if (!confirm('Regenerate password ' + label + '?\n\nPassword lama tidak akan berlaku lagi.')) return;
+
+    var prevBtnText = btn.textContent;
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+
+    try {
+      if (type === 'fresh' && typeof window.regenFreshPwd === 'function') {
+        await window.regenFreshPwd();
+      } else if (type === 'used' && typeof window.regenUsedPwd === 'function') {
+        await window.regenUsedPwd();
+      } else {
+        throw new Error('Fungsi regenerate tidak tersedia');
+      }
+
+      /* Tunggu Firebase sync selesai */
+      await new Promise(function(r) { setTimeout(r, 350); });
+
+      /* Baca nilai baru */
+      var newVal = type === 'fresh'
+        ? (typeof window.getFreshPwd === 'function' ? window.getFreshPwd() : null)
+        : (typeof window.getUsedPwd  === 'function' ? window.getUsedPwd()  : null);
+
+      /* Update HANYA elemen password — layout lain tidak berubah */
+      codeEl.textContent = (newVal && newVal.length) ? newVal : '— (belum tersedia)';
+
+      /* Flash hijau sebentar biar user tahu sudah berubah */
+      codeEl.style.background = 'rgba(34,197,94,.3)';
+      codeEl.style.borderColor = 'rgba(34,197,94,.6)';
+      setTimeout(function() {
+        codeEl.style.background = 'rgba(0,0,0,.35)';
+        codeEl.style.borderColor = 'rgba(255,255,255,.1)';
+      }, 1200);
+
+      /* Tombol jadi ✓ sebentar */
+      btn.textContent = '✓ Sukses';
+      btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+      setTimeout(function() {
+        btn.textContent = prevBtnText;
+        btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }, 1500);
+
+    } catch (e) {
+      console.warn('[ADMIN-CANDIDATE] Regenerate error:', e.message);
+      alert('Gagal regenerate: ' + e.message);
+      btn.textContent = prevBtnText;
+      btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  }
+
+  /* ============================================================
      HALAMAN DAFTAR KANDIDAT
      ============================================================ */
   function openActiveCandidatesPage() {
@@ -142,7 +221,66 @@ var __pwViewActive = false;
       '     onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 4px 12px rgba(245,158,11,.35)\';">',
       '    🔑 Pengaturan Password',
       '  </button>',
-      '  <div id="acStats" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>',
+            '  <div id="acStats" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>',
+      '</div>',
+
+      /* 🆕 PASSWORD PANEL — otomatis tampil */
+      '<div id="acPasswordPanel" style="',
+      '  flex: 0 0 auto;',
+      '  background: linear-gradient(180deg, rgba(245,158,11,.1), rgba(245,158,11,.04));',
+      '  border-bottom: 1px solid rgba(245,158,11,.25);',
+      '  padding: 0;',
+      '">',
+      '  <div id="acPwHeader" style="',
+      '    padding: 10px 28px; display: flex; align-items: center; justify-content: space-between;',
+      '    cursor: pointer; user-select: none;',
+      '  ">',
+      '    <div style="display: flex; align-items: center; gap: 10px;">',
+      '      <span style="font-size: 16px;">🔑</span>',
+      '      <span style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #fcd34d;">PASSWORD AKSES</span>',
+      '    </div>',
+      '    <span id="acPwChevron" style="color: #fcd34d; font-size: 12px; font-weight: 900; transition: transform .2s ease;">▲</span>',
+      '  </div>',
+      '  <div id="acPwBody" style="padding: 0 28px 16px;">',
+      '    <div style="display: flex; flex-direction: column; gap: 10px;">',
+      '      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">',
+      '        <div style="width: 60px; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; color: #86efac;">FRESH</div>',
+      '        <code id="acPwFreshCode" style="flex: 1; min-width: 180px; padding: 10px 14px;',
+      '          background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.1);',
+      '          border-radius: 9px; color: #fff; font-family: \'Courier New\', monospace;',
+      '          font-size: 15px; font-weight: 800; letter-spacing: 1px; word-break: break-all;',
+      '          transition: background-color .3s ease;">—</code>',
+      '        <button class="ac-pw-copy" data-target="acPwFreshCode" style="',
+      '          padding: 9px 14px; background: linear-gradient(135deg, #3b82f6, #1e40af);',
+      '          border: 0; border-radius: 9px; color: #fff; font-family: inherit;',
+      '          font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;',
+      '        ">📋 Copy</button>',
+      '        <button class="ac-pw-regen" data-type="fresh" style="',
+      '          padding: 9px 14px; background: linear-gradient(135deg, #f59e0b, #d97706);',
+      '          border: 0; border-radius: 9px; color: #fff; font-family: inherit;',
+      '          font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;',
+      '        ">🔄 Regenerate</button>',
+      '      </div>',
+      '      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">',
+      '        <div style="width: 60px; font-size: 10px; font-weight: 900; letter-spacing: 1.5px; color: #93c5fd;">USED</div>',
+      '        <code id="acPwUsedCode" style="flex: 1; min-width: 180px; padding: 10px 14px;',
+      '          background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.1);',
+      '          border-radius: 9px; color: #fff; font-family: \'Courier New\', monospace;',
+      '          font-size: 15px; font-weight: 800; letter-spacing: 1px; word-break: break-all;',
+      '          transition: background-color .3s ease;">—</code>',
+      '        <button class="ac-pw-copy" data-target="acPwUsedCode" style="',
+      '          padding: 9px 14px; background: linear-gradient(135deg, #3b82f6, #1e40af);',
+      '          border: 0; border-radius: 9px; color: #fff; font-family: inherit;',
+      '          font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;',
+      '        ">📋 Copy</button>',
+      '        <button class="ac-pw-regen" data-type="used" style="',
+      '          padding: 9px 14px; background: linear-gradient(135deg, #f59e0b, #d97706);',
+      '          border: 0; border-radius: 9px; color: #fff; font-family: inherit;',
+      '          font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;',
+      '        ">🔄 Regenerate</button>',
+      '      </div>',
+      '    </div>',
+      '  </div>',
       '</div>',
 
       '<div id="acContent" class="ac-scroll" style="flex: 1; overflow-y: auto; padding: 24px 28px 40px;">',
@@ -156,12 +294,68 @@ var __pwViewActive = false;
         document.body.appendChild(overlay);
     document.getElementById('acBackBtn').onclick = closeActiveCandidatesPage;
 
-      /* 🆕 Tombol Pengaturan Password — INLINE (bukan overlay) */
-    var pwdBtn = document.getElementById('acPasswordBtn');
-    if (pwdBtn) {
-      pwdBtn.onclick = function() {
-        openPasswordSettingsInline();
+       /* 🆕 Password panel sudah otomatis — tinggal attach handler */
+
+    /* 1. Attach handler copy */
+    document.querySelectorAll('.ac-pw-copy').forEach(function(btn) {
+      btn.onclick = function() {
+        var targetId = btn.getAttribute('data-target');
+        var el = document.getElementById(targetId);
+        if (!el) return;
+        var pw = (el.textContent || '').trim();
+        if (!pw || pw === '—') return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(pw).then(function() {
+            var prev = btn.textContent;
+            btn.textContent = '✓ Tersalin';
+            btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
+            setTimeout(function() {
+              btn.textContent = prev;
+              btn.style.background = 'linear-gradient(135deg, #3b82f6, #1e40af)';
+            }, 1500);
+          }).catch(function() {});
+        }
       };
+    });
+
+    /* 2. Attach handler regenerate */
+    document.querySelectorAll('.ac-pw-regen').forEach(function(btn) {
+      btn.onclick = function() {
+        __regenPassword(btn.getAttribute('data-type'));
+      };
+    });
+
+    /* 3. Attach handler toggle collapse */
+    var pwHeader = document.getElementById('acPwHeader');
+    var pwChevron = document.getElementById('acPwChevron');
+    var pwBody = document.getElementById('acPwBody');
+    if (pwHeader && pwBody) {
+      pwHeader.onclick = function() {
+        var isHidden = pwBody.style.display === 'none';
+        pwBody.style.display = isHidden ? 'block' : 'none';
+        if (pwChevron) pwChevron.textContent = isHidden ? '▲' : '▼';
+      };
+    }
+
+    /* 4. Render nilai password awal */
+    __refreshPasswordPanel();
+
+    /* 5. Listen perubahan password dari Firebase (real-time) */
+    if (typeof firebase !== 'undefined' && firebase.apps.length) {
+      var pwFreshRef = firebase.database().ref('sgs_state/freshPwd');
+      var pwUsedRef  = firebase.database().ref('sgs_state/usedPwd');
+      var pwFreshCb = function(snap) {
+        var el = document.getElementById('acPwFreshCode');
+        if (el) el.textContent = snap.val() || '— (belum tersedia)';
+      };
+      var pwUsedCb = function(snap) {
+        var el = document.getElementById('acPwUsedCode');
+        if (el) el.textContent = snap.val() || '— (belum tersedia)';
+      };
+      pwFreshRef.on('value', pwFreshCb);
+      pwUsedRef.on('value', pwUsedCb);
+      // Cleanup saat overlay dihapus
+      window.__acPwListeners = { pwFreshRef: pwFreshRef, pwFreshCb: pwFreshCb, pwUsedRef: pwUsedRef, pwUsedCb: pwUsedCb };
     }
 
     // Attach listener real-time
@@ -181,7 +375,16 @@ var __pwViewActive = false;
     startIndependentChatListener();
   }
 
-  function closeActiveCandidatesPage() {
+ function closeActiveCandidatesPage() {
+    /* 🆕 Cleanup password listeners */
+    if (window.__acPwListeners) {
+      try {
+        window.__acPwListeners.pwFreshRef.off('value', window.__acPwListeners.pwFreshCb);
+        window.__acPwListeners.pwUsedRef.off('value', window.__acPwListeners.pwUsedCb);
+      } catch (e) {}
+      window.__acPwListeners = null;
+    }
+
     stopChatBadgeUpdater();
     stopIndependentChatListener();
 
