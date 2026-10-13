@@ -639,6 +639,45 @@
   }
 
   /* ============================================================
+     🆕 Fuzzy name matching — untuk cari session kandidat
+     ============================================================ */
+  function __normName(str) {
+    return String(str || '').toLowerCase()
+      .replace(/[^a-z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function __isNameMatch(sessionName, targetNorm, targetWords) {
+    const sNorm = __normName(sessionName);
+    if (!sNorm || !targetNorm) return false;
+
+    /* Cocok persis */
+    if (sNorm === targetNorm) return true;
+
+    /* Cocok kalau kata pertama + kata terakhir sama (>=2 kata) */
+    const sWords = sNorm.split(' ').filter(Boolean);
+    if (sWords.length >= 2 && targetWords.length >= 2) {
+      if (sWords[0] === targetWords[0] &&
+          sWords[sWords.length - 1] === targetWords[targetWords.length - 1]) {
+        return true;
+      }
+    }
+
+    /* Cocok kalau target terkandung dalam session (partial) */
+    if (sNorm.includes(targetNorm) || targetNorm.includes(sNorm)) {
+      /* Tapi butuh minimal 2 kata cocok biar tidak salah orang */
+      const sSet = new Set(sWords);
+      const tSet = new Set(targetWords);
+      let common = 0;
+      tSet.forEach(w => { if (sSet.has(w)) common++; });
+      if (common >= 2) return true;
+    }
+
+    return false;
+  }
+
+  /* ============================================================
      Build URL retake (async — cari device ID target)
      ------------------------------------------------------------
      🆕 Support parameter `tahap` (default 2, range 2-20)
@@ -736,13 +775,17 @@
         const sessions = snap.val() || {};
         const nameLower = String(name || '').toLowerCase().trim();
 
-        const matches = [];
+         const matches = [];
+        const targetNorm = __normName(name);
+        const tWords = targetNorm.split(' ').filter(Boolean);
+
         for (const devId in sessions) {
           const s = sessions[devId] || {};
           if (!s.name) continue;
           if (/^IP:/i.test(s.name)) continue;
           if (/^\(memuat/.test(s.name)) continue;
-          if (String(s.name).toLowerCase().trim() === nameLower) {
+
+          if (__isNameMatch(s.name, targetNorm, tWords)) {
             matches.push({ deviceId: devId, ...s });
           }
         }
@@ -778,22 +821,7 @@
       } catch (e) {
         console.warn('[RETAKE] Gagal ambil completed:', e);
       }
-/* 🆕 Fallback: kalau session match gagal ATAU completed kosong,
-   baca dari sgs_candidate_status/{slug} */
-if (Object.keys(completed).length === 0) {
-  try {
-    const csSnap = await firebase.database()
-      .ref('sgs_candidate_status/' + slug).once('value');
-    const cs = csSnap.val() || {};
-    if (cs.completed && typeof cs.completed === 'object') {
-      completed = cs.completed;
-      console.log('[RETAKE] ✅ Fallback completed dari candidate_status:',
-        JSON.stringify(completed));
-    }
-  } catch (e) {
-    console.warn('[RETAKE] Fallback candidate_status gagal:', e.message);
-  }
-}
+
       const ALL_TESTS = [
         { id: 'IST',      label: 'Kecerdasan',    icon: '🧠' },
         { id: 'KRAEPLIN', label: 'Koran',         icon: '🧮' },
