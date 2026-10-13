@@ -631,6 +631,18 @@
     );
   }
 
+  function __isDefaultSessionName(n) {
+    const s = String(n || '').trim().toLowerCase();
+    if (!s) return true;
+    if (s.length < 3) return true;
+    if (/^ip\s*:/.test(s)) return true;
+    if (/^\(memuat/.test(s)) return true;
+    if (/^(belum|not|no|unknown|anonymous|anonim|guest|kandidat|peserta|user|loading|memuat)\b/i.test(s)) return true;
+    if (/(belum\s*login|not\s*login|not\s*logged|belum\s*isi|not\s*filled)/i.test(s)) return true;
+    return false;
+  }
+
+
   /* ============================================================
      🆕 Fuzzy name matching
      ============================================================ */
@@ -679,8 +691,7 @@
       for (const devId in sessions) {
         const s = sessions[devId] || {};
         if (!s.name) continue;
-        if (/^IP:/i.test(s.name)) continue;
-        if (/^\(memuat/.test(s.name)) continue;
+       if (__isDefaultSessionName(s.name)) continue;
 
         const hasCompleted = s.completed && typeof s.completed === 'object'
           && Object.keys(s.completed).length > 0;
@@ -725,8 +736,7 @@
           for (const devId in sessions) {
             const s = sessions[devId] || {};
             if (!s.name) continue;
-            if (/^IP:/i.test(s.name)) continue;
-            if (/^\(memuat/.test(s.name)) continue;
+            if (__isDefaultSessionName(s.name)) continue;
 
             if (__isNameMatch(s.name, targetNorm, tWords)) {
               matches.push({ deviceId: devId, lastSeen: s.lastSeen || 0 });
@@ -811,8 +821,7 @@
         for (const devId in sessions) {
           const s = sessions[devId] || {};
           if (!s.name) continue;
-          if (/^IP:/i.test(s.name)) continue;
-          if (/^\(memuat/.test(s.name)) continue;
+         if (__isDefaultSessionName(s.name)) continue;
 
           if (__isNameMatch(s.name, targetNorm, tWords)) {
             matches.push({ deviceId: devId, ...s });
