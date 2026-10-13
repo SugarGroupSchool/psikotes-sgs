@@ -30,6 +30,27 @@ let __presenceListenCb    = null;
 let __presenceIP          = null;
 let __presenceIPFetching  = false;
 let __presenceOwnershipOk = false;
+/* ===== 🆕 REAL PRESENCE TRACKING (2026-10-13) ===== */
+let __lastActivity      = Date.now();
+let __sessionStartedAt  = Date.now();
+let __visibilityChanges = 0;
+
+function __installPresenceTrackers() {
+  if (window.__presenceTrackersInstalled) return;
+  window.__presenceTrackersInstalled = true;
+
+  const __markActivity = () => { __lastActivity = Date.now(); };
+  ['mousemove','mousedown','keydown','touchstart','scroll','click','wheel']
+    .forEach(evt => document.addEventListener(evt, __markActivity, { passive: true }));
+
+  document.addEventListener('visibilitychange', () => {
+    __visibilityChanges++;
+    if (document.visibilityState === 'visible') __lastActivity = Date.now();
+    if (typeof pushPresence === 'function') pushPresence('active');
+  });
+
+  try { __sessionStartedAt = Date.now(); } catch (e) {}
+}
 
 /* ============================================================
    IP PUBLIK
@@ -76,9 +97,13 @@ function getOrCreateDeviceId() {
    🔒 Dynamic heartbeat interval
    ============================================================ */
 function __getHeartbeatMs() {
-  return (window.__inTestView === true)
-    ? PRESENCE_HEARTBEAT_ACTIVE
-    : PRESENCE_HEARTBEAT_IDLE;
+  const tabVisible = (typeof document !== 'undefined') && document.visibilityState === 'visible';
+  const idleSec = (Date.now() - __lastActivity) / 1000;
+
+  if (!tabVisible)                    return 60000;  // tab hidden — 1 menit
+  if (idleSec > 120)                  return 30000;  // idle — 30 detik
+  if (window.__inTestView === true)   return 5000;   // aktif tes — 5 detik
+  return 20000;                                       // aktif home — 20 detik
 }
 
 /* ============================================================
@@ -101,7 +126,8 @@ async function initPresence() {
     console.log('[PRESENCE] ✅ Ownership OK');
   }
 
-  __fetchPublicIP();
+ __installPresenceTrackers();
+__fetchPublicIP();
 
   const db = firebase.database();
   __presenceRef = db.ref('sgs_state/sessions/' + __presenceDeviceId);
@@ -143,11 +169,8 @@ function pushPresence(status) {
     if (raw) identity = JSON.parse(raw) || {};
   } catch (e) {}
 
-  /* 🆕 FIX: Jangan push kalau belum isi identitas — hindari sampah "IP: xxx" */
-  if (!identity.name || !identity.name.trim()) {
-    console.log('[PRESENCE] ⏭️ Skip push — identity.name kosong');
-    return;
-  }
+   /* 🆕 FIX: Tetap push walau belum login, kasih label khusus */
+  const isLoggedIn = !!(identity.name && identity.name.trim());
 
   let completedCount = 0, totalTests = 0;
   let completedObj = {}, selectedArr = [];
@@ -215,14 +238,14 @@ function pushPresence(status) {
     }
   } catch (e) {}
 
-  let displayName = identity.name && identity.name.trim();
-  if (!displayName) {
-    displayName = __presenceIP ? ('IP: ' + __presenceIP) : 'IP: (memuat...)';
-  }
+  let displayName = isLoggedIn
+    ? identity.name.trim()
+    : (__presenceIP ? ('🔓 Belum Login · ' + __presenceIP) : '🔓 Belum Login');
 
   const payload = {
     deviceId:          __presenceDeviceId,
     name:              displayName,
+    loggedIn:          isLoggedIn,
     ip:                __presenceIP || '',
     nickname:          identity.nickname || '',
     position:          identity.position || '',
@@ -246,6 +269,23 @@ function pushPresence(status) {
     inTestView:        (typeof window !== 'undefined' && window.__inTestView === true),
     finished:          isFinished,
     disqualified:      isDisqualified,
+    /* 🆕 Real presence fields */
+    loggedIn: isLoggedIn,
+    presenceState: (function() {
+      var tabVisible = (typeof document !== 'undefined') && document.visibilityState === 'visible';
+      var idleSec = Math.round((Date.now() - __lastActivity) / 1000);
+      if (isDisqualified)   return 'disqualified';
+      if (isFinished)       return 'finished';
+      if (!isLoggedIn)      return 'not_logged_in';
+      if (!tabVisible)      return 'tab_hidden';
+      if (idleSec > 120)    return 'idle';
+      return 'active';
+    })(),
+    tabVisible:         (typeof document !== 'undefined') && document.visibilityState === 'visible',
+    idleSeconds:        Math.round((Date.now() - __lastActivity) / 1000),
+    sessionDurationSec: Math.round((Date.now() - __sessionStartedAt) / 1000),
+    lastActivityAt:     __lastActivity,
+    visibilityChanges:  __visibilityChanges,
     lastSeen:          firebase.database.ServerValue.TIMESTAMP
   };
 
@@ -414,7 +454,7 @@ function startListeningAdminSignals() {
         localStorage.removeItem('selectedTests');
         localStorage.removeItem('_sgs_resume');
         sessionStorage.removeItem('_sgs_retake_processed');
-        sessionStorage.removeItem('_sgs_resumeChecked');
+        sessionStorage.removeItem('__resumeChecked');
       } catch (e) {}
 
       /* Reset sinyal di Firebase supaya tidak loop setelah reload */
@@ -613,7 +653,8 @@ function showRetakeBanner() {
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
-  const ACTIVE_THRESHOLD_MS = 2 * 60 * 1000; // aktif = lastSeen < 2 menit
+  const ACTIVE_THRESHOLD_MS     = 2 * 60 * 1000;   // aktif: lastSeen < 2 menit
+  const FINISHED_THRESHOLD_MS   = 10 * 60 * 1000;  // selesai/diskualifikasi: tampil 10 menit terakhir
 
   let adminDeviceId = null;
   try {
@@ -627,11 +668,15 @@ function __presenceFilterFresh(data) {
     .filter(s => {
       if (!s.lastSeen) return false;
       if (adminDeviceId && s.deviceId === adminDeviceId) return false;
-      if (s.finished === true) return false;
-      if (s.disqualified === true) return false;
-      if (s.status === 'offline') return false;
-      if ((now - s.lastSeen) >= ACTIVE_THRESHOLD_MS) return false;
-      return true;
+      if (s.status === 'offline' && !s.finished && !s.disqualified) return false;
+
+      // ✅ Selesai & diskualifikasi: tampil kalau lastSeen < 10 menit
+      if (s.finished === true || s.disqualified === true) {
+        return (now - s.lastSeen) < FINISHED_THRESHOLD_MS;
+      }
+
+      // Kandidat biasa: tampil kalau lastSeen < 2 menit
+      return (now - s.lastSeen) < ACTIVE_THRESHOLD_MS;
     })
     .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 }
@@ -643,18 +688,41 @@ function fetchActiveSessions(callback) {
     .catch(() => callback([]));
 }
 
+/* ============================================================
+   🆕 MULTI-SUBSCRIBER LISTENER (fix: panel + page barengan)
+   ============================================================ */
+var __presenceSubscribers = [];
+
 function listenActiveSessions(callback) {
   if (typeof firebase === 'undefined' || !firebase.apps.length) { callback([]); return; }
-  if (__presenceListenRef && __presenceListenCb) {
-    __presenceListenRef.off('value', __presenceListenCb);
+  if (typeof callback !== 'function') return;
+
+  __presenceSubscribers.push(callback);
+
+  if (!__presenceListenRef) {
+    __presenceListenRef = firebase.database().ref('sgs_state/sessions');
+    __presenceListenCb = snap => {
+      var filtered = __presenceFilterFresh(snap.val());
+      __presenceSubscribers.forEach(function(cb) {
+        try { cb(filtered); } catch (e) { console.warn('[PRESENCE] subscriber error:', e.message); }
+      });
+    };
+    __presenceListenRef.on('value', __presenceListenCb);
+  } else {
+    // Replay data terakhir untuk subscriber baru
+    __presenceListenRef.once('value').then(function(snap) {
+      try { callback(__presenceFilterFresh(snap.val())); } catch (e) {}
+    }).catch(function(){});
   }
-  __presenceListenCb = snap => callback(__presenceFilterFresh(snap.val()));
-  __presenceListenRef = firebase.database().ref('sgs_state/sessions');
-  __presenceListenRef.on('value', __presenceListenCb);
 }
 
-function stopListeningActiveSessions() {
-  if (__presenceListenRef && __presenceListenCb) {
+function stopListeningActiveSessions(callback) {
+  if (callback) {
+    __presenceSubscribers = __presenceSubscribers.filter(function(cb) { return cb !== callback; });
+  } else {
+    __presenceSubscribers = [];
+  }
+  if (__presenceSubscribers.length === 0 && __presenceListenRef && __presenceListenCb) {
     __presenceListenRef.off('value', __presenceListenCb);
     __presenceListenRef = null;
     __presenceListenCb = null;

@@ -127,7 +127,7 @@
       '     onmouseout="this.style.background=\'rgba(255,255,255,.08)\'">←</button>',
       '  <div style="flex: 1; min-width: 0;">',
       '    <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #818cf8; margin-bottom: 4px;">ADMIN PANEL · MONITORING</div>',
-      '    <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📊 Kandidat Aktif &amp; Selesai</div>',
+      '    <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📊 Monitoring Kandidat</div>',
       '  </div>',
       '  <div id="acStats" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>',
       '</div>',
@@ -182,21 +182,76 @@
     }
   }
 
+  /* ============================================================
+     🆕 TAB STATE
+     ============================================================ */
+  var __currentTab = 'all';  // 'all' | 'active' | 'idle' | 'hidden' | 'not_logged_in'
+
+  function __computeSessionState(s) {
+    if (s.presenceState) return s.presenceState;
+    // Fallback untuk data lama
+    if (s.disqualified === true) return 'disqualified';
+    if (s.finished === true)     return 'finished';
+    if (s.loggedIn === false)    return 'not_logged_in';
+    return 'active';
+  }
+
+  function __stateMeta(state) {
+    switch (state) {
+      case 'active':        return { label: '🟢 Aktif',           color: '#86efac', bg: 'rgba(34,197,94,.15)',   border: 'rgba(34,197,94,.4)',   order: 1 };
+      case 'idle':          return { label: '🟡 Idle',            color: '#fcd34d', bg: 'rgba(245,158,11,.15)',  border: 'rgba(245,158,11,.4)',  order: 2 };
+      case 'tab_hidden':    return { label: '😴 Tab Hidden',      color: '#93c5fd', bg: 'rgba(59,130,246,.15)',  border: 'rgba(59,130,246,.4)',  order: 3 };
+      case 'not_logged_in': return { label: '🔓 Belum Login',     color: '#c4b5fd', bg: 'rgba(167,139,250,.15)', border: 'rgba(167,139,250,.4)', order: 4 };
+      case 'finished':      return { label: '✅ Selesai',         color: '#cbd5e1', bg: 'rgba(148,163,184,.15)', border: 'rgba(148,163,184,.4)', order: 5 };
+      case 'disqualified':  return { label: '⚠️ Diskualifikasi',  color: '#fca5a5', bg: 'rgba(239,68,68,.15)',   border: 'rgba(239,68,68,.4)',   order: 6 };
+      default:              return { label: '🟡 Idle',            color: '#fcd34d', bg: 'rgba(245,158,11,.15)',  border: 'rgba(245,158,11,.4)',  order: 99 };
+    }
+  }
+
+  function __fmtDuration(sec) {
+    sec = Math.max(0, Math.floor(sec || 0));
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    return Math.floor(sec / 3600) + 'j ' + Math.floor((sec % 3600) / 60) + 'm';
+  }
+
+  function __setTab(tab) {
+    __currentTab = tab;
+    if (typeof window.__lastSessionsSnapshot !== 'undefined') {
+      renderListContent(window.__lastSessionsSnapshot);
+    }
+  }
+  window.__setTab = __setTab;
+
   function renderListContent(sessions) {
     var content = document.getElementById('acContent');
     var stats = document.getElementById('acStats');
     if (!content) return;
 
     if (!Array.isArray(sessions)) sessions = [];
+    window.__lastSessionsSnapshot = sessions;
 
-    // Stats di header
+    /* ─── 1. Hitung state + count per kategori ─── */
+    var byState = { active: 0, idle: 0, tab_hidden: 0, not_logged_in: 0, finished: 0, disqualified: 0 };
+    var enriched = sessions.map(function(s) {
+      var st = __computeSessionState(s);
+      byState[st] = (byState[st] || 0) + 1;
+      return Object.assign({}, s, { __state: st, __meta: __stateMeta(st) });
+    });
+
+    /* ─── 2. Filter by tab ─── */
+    var filtered = __currentTab === 'all'
+      ? enriched
+      : enriched.filter(function(s) { return s.__state === __currentTab; });
+
+    /* ─── 3. Sort: aktif dulu, lalu idle, dll. ─── */
+    filtered.sort(function(a, b) {
+      if (a.__meta.order !== b.__meta.order) return a.__meta.order - b.__meta.order;
+      return (b.lastSeen || 0) - (a.lastSeen || 0);
+    });
+
+    /* ─── 4. Header stats → filter chips (klik untuk filter) ─── */
     if (stats) {
-      var activeCount = sessions.filter(function(s) {
-        return s.inTestView && !s.finished && !s.disqualified;
-      }).length;
-      var finishedCount = sessions.filter(function(s) { return s.finished === true; }).length;
-      var disqCount = sessions.filter(function(s) { return s.disqualified === true; }).length;
-
       var unreadMap = window.__adminUnreadMap || {};
       var totalUnread = 0;
       Object.keys(unreadMap).forEach(function(k) {
@@ -204,148 +259,153 @@
         if (n > 0) totalUnread += n;
       });
 
+      function chip(key, label, color, bg, border, count) {
+  var isActive = __currentTab === key;
+  var shadowColor = bg.replace('.15', '.25');  // pakai bg dengan alpha sedikit lebih tinggi
+  return '<button onclick="__setTab(\'' + key + '\')" style="' +
+    'padding: 8px 14px; border-radius: 10px; cursor: pointer;' +
+    'background: ' + (isActive ? bg : 'rgba(255,255,255,.04)') + ';' +
+    'border: 1.5px solid ' + (isActive ? border : 'rgba(255,255,255,.08)') + ';' +
+    'color: ' + (isActive ? color : '#cbd5e1') + ';' +
+    'font-size: 12px; font-weight: 800; font-family: inherit;' +
+    'transition: all .15s ease;' +
+    (isActive ? 'box-shadow: 0 0 0 3px ' + shadowColor + ';' : '') +
+    '">' + label + ' (' + count + ')</button>';
+}
+
       stats.innerHTML = [
-        '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">🟢 ' + activeCount + ' aktif</div>',
-        '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.3); font-size: 12px; font-weight: 800; color: #cbd5e1;">✅ ' + finishedCount + ' selesai</div>',
-        '<div style="padding: 8px 14px; border-radius: 10px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); font-size: 12px; font-weight: 800; color: #fca5a5;">⚠️ ' + disqCount + ' diskualifikasi</div>',
-        totalUnread > 0 ? '<div data-total-unread="1" style="padding: 8px 14px; border-radius: 10px; background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.4); font-size: 12px; font-weight: 800; color: #93c5fd;">💬 ' + totalUnread + ' pesan baru</div>' : ''
+        chip('all', '📊 Semua', '#e2e8f0', 'rgba(255,255,255,.1)', 'rgba(255,255,255,.3)', enriched.length),
+        byState.active        ? chip('active',        '🟢 Aktif',         '#86efac', 'rgba(34,197,94,.15)',   'rgba(34,197,94,.4)',   byState.active) : '',
+        byState.idle          ? chip('idle',          '🟡 Idle',          '#fcd34d', 'rgba(245,158,11,.15)',  'rgba(245,158,11,.4)',  byState.idle) : '',
+        byState.tab_hidden    ? chip('tab_hidden',    '😴 Tab Hidden',    '#93c5fd', 'rgba(59,130,246,.15)',  'rgba(59,130,246,.4)',  byState.tab_hidden) : '',
+        byState.not_logged_in ? chip('not_logged_in', '🔓 Belum Login',   '#c4b5fd', 'rgba(167,139,250,.15)', 'rgba(167,139,250,.4)', byState.not_logged_in) : '',
+        totalUnread > 0
+          ? '<div data-total-unread="1" style="padding:8px 14px;border-radius:10px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);font-size:12px;font-weight:800;color:#93c5fd;">💬 ' + totalUnread + ' baru</div>'
+          : ''
       ].join('');
     }
 
-    if (sessions.length === 0) {
-      content.innerHTML = [
-        '<div style="display: flex; align-items: center; justify-content: center; padding: 80px 20px; color: #64748b; font-size: 14px; flex-direction: column; gap: 12px; text-align: center;">',
-        '  <div style="font-size: 52px; opacity: .5;">🌙</div>',
-        '  <div style="font-weight: 700; color: #94a3b8;">Belum ada kandidat yang aktif</div>',
-        '</div>'
-      ].join('');
+    /* ─── 5. Empty state ─── */
+    if (filtered.length === 0) {
+      content.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;padding:80px 20px;' +
+        'color:#64748b;font-size:14px;flex-direction:column;gap:12px;text-align:center;">' +
+        '<div style="font-size:52px;opacity:.5;">🌙</div>' +
+        '<div style="font-weight:700;color:#94a3b8;">' +
+        (sessions.length === 0 ? 'Belum ada kandidat yang aktif' : 'Tidak ada kandidat di kategori ini') +
+        '</div></div>';
       return;
     }
 
+    /* ─── 6. Render kartu ─── */
     var escapeFn = (typeof window.__adminEscape === 'function') ? window.__adminEscape : esc;
 
-    var cardsHTML = sessions.map(function(s) {
+    var cardsHTML = filtered.map(function(s) {
       var safeName = String(s.name || '(tanpa nama)');
-      var isFinished = s.finished === true;
-      var isDisq = s.disqualified === true;
-      var isActive = s.inTestView === true && !isFinished && !isDisq;
-
-      var statusColor, statusLabel, statusBg;
-      if (isDisq)         { statusColor = '#fca5a5'; statusLabel = '⚠️ Diskualifikasi'; statusBg = 'rgba(239,68,68,.15)'; }
-      else if (isFinished){ statusColor = '#cbd5e1'; statusLabel = '✅ Selesai'; statusBg = 'rgba(148,163,184,.15)'; }
-      else if (isActive)  { statusColor = '#86efac'; statusLabel = '🟢 Mengerjakan'; statusBg = 'rgba(34,197,94,.15)'; }
-      else                { statusColor = '#fcd34d'; statusLabel = '🟡 Idle'; statusBg = 'rgba(245,158,11,.15)'; }
+      var st = s.__state;
+      var meta = s.__meta;
+      var isFinished = st === 'finished';
+      var isDisq = st === 'disqualified';
+      var canChat = !isFinished && !isDisq;
 
       var pal = getAvatarColors(safeName);
       var initial = getInitials(safeName);
       var ago = s.lastSeen ? Math.round((Date.now() - s.lastSeen) / 1000) : null;
       var agoStr = timeAgo(ago);
+
       var completedCount = s.completedCount || 0;
       var totalTests = s.totalTests || 0;
       var pct = totalTests ? Math.round((completedCount / totalTests) * 100) : 0;
 
-      // === Unread info ===
       var unreadMap = window.__adminUnreadMap || {};
       var unreadCount = Number(unreadMap[s.deviceId]) || 0;
       var hasUnread = unreadCount > 0;
 
-      var chatBtnHTML = '';
-      if (!isFinished && !isDisq) {
-        chatBtnHTML = [
-          '<button class="ac-chat-btn ' + (hasUnread ? 'ac-chat-btn-blink' : '') + '" ',
-          '  data-device-id="' + s.deviceId + '" ',
-          '  data-name="' + esc(safeName) + '" ',
-          '  style="',
-          '    position: relative;',
-          '    padding: 5px 12px;',
-          '    background: linear-gradient(135deg, #3b82f6, #1e40af);',
-          '    border: 0; color: #fff; font-size: 10px; font-weight: 800;',
-          '    border-radius: 7px; cursor: pointer; font-family: inherit;',
-          '    box-shadow: 0 3px 8px rgba(59,130,246,.25);',
-          '    white-space: nowrap;',
-          '  ">',
-          '  💬 Chat',
-          '  <span class="ac-chat-badge ' + (hasUnread ? 'ac-chat-badge-blink' : '') + '" style="',
-          '    position: absolute;',
-          '    top: -6px; right: -6px;',
-          '    min-width: 18px; height: 18px;',
-          '    padding: 0 5px;',
-          '    background: #ef4444; color: #fff;',
-          '    font-size: 10px; font-weight: 900;',
-          '    border-radius: 999px;',
-          '    display: ' + (hasUnread ? 'grid' : 'none') + ';',
-          '    place-items: center;',
-          '    box-shadow: 0 0 0 2px rgba(15,23,42,.9);',
-          '    font-family: system-ui, sans-serif;',
-          '  ">' + (hasUnread ? (unreadCount > 99 ? '99+' : unreadCount) : '') + '</span>',
-          '</button>'
-        ].join('');
+      /* Info tambahan: idle time / durasi sesi */
+      var extraInfo = '';
+      if (st === 'idle' && typeof s.idleSeconds === 'number') {
+        extraInfo = '<span style="color:#fcd34d;font-weight:700;">💤 idle ' + __fmtDuration(s.idleSeconds) + '</span>';
+      } else if (st === 'tab_hidden') {
+        extraInfo = '<span style="color:#93c5fd;font-weight:700;">👻 tab tidak aktif</span>';
+      } else if (st === 'active' && typeof s.sessionDurationSec === 'number') {
+        extraInfo = '<span style="color:#86efac;font-weight:700;">⏱ ' + __fmtDuration(s.sessionDurationSec) + '</span>';
+      } else if (st === 'not_logged_in') {
+        extraInfo = '<span style="color:#c4b5fd;font-weight:700;">🚪 belum isi identitas</span>';
       }
 
-      var cardBorderColor = hasUnread ? 'rgba(59,130,246,.45)' : 'rgba(255,255,255,.08)';
-      var cardShadow = hasUnread ? 'box-shadow: 0 8px 24px rgba(59,130,246,.15);' : '';
+      var chatBtnHTML = '';
+      if (canChat) {
+        chatBtnHTML =
+          '<button class="ac-chat-btn ' + (hasUnread ? 'ac-chat-btn-blink' : '') + '" ' +
+          'data-device-id="' + s.deviceId + '" data-name="' + esc(safeName) + '" ' +
+          'style="position:relative;padding:5px 12px;background:linear-gradient(135deg,#3b82f6,#1e40af);' +
+          'border:0;color:#fff;font-size:10px;font-weight:800;border-radius:7px;cursor:pointer;' +
+          'font-family:inherit;box-shadow:0 3px 8px rgba(59,130,246,.25);white-space:nowrap;">' +
+          '💬 Chat<span class="ac-chat-badge" style="position:absolute;top:-6px;right:-6px;min-width:18px;' +
+          'height:18px;padding:0 5px;background:#ef4444;color:#fff;font-size:10px;font-weight:900;' +
+          'border-radius:999px;display:' + (hasUnread ? 'grid' : 'none') + ';place-items:center;' +
+          'box-shadow:0 0 0 2px rgba(15,23,42,.9);">' + (hasUnread ? (unreadCount > 99 ? '99+' : unreadCount) : '') +
+          '</span></button>';
+      }
 
       return [
-        '<div class="ac-candidate-card" data-device-id="' + s.deviceId + '" data-chat-unread="' + unreadCount + '" style="',
-        '  padding: 16px;',
-        '  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));',
-        '  border: 1px solid ' + cardBorderColor + ';',
-        '  border-radius: 16px; cursor: pointer;',
-        '  transition: all .2s ease;',
-        cardShadow,
-        '" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.borderColor=\'rgba(99,102,241,.4)\';this.style.boxShadow=\'0 12px 32px rgba(0,0,0,.3)\';"',
-        '   onmouseout="this.style.transform=\'translateY(0)\';this.style.borderColor=\'' + cardBorderColor + '\';this.style.boxShadow=\'' + (hasUnread ? '0 8px 24px rgba(59,130,246,.15)' : 'none') + '\';">',
+        '<div class="ac-candidate-card" data-device-id="' + s.deviceId + '" data-state="' + st + '" ' +
+        'data-chat-unread="' + unreadCount + '" style="' +
+        'padding:16px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));' +
+        'border:1.5px solid ' + (hasUnread ? 'rgba(59,130,246,.5)' : meta.border) + ';' +
+        'border-radius:16px;cursor:pointer;transition:all .2s ease;' +
+        (hasUnread ? 'box-shadow:0 8px 24px rgba(59,130,246,.15);' : '') +
+        '" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 12px 32px rgba(0,0,0,.35)\';" ' +
+        'onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'' + (hasUnread ? '0 8px 24px rgba(59,130,246,.15)' : 'none') + '\';">',
 
-        '  <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">',
-        '    <div style="',
-        '      width: 46px; height: 46px; flex: 0 0 46px;',
-        '      display: grid; place-items: center;',
-        '      background: linear-gradient(135deg, ' + pal[0] + ', ' + pal[1] + ');',
-        '      border-radius: 13px; font-size: 16px; font-weight: 900; color: #fff;',
-        '      box-shadow: 0 6px 14px ' + pal[0] + '44;',
-        '      position: relative;',
-        '    ">',
+        /* Header */
+        '<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">',
+        '<div style="width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;' +
+        'background:linear-gradient(135deg,' + pal[0] + ',' + pal[1] + ');border-radius:13px;' +
+        'font-size:16px;font-weight:900;color:#fff;box-shadow:0 6px 14px ' + pal[0] + '44;position:relative;">',
         initial,
         hasUnread ? '<span style="position:absolute;top:-3px;right:-3px;width:14px;height:14px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px #1e293b;"></span>' : '',
         '</div>',
-        '    <div style="flex: 1; min-width: 0;">',
-        '      <div style="font-size: 14px; font-weight: 800; color: #fff; margin-bottom: 4px; word-break: break-word;">' + escapeFn(safeName) + '</div>',
-        '      <div style="font-size: 11px; color: #94a3b8;">',
+        '<div style="flex:1;min-width:0;">',
+        '<div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:4px;word-break:break-word;">' + escapeFn(safeName) + '</div>',
+        '<div style="font-size:11px;color:#94a3b8;">',
         (s.position ? '💼 ' + escapeFn(s.position) : (s.ip ? '🌐 ' + escapeFn(s.ip) : '📱 ' + s.deviceId.slice(-8))),
-        '      </div>',
-        '    </div>',
-        '    <div style="padding: 4px 10px; border-radius: 999px; background: ' + statusBg + '; color: ' + statusColor + '; font-size: 10px; font-weight: 800; white-space: nowrap;">' + statusLabel + '</div>',
-        '  </div>',
+        '</div>',
+        extraInfo ? '<div style="font-size:10px;margin-top:3px;">' + extraInfo + '</div>' : '',
+        '</div>',
+        '<div style="padding:5px 11px;border-radius:999px;background:' + meta.bg + ';color:' + meta.color +
+        ';font-size:10px;font-weight:800;white-space:nowrap;border:1px solid ' + meta.border + ';">' + meta.label + '</div>',
+        '</div>',
 
-        '  <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); margin-bottom: 10px;">',
-        '    <div style="font-size: 11px; color: #cbd5e1;">📝 <b style="color: #93c5fd;">' + (s.currentTest || '—') + '</b></div>',
-        '    <div style="font-size: 11px; color: #94a3b8;">✅ ' + completedCount + '/' + totalTests + ' tes</div>',
-        '  </div>',
+        /* Progress + current test */
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;' +
+        'padding-top:10px;border-top:1px solid rgba(255,255,255,.06);margin-bottom:10px;">',
+        '<div style="font-size:11px;color:#cbd5e1;">📝 <b style="color:#93c5fd;">' + (s.currentTest || '—') + '</b></div>',
+        '<div style="font-size:11px;color:#94a3b8;">✅ ' + completedCount + '/' + totalTests + ' tes</div>',
+        '</div>',
 
-        '  <div style="margin-bottom: 10px;">',
-        '    <div style="height: 5px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.06);">',
-        '      <div style="width: ' + pct + '%; height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); border-radius: inherit;"></div>',
-        '    </div>',
-        '  </div>',
+        /* Bar */
+        '<div style="margin-bottom:10px;"><div style="height:5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.06);">',
+        '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);border-radius:inherit;"></div>',
+        '</div></div>',
 
-        '  <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">',
-        '    <div style="font-size: 10px; color: #64748b;">👁 ' + agoStr + '</div>',
-        '    <div style="display: flex; gap: 6px; align-items: center;">',
-        '      <span style="padding: 4px 10px; background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); color: #a5b4fc; font-size: 10px; font-weight: 800; border-radius: 7px;">🔍 Detail →</span>',
+        /* Footer */
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">',
+        '<div style="font-size:10px;color:#64748b;">👁 ' + agoStr + '</div>',
+        '<div style="display:flex;gap:6px;align-items:center;">',
+        '<span style="padding:4px 10px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);' +
+        'color:#a5b4fc;font-size:10px;font-weight:800;border-radius:7px;">🔍 Detail →</span>',
         chatBtnHTML,
-        '    </div>',
-        '  </div>',
+        '</div></div>',
 
         '</div>'
       ].join('');
     }).join('');
 
     content.innerHTML =
-      '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px;">' +
-        cardsHTML +
-      '</div>';
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;">' +
+      cardsHTML + '</div>';
 
-    // Update badge setelah render
     setTimeout(updateChatBadges, 100);
   }
 
