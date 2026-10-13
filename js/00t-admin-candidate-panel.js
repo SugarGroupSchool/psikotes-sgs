@@ -18,6 +18,10 @@
    - ✅ FIX [2026-10-12]: FGD realtime + hapus asesor + stay on tab
    - ✅ FIX [2026-10-12]: GAS_ADMIN_URL safety net
    - ✅ FIX [2026-10-12]: FGD delete PDF combined by regex + hide Drive items
+   - 🆕 [2026-10-13]: Support TAHAP DINAMIS (2, 3, 4, 5, ...)
+     * Auto-detect tahap berikutnya dari Firebase
+     * Dropdown pilih tahap (2-20) di modal retake
+     * WA/Email message + toast pakai label tahap dinamis
    ============================================================ */
 
 (function () {
@@ -614,7 +618,7 @@
           'background:linear-gradient(135deg,#3b82f6,#1e40af);border-radius:10px;font-size:18px;">📤</div>' +
           '<div style="flex:1;min-width:0;">' +
             '<div style="font-size:12px;font-weight:900;color:#93c5fd;margin-bottom:2px;">' +
-              'Tes Tahap 2</div>' +
+              '📤 Tes Tahap Berikutnya</div>' +
             '<div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">' +
               'Kirim link tes ulang — kandidat langsung masuk tanpa isi data.</div>' +
           '</div>' +
@@ -628,7 +632,7 @@
           'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
           'font-weight:900;cursor:pointer;' +
           'box-shadow:0 4px 12px rgba(59,130,246,.3);">' +
-          '📤 Kirim Link Tes Tahap 2' +
+          '📤 Kirim Link Tes Tahap Berikutnya' +
         '</button>' +
       '</div>'
     );
@@ -636,8 +640,10 @@
 
   /* ============================================================
      Build URL retake (async — cari device ID target)
+     ------------------------------------------------------------
+     🆕 Support parameter `tahap` (default 2, range 2-20)
      ============================================================ */
-  async function __buildRetakeUrl(name, position, tests) {
+  async function __buildRetakeUrl(name, position, tests, tahap) {
     let deviceId = '';
     try {
       if (typeof firebase !== 'undefined' && firebase.apps.length) {
@@ -661,12 +667,49 @@
       console.warn('[RETAKE-URL] Gagal cari deviceId:', e.message);
     }
 
+    const t = Math.max(2, Math.min(20, parseInt(tahap, 10) || 2));
     const base = window.location.origin + window.location.pathname;
     return base + '?retake=1' +
       '&n=' + encodeURIComponent(name) +
       '&p=' + encodeURIComponent(position || '') +
       '&tests=' + encodeURIComponent(tests.join(',')) +
+      '&tahap=' + t +                                     // 🆕
       (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
+  }
+
+  /* ============================================================
+     🆕 Helper: auto-detect tahap berikutnya untuk kandidat
+     ------------------------------------------------------------
+     Cek retake_history di sgs_state/sessions/{deviceId}
+     - Kalau kosong → Tahap 2 (retake pertama)
+     - Kalau ada tahap 2 → berikutnya Tahap 3
+     - dst (max 20)
+     ============================================================ */
+  async function __getNextTahapForCandidate(slug) {
+    try {
+      if (typeof firebase === 'undefined' || !firebase.apps.length) return 2;
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      const slugLower = String(slug || '').toLowerCase();
+
+      let maxTahap = 1;
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (!s.name) continue;
+        const sSlug = String(s.name).toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        if (sSlug !== slugLower) continue;
+
+        const hist = s.retake_history || {};
+        for (const t in hist) {
+          const num = parseInt(t, 10) || 0;
+          if (num > maxTahap) maxTahap = num;
+        }
+      }
+      return Math.min(20, maxTahap + 1);
+    } catch (e) {
+      return 2;
+    }
   }
 
   /* ============================================================
@@ -811,6 +854,22 @@
         return '📱 Device: <b>' + devShort + '</b> · 🕐 ' + tsStr + multi;
       })();
 
+      /* 🆕 Auto-detect tahap berikutnya */
+      let __nextTahap = 2;
+      try {
+        __nextTahap = await __getNextTahapForCandidate(slug);
+      } catch (e) { __nextTahap = 2; }
+
+      console.log('[RETAKE] Auto-detect tahap berikutnya:', __nextTahap);
+
+      /* 🆕 Dropdown pilih tahap 2-20 */
+      const tahapOptionsHTML = Array.from({ length: 19 }, (_, i) => i + 2)
+        .map(n =>
+          '<option value="' + n + '"' + (n === __nextTahap ? ' selected' : '') + '>' +
+            'Tahap ' + n + (n === __nextTahap ? ' (disarankan)' : '') +
+          '</option>'
+        ).join('');
+
       overlay.innerHTML =
         '<div style="width: min(520px, 100%); background: #fff; border-radius: 20px; ' +
         'overflow: hidden; box-shadow: 0 30px 90px rgba(0,0,0,.55);">' +
@@ -819,7 +878,8 @@
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
               '<div style="min-width:0;">' +
                 '<div style="font-size:10.5px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:4px;">' +
-                  'TES TAHAP 2</div>' +
+                  'TES TAHAP ' + __nextTahap +
+                '</div>' +
                 '<div style="font-size:18px;font-weight:900;letter-spacing:-.2px;">📤 Kirim Link Tes</div>' +
               '</div>' +
               '<button id="retakeCloseBtn" ' +
@@ -835,6 +895,22 @@
             '</div>' +
           '</div>' +
           '<div style="padding: 22px 24px 24px;">' +
+
+            /* 🆕 Pilih tahap */
+            '<div style="margin-bottom:14px;padding:12px 14px;' +
+              'background:linear-gradient(135deg,#eff6ff,#dbeafe);' +
+              'border:1.5px solid #93c5fd;border-radius:10px;' +
+              'display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+              '<label style="font-size:11px;font-weight:900;color:#1e40af;' +
+                'letter-spacing:.5px;white-space:nowrap;">Tahap Ke-:</label>' +
+              '<select id="retakeTahapSelect" style="flex:1;min-width:90px;' +
+                'padding:8px 12px;border:1.5px solid #60a5fa;border-radius:8px;' +
+                'font-family:inherit;font-size:13px;font-weight:800;color:#1e3a8a;' +
+                'background:#fff;cursor:pointer;outline:none;">' +
+                tahapOptionsHTML +
+              '</select>' +
+            '</div>' +
+
             '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
             'padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;">' +
               '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
@@ -902,6 +978,12 @@
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
+      /* 🆕 Helper ambil tahap terpilih */
+      const getSelectedTahap = () => {
+        const sel = document.getElementById('retakeTahapSelect');
+        return sel ? (parseInt(sel.value, 10) || __nextTahap) : __nextTahap;
+      };
+
       const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = async () => {
@@ -910,7 +992,8 @@
             alert('Pilih minimal 1 tes terlebih dahulu.');
             return;
           }
-          const url = await __buildRetakeUrl(name, position, tests);
+          const tahapVal = getSelectedTahap();
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
           try {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(url).then(() => {
@@ -920,7 +1003,7 @@
                 copyBtn.style.borderColor = 'rgba(34,197,94,.4)';
                 copyBtn.style.color = '#16a34a';
                 if (typeof window.__showToast === 'function') {
-                  window.__showToast('📋 Link tes tahap 2 tersalin', 'success');
+                  window.__showToast('📋 Link Tes Tahap ' + tahapVal + ' tersalin', 'success');
                 }
                 setTimeout(() => {
                   copyBtn.textContent = prev;
@@ -956,10 +1039,11 @@
             alert('Nomor WA tidak valid: ' + phone);
             return;
           }
-          const url = await __buildRetakeUrl(name, position, tests);
+          const tahapVal = getSelectedTahap();
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
           const message =
             'Halo ' + name + ',\n\n' +
-            'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap 2*.\n\n' +
+            'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
             '📋 Tes yang harus dikerjakan: *' + tests.join(', ') + '*\n\n' +
             '🔗 Link: ' + url + '\n\n' +
             'Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.\n\n' +
@@ -982,24 +1066,25 @@
             return;
           }
 
-          const url = await __buildRetakeUrl(name, position, tests);
-          const subject = '🔗 Link Tes Tahap 2 — ' + name;
+          const tahapVal = getSelectedTahap();
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
+          const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
           const htmlBody =
             '<div style="font-family:-apple-system,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;">' +
               '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
                 '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
-                '<div style="font-size:18px;font-weight:900;">Tes Tahap 2</div>' +
+                '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
               '</div>' +
               '<div style="background:#fff;padding:28px 24px;">' +
                 '<p>Halo <b>' + name + '</b>,</p>' +
-                '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap 2</b>.</p>' +
+                '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap ' + tahapVal + '</b>.</p>' +
                 '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
                   '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
                   '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
                 '</div>' +
                 '<div style="text-align:center;margin:24px 0;">' +
-                  '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap 2</a>' +
+                  '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap ' + tahapVal + '</a>' +
                 '</div>' +
                 '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
                   '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
@@ -1039,7 +1124,7 @@
             emailBtn.textContent = '✅ Terkirim';
             emailBtn.style.background = 'linear-gradient(135deg,#16a34a,#059669)';
             if (typeof window.__showToast === 'function') {
-              window.__showToast('📧 Link tes tahap 2 terkirim ke ' + email, 'success');
+              window.__showToast('📧 Link Tes Tahap ' + tahapVal + ' terkirim ke ' + email, 'success');
             }
             setTimeout(() => {
               emailBtn.disabled = false;
@@ -2487,7 +2572,8 @@
   window.__findPhone = findPhone;
   window.__backfillAllContacts = backfillAllContacts;
   window.__buildRetakeUrl = __buildRetakeUrl;
+  window.__getNextTahapForCandidate = __getNextTahapForCandidate;  // 🆕
   window.__detachAllFGDRealtime = __detachAllFGDRealtime;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — FGD realtime + GAS_ADMIN_URL safety net');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — Tahap dinamis + FGD realtime + GAS_ADMIN_URL safety net');
 })();

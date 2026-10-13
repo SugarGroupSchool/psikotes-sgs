@@ -218,13 +218,38 @@ async function checkPassword() {
           try { localStorage.setItem('identity', JSON.stringify(identity)); } catch (e) {}
 
           window.appState.selectedTests = retakeData.tests.slice();
-          try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
+try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
 
-          window.appState.completed = window.appState.completed || {};
-          retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
-          try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
+window.appState.completed = window.appState.completed || {};
+retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
+try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
 
-          window.appState.showTestCards = true;
+/* 🆕 Set tahap saat ini */
+const __tahap = Math.max(2, parseInt(retakeData.tahap, 10) || 2);
+window.appState.currentTahap = __tahap;
+try { localStorage.setItem('_sgs_current_tahap', String(__tahap)); } catch (e) {}
+
+/* 🆕 Catat aktivasi tahap ke Firebase (fire-and-forget) */
+try {
+  if (targetDeviceId && typeof firebase !== 'undefined' && firebase.apps.length) {
+    const sRef = firebase.database().ref('sgs_state/sessions/' + targetDeviceId);
+    sRef.update({
+      retake_count: __tahap - 1,
+      lastRetakeTahap: __tahap,
+      lastRetakeAt: firebase.database.ServerValue.TIMESTAMP
+    }).catch(() => {});
+
+    sRef.child('retake_history/' + __tahap).update({
+      tahap: __tahap,
+      tests: retakeData.tests.slice(),
+      generatedAt: retakeData.ts || Date.now(),
+      activatedAt: firebase.database.ServerValue.TIMESTAMP,
+      status: 'active'
+    }).catch(() => {});
+  }
+} catch (e) {}
+
+window.appState.showTestCards = true;
 
           restored = true;
         } catch (e) {
@@ -240,6 +265,7 @@ async function checkPassword() {
           try {
             localStorage.removeItem('_sgs_retake_mode');
             localStorage.removeItem('_sgs_retake_skip_form');
+            localStorage.removeItem('_sgs_retake_tahap');
           } catch (e) {}
 
           if (typeof window.renderHome === 'function') window.renderHome();
@@ -250,6 +276,7 @@ async function checkPassword() {
           try {
             localStorage.removeItem('_sgs_retake_mode');
             localStorage.removeItem('_sgs_retake_skip_form');
+            localStorage.removeItem('_sgs_retake_tahap');
           } catch (e) {}
 
           alert('⚠️ Data identitas tidak ditemukan di sistem.\n\nSilakan isi form identitas untuk melanjutkan.');

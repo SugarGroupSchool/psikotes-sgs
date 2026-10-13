@@ -418,6 +418,12 @@ async function startSubmitProcess() {
         localStorage.removeItem('identity');
         localStorage.removeItem('completed');
         localStorage.removeItem('selectedTests');
+
+        // 🆕 Cleanup state tahapan & retake — tes sudah kelar semua
+        localStorage.removeItem('_sgs_current_tahap');
+        localStorage.removeItem('_sgs_retake_tahap');
+        localStorage.removeItem('_sgs_retake_mode');
+        localStorage.removeItem('_sgs_retake_skip_form');
       } catch (e) {}
       window.location.reload();
     }, 3000);
@@ -622,12 +628,19 @@ function showSubmitFallback(errorMsg) {
       btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
 
       setTimeout(() => {
-        try {
-          localStorage.setItem('_sgs_finished', '1');
-          localStorage.setItem('usedPragas', '1');
-        } catch (e) {}
-        window.location.reload();
-      }, 5000);
+  try {
+    localStorage.setItem('_sgs_finished', '1');
+    localStorage.setItem('usedPragas', '1');
+    localStorage.removeItem('identity');
+    localStorage.removeItem('completed');
+    localStorage.removeItem('selectedTests');
+    localStorage.removeItem('_sgs_current_tahap');
+    localStorage.removeItem('_sgs_retake_tahap');
+    localStorage.removeItem('_sgs_retake_mode');
+    localStorage.removeItem('_sgs_retake_skip_form');
+  } catch (e) {}
+  window.location.reload();
+}, 5000);
 
     } catch (e) {
       alert('Gagal generate PDF: ' + e.message);

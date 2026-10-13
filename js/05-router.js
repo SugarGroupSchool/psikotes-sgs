@@ -173,6 +173,46 @@ function renderHome() {
     : "Peserta";
   const selectedTests = appState.selectedTests;
 
+  /* ============================================================
+     🆕 BADGE TAHAP RETAKE
+     ------------------------------------------------------------
+     Baca dari localStorage `_sgs_current_tahap` (di-set oleh
+     00a-retake-handler.js + 04-auth.js).
+     Tampil kalau kandidat sedang dalam mode retake (tahap >= 2).
+     ============================================================ */
+  let tahapBadgeHTML = '';
+  let currentTahap = 0;
+  try {
+    currentTahap = parseInt(localStorage.getItem('_sgs_current_tahap') || '0', 10) || 0;
+  } catch (e) { currentTahap = 0; }
+
+  if (currentTahap >= 2) {
+    tahapBadgeHTML = `
+      <div class="retake-tahap-badge" style="margin:22px auto 0;padding:14px 20px;max-width:500px;
+        background:linear-gradient(135deg,#6366f1,#8b5cf6);
+        border-radius:16px;text-align:center;color:#fff;
+        box-shadow:0 10px 28px rgba(99,102,241,.35), inset 0 1px 0 rgba(255,255,255,.15);
+        position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;
+          background:rgba(255,255,255,.1);border-radius:50%;pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-30px;left:-20px;width:100px;height:100px;
+          background:rgba(255,255,255,.08);border-radius:50%;pointer-events:none;"></div>
+        <div style="position:relative;z-index:1;">
+          <div style="font-size:10.5px;font-weight:900;letter-spacing:3px;
+            opacity:.85;margin-bottom:5px;">MODE RETAKE</div>
+          <div style="font-size:20px;font-weight:900;letter-spacing:-.3px;
+            display:flex;align-items:center;justify-content:center;gap:8px;">
+            <span style="font-size:22px;">📤</span>
+            <span>Tes Tahap ${currentTahap}</span>
+          </div>
+          <div style="font-size:11.5px;opacity:.85;margin-top:6px;line-height:1.4;">
+            Kerjakan tes berikutnya dengan teliti
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   let greetingHTML = '';
   if (!appState.showTestCards) {
     greetingHTML = `
@@ -197,8 +237,9 @@ function renderHome() {
         <div style="font-size:1.9rem;line-height:1;margin-bottom:9px;">👋</div>
         <b style="display:block;font-size:1.12rem;font-weight:800;color:#174f7d;">Halo, ${nickname}!</b>
         <div style="margin-top:8px;font-size:.98rem;line-height:1.55;color:#526575;">
-          Instruksi sudah selesai.<br>
-          Silakan mulai mengerjakan tes yang telah dipilih.<br>
+          ${currentTahap >= 2
+            ? `Anda sedang mengerjakan <b style="color:#6366f1;">Tes Tahap ${currentTahap}</b>.<br>Silakan kerjakan tes berikutnya dengan teliti.`
+            : `Instruksi sudah selesai.<br>Silakan mulai mengerjakan tes yang telah dipilih.`}<br>
           <span style="display:inline-block;margin-top:3px;color:#27843b;font-size:.94rem;">Semoga lancar!</span>
         </div>
       </div>
@@ -220,6 +261,7 @@ function renderHome() {
           </div>
         </div>
       </div>
+      ${tahapBadgeHTML}
       ${greetingHTML}
   `;
 
