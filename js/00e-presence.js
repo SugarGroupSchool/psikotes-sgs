@@ -669,11 +669,6 @@ function __presenceFilterFresh(data) {
       if (!s.lastSeen) return false;
       if (adminDeviceId && s.deviceId === adminDeviceId) return false;
       if (s.status === 'offline' && !s.finished && !s.disqualified) return false;
-      /* 🆕 Buang session sampah (belum login) dari panel kandidat aktif */
-      if (s.loggedIn === false) return false;
-      if (/belum\s*login/i.test(String(s.name || ''))) return false;
-      if (/^🔓/.test(String(s.name || ''))) return false;
-      if (/^IP\s*:/i.test(String(s.name || ''))) return false;
       // ✅ Selesai & diskualifikasi: tampil kalau lastSeen < 10 menit
       if (s.finished === true || s.disqualified === true) {
         return (now - s.lastSeen) < FINISHED_THRESHOLD_MS;
