@@ -120,7 +120,7 @@ function initFirebase() {
 
       let __lastSync = { lock: null, freshPwd: null, usedPwd: null };
 
-      function __handleStateChange() {
+       function __handleStateChange() {
         const newLock     = window.__cloudState.lock;
         const newFreshPwd = window.__cloudState.freshPwd;
         const newUsedPwd  = window.__cloudState.usedPwd;
@@ -130,21 +130,30 @@ function initFirebase() {
           __lastSync.freshPwd !== newFreshPwd ||
           __lastSync.usedPwd  !== newUsedPwd;
 
-        // Bedakan 'belum load' (undefined) vs 'sengaja kosong' (null)
-const isReady =
-  window.__cloudState.lock !== undefined &&
-  window.__cloudState.freshPwd !== undefined &&
-  window.__cloudState.usedPwd !== undefined;
+        const isReady =
+          window.__cloudState.lock !== undefined &&
+          window.__cloudState.freshPwd !== undefined &&
+          window.__cloudState.usedPwd !== undefined;
         window.__cloudState.ready = isReady;
 
         if (changed) {
           __lastSync = { lock: newLock, freshPwd: newFreshPwd, usedPwd: newUsedPwd };
           console.log('[FIREBASE] Sync:', { lock: newLock, fresh: !!newFreshPwd, used: !!newUsedPwd, ready: isReady });
 
-          const panel = document.getElementById('adminPanelOverlay');
-          if (panel && typeof renderAdminPanel === 'function') renderAdminPanel();
+          /* 🆕 GUARD: Jangan re-render panel admin kalau ada overlay lain di atas */
+          const hasHigherOverlay =
+            document.getElementById('activeCandidatesPageOverlay') ||  // Kandidat Aktif
+            document.getElementById('candidateDetailOverlay') ||        // Detail Kandidat
+            document.getElementById('passwordSettingsOverlay') ||       // Password overlay lama
+            document.getElementById('resultFilesPageOverlay');          // Hasil Tes
 
-          // 🔔 Dispatch event supaya login screen bisa cek kapan cloud ready
+          const panel = document.getElementById('adminPanelOverlay');
+          if (panel && typeof renderAdminPanel === 'function' && !hasHigherOverlay) {
+            renderAdminPanel();
+          } else if (hasHigherOverlay) {
+            console.log('[FIREBASE] ⏭️ Skip renderAdminPanel — overlay lebih tinggi terbuka');
+          }
+
           try {
             window.dispatchEvent(new CustomEvent('cloudStateReady', { detail: { ready: isReady } }));
           } catch (e) {}

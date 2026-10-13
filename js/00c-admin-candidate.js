@@ -91,40 +91,22 @@ var __pwViewActive = false;
     usedEl.textContent  = (used  && used.length)  ? used  : '— (belum tersedia)';
   }
 
-   /* ============================================================
-     🔄 REGENERATE PASSWORD — stabil, TIDAK pindah halaman
-     ------------------------------------------------------------
-     - Single confirm saja (tidak double popup)
-     - Langsung update UI, tidak re-render layout
-     - Tidak panggil renderAdminPanel() → tidak pindah ke login control
+  /* ============================================================
+     🔄 REGENERATE PASSWORD — langsung, tanpa konfirmasi
      ============================================================ */
   async function __regenPassword(type) {
     var codeEl = document.getElementById(type === 'fresh' ? 'acPwFreshCode' : 'acPwUsedCode');
     var btn = document.querySelector('.ac-pw-regen[data-type="' + type + '"]');
     if (!codeEl || !btn) return;
 
-    var label = type === 'fresh' ? 'FRESH' : 'USED';
-
-    /* ── 1. Single confirm ── */
-    var ok = false;
-    if (typeof window.sgsConfirm === 'function') {
-      ok = await window.sgsConfirm(
-        'Generate password ' + label + ' baru?\n\nPassword lama tidak akan berlaku lagi.',
-        { title: 'Regenerate ' + label, okText: 'Ya, Lanjutkan' }
-      );
-    } else {
-      ok = confirm('Generate password ' + label + ' baru?');
-    }
-    if (!ok) return;
-
-    /* ── 2. Generate password baru ── */
+    /* ── 1. Generate password baru ── */
     var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     var pwd = (type === 'fresh' ? 'SGS-F-' : 'SGS-U-');
     for (var i = 0; i < 8; i++) {
       pwd += chars[Math.floor(Math.random() * chars.length)];
     }
 
-    /* ── 3. Set tombol ke loading state ── */
+    /* ── 2. Set tombol loading ── */
     var prevBtnText = btn.textContent;
     var prevBtnBg = btn.style.background;
     btn.textContent = '⏳';
@@ -132,22 +114,18 @@ var __pwViewActive = false;
     btn.style.opacity = '0.6';
 
     try {
-      /* ── 4. Simpan ke Firebase — LANGSUNG, tanpa renderAdminPanel() ── */
+      /* ── 3. Simpan ke Firebase ── */
       if (type === 'fresh') {
-        if (typeof window.setFreshPwdCloud !== 'function') {
-          throw new Error('Fungsi setFreshPwdCloud tidak tersedia');
-        }
+        if (typeof window.setFreshPwdCloud !== 'function') throw new Error('setFreshPwdCloud tidak tersedia');
         await window.setFreshPwdCloud(pwd);
         try { localStorage.setItem('_sgs_pwd_fresh', pwd); } catch (e) {}
       } else {
-        if (typeof window.setUsedPwdCloud !== 'function') {
-          throw new Error('Fungsi setUsedPwdCloud tidak tersedia');
-        }
+        if (typeof window.setUsedPwdCloud !== 'function') throw new Error('setUsedPwdCloud tidak tersedia');
         await window.setUsedPwdCloud(pwd);
         try { localStorage.setItem('_sgs_pwd_used', pwd); } catch (e) {}
       }
 
-      /* ── 5. Update HANYA elemen password (tidak re-render) ── */
+      /* ── 4. Update HANYA kotak password ── */
       codeEl.textContent = pwd;
       codeEl.style.background = 'rgba(34,197,94,.3)';
       codeEl.style.borderColor = 'rgba(34,197,94,.6)';
@@ -156,15 +134,15 @@ var __pwViewActive = false;
         codeEl.style.borderColor = 'rgba(255,255,255,.1)';
       }, 1200);
 
-      /* ── 6. Tombol jadi "✓ Sukses" sebentar ── */
-      btn.textContent = '✓ Sukses';
+      /* ── 5. Tombol jadi ✓ Sukses ── */
+      btn.textContent = '✓';
       btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
       setTimeout(function() {
         btn.textContent = prevBtnText;
         btn.style.background = prevBtnBg || 'linear-gradient(135deg, #f59e0b, #d97706)';
         btn.disabled = false;
         btn.style.opacity = '1';
-      }, 1500);
+      }, 1200);
 
     } catch (e) {
       console.warn('[ADMIN-CANDIDATE] Regenerate error:', e.message);
