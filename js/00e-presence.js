@@ -245,13 +245,11 @@ function pushPresence(status) {
   const payload = {
     deviceId:          __presenceDeviceId,
     name:              displayName,
-    loggedIn:          isLoggedIn,
     ip:                __presenceIP || '',
     nickname:          identity.nickname || '',
     position:          identity.position || '',
     phone:             identity.phone || '',
     email:             identity.email || '',
-    currentTest:       currentTest,
     currentTest:       currentTest,
     currentSubtest:    currentSubtest,
     currentQuestion:   currentQuestion,
