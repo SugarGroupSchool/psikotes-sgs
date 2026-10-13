@@ -25,7 +25,9 @@
     /* 🆕 Baca tahap dari URL (default 2, range 2-20) */
     const tahapRaw = url.searchParams.get('tahap') || '2';
     const tahap = Math.max(2, Math.min(20, parseInt(tahapRaw, 10) || 2));
-
+/* 🆕 Baca jadwal mulai (unix detik) */
+const startRaw = url.searchParams.get('start') || '0';
+const startAt = Math.max(0, parseInt(startRaw, 10) || 0);
     const testsRaw = url.searchParams.get('tests') || '';
     const tests = testsRaw.split(',').map(x => x.trim()).filter(Boolean);
 
@@ -65,23 +67,27 @@
     }
 
     /* --- Simpan data retake supaya 04-auth.js bisa restore --- */
-    try {
-      sessionStorage.setItem('__sgs_retake', JSON.stringify({
-        name: n,
-        position: p,
-        tests: tests,
-        tahap: tahap,        // 🆕
-        deviceId: d,
-        ts: Date.now()
-      }));
-    } catch (e) {}
+try {                                                         ← 2. SAVE
+  sessionStorage.setItem('__sgs_retake', JSON.stringify({
+    name: n,
+    position: p,
+    tests: tests,
+    tahap: tahap,
+    startAt: startAt,          ← tambahkan juga di sini
+    deviceId: d,
+    ts: Date.now()
+  }));
+} catch (e) {}
 
-    /* --- Flag khusus untuk 08-app-init.js & 04-auth.js --- */
-    try {
-      localStorage.setItem('_sgs_retake_mode', '1');
-      localStorage.setItem('_sgs_retake_skip_form', '1');
-      localStorage.setItem('_sgs_retake_tahap', String(tahap));   // 🆕
-    } catch (e) {}
+try {
+  localStorage.setItem('_sgs_retake_mode', '1');
+  localStorage.setItem('_sgs_retake_skip_form', '1');
+  localStorage.setItem('_sgs_retake_tahap', String(tahap));
+
+  if (startAt > 0) {                                          ← 3. LOCK
+    localStorage.setItem('_sgs_schedule_lock', String(startAt));
+  }
+} catch (e) {}
 
     /* --- 🆕 Set info global untuk file lain --- */
     window.__RETAKE_INFO = {

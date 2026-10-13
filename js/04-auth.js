@@ -260,15 +260,28 @@ window.appState.showTestCards = true;
         try { sessionStorage.removeItem('__sgs_retake'); } catch (e) {}
 
         if (restored) {
-          console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+  console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
 
-          try {
-            localStorage.removeItem('_sgs_retake_mode');
-            localStorage.removeItem('_sgs_retake_skip_form');
-            localStorage.removeItem('_sgs_retake_tahap');
-          } catch (e) {}
+  try {
+    localStorage.removeItem('_sgs_retake_mode');
+    localStorage.removeItem('_sgs_retake_skip_form');
+    localStorage.removeItem('_sgs_retake_tahap');
+  } catch (e) {}
 
-          if (typeof window.renderHome === 'function') window.renderHome();
+  /* 🆕 CEK JADWAL */
+  const startAt = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
+  if (startAt > 0 && Date.now() < startAt * 1000) {
+    if (typeof window.__showRetakeCountdown === 'function') {
+      window.__showRetakeCountdown(startAt, function () {
+        try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+        if (typeof window.renderHome === 'function') window.renderHome();
+      });
+      return;
+    }
+  }
+  try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+
+  if (typeof window.renderHome === 'function') window.renderHome();
           else renderIdentityForm();
         } else {
           console.warn('[RETAKE] Identity tidak ditemukan, fallback ke form');

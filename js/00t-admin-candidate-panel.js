@@ -643,7 +643,7 @@
      ------------------------------------------------------------
      🆕 Support parameter `tahap` (default 2, range 2-20)
      ============================================================ */
-  async function __buildRetakeUrl(name, position, tests, tahap) {
+  async function __buildRetakeUrl(name, position, tests, tahap, startAt) {
     let deviceId = '';
     try {
       if (typeof firebase !== 'undefined' && firebase.apps.length) {
@@ -670,12 +670,13 @@
     const t = Math.max(2, Math.min(20, parseInt(tahap, 10) || 2));
     const base = window.location.origin + window.location.pathname;
     return base + '?retake=1' +
-      '&n=' + encodeURIComponent(name) +
-      '&p=' + encodeURIComponent(position || '') +
-      '&tests=' + encodeURIComponent(tests.join(',')) +
-      '&tahap=' + t +                                     // 🆕
-      (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
-  }
+    '&n=' + encodeURIComponent(name) +
+    '&p=' + encodeURIComponent(position || '') +
+    '&tests=' + encodeURIComponent(tests.join(',')) +
+    '&tahap=' + t +
+    (startAt > 0 ? '&start=' + startAt : '') +   // 🆕
+    (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
+}
 
   /* ============================================================
      🆕 Helper: auto-detect tahap berikutnya untuk kandidat
@@ -777,7 +778,22 @@
       } catch (e) {
         console.warn('[RETAKE] Gagal ambil completed:', e);
       }
-
+/* 🆕 Fallback: kalau session match gagal ATAU completed kosong,
+   baca dari sgs_candidate_status/{slug} */
+if (Object.keys(completed).length === 0) {
+  try {
+    const csSnap = await firebase.database()
+      .ref('sgs_candidate_status/' + slug).once('value');
+    const cs = csSnap.val() || {};
+    if (cs.completed && typeof cs.completed === 'object') {
+      completed = cs.completed;
+      console.log('[RETAKE] ✅ Fallback completed dari candidate_status:',
+        JSON.stringify(completed));
+    }
+  } catch (e) {
+    console.warn('[RETAKE] Fallback candidate_status gagal:', e.message);
+  }
+}
       const ALL_TESTS = [
         { id: 'IST',      label: 'Kecerdasan',    icon: '🧠' },
         { id: 'KRAEPLIN', label: 'Koran',         icon: '🧮' },
@@ -910,7 +926,37 @@
                 tahapOptionsHTML +
               '</select>' +
             '</div>' +
-
+/* 🆕 Jadwal mulai */
+'<div style="margin-bottom:14px;padding:12px 14px;' +
+  'background:linear-gradient(135deg,#fef3c7,#fde68a);' +
+  'border:1.5px solid #f59e0b;border-radius:10px;">' +
+  '<label style="font-size:11px;font-weight:900;color:#78350f;' +
+    'letter-spacing:.5px;display:block;margin-bottom:6px;">🗓️ JADWAL MULAI TES</label>' +
+  '<input type="datetime-local" id="retakeStartAt" ' +
+    'style="width:100%;padding:8px 10px;border:1.5px solid #d97706;' +
+    'border-radius:8px;font-family:inherit;font-size:12.5px;' +
+    'font-weight:800;color:#78350f;background:#fff;box-sizing:border-box;">' +
+  '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">' +
+    '<button type="button" class="js-quick-start" data-h="0" ' +
+      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+      'font-weight:800;cursor:pointer;">⚡ Sekarang</button>' +
+    '<button type="button" class="js-quick-start" data-h="1" ' +
+      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+      'font-weight:800;cursor:pointer;">+1 hari</button>' +
+    '<button type="button" class="js-quick-start" data-h="3" ' +
+      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+      'font-weight:800;cursor:pointer;">+3 hari</button>' +
+    '<button type="button" class="js-quick-start" data-h="7" ' +
+      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+      'font-weight:800;cursor:pointer;">+7 hari</button>' +
+  '</div>' +
+  '<div style="font-size:10px;color:#92400e;margin-top:6px;' +
+    'line-height:1.4;">Kosong = bisa diakses langsung (seperti sekarang).</div>' +
+'</div>' +
             '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
             'padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;">' +
               '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
@@ -946,7 +992,25 @@
         '</div>';
 
       document.body.appendChild(overlay);
-
+/* 🆕 Quick-start handler */
+overlay.querySelectorAll('.js-quick-start').forEach(btn => {
+  btn.onclick = () => {
+    const h = parseInt(btn.getAttribute('data-h'), 10) || 0;
+    const inp = document.getElementById('retakeStartAt');
+    if (!inp) return;
+    if (h === 0) {
+      inp.value = '';
+    } else {
+      const d = new Date(Date.now() + h * 24 * 60 * 60 * 1000);
+      d.setMinutes(0, 0, 0);
+      d.setHours(9); // jam 09:00
+      const pad = n => String(n).padStart(2, '0');
+      inp.value = d.getFullYear() + '-' +
+        pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' +
+        pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+  };
+});
       const closeModal = () => {
         if (overlay && overlay.parentElement) overlay.remove();
       };
@@ -983,7 +1047,13 @@
         const sel = document.getElementById('retakeTahapSelect');
         return sel ? (parseInt(sel.value, 10) || __nextTahap) : __nextTahap;
       };
-
+      /* 🆕 Helper ambil jadwal mulai */
+      const getStartAt = () => {
+        const inp = document.getElementById('retakeStartAt');
+        if (!inp || !inp.value) return 0;
+        const t = new Date(inp.value).getTime();
+        return isNaN(t) ? 0 : Math.floor(t / 1000);
+      };
       const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = async () => {
@@ -993,7 +1063,7 @@
             return;
           }
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
           try {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(url).then(() => {
@@ -1040,7 +1110,7 @@
             return;
           }
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
           const message =
             'Halo ' + name + ',\n\n' +
             'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
@@ -1067,7 +1137,7 @@
           }
 
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal);
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
           const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
           const htmlBody =

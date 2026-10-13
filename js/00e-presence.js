@@ -287,6 +287,23 @@ function pushPresence(status) {
     lastSeen:          firebase.database.ServerValue.TIMESTAMP
   };
 
+/* 🆕 Mirror completed ke candidate_status (by slug, anti name-mismatch) */
+try {
+  if (identity.name && identity.name.trim()) {
+    const slug = String(identity.name).toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    if (slug) {
+      firebase.database().ref('sgs_candidate_status/' + slug).update({
+        completed: completedObj,
+        selectedTests: selectedArr,
+        candidateName: identity.name,
+        candidatePosition: identity.position || '',
+        lastSeen: firebase.database.ServerValue.TIMESTAMP
+      }).catch(() => {});
+    }
+  }
+} catch (e) {}
+
   __presenceRef.once('value').then(snap => {
     if (!snap.exists() || !snap.val()?.startedAt) {
       payload.startedAt = firebase.database.ServerValue.TIMESTAMP;
