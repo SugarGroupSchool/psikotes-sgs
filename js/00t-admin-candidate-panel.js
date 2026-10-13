@@ -13,15 +13,8 @@
    - Layout: Tabs di atas → Status collapsible di bawah
    - Tombol 🗑️ BESAR hapus total kandidat (Drive + Firebase)
    - 🆕 Retake panel DI DALAM tab Tes + modal filter tes selesai
-   - ✅ FIX [2026-10-12]: reset ke fresh juga hapus completed di server
-   - ✅ FIX [2026-10-12]: sembunyikan tombol 🗑️ KECIL (per file)
-   - ✅ FIX [2026-10-12]: FGD realtime + hapus asesor + stay on tab
-   - ✅ FIX [2026-10-12]: GAS_ADMIN_URL safety net
-   - ✅ FIX [2026-10-12]: FGD delete PDF combined by regex + hide Drive items
-   - 🆕 [2026-10-13]: Support TAHAP DINAMIS (2, 3, 4, 5, ...)
-     * Auto-detect tahap berikutnya dari Firebase
-     * Dropdown pilih tahap (2-20) di modal retake
-     * WA/Email message + toast pakai label tahap dinamis
+   - ✅ FIX [2026-10-13]: fuzzy name match + dropdown sesi manual
+   - ✅ FIX [2026-10-13]: jadwal mulai + countdown
    ============================================================ */
 
 (function () {
@@ -639,7 +632,7 @@
   }
 
   /* ============================================================
-     🆕 Fuzzy name matching — untuk cari session kandidat
+     🆕 Fuzzy name matching
      ============================================================ */
   function __normName(str) {
     return String(str || '').toLowerCase()
@@ -652,10 +645,8 @@
     const sNorm = __normName(sessionName);
     if (!sNorm || !targetNorm) return false;
 
-    /* Cocok persis */
     if (sNorm === targetNorm) return true;
 
-    /* Cocok kalau kata pertama + kata terakhir sama (>=2 kata) */
     const sWords = sNorm.split(' ').filter(Boolean);
     if (sWords.length >= 2 && targetWords.length >= 2) {
       if (sWords[0] === targetWords[0] &&
@@ -664,9 +655,7 @@
       }
     }
 
-    /* Cocok kalau target terkandung dalam session (partial) */
     if (sNorm.includes(targetNorm) || targetNorm.includes(sNorm)) {
-      /* Tapi butuh minimal 2 kata cocok biar tidak salah orang */
       const sSet = new Set(sWords);
       const tSet = new Set(targetWords);
       let common = 0;
@@ -678,52 +667,92 @@
   }
 
   /* ============================================================
-     Build URL retake (async — cari device ID target)
-     ------------------------------------------------------------
-     🆕 Support parameter `tahap` (default 2, range 2-20)
+     🆕 List semua session dengan completed — untuk dropdown manual
      ============================================================ */
-  async function __buildRetakeUrl(name, position, tests, tahap, startAt) {
-    let deviceId = '';
+  async function __listSessionsWithCompleted() {
     try {
-      if (typeof firebase !== 'undefined' && firebase.apps.length) {
-        const snap = await firebase.database().ref('sgs_state/sessions').once('value');
-        const sessions = snap.val() || {};
-        const nameLower = String(name || '').toLowerCase().trim();
-        const matches = [];
-        for (const devId in sessions) {
-          const s = sessions[devId] || {};
-          if (!s.name) continue;
-          if (/^IP:/i.test(s.name)) continue;
-          if (/^\(memuat/.test(s.name)) continue;
-          if (String(s.name).toLowerCase().trim() === nameLower) {
-            matches.push({ deviceId: devId, lastSeen: s.lastSeen || 0 });
-          }
-        }
-        matches.sort((a, b) => b.lastSeen - a.lastSeen);
-        if (matches.length > 0) deviceId = matches[0].deviceId;
+      if (typeof firebase === 'undefined' || !firebase.apps.length) return [];
+      const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+      const sessions = snap.val() || {};
+      const list = [];
+
+      for (const devId in sessions) {
+        const s = sessions[devId] || {};
+        if (!s.name) continue;
+        if (/^IP:/i.test(s.name)) continue;
+        if (/^\(memuat/.test(s.name)) continue;
+
+        const hasCompleted = s.completed && typeof s.completed === 'object'
+          && Object.keys(s.completed).length > 0;
+
+        list.push({
+          deviceId: devId,
+          name: s.name,
+          completed: s.completed || {},
+          completedCount: s.completedCount || 0,
+          lastSeen: s.lastSeen || 0,
+          hasCompleted: hasCompleted
+        });
       }
+
+      list.sort((a, b) => {
+        if (a.hasCompleted !== b.hasCompleted) return b.hasCompleted ? 1 : -1;
+        return (b.lastSeen || 0) - (a.lastSeen || 0);
+      });
+
+      return list;
     } catch (e) {
-      console.warn('[RETAKE-URL] Gagal cari deviceId:', e.message);
+      console.warn('[RETAKE-LIST] Gagal:', e.message);
+      return [];
+    }
+  }
+
+  /* ============================================================
+     Build URL retake
+     ============================================================ */
+  async function __buildRetakeUrl(name, position, tests, tahap, startAt, forceDeviceId) {
+    let deviceId = forceDeviceId || '';
+
+    if (!deviceId) {
+      try {
+        if (typeof firebase !== 'undefined' && firebase.apps.length) {
+          const snap = await firebase.database().ref('sgs_state/sessions').once('value');
+          const sessions = snap.val() || {};
+          const targetNorm = __normName(name);
+          const tWords = targetNorm.split(' ').filter(Boolean);
+          const matches = [];
+
+          for (const devId in sessions) {
+            const s = sessions[devId] || {};
+            if (!s.name) continue;
+            if (/^IP:/i.test(s.name)) continue;
+            if (/^\(memuat/.test(s.name)) continue;
+
+            if (__isNameMatch(s.name, targetNorm, tWords)) {
+              matches.push({ deviceId: devId, lastSeen: s.lastSeen || 0 });
+            }
+          }
+          matches.sort((a, b) => b.lastSeen - a.lastSeen);
+          if (matches.length > 0) deviceId = matches[0].deviceId;
+        }
+      } catch (e) {
+        console.warn('[RETAKE-URL] Gagal cari deviceId:', e.message);
+      }
     }
 
     const t = Math.max(2, Math.min(20, parseInt(tahap, 10) || 2));
     const base = window.location.origin + window.location.pathname;
     return base + '?retake=1' +
-    '&n=' + encodeURIComponent(name) +
-    '&p=' + encodeURIComponent(position || '') +
-    '&tests=' + encodeURIComponent(tests.join(',')) +
-    '&tahap=' + t +
-    (startAt > 0 ? '&start=' + startAt : '') +   // 🆕
-    (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
-}
+      '&n=' + encodeURIComponent(name) +
+      '&p=' + encodeURIComponent(position || '') +
+      '&tests=' + encodeURIComponent(tests.join(',')) +
+      '&tahap=' + t +
+      (startAt > 0 ? '&start=' + startAt : '') +
+      (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
+  }
 
   /* ============================================================
-     🆕 Helper: auto-detect tahap berikutnya untuk kandidat
-     ------------------------------------------------------------
-     Cek retake_history di sgs_state/sessions/{deviceId}
-     - Kalau kosong → Tahap 2 (retake pertama)
-     - Kalau ada tahap 2 → berikutnya Tahap 3
-     - dst (max 20)
+     🆕 Helper: auto-detect tahap berikutnya
      ============================================================ */
   async function __getNextTahapForCandidate(slug) {
     try {
@@ -770,12 +799,12 @@
     try {
       let completed = {};
       let sessionInfo = null;
+      let matches = [];           /* 🆕 di luar try */
+      let __allSessionsForManual = [];
+
       try {
         const snap = await firebase.database().ref('sgs_state/sessions').once('value');
         const sessions = snap.val() || {};
-        const nameLower = String(name || '').toLowerCase().trim();
-
-         const matches = [];
         const targetNorm = __normName(name);
         const tWords = targetNorm.split(' ').filter(Boolean);
 
@@ -822,6 +851,15 @@
         console.warn('[RETAKE] Gagal ambil completed:', e);
       }
 
+      /* 🆕 Kalau tidak ada match, list semua sesi untuk dropdown manual */
+      if (matches.length === 0) {
+        try {
+          __allSessionsForManual = await __listSessionsWithCompleted();
+          console.log('[RETAKE] Tidak match — list sesi untuk pilih manual:',
+            __allSessionsForManual.length);
+        } catch (e) {}
+      }
+
       const ALL_TESTS = [
         { id: 'IST',      label: 'Kecerdasan',    icon: '🧠' },
         { id: 'KRAEPLIN', label: 'Koran',         icon: '🧮' },
@@ -852,6 +890,61 @@
         'font-family: Inter, system-ui, sans-serif'
       ].join(';');
 
+      /* 🆕 Fungsi untuk re-render checkbox tes saat dropdown ganti */
+      function applyTestFilter() {
+        const grid = document.getElementById('retakeCheckboxGrid');
+        if (!grid) return;
+
+        const avail = ALL_TESTS.filter(t => completed[t.id] !== true);
+        const done = ALL_TESTS.filter(t => completed[t.id] === true);
+
+        grid.innerHTML = avail.length > 0
+          ? avail.map(t =>
+              '<label class="js-retake-test-item" data-test="' + t.id + '" ' +
+                'style="display:flex;align-items:center;gap:10px;' +
+                'padding:11px 14px;background:#fff;' +
+                'border:1.5px solid #e2e8f0;border-radius:10px;' +
+                'cursor:pointer;font-size:12.5px;font-weight:700;color:#1e293b;' +
+                'transition:all .15s ease;user-select:none;">' +
+                '<input type="checkbox" class="js-retake-test" value="' + t.id + '" ' +
+                  'style="width:16px;height:16px;accent-color:#3b82f6;cursor:pointer;">' +
+                '<span style="font-size:16px;line-height:1;">' + t.icon + '</span>' +
+                '<span style="flex:1;">' + t.label + '</span>' +
+              '</label>'
+            ).join('')
+          : '<div style="padding:20px;text-align:center;color:#94a3b8;' +
+            'font-size:13px;background:#f8fafc;border-radius:10px;">' +
+            '✨ Semua tes sudah selesai — tidak ada yang perlu diulang.' +
+            '</div>';
+
+        grid.querySelectorAll('.js-retake-test-item').forEach(label => {
+          const cb = label.querySelector('input');
+          if (!cb) return;
+          cb.addEventListener('change', () => {
+            if (cb.checked) {
+              label.style.background = '#eff6ff';
+              label.style.borderColor = '#3b82f6';
+              label.style.color = '#1e40af';
+            } else {
+              label.style.background = '#fff';
+              label.style.borderColor = '#e2e8f0';
+              label.style.color = '#1e293b';
+            }
+          });
+        });
+
+        const doneEl = document.getElementById('retakeDoneInfo');
+        if (doneEl) {
+          if (done.length > 0) {
+            doneEl.style.display = 'block';
+            doneEl.innerHTML = '<b>✅ Sudah selesai (' + done.length + '):</b> ' +
+              done.map(t => t.label).join(', ');
+          } else {
+            doneEl.style.display = 'none';
+          }
+        }
+      }
+
       const checkboxHTML = available.length > 0
         ? available.map(t =>
             '<label class="js-retake-test-item" data-test="' + t.id + '" ' +
@@ -872,17 +965,22 @@
           '</div>';
 
       const doneHTML = alreadyDone.length > 0
-        ? '<div style="margin-top:14px;padding:10px 12px;' +
+        ? '<div id="retakeDoneInfo" style="margin-top:14px;padding:10px 12px;' +
             'background:#f0fdf4;border:1px solid #86efac;border-radius:9px;' +
             'font-size:11px;color:#166534;line-height:1.5;">' +
             '<b>✅ Sudah selesai (' + alreadyDone.length + '):</b> ' +
             alreadyDone.map(t => t.label).join(', ') +
           '</div>'
-        : '';
+        : '<div id="retakeDoneInfo" style="display:none;margin-top:14px;' +
+            'padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;' +
+            'border-radius:9px;font-size:11px;color:#166534;line-height:1.5;"></div>';
 
       const sessionLine = (function () {
         if (!sessionInfo) {
-          return '⚠️ Tidak ada session match — kandidat mungkin belum pernah login atau nama tidak cocok';
+          if (__allSessionsForManual.length > 0) {
+            return '⚠️ Nama tidak cocok otomatis — <b>pilih sesi manual di bawah</b>';
+          }
+          return '⚠️ Tidak ada session — kandidat mungkin belum pernah login';
         }
         const devShort = sessionInfo.deviceId
           ? sessionInfo.deviceId.slice(-8)
@@ -898,7 +996,38 @@
         return '📱 Device: <b>' + devShort + '</b> · 🕐 ' + tsStr + multi;
       })();
 
-      /* 🆕 Auto-detect tahap berikutnya */
+      /* 🆕 Dropdown pilih sesi manual */
+      const manualSessionHTML = (__allSessionsForManual.length > 0)
+        ? '<div style="margin-bottom:14px;padding:12px 14px;' +
+            'background:linear-gradient(135deg,#fef3c7,#fde68a);' +
+            'border:1.5px solid #f59e0b;border-radius:10px;">' +
+            '<label style="font-size:11px;font-weight:900;color:#78350f;' +
+              'letter-spacing:.5px;display:block;margin-bottom:6px;">' +
+              '⚠️ NAMA TIDAK COCOK — PILIH SESI MANUAL</label>' +
+            '<select id="retakeSessionSelect" style="width:100%;' +
+              'padding:8px 12px;border:1.5px solid #d97706;border-radius:8px;' +
+              'font-family:inherit;font-size:12.5px;font-weight:800;' +
+              'color:#78350f;background:#fff;cursor:pointer;box-sizing:border-box;">' +
+              __allSessionsForManual.map((s, i) => {
+                const ts = s.lastSeen
+                  ? new Date(s.lastSeen).toLocaleString('id-ID', {
+                      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                    })
+                  : '-';
+                const label = (i + 1) + '. ' + s.name +
+                  ' · ' + (s.completedCount || 0) + ' tes · ' + ts +
+                  (s.hasCompleted ? ' ✅' : ' ⚠️');
+                return '<option value="' + esc(s.deviceId) + '"' +
+                  (i === 0 ? ' selected' : '') + '>' +
+                  esc(label) + '</option>';
+              }).join('') +
+            '</select>' +
+            '<div style="font-size:10px;color:#92400e;margin-top:6px;' +
+              'line-height:1.4;">Pilih yang ada tanda ✅ (sudah ada data).</div>' +
+          '</div>'
+        : '';
+
+      /* Auto-detect tahap berikutnya */
       let __nextTahap = 2;
       try {
         __nextTahap = await __getNextTahapForCandidate(slug);
@@ -906,7 +1035,6 @@
 
       console.log('[RETAKE] Auto-detect tahap berikutnya:', __nextTahap);
 
-      /* 🆕 Dropdown pilih tahap 2-20 */
       const tahapOptionsHTML = Array.from({ length: 19 }, (_, i) => i + 2)
         .map(n =>
           '<option value="' + n + '"' + (n === __nextTahap ? ' selected' : '') + '>' +
@@ -939,8 +1067,7 @@
             '</div>' +
           '</div>' +
           '<div style="padding: 22px 24px 24px;">' +
-
-            /* 🆕 Pilih tahap */
+            manualSessionHTML +
             '<div style="margin-bottom:14px;padding:12px 14px;' +
               'background:linear-gradient(135deg,#eff6ff,#dbeafe);' +
               'border:1.5px solid #93c5fd;border-radius:10px;' +
@@ -954,37 +1081,36 @@
                 tahapOptionsHTML +
               '</select>' +
             '</div>' +
-/* 🆕 Jadwal mulai */
-'<div style="margin-bottom:14px;padding:12px 14px;' +
-  'background:linear-gradient(135deg,#fef3c7,#fde68a);' +
-  'border:1.5px solid #f59e0b;border-radius:10px;">' +
-  '<label style="font-size:11px;font-weight:900;color:#78350f;' +
-    'letter-spacing:.5px;display:block;margin-bottom:6px;">🗓️ JADWAL MULAI TES</label>' +
-  '<input type="datetime-local" id="retakeStartAt" ' +
-    'style="width:100%;padding:8px 10px;border:1.5px solid #d97706;' +
-    'border-radius:8px;font-family:inherit;font-size:12.5px;' +
-    'font-weight:800;color:#78350f;background:#fff;box-sizing:border-box;">' +
-  '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">' +
-    '<button type="button" class="js-quick-start" data-h="0" ' +
-      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
-      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
-      'font-weight:800;cursor:pointer;">⚡ Sekarang</button>' +
-    '<button type="button" class="js-quick-start" data-h="1" ' +
-      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
-      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
-      'font-weight:800;cursor:pointer;">+1 hari</button>' +
-    '<button type="button" class="js-quick-start" data-h="3" ' +
-      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
-      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
-      'font-weight:800;cursor:pointer;">+3 hari</button>' +
-    '<button type="button" class="js-quick-start" data-h="7" ' +
-      'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
-      'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
-      'font-weight:800;cursor:pointer;">+7 hari</button>' +
-  '</div>' +
-  '<div style="font-size:10px;color:#92400e;margin-top:6px;' +
-    'line-height:1.4;">Kosong = bisa diakses langsung (seperti sekarang).</div>' +
-'</div>' +
+            '<div style="margin-bottom:14px;padding:12px 14px;' +
+              'background:linear-gradient(135deg,#fef3c7,#fde68a);' +
+              'border:1.5px solid #f59e0b;border-radius:10px;">' +
+              '<label style="font-size:11px;font-weight:900;color:#78350f;' +
+                'letter-spacing:.5px;display:block;margin-bottom:6px;">🗓️ JADWAL MULAI TES</label>' +
+              '<input type="datetime-local" id="retakeStartAt" ' +
+                'style="width:100%;padding:8px 10px;border:1.5px solid #d97706;' +
+                'border-radius:8px;font-family:inherit;font-size:12.5px;' +
+                'font-weight:800;color:#78350f;background:#fff;box-sizing:border-box;">' +
+              '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">' +
+                '<button type="button" class="js-quick-start" data-h="0" ' +
+                  'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+                  'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+                  'font-weight:800;cursor:pointer;">⚡ Sekarang</button>' +
+                '<button type="button" class="js-quick-start" data-h="1" ' +
+                  'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+                  'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+                  'font-weight:800;cursor:pointer;">+1 hari</button>' +
+                '<button type="button" class="js-quick-start" data-h="3" ' +
+                  'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+                  'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+                  'font-weight:800;cursor:pointer;">+3 hari</button>' +
+                '<button type="button" class="js-quick-start" data-h="7" ' +
+                  'style="flex:1;padding:6px 8px;border-radius:7px;border:1px solid #f59e0b;' +
+                  'background:#fff;color:#78350f;font-family:inherit;font-size:10.5px;' +
+                  'font-weight:800;cursor:pointer;">+7 hari</button>' +
+              '</div>' +
+              '<div style="font-size:10px;color:#92400e;margin-top:6px;' +
+                'line-height:1.4;">Kosong = bisa diakses langsung (seperti sekarang).</div>' +
+            '</div>' +
             '<div style="font-size:11.5px;color:#475569;line-height:1.6;margin-bottom:14px;' +
             'padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;">' +
               '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
@@ -1020,25 +1146,27 @@
         '</div>';
 
       document.body.appendChild(overlay);
-/* 🆕 Quick-start handler */
-overlay.querySelectorAll('.js-quick-start').forEach(btn => {
-  btn.onclick = () => {
-    const h = parseInt(btn.getAttribute('data-h'), 10) || 0;
-    const inp = document.getElementById('retakeStartAt');
-    if (!inp) return;
-    if (h === 0) {
-      inp.value = '';
-    } else {
-      const d = new Date(Date.now() + h * 24 * 60 * 60 * 1000);
-      d.setMinutes(0, 0, 0);
-      d.setHours(9); // jam 09:00
-      const pad = n => String(n).padStart(2, '0');
-      inp.value = d.getFullYear() + '-' +
-        pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' +
-        pad(d.getHours()) + ':' + pad(d.getMinutes());
-    }
-  };
-});
+
+      /* Quick-start handler */
+      overlay.querySelectorAll('.js-quick-start').forEach(btn => {
+        btn.onclick = () => {
+          const h = parseInt(btn.getAttribute('data-h'), 10) || 0;
+          const inp = document.getElementById('retakeStartAt');
+          if (!inp) return;
+          if (h === 0) {
+            inp.value = '';
+          } else {
+            const d = new Date(Date.now() + h * 24 * 60 * 60 * 1000);
+            d.setMinutes(0, 0, 0);
+            d.setHours(9);
+            const pad = n => String(n).padStart(2, '0');
+            inp.value = d.getFullYear() + '-' +
+              pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' +
+              pad(d.getHours()) + ':' + pad(d.getMinutes());
+          }
+        };
+      });
+
       const closeModal = () => {
         if (overlay && overlay.parentElement) overlay.remove();
       };
@@ -1070,18 +1198,41 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
-      /* 🆕 Helper ambil tahap terpilih */
       const getSelectedTahap = () => {
         const sel = document.getElementById('retakeTahapSelect');
         return sel ? (parseInt(sel.value, 10) || __nextTahap) : __nextTahap;
       };
-      /* 🆕 Helper ambil jadwal mulai */
+
       const getStartAt = () => {
         const inp = document.getElementById('retakeStartAt');
         if (!inp || !inp.value) return 0;
         const t = new Date(inp.value).getTime();
         return isNaN(t) ? 0 : Math.floor(t / 1000);
       };
+
+      const getSelectedDeviceId = () => {
+        const sel = document.getElementById('retakeSessionSelect');
+        if (sel && sel.value) return sel.value;
+        if (sessionInfo && sessionInfo.deviceId) return sessionInfo.deviceId;
+        return '';
+      };
+
+      /* Handler dropdown sesi — saat dipilih, update `completed` */
+      const sessSel = document.getElementById('retakeSessionSelect');
+      if (sessSel) {
+        const applySession = () => {
+          const picked = __allSessionsForManual.find(s => s.deviceId === sessSel.value);
+          if (picked) {
+            completed = picked.completed || {};
+            console.log('[RETAKE] Manual pick:', picked.name,
+              '| completed:', JSON.stringify(completed));
+            applyTestFilter();
+          }
+        };
+        sessSel.onchange = applySession;
+        applySession();
+      }
+
       const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = async () => {
@@ -1091,7 +1242,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
             return;
           }
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
           try {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(url).then(() => {
@@ -1138,7 +1289,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
             return;
           }
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
           const message =
             'Halo ' + name + ',\n\n' +
             'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
@@ -1165,7 +1316,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
           }
 
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt());
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
           const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
           const htmlBody =
@@ -1515,7 +1666,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
   };
 
   /* ============================================================
-     FGD — Hapus asesor (realtime listener update UI)
+     FGD — Hapus asesor
      ============================================================ */
   async function deleteFGDAsesor(slug, asesor, candidateName, candidatePosition) {
     if (!asesor) return alert('Nama asesor kosong.');
@@ -1539,11 +1690,9 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
     }
 
     try {
-      /* 1) Hapus dari Firebase */
       await firebase.database().ref('sgs_fgd/' + slug + '/' + asesor).remove();
       console.log('[FGD-DELETE] ✓ Dihapus dari Firebase:', slug, '/', asesor);
 
-      /* 2) Cari SEMUA file PDF combined lama (by regex) dan hapus */
       try {
         if (typeof window.fetchResultFiles === 'function') {
           const files = await window.fetchResultFiles(true);
@@ -1582,12 +1731,10 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
         console.warn('[FGD-DELETE] Gagal cari/hapus PDF lama:', e.message);
       }
 
-      /* 3) Cek sisa asesor */
       const snapAfter = await firebase.database().ref('sgs_fgd/' + slug).once('value');
       const dataAfter = snapAfter.val() || {};
       const remaining = Object.keys(dataAfter);
 
-      /* 4) Regenerate PDF combined */
       if (remaining.length > 0) {
         if (typeof window.autoGenerateFGDCombined === 'function') {
           await new Promise(r => setTimeout(r, 1500));
@@ -1598,7 +1745,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
         console.log('[FGD-DELETE] Tidak ada asesor lagi — PDF combined tidak di-regenerate');
       }
 
-      /* 5) Refresh cache Drive */
       if (typeof window.__invalidateResultCache === 'function') {
         window.__invalidateResultCache();
       }
@@ -1624,7 +1770,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
   }
 
   /* ============================================================
-     FGD — Render box (simple: list nama asesor)
+     FGD — Render box
      ============================================================ */
   const FGD_REC_MAP = {
     'HIGHLY_RECOMMENDED': { short: '🌟 Highly',  color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)' },
@@ -1718,7 +1864,7 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
   }
 
   /* ============================================================
-     FGD REALTIME LISTENER MANAGER
+     FGD REALTIME LISTENER
      ============================================================ */
   const __fgdRealtimeListeners = new Map();
 
@@ -2145,7 +2291,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
         return;
       }
 
-      /* 🆕 FGD — realtime listener dari Firebase */
       if (t.id === 'fgd') {
         if (t.actionBtn) {
           t.actionBtn.style.width = '100%';
@@ -2334,7 +2479,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
      EVENTS
      ============================================================ */
   document.addEventListener('click', function (e) {
-    // TOMBOL SAMPAH BESAR
     const delBtn = e.target.closest('.js-delete-candidate');
     if (delBtn) {
       e.preventDefault();
@@ -2347,7 +2491,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    /* FGD — Hapus asesor */
     const fgdDelBtn = e.target.closest('.js-fgd-delete-asesor');
     if (fgdDelBtn) {
       e.preventDefault();
@@ -2370,7 +2513,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // STATUS TOGGLE
     const statusToggle = e.target.closest('.js-status-toggle');
     if (statusToggle) {
       e.preventDefault();
@@ -2387,7 +2529,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // Reset interview
     const r = e.target.closest('.js-reset-interview');
     if (r) {
       e.preventDefault();
@@ -2400,7 +2541,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // WA
     const wa = e.target.closest('.js-wa-btn');
     if (wa) {
       e.preventDefault();
@@ -2417,7 +2557,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // EMAIL
     const emailBtn = e.target.closest('.js-email-btn');
     if (emailBtn) {
       e.preventDefault();
@@ -2513,7 +2652,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // RETAKE
     const retakeOpen = e.target.closest('.js-retake-open');
     if (retakeOpen) {
       e.preventDefault();
@@ -2528,7 +2666,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // Tab click
     const tabBtn = e.target.closest('.js-tab-btn');
     if (tabBtn) {
       e.preventDefault();
@@ -2554,7 +2691,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
   }, true);
 
   document.addEventListener('change', async function (e) {
-    // Subject rating
     const sel = e.target.closest('.js-subject-rating');
     if (sel) {
       e.preventDefault();
@@ -2580,7 +2716,6 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
       return;
     }
 
-    // Candidate status
     const statSel = e.target.closest('.js-candidate-status');
     if (statSel) {
       e.preventDefault();
@@ -2670,8 +2805,8 @@ overlay.querySelectorAll('.js-quick-start').forEach(btn => {
   window.__findPhone = findPhone;
   window.__backfillAllContacts = backfillAllContacts;
   window.__buildRetakeUrl = __buildRetakeUrl;
-  window.__getNextTahapForCandidate = __getNextTahapForCandidate;  // 🆕
+  window.__getNextTahapForCandidate = __getNextTahapForCandidate;
   window.__detachAllFGDRealtime = __detachAllFGDRealtime;
 
-  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — Tahap dinamis + FGD realtime + GAS_ADMIN_URL safety net');
+  console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — Tahap dinamis + dropdown sesi manual + jadwal countdown');
 })();
