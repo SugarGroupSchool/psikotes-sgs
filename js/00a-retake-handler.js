@@ -67,7 +67,7 @@ const startAt = Math.max(0, parseInt(startRaw, 10) || 0);
     }
 
     /* --- Simpan data retake supaya 04-auth.js bisa restore --- */
-try {                                                         ← 2. SAVE
+try {                                                         
   sessionStorage.setItem('__sgs_retake', JSON.stringify({
     name: n,
     position: p,
