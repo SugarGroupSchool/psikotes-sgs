@@ -91,41 +91,64 @@ var __pwViewActive = false;
     usedEl.textContent  = (used  && used.length)  ? used  : '— (belum tersedia)';
   }
 
-  /* Regenerate password — update HANYA elemen yang berubah */
+   /* ============================================================
+     🔄 REGENERATE PASSWORD — stabil, TIDAK pindah halaman
+     ------------------------------------------------------------
+     - Single confirm saja (tidak double popup)
+     - Langsung update UI, tidak re-render layout
+     - Tidak panggil renderAdminPanel() → tidak pindah ke login control
+     ============================================================ */
   async function __regenPassword(type) {
     var codeEl = document.getElementById(type === 'fresh' ? 'acPwFreshCode' : 'acPwUsedCode');
     var btn = document.querySelector('.ac-pw-regen[data-type="' + type + '"]');
     if (!codeEl || !btn) return;
 
     var label = type === 'fresh' ? 'FRESH' : 'USED';
-    if (!confirm('Regenerate password ' + label + '?\n\nPassword lama tidak akan berlaku lagi.')) return;
 
+    /* ── 1. Single confirm ── */
+    var ok = false;
+    if (typeof window.sgsConfirm === 'function') {
+      ok = await window.sgsConfirm(
+        'Generate password ' + label + ' baru?\n\nPassword lama tidak akan berlaku lagi.',
+        { title: 'Regenerate ' + label, okText: 'Ya, Lanjutkan' }
+      );
+    } else {
+      ok = confirm('Generate password ' + label + ' baru?');
+    }
+    if (!ok) return;
+
+    /* ── 2. Generate password baru ── */
+    var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    var pwd = (type === 'fresh' ? 'SGS-F-' : 'SGS-U-');
+    for (var i = 0; i < 8; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+
+    /* ── 3. Set tombol ke loading state ── */
     var prevBtnText = btn.textContent;
+    var prevBtnBg = btn.style.background;
     btn.textContent = '⏳';
     btn.disabled = true;
     btn.style.opacity = '0.6';
 
     try {
-      if (type === 'fresh' && typeof window.regenFreshPwd === 'function') {
-        await window.regenFreshPwd();
-      } else if (type === 'used' && typeof window.regenUsedPwd === 'function') {
-        await window.regenUsedPwd();
+      /* ── 4. Simpan ke Firebase — LANGSUNG, tanpa renderAdminPanel() ── */
+      if (type === 'fresh') {
+        if (typeof window.setFreshPwdCloud !== 'function') {
+          throw new Error('Fungsi setFreshPwdCloud tidak tersedia');
+        }
+        await window.setFreshPwdCloud(pwd);
+        try { localStorage.setItem('_sgs_pwd_fresh', pwd); } catch (e) {}
       } else {
-        throw new Error('Fungsi regenerate tidak tersedia');
+        if (typeof window.setUsedPwdCloud !== 'function') {
+          throw new Error('Fungsi setUsedPwdCloud tidak tersedia');
+        }
+        await window.setUsedPwdCloud(pwd);
+        try { localStorage.setItem('_sgs_pwd_used', pwd); } catch (e) {}
       }
 
-      /* Tunggu Firebase sync selesai */
-      await new Promise(function(r) { setTimeout(r, 350); });
-
-      /* Baca nilai baru */
-      var newVal = type === 'fresh'
-        ? (typeof window.getFreshPwd === 'function' ? window.getFreshPwd() : null)
-        : (typeof window.getUsedPwd  === 'function' ? window.getUsedPwd()  : null);
-
-      /* Update HANYA elemen password — layout lain tidak berubah */
-      codeEl.textContent = (newVal && newVal.length) ? newVal : '— (belum tersedia)';
-
-      /* Flash hijau sebentar biar user tahu sudah berubah */
+      /* ── 5. Update HANYA elemen password (tidak re-render) ── */
+      codeEl.textContent = pwd;
       codeEl.style.background = 'rgba(34,197,94,.3)';
       codeEl.style.borderColor = 'rgba(34,197,94,.6)';
       setTimeout(function() {
@@ -133,12 +156,12 @@ var __pwViewActive = false;
         codeEl.style.borderColor = 'rgba(255,255,255,.1)';
       }, 1200);
 
-      /* Tombol jadi ✓ sebentar */
+      /* ── 6. Tombol jadi "✓ Sukses" sebentar ── */
       btn.textContent = '✓ Sukses';
       btn.style.background = 'linear-gradient(135deg, #16a34a, #059669)';
       setTimeout(function() {
         btn.textContent = prevBtnText;
-        btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+        btn.style.background = prevBtnBg || 'linear-gradient(135deg, #f59e0b, #d97706)';
         btn.disabled = false;
         btn.style.opacity = '1';
       }, 1500);
@@ -147,7 +170,7 @@ var __pwViewActive = false;
       console.warn('[ADMIN-CANDIDATE] Regenerate error:', e.message);
       alert('Gagal regenerate: ' + e.message);
       btn.textContent = prevBtnText;
-      btn.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+      btn.style.background = prevBtnBg || 'linear-gradient(135deg, #f59e0b, #d97706)';
       btn.disabled = false;
       btn.style.opacity = '1';
     }
@@ -209,18 +232,6 @@ var __pwViewActive = false;
       '    <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #818cf8; margin-bottom: 4px;">ADMIN PANEL · MONITORING</div>',
       '    <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📊 Monitoring Kandidat</div>',
       '  </div>',
-      '  <button id="acPasswordBtn" title="Kelola Password FRESH & USED" style="',
-      '    padding: 10px 16px; flex: 0 0 auto;',
-      '    background: linear-gradient(135deg, #f59e0b, #d97706);',
-      '    border: 0; border-radius: 11px; color: #fff;',
-      '    font-size: 13px; font-weight: 800; cursor: pointer;',
-      '    font-family: inherit; white-space: nowrap;',
-      '    box-shadow: 0 4px 12px rgba(245,158,11,.35);',
-      '    transition: all .18s ease;',
-      '  " onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 6px 16px rgba(245,158,11,.5)\';"',
-      '     onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 4px 12px rgba(245,158,11,.35)\';">',
-      '    🔑 Pengaturan Password',
-      '  </button>',
             '  <div id="acStats" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>',
       '</div>',
 
