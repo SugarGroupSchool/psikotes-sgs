@@ -307,7 +307,33 @@ function pushPresence(status) {
 
 
   __presenceRef.once('value').then(snap => {
-    if (!snap.exists() || !snap.val()?.startedAt) {
+    const existing = snap.val() || {};
+
+    /* 🆕 Guard: kalau Firebase sudah punya NAMA BAGUS (bukan "🔓 Belum Login"),
+       dan localStorage identity kosong → JANGAN overwrite name/completed.
+       Ini mencegah session rusak setelah admin reset fresh. */
+    const existingName = String(existing.name || '');
+    const existingHasGoodName = existingName &&
+                                !/^🔓/.test(existingName) &&
+                                !/belum\s*login/i.test(existingName) &&
+                                !/^IP\s*:/i.test(existingName);
+    const shouldSkipIdentity = existingHasGoodName && !isLoggedIn;
+
+    if (shouldSkipIdentity) {
+      console.log('[PRESENCE] 🔒 Skip update identitas — Firebase sudah punya:', existingName);
+      delete payload.name;
+      delete payload.nickname;
+      delete payload.position;
+      delete payload.phone;
+      delete payload.email;
+      delete payload.completed;
+      delete payload.completedCount;
+      delete payload.totalTests;
+      delete payload.selectedTests;
+      delete payload.loggedIn;
+    }
+
+    if (!snap.exists() || !existing.startedAt) {
       payload.startedAt = firebase.database.ServerValue.TIMESTAMP;
     }
     return __presenceRef.update(payload);
