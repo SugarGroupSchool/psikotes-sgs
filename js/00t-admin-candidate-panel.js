@@ -737,7 +737,7 @@
     if (startAt > 0) params.push('start=' + startAt);
 
     // Device ID OPSIONAL — hanya sebagai hint, bukan syarat
-    if (forceDeviceId) {
+    if (forceDeviceId && forceDeviceId !== 'from_candidate_status') {
       params.push('d=' + encodeURIComponent(forceDeviceId));
     }
 
@@ -822,10 +822,11 @@
         if (matches.length > 0) {
           const active = matches[0];
           completed = active.completed || {};
-          sessionInfo = {
+                   sessionInfo = {
             deviceId: String(active.deviceId || ''),
             lastSeen: active.lastSeen,
             totalMatches: matches.length,
+            _fromCandidateStatus: !!active._fromCandidateStatus,
             allMatches: matches.map(m => ({
               deviceId: String(m.deviceId || '').slice(-8),
               lastSeen: m.lastSeen ? new Date(m.lastSeen).toLocaleString('id-ID') : '-',
@@ -843,13 +844,30 @@
         console.warn('[RETAKE] Gagal ambil completed:', e);
       }
 
-      /* 🆕 Kalau tidak ada match, list semua sesi untuk dropdown manual */
+   
+      /* 🆕 FALLBACK: kalau tidak ada session, baca dari candidate_status */
       if (matches.length === 0) {
         try {
-          __allSessionsForManual = await __listSessionsWithCompleted();
-          console.log('[RETAKE] Tidak match — list sesi untuk pilih manual:',
-            __allSessionsForManual.length);
-        } catch (e) {}
+          const csSnap = await firebase.database()
+            .ref('sgs_candidate_status/' + slug).once('value');
+          const cs = csSnap.val();
+          if (cs && cs.candidateName) {
+            matches.push({
+              deviceId: 'from_candidate_status',
+              name: cs.candidateName,
+              email: cs.email || '',
+              position: cs.candidatePosition || '',
+              phone: cs.phone || '',
+              completed: cs.completed || {},
+              lastSeen: Date.now(),
+              _fromCandidateStatus: true
+            });
+            console.log('[RETAKE] ✅ Fallback dari candidate_status:', cs.candidateName,
+              '| completed:', JSON.stringify(cs.completed || {}));
+          }
+        } catch (e) {
+          console.warn('[RETAKE] Fallback candidate_status gagal:', e.message);
+        }
       }
 
       const ALL_TESTS = [
@@ -967,7 +985,7 @@
             'padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;' +
             'border-radius:9px;font-size:11px;color:#166534;line-height:1.5;"></div>';
 
-      const sessionLine = (function () {
+            const sessionLine = (function () {
         if (!sessionInfo) {
           if (__allSessionsForManual.length > 0) {
             return '⚠️ Nama tidak cocok otomatis — <b>pilih sesi manual di bawah</b>';
@@ -1199,7 +1217,10 @@
       const getSelectedDeviceId = () => {
         const sel = document.getElementById('retakeSessionSelect');
         if (sel && sel.value) return sel.value;
-        if (sessionInfo && sessionInfo.deviceId) return sessionInfo.deviceId;
+        if (sessionInfo && sessionInfo.deviceId &&
+            sessionInfo.deviceId !== 'from_candidate_status') {
+          return sessionInfo.deviceId;
+        }
         return '';
       };
 
