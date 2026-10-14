@@ -375,31 +375,7 @@ async function checkPassword() {
     }
 
 
-    /* 🆕 Cek mode login: FRESH atau USED */
-    const __usedMode = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USED_PRAGAS) === '1';
-
-    if (!__usedMode) {
-      /* FRESH mode = kandidat baru login
-         Paksa isi form identitas ulang — JANGAN pakai identity lama */
-      console.log('[AUTH] 🆕 FRESH mode — clear identity lama & paksa isi form');
-      try {
-        localStorage.removeItem('identity');
-        localStorage.removeItem('completed');
-        localStorage.removeItem('selectedTests');
-        localStorage.removeItem('_sgs_current_tahap');
-        localStorage.removeItem('_sgs_schedule_lock');
-      } catch (e) {}
-      window.appState = window.appState || {};
-      window.appState.identity = {};
-      window.appState.completed = {};
-      window.appState.selectedTests = [];
-      window.appState.showTestCards = false;
-      renderIdentityForm();
-      return;
-    }
-
-    /* USED mode — boleh pakai identity tersimpan */
-    const hasValidIdentity =
+     const hasValidIdentity =
       identitySaved &&
       typeof identitySaved === 'object' &&
       typeof identitySaved.name === 'string' &&

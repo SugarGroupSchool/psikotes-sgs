@@ -301,6 +301,7 @@ function pushPresence(status) {
     delete payload.completedCount;
     delete payload.totalTests;
     delete payload.selectedTests;
+    delete payload.presenceState;
     console.log('[PRESENCE] 🔒 Device finished & identity cleared — skip overwrite identitas');
   }
 
@@ -319,7 +320,7 @@ function pushPresence(status) {
                                 !/^IP\s*:/i.test(existingName);
     const shouldSkipIdentity = existingHasGoodName && !isLoggedIn;
 
-    if (shouldSkipIdentity) {
+      if (shouldSkipIdentity) {
       console.log('[PRESENCE] 🔒 Skip update identitas — Firebase sudah punya:', existingName);
       delete payload.name;
       delete payload.nickname;
@@ -331,6 +332,7 @@ function pushPresence(status) {
       delete payload.totalTests;
       delete payload.selectedTests;
       delete payload.loggedIn;
+      delete payload.presenceState;
     }
 
     if (!snap.exists() || !existing.startedAt) {
