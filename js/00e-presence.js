@@ -238,11 +238,14 @@ function pushPresence(status) {
     }
   } catch (e) {}
 
+  /* 🆕 Guard: kalau device sudah FINISHED & identity ke-clear (habis submit PDF),
+     JANGAN overwrite name/loggedIn/completed di Firebase — biarkan data asli Deni tetap ada */
+  const __finishedAndCleared = isFinished && !isLoggedIn;
   let displayName = isLoggedIn
     ? identity.name.trim()
     : (__presenceIP ? ('🔓 Belum Login · ' + __presenceIP) : '🔓 Belum Login');
 
-  const payload = {
+   let payload = {
     deviceId:          __presenceDeviceId,
     name:              displayName,
     ip:                __presenceIP || '',
@@ -267,7 +270,6 @@ function pushPresence(status) {
     inTestView:        (typeof window !== 'undefined' && window.__inTestView === true),
     finished:          isFinished,
     disqualified:      isDisqualified,
-    /* 🆕 Real presence fields */
     loggedIn: isLoggedIn,
     presenceState: (function() {
       var tabVisible = (typeof document !== 'undefined') && document.visibilityState === 'visible';
@@ -286,6 +288,21 @@ function pushPresence(status) {
     visibilityChanges:  __visibilityChanges,
     lastSeen:          firebase.database.ServerValue.TIMESTAMP
   };
+
+  /* 🆕 Kalau device sudah finished & identity kosong → JANGAN overwrite data identitas */
+  if (__finishedAndCleared) {
+    delete payload.name;
+    delete payload.nickname;
+    delete payload.position;
+    delete payload.phone;
+    delete payload.email;
+    delete payload.loggedIn;
+    delete payload.completed;
+    delete payload.completedCount;
+    delete payload.totalTests;
+    delete payload.selectedTests;
+    console.log('[PRESENCE] 🔒 Device finished & identity cleared — skip overwrite identitas');
+  }
 
 
 
