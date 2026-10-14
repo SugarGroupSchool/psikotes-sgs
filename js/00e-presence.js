@@ -18,8 +18,8 @@
    ============================================================ */
 
 const PRESENCE_DEVICE_KEY       = '_sgs_device_id';
-const PRESENCE_HEARTBEAT_ACTIVE = 5000;   // saat tes
-const PRESENCE_HEARTBEAT_IDLE   = 20000;  // idle / di home
+const PRESENCE_HEARTBEAT_ACTIVE = 3000;   // 3 detik (saat tes)
+const PRESENCE_HEARTBEAT_IDLE   = 10000;  // 10 detik (idle/home)
 const PRESENCE_STALE_MS         = 3 * 60 * 1000;
 
 let __presenceTimer       = null;
@@ -696,7 +696,7 @@ function showRetakeBanner() {
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
-  const ACTIVE_THRESHOLD_MS     = 45 * 1000;       // aktif: lastSeen < 45 detik
+  const ACTIVE_THRESHOLD_MS     = 30 * 1000;  // 30 detik
   const FINISHED_THRESHOLD_MS   = 10 * 60 * 1000;  // selesai/diskualifikasi: tampil 10 menit terakhir
 
   let adminDeviceId = null;
