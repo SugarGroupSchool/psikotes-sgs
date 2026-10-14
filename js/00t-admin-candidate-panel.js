@@ -1665,14 +1665,20 @@
 
       const slug = String(candidateName).toLowerCase()
         .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-      try {
-        await firebase.database().ref('sgs_candidate_status/' + slug).update({
-          status: '',
-          emailSentAt: null,
-          emailSentStatus: null,
-          ts: firebase.database.ServerValue.TIMESTAMP
-        });
-      } catch (e) {}
+       const __isJunkName = /^🔓/.test(candidateName) ||
+                           /belum\s*login/i.test(candidateName) ||
+                           /^IP\s*:/i.test(candidateName);
+      if (!__isJunkName) {
+        try {
+          await firebase.database().ref('sgs_candidate_status/' + slug).update({
+            candidateName: candidateName,
+            status: '',
+            emailSentAt: null,
+            emailSentStatus: null,
+            ts: firebase.database.ServerValue.TIMESTAMP
+          });
+        } catch (e) {}
+      }
 
       alert(
         '✅ Sinyal reset terkirim ke device kandidat.\n\n' +

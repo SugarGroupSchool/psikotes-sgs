@@ -1225,16 +1225,23 @@ if (action === 'reset-to-fresh') {
     });
 
     /* Reset status kelulusan di Firebase (biar tidak ada badge "Lolos") */
-    try {
-      const slug = String(name).toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-      await firebase.database().ref('sgs_candidate_status/' + slug).update({
-        status: '',
-        emailSentAt: null,
-        emailSentStatus: null,
-        ts: firebase.database.ServerValue.TIMESTAMP
-      });
-    } catch (e) {}
+    /* 🆕 Guard: skip kalau nama sampah (belum login) — biar tidak error permission */
+    const __isJunkName = /^🔓/.test(name) ||
+                         /belum\s*login/i.test(name) ||
+                         /^IP\s*:/i.test(name);
+    if (!__isJunkName) {
+      try {
+        const slug = String(name).toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        await firebase.database().ref('sgs_candidate_status/' + slug).update({
+          candidateName: name,
+          status: '',
+          emailSentAt: null,
+          emailSentStatus: null,
+          ts: firebase.database.ServerValue.TIMESTAMP
+        });
+      } catch (e) {}
+    }
 
     if (typeof toast === 'function') {
       toast('🆕 Sinyal reset ke Fresh terkirim', '#6366f1');
