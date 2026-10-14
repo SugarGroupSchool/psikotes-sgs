@@ -174,10 +174,53 @@ async function checkPassword() {
             .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
           if (!slug) throw new Error('Slug kosong');
 
-          /* 🆕 1. Baca status kandidat (permanen, lintas device) */
-          const csSnap = await firebase.database()
+              /* 🆕 1. Baca status kandidat (permanen, lintas device) */
+          let csSnap = await firebase.database()
             .ref('sgs_candidate_status/' + slug).once('value');
-          const cs = csSnap.val() || {};
+          let cs = csSnap.val() || {};
+
+          /* 🆕 Fallback: kalau candidate_status kosong, cari session by name match */
+          if (!cs.candidateName) {
+            console.log('[RETAKE] candidate_status kosong — fallback ke sessions');
+            const sessionsSnap = await firebase.database()
+              .ref('sgs_state/sessions').once('value');
+            const sessions = sessionsSnap.val() || {};
+            const nameTarget = String(retakeData.name).toLowerCase().trim();
+
+            for (const devId in sessions) {
+              const s = sessions[devId] || {};
+              if (!s.name) continue;
+              if (String(s.name).toLowerCase().trim() === nameTarget) {
+                cs = {
+                  candidateName: s.name,
+                  email: s.email || '',
+                  candidatePosition: s.position || '',
+                  phone: s.phone || '',
+                  completed: s.completed || {}
+                };
+                console.log('[RETAKE] ✅ Fallback dari session:', devId.slice(-8), s.name);
+                break;
+              }
+            }
+
+            /* Sekalian MIRROR ke candidate_status biar retake berikutnya cepat */
+            if (cs.candidateName) {
+              try {
+                await firebase.database()
+                  .ref('sgs_candidate_status/' + slug).update({
+                    candidateName: cs.candidateName,
+                    email: cs.email || '',
+                    candidatePosition: cs.candidatePosition || '',
+                    phone: cs.phone || '',
+                    completed: cs.completed || {},
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                  });
+                console.log('[RETAKE] ✅ Mirror ke candidate_status berhasil');
+              } catch (e) {
+                console.warn('[RETAKE] Gagal mirror:', e.message);
+              }
+            }
+          }
 
           if (!cs.candidateName) {
             throw new Error('Data kandidat tidak ditemukan di sistem');

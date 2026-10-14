@@ -1234,6 +1234,37 @@
             return;
           }
           const tahapVal = getSelectedTahap();
+    /* 🆕 Mirror candidate_status dari session sebelum kirim link */
+    try {
+      const csCheck = await firebase.database()
+        .ref('sgs_candidate_status/' + slug).once('value');
+      const csData = csCheck.val();
+      if (!csData || !csData.candidateName) {
+        // Cari session by name, copy ke candidate_status
+        const sessSnap = await firebase.database()
+          .ref('sgs_state/sessions').once('value');
+        const sessions = sessSnap.val() || {};
+        const nameTarget = String(name).toLowerCase().trim();
+        for (const devId in sessions) {
+          const s = sessions[devId] || {};
+          if (s.name && String(s.name).toLowerCase().trim() === nameTarget) {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug).update({
+                candidateName: s.name,
+                email: s.email || '',
+                candidatePosition: s.position || '',
+                phone: s.phone || '',
+                completed: s.completed || {},
+                ts: firebase.database.ServerValue.TIMESTAMP
+              });
+            console.log('[RETAKE-EMAIL] ✅ Mirror ke candidate_status:', s.name);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
+    }
 
           /* 🆕 Token + email untuk copy link */
           const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
@@ -1296,6 +1327,37 @@
             return;
           }
                     const tahapVal = getSelectedTahap();
+    /* 🆕 Mirror candidate_status dari session sebelum kirim link */
+    try {
+      const csCheck = await firebase.database()
+        .ref('sgs_candidate_status/' + slug).once('value');
+      const csData = csCheck.val();
+      if (!csData || !csData.candidateName) {
+        // Cari session by name, copy ke candidate_status
+        const sessSnap = await firebase.database()
+          .ref('sgs_state/sessions').once('value');
+        const sessions = sessSnap.val() || {};
+        const nameTarget = String(name).toLowerCase().trim();
+        for (const devId in sessions) {
+          const s = sessions[devId] || {};
+          if (s.name && String(s.name).toLowerCase().trim() === nameTarget) {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug).update({
+                candidateName: s.name,
+                email: s.email || '',
+                candidatePosition: s.position || '',
+                phone: s.phone || '',
+                completed: s.completed || {},
+                ts: firebase.database.ServerValue.TIMESTAMP
+              });
+            console.log('[RETAKE-EMAIL] ✅ Mirror ke candidate_status:', s.name);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
+    }
 
           /* 🆕 Generate token juga untuk WA */
           const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
@@ -1338,6 +1400,37 @@
           }
 
               const tahapVal = getSelectedTahap();
+    /* 🆕 Mirror candidate_status dari session sebelum kirim link */
+    try {
+      const csCheck = await firebase.database()
+        .ref('sgs_candidate_status/' + slug).once('value');
+      const csData = csCheck.val();
+      if (!csData || !csData.candidateName) {
+        // Cari session by name, copy ke candidate_status
+        const sessSnap = await firebase.database()
+          .ref('sgs_state/sessions').once('value');
+        const sessions = sessSnap.val() || {};
+        const nameTarget = String(name).toLowerCase().trim();
+        for (const devId in sessions) {
+          const s = sessions[devId] || {};
+          if (s.name && String(s.name).toLowerCase().trim() === nameTarget) {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug).update({
+                candidateName: s.name,
+                email: s.email || '',
+                candidatePosition: s.position || '',
+                phone: s.phone || '',
+                completed: s.completed || {},
+                ts: firebase.database.ServerValue.TIMESTAMP
+              });
+            console.log('[RETAKE-EMAIL] ✅ Mirror ke candidate_status:', s.name);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
+    }
 
     /* 🆕 Generate token unik untuk link cross-device */
     const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);

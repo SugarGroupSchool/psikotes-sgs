@@ -469,11 +469,48 @@
       date:        id("date").value
     };
   
-    /* =========================================================
+     /* =========================================================
        SIMPAN KE LOCAL STORAGE
        ========================================================= */
     localStorage.setItem("identity", JSON.stringify(appState.identity));
-      /* 🆕 Force push presence agar email & phone segera sync ke Firebase */
+
+    /* 🆕 MIRROR ke sgs_candidate_status — biar retake cross-device bisa baca */
+    try {
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+        const _ident = appState.identity;
+        const _slug = String(_ident.name || '').toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        if (_slug) {
+          firebase.database()
+            .ref('sgs_candidate_status/' + _slug)
+            .update({
+              candidateName: _ident.name,
+              email: _ident.email || '',
+              candidatePosition: _ident.position || '',
+              phone: _ident.phone || '',
+              dob: _ident.dob || '',
+              age: _ident.age || '',
+              maritalStatus: _ident.status || '',
+              addressKTP: _ident.addressKTP || '',
+              addressCurrent: _ident.addressCurrent || '',
+              education: _ident.education || '',
+              teacherLevel: _ident.teacherLevel || '',
+              techRole: _ident.techRole || '',
+              ts: firebase.database.ServerValue.TIMESTAMP
+            })
+            .then(() => {
+              console.log('[IDENTITY-MIRROR] ✅ Mirror ke candidate_status/' + _slug);
+            })
+            .catch((err) => {
+              console.warn('[IDENTITY-MIRROR] ⚠️ Gagal:', err.message);
+            });
+        }
+      }
+    } catch (e) {
+      console.warn('[IDENTITY-MIRROR] Error:', e.message);
+    }
+
+    /* 🆕 Force push presence agar email & phone segera sync ke Firebase */
     if (typeof window.pushPresence === 'function') {
       try { window.pushPresence('active'); } catch (e) {}
     }
