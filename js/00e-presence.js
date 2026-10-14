@@ -696,7 +696,7 @@ function showRetakeBanner() {
    ============================================================ */
 function __presenceFilterFresh(data) {
   const now = Date.now();
-  const ACTIVE_THRESHOLD_MS     = 2 * 60 * 1000;   // aktif: lastSeen < 2 menit
+  const ACTIVE_THRESHOLD_MS     = 45 * 1000;       // aktif: lastSeen < 45 detik
   const FINISHED_THRESHOLD_MS   = 10 * 60 * 1000;  // selesai/diskualifikasi: tampil 10 menit terakhir
 
   let adminDeviceId = null;
