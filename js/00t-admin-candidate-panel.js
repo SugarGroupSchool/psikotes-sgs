@@ -721,44 +721,27 @@
   /* ============================================================
      Build URL retake
      ============================================================ */
-  async function __buildRetakeUrl(name, position, tests, tahap, startAt, forceDeviceId) {
-    let deviceId = forceDeviceId || '';
-
-    if (!deviceId) {
-      try {
-        if (typeof firebase !== 'undefined' && firebase.apps.length) {
-          const snap = await firebase.database().ref('sgs_state/sessions').once('value');
-          const sessions = snap.val() || {};
-          const targetNorm = __normName(name);
-          const tWords = targetNorm.split(' ').filter(Boolean);
-          const matches = [];
-
-          for (const devId in sessions) {
-            const s = sessions[devId] || {};
-            if (!s.name) continue;
-            if (__isDefaultSessionName(s.name)) continue;
-
-            if (__isNameMatch(s.name, targetNorm, tWords)) {
-              matches.push({ deviceId: devId, lastSeen: s.lastSeen || 0 });
-            }
-          }
-          matches.sort((a, b) => b.lastSeen - a.lastSeen);
-          if (matches.length > 0) deviceId = matches[0].deviceId;
-        }
-      } catch (e) {
-        console.warn('[RETAKE-URL] Gagal cari deviceId:', e.message);
-      }
-    }
-
+  async function __buildRetakeUrl(name, position, tests, tahap, startAt, forceDeviceId, email, token) {
     const t = Math.max(2, Math.min(20, parseInt(tahap, 10) || 2));
     const base = window.location.origin + window.location.pathname;
-    return base + '?retake=1' +
-      '&n=' + encodeURIComponent(name) +
-      '&p=' + encodeURIComponent(position || '') +
-      '&tests=' + encodeURIComponent(tests.join(',')) +
-      '&tahap=' + t +
-      (startAt > 0 ? '&start=' + startAt : '') +
-      (deviceId ? '&d=' + encodeURIComponent(deviceId) : '');
+    const params = [
+      'retake=1',
+      'n=' + encodeURIComponent(name),
+      'p=' + encodeURIComponent(position || ''),
+      'tests=' + encodeURIComponent(tests.join(',')),
+      'tahap=' + t
+    ];
+
+    if (email) params.push('e=' + encodeURIComponent(email));
+    if (token) params.push('token=' + encodeURIComponent(token));
+    if (startAt > 0) params.push('start=' + startAt);
+
+    // Device ID OPSIONAL — hanya sebagai hint, bukan syarat
+    if (forceDeviceId) {
+      params.push('d=' + encodeURIComponent(forceDeviceId));
+    }
+
+    return base + '?' + params.join('&');
   }
 
   /* ============================================================
@@ -1251,7 +1234,22 @@
             return;
           }
           const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
+
+          /* 🆕 Token + email untuk copy link */
+          const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+          const emailForCopy = await findEmail(slug, name);
+          try {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
+              .set({
+                tahap: tahapVal,
+                tests: tests,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                status: 'active'
+              });
+          } catch (e) {}
+
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, emailForCopy || '', token);
           try {
             if (navigator.clipboard) {
               navigator.clipboard.writeText(url).then(() => {
@@ -1297,8 +1295,23 @@
             alert('Nomor WA tidak valid: ' + phone);
             return;
           }
-          const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
+                    const tahapVal = getSelectedTahap();
+
+          /* 🆕 Generate token juga untuk WA */
+          const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+          const emailForWA = await findEmail(slug, name);
+          try {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
+              .set({
+                tahap: tahapVal,
+                tests: tests,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                status: 'active'
+              });
+          } catch (e) {}
+
+          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, emailForWA || '', token);
           const message =
             'Halo ' + name + ',\n\n' +
             'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
@@ -1324,9 +1337,29 @@
             return;
           }
 
-          const tahapVal = getSelectedTahap();
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), getSelectedDeviceId());
-          const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
+              const tahapVal = getSelectedTahap();
+
+    /* 🆕 Generate token unik untuk link cross-device */
+    const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+
+    /* 🆕 Simpan token ke Firebase */
+    try {
+      await firebase.database()
+        .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
+        .set({
+          tahap: tahapVal,
+          tests: tests,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          status: 'active'
+        });
+      console.log('[RETAKE-TOKEN] ✅ Token disimpan:', token);
+    } catch (e) {
+      console.warn('[RETAKE-TOKEN] ⚠️ Gagal simpan token:', e.message);
+    }
+
+    /* 🆕 Bangun URL dengan email + token (TANPA device ID wajib) */
+    const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, email, token);
+    const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
           const htmlBody =
             '<div style="font-family:-apple-system,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;">' +

@@ -21,6 +21,8 @@
     const n = url.searchParams.get('n') || '';
     const p = url.searchParams.get('p') || '';
     const d = url.searchParams.get('d') || '';
+    const e = url.searchParams.get('e') || '';  
+    const token = url.searchParams.get('token') || '';   
 
     /* 🆕 Baca tahap dari URL (default 2, range 2-20) */
     const tahapRaw = url.searchParams.get('tahap') || '2';
@@ -68,15 +70,16 @@ const startAt = Math.max(0, parseInt(startRaw, 10) || 0);
 
     /* --- Simpan data retake supaya 04-auth.js bisa restore --- */
 try {                                                         
-  sessionStorage.setItem('__sgs_retake', JSON.stringify({
-    name: n,
-    position: p,
-    tests: tests,
-    tahap: tahap,
-    startAt: startAt,          
-    deviceId: d,
-    ts: Date.now()
-  }));
+      sessionStorage.setItem('__sgs_retake', JSON.stringify({
+        name: n,
+        position: p,
+        email: e,            
+        token: token,        
+        tests: tests,
+        tahap: tahap,
+        deviceId: d,
+        ts: Date.now()
+      }));
 } catch (e) {}
 
 try {

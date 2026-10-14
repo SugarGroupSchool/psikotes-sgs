@@ -64,6 +64,32 @@ function markTestCompleted(testId) {
     }
   } catch (e) {}
 
+  /* 🆕 MIRROR ke sgs_candidate_status — biar cross-device retake bisa baca
+     (completed tersimpan permanen per kandidat, bukan per device) */
+  try {
+    if (typeof firebase !== 'undefined' && firebase.apps.length) {
+      const identity = appState.identity || {};
+      if (identity.name) {
+        const slug = String(identity.name).toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        if (slug) {
+          firebase.database().ref('sgs_candidate_status/' + slug).update({
+            candidateName: identity.name,
+            email: identity.email || '',
+            candidatePosition: identity.position || '',
+            phone: identity.phone || '',
+            completed: appState.completed || {},
+            ts: firebase.database.ServerValue.TIMESTAMP
+          }).then(() => {
+            console.log('[MARK-MIRROR] ✅ ' + testId + ' mirror ke candidate_status/' + slug);
+          }).catch(err => {
+            console.warn('[MARK-MIRROR] ⚠️ Gagal mirror:', err.message);
+          });
+        }
+      }
+    }
+  } catch (e) {}
+
   if (typeof window.pushPresence === 'function') {
     try { window.pushPresence('active'); } catch (e) {}
   }

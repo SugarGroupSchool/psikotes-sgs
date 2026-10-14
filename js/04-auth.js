@@ -170,129 +170,161 @@ async function checkPassword() {
       (async () => {
         let restored = false;
         try {
-          /* 🆕 Baca 1 device spesifik — rules allow kandidat baca
-             sgs_state/sessions/{deviceId} (bukan list) */
-          const targetDeviceId = retakeData.deviceId ||
-            localStorage.getItem('_sgs_device_id');
+          const slug = String(retakeData.name).toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+          if (!slug) throw new Error('Slug kosong');
 
-          if (!targetDeviceId) {
-            throw new Error('deviceId tidak tersedia di URL / localStorage');
+          /* 🆕 1. Baca status kandidat (permanen, lintas device) */
+          const csSnap = await firebase.database()
+            .ref('sgs_candidate_status/' + slug).once('value');
+          const cs = csSnap.val() || {};
+
+          if (!cs.candidateName) {
+            throw new Error('Data kandidat tidak ditemukan di sistem');
           }
 
-          const snap = await firebase.database()
-            .ref('sgs_state/sessions/' + targetDeviceId)
-            .once('value');
-
-          const s = snap.val();
-
-          if (!s || !s.name) {
-            throw new Error('Session tidak ditemukan untuk device ' + targetDeviceId.slice(-8));
+          /* 🆕 2. Validasi nama */
+          const nameTarget = String(retakeData.name).toLowerCase().trim();
+          const nameDB = String(cs.candidateName).toLowerCase().trim();
+          if (nameTarget !== nameDB) {
+            throw new Error('Nama tidak cocok: "' + cs.candidateName + '" vs "' + retakeData.name + '"');
           }
 
-          /* Verify nama cocok */
-          const nameLower = String(retakeData.name).toLowerCase().trim();
-          const sNameLower = String(s.name).toLowerCase().trim();
-
-          if (sNameLower !== nameLower) {
-            throw new Error('Nama tidak cocok: "' + s.name + '" vs "' + retakeData.name + '"');
+          /* 🆕 3. Validasi email (kalau ada di URL & di DB) */
+          if (retakeData.email && cs.email) {
+            if (String(cs.email).toLowerCase().trim() !== String(retakeData.email).toLowerCase().trim()) {
+              throw new Error('Email tidak cocok');
+            }
           }
 
+          /* 🆕 4. Validasi token (kalau ada) */
+          if (retakeData.token) {
+            const tkSnap = await firebase.database()
+              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + retakeData.token)
+              .once('value');
+            const tk = tkSnap.val();
+            if (!tk) {
+              throw new Error('Token tidak valid / sudah kedaluwarsa');
+            }
+          }
+
+          /* 5. Restore identity dari candidate_status */
           const identity = {
-            name: s.name,
-            nickname: s.nickname || s.name.split(' ')[0],
-            email: s.email || '',
-            phone: s.phone || '',
-            position: s.position || retakeData.position || '',
-            dob: s.dob || '',
-            age: s.age || '',
-            status: s.status || '',
-            addressKTP: s.addressKTP || '',
-            addressCurrent: s.addressCurrent || '',
-            education: s.education || '',
-            teacherLevel: s.teacherLevel || '',
-            techRole: s.techRole || '',
+            name: cs.candidateName,
+            nickname: cs.nickname || cs.candidateName.split(' ')[0],
+            email: cs.email || retakeData.email || '',
+            phone: cs.phone || '',
+            position: cs.candidatePosition || retakeData.position || '',
+            dob: cs.dob || '',
+            age: cs.age || '',
+            status: cs.maritalStatus || '',
+            addressKTP: cs.addressKTP || '',
+            addressCurrent: cs.addressCurrent || '',
+            education: cs.education || '',
+            teacherLevel: cs.teacherLevel || '',
+            techRole: cs.techRole || '',
             date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
           };
 
           window.appState.identity = identity;
           try { localStorage.setItem('identity', JSON.stringify(identity)); } catch (e) {}
 
+          /* 6. Set selectedTests & completed */
           window.appState.selectedTests = retakeData.tests.slice();
-try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
+          try { localStorage.setItem('selectedTests', JSON.stringify(retakeData.tests)); } catch (e) {}
 
-window.appState.completed = window.appState.completed || {};
-retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
-try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
+          window.appState.completed = window.appState.completed || {};
+          retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
+          /* 🆕 Isi completed dari candidate_status (biar tes lama tetap terkunci) */
+          if (cs.completed && typeof cs.completed === 'object') {
+            Object.keys(cs.completed).forEach(t => {
+              if (cs.completed[t] === true) window.appState.completed[t] = true;
+            });
+          }
+          try { localStorage.setItem('completed', JSON.stringify(window.appState.completed)); } catch (e) {}
 
-/* 🆕 Set tahap saat ini */
-const __tahap = Math.max(2, parseInt(retakeData.tahap, 10) || 2);
-window.appState.currentTahap = __tahap;
-try { localStorage.setItem('_sgs_current_tahap', String(__tahap)); } catch (e) {}
+          /* 7. Set tahap */
+          const __tahap = Math.max(2, parseInt(retakeData.tahap, 10) || 2);
+          window.appState.currentTahap = __tahap;
+          try { localStorage.setItem('_sgs_current_tahap', String(__tahap)); } catch (e) {}
 
-/* 🆕 Catat aktivasi tahap ke Firebase (fire-and-forget) */
-try {
-  if (targetDeviceId && typeof firebase !== 'undefined' && firebase.apps.length) {
-    const sRef = firebase.database().ref('sgs_state/sessions/' + targetDeviceId);
-    sRef.update({
-      retake_count: __tahap - 1,
-      lastRetakeTahap: __tahap,
-      lastRetakeAt: firebase.database.ServerValue.TIMESTAMP
-    }).catch(() => {});
+          /* 🆕 8. Buat/update session di device INI (apapun device-nya) */
+          const myDeviceId = localStorage.getItem('_sgs_device_id');
+          if (myDeviceId && typeof firebase !== 'undefined' && firebase.apps.length) {
+            try {
+              await firebase.database()
+                .ref('sgs_state/sessions/' + myDeviceId).update({
+                  deviceId: myDeviceId,
+                  name: identity.name,
+                  email: identity.email,
+                  position: identity.position,
+                  phone: identity.phone,
+                  nickname: identity.nickname,
+                  completed: window.appState.completed,
+                  selectedTests: retakeData.tests,
+                  lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                  retake_count: __tahap - 1,
+                  lastRetakeTahap: __tahap,
+                  lastRetakeAt: firebase.database.ServerValue.TIMESTAMP,
+                  status: 'active',
+                  finished: false,
+                  disqualified: false
+                });
+              console.log('[RETAKE] ✅ Session device ini dibuat:', myDeviceId.slice(-8));
+            } catch (e) {
+              console.warn('[RETAKE] Gagal buat session baru:', e.message);
+            }
+          }
 
-    sRef.child('retake_history/' + __tahap).update({
-      tahap: __tahap,
-      tests: retakeData.tests.slice(),
-      generatedAt: retakeData.ts || Date.now(),
-      activatedAt: firebase.database.ServerValue.TIMESTAMP,
-      status: 'active'
-    }).catch(() => {});
-  }
-} catch (e) {}
+          /* 🆕 9. Catat retake_history ke candidate_status */
+          try {
+            await firebase.database()
+              .ref('sgs_candidate_status/' + slug + '/retake_history/' + __tahap)
+              .update({
+                tahap: __tahap,
+                tests: retakeData.tests.slice(),
+                activatedAt: firebase.database.ServerValue.TIMESTAMP,
+                deviceId: myDeviceId || '',
+                status: 'active'
+              });
+          } catch (e) {
+            console.warn('[RETAKE] Gagal catat retake_history:', e.message);
+          }
 
-window.appState.showTestCards = true;
-
+          window.appState.showTestCards = true;
           restored = true;
+          console.log('[RETAKE] ✅ Restore berhasil — device:', (myDeviceId || '').slice(-8), '| tahap:', __tahap);
+
         } catch (e) {
           console.warn('[RETAKE] Gagal restore identity:', e);
         }
 
-        // Clear retake flag
         try { sessionStorage.removeItem('__sgs_retake'); } catch (e) {}
+        try {
+          localStorage.removeItem('_sgs_retake_mode');
+          localStorage.removeItem('_sgs_retake_skip_form');
+          localStorage.removeItem('_sgs_retake_tahap');
+        } catch (e) {}
 
         if (restored) {
-  console.log('[RETAKE] ✅ Identity restored, langsung ke tes');
+          /* 🆕 Cek jadwal */
+          const startAt = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
+          if (startAt > 0 && Date.now() < startAt * 1000) {
+            if (typeof window.__showRetakeCountdown === 'function') {
+              window.__showRetakeCountdown(startAt, function () {
+                try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+                if (typeof window.renderHome === 'function') window.renderHome();
+              });
+              return;
+            }
+          }
+          try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
 
-  try {
-    localStorage.removeItem('_sgs_retake_mode');
-    localStorage.removeItem('_sgs_retake_skip_form');
-    localStorage.removeItem('_sgs_retake_tahap');
-  } catch (e) {}
-
-  /* 🆕 CEK JADWAL */
-  const startAt = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
-  if (startAt > 0 && Date.now() < startAt * 1000) {
-    if (typeof window.__showRetakeCountdown === 'function') {
-      window.__showRetakeCountdown(startAt, function () {
-        try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
-        if (typeof window.renderHome === 'function') window.renderHome();
-      });
-      return;
-    }
-  }
-  try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
-
-  if (typeof window.renderHome === 'function') window.renderHome();
+          if (typeof window.renderHome === 'function') window.renderHome();
           else renderIdentityForm();
         } else {
-          console.warn('[RETAKE] Identity tidak ditemukan, fallback ke form');
-
-          try {
-            localStorage.removeItem('_sgs_retake_mode');
-            localStorage.removeItem('_sgs_retake_skip_form');
-            localStorage.removeItem('_sgs_retake_tahap');
-          } catch (e) {}
-
-          alert('⚠️ Data identitas tidak ditemukan di sistem.\n\nSilakan isi form identitas untuk melanjutkan.');
+          console.warn('[RETAKE] Restore gagal — fallback ke form');
+          alert('⚠️ Data kandidat tidak ditemukan / tidak cocok.\n\nSilakan isi form identitas untuk melanjutkan.');
           renderIdentityForm();
         }
       })();
