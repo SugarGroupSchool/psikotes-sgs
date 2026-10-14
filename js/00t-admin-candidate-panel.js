@@ -852,13 +852,33 @@
             .ref('sgs_candidate_status/' + slug).once('value');
           const cs = csSnap.val();
           if (cs && cs.candidateName) {
+                        /* 🆕 Build completed dari retake_history kalau completed kosong */
+            let __builtCompleted = Object.assign({}, cs.completed || {});
+            if (Object.keys(__builtCompleted).length === 0 && cs.retake_history) {
+              Object.keys(cs.retake_history).forEach(function(tahapKey) {
+                const h = cs.retake_history[tahapKey] || {};
+                if (Array.isArray(h.tests)) {
+                  h.tests.forEach(function(t) {
+                    if (h.status === 'completed' || h.completed === true) {
+                      __builtCompleted[t] = true;
+                    }
+                  });
+                }
+              });
+              /* Kalau tahap 2 ada, tandai tahap 1 (IST + GRAFIS) juga selesai */
+              if (cs.retake_history['2']) {
+                __builtCompleted.IST = true;
+                __builtCompleted.GRAFIS = true;
+              }
+            }
+
             matches.push({
               deviceId: 'from_candidate_status',
               name: cs.candidateName,
               email: cs.email || '',
               position: cs.candidatePosition || '',
               phone: cs.phone || '',
-              completed: cs.completed || {},
+              completed: __builtCompleted,
               lastSeen: Date.now(),
               _fromCandidateStatus: true
             });
