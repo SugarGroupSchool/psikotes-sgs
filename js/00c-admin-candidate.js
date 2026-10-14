@@ -714,6 +714,16 @@ var __pwViewActive = false;
         extraInfo = '<span style="color:#c4b5fd;font-weight:700;">🚪 belum isi identitas</span>';
       }
 
+      /* 🆕 Badge rekomendasi untuk admin */
+      var recommendation = '';
+      if (st === 'not_logged_in') {
+        recommendation = '<div style="margin-top:6px;padding:4px 10px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);border-radius:8px;color:#c4b5fd;font-size:10px;font-weight:800;display:inline-block;">✅ DEVICE BERSIH — siap kandidat baru</div>';
+      } else if (completedCount === 0) {
+        recommendation = '<div style="margin-top:6px;padding:4px 10px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.4);border-radius:8px;color:#86efac;font-size:10px;font-weight:800;display:inline-block;">✅ BELUM KERJAKAN — aman</div>';
+      } else {
+        recommendation = '<div style="margin-top:6px;padding:4px 10px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);border-radius:8px;color:#fcd34d;font-size:10px;font-weight:800;display:inline-block;">⚠️ SUDAH KERJAKAN ' + completedCount + '/' + totalTests + ' — reset dulu kalau ganti kandidat</div>';
+      }
+
       var chatBtnHTML = '';
       if (canChat) {
         chatBtnHTML =
@@ -752,7 +762,8 @@ var __pwViewActive = false;
         '<div style="font-size:11px;color:#94a3b8;">',
         (s.position ? '💼 ' + escapeFn(s.position) : (s.ip ? '🌐 ' + escapeFn(s.ip) : '📱 ' + s.deviceId.slice(-8))),
         '</div>',
-        extraInfo ? '<div style="font-size:10px;margin-top:3px;">' + extraInfo + '</div>' : '',
+               extraInfo ? '<div style="font-size:10px;margin-top:3px;">' + extraInfo + '</div>' : '',
+        recommendation,
         '</div>',
         '<div style="padding:5px 11px;border-radius:999px;background:' + meta.bg + ';color:' + meta.color +
         ';font-size:10px;font-weight:800;white-space:nowrap;border:1px solid ' + meta.border + ';">' + meta.label + '</div>',
