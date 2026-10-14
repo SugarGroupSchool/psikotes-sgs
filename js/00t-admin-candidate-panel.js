@@ -1060,18 +1060,15 @@
           '</div>' +
           '<div style="padding: 22px 24px 24px;">' +
             manualSessionHTML +
-            '<div style="margin-bottom:14px;padding:12px 14px;' +
+                        '<div style="margin-bottom:14px;padding:12px 16px;' +
               'background:linear-gradient(135deg,#eff6ff,#dbeafe);' +
-              'border:1.5px solid #93c5fd;border-radius:10px;' +
-              'display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-              '<label style="font-size:11px;font-weight:900;color:#1e40af;' +
-                'letter-spacing:.5px;white-space:nowrap;">Tahap Ke-:</label>' +
-              '<select id="retakeTahapSelect" style="flex:1;min-width:90px;' +
-                'padding:8px 12px;border:1.5px solid #60a5fa;border-radius:8px;' +
-                'font-family:inherit;font-size:13px;font-weight:800;color:#1e3a8a;' +
-                'background:#fff;cursor:pointer;outline:none;">' +
-                tahapOptionsHTML +
-              '</select>' +
+              'border:1.5px solid #93c5fd;border-radius:10px;">' +
+              '<div style="font-size:10.5px;font-weight:800;color:#1e40af;' +
+                'letter-spacing:1.5px;margin-bottom:4px;">📤 TES TAHAP</div>' +
+              '<div style="font-size:22px;font-weight:900;color:#1e3a8a;' +
+                'letter-spacing:-.5px;">Tahap ' + __nextTahap + '</div>' +
+              '<div style="font-size:10.5px;color:#64748b;margin-top:4px;">' +
+                '✨ Otomatis dari riwayat tes</div>' +
             '</div>' +
             '<div style="margin-bottom:14px;padding:12px 14px;' +
               'background:linear-gradient(135deg,#fef3c7,#fde68a);' +
@@ -1190,10 +1187,7 @@
         overlay.querySelectorAll('.js-retake-test:checked')
       ).map(cb => cb.value);
 
-      const getSelectedTahap = () => {
-        const sel = document.getElementById('retakeTahapSelect');
-        return sel ? (parseInt(sel.value, 10) || __nextTahap) : __nextTahap;
-      };
+            const getSelectedTahap = () => __nextTahap;
 
       const getStartAt = () => {
         const inp = document.getElementById('retakeStartAt');
@@ -1454,8 +1448,46 @@
     const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, email, token);
     const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
-          const htmlBody =
-            '<div style="font-family:-apple-system,sans-serif;line-height:1.65;color:#1e293b;max-width:560px;margin:0 auto;">' +
+                   /* 🆕 Generate countdown HTML kalau ada jadwal */
+          const __startVal = getStartAt();
+          let __countdownHTML = '';
+          if (__startVal > 0) {
+            const __targetDate = new Date(__startVal * 1000);
+            const __fmtDate = __targetDate.toLocaleDateString('id-ID', {
+              weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+            });
+            const __fmtTime = __targetDate.toLocaleTimeString('id-ID', {
+              hour: '2-digit', minute: '2-digit'
+            });
+            const __diffMs = __targetDate.getTime() - Date.now();
+            const __days = Math.floor(__diffMs / 86400000);
+            const __hours = Math.floor((__diffMs % 86400000) / 3600000);
+            const __mins = Math.floor((__diffMs % 3600000) / 60000);
+            let __relativeText = '';
+            if (__days > 0) __relativeText = __days + ' hari ' + __hours + ' jam lagi';
+            else if (__hours > 0) __relativeText = __hours + ' jam ' + __mins + ' menit lagi';
+            else if (__mins > 0) __relativeText = __mins + ' menit lagi';
+            else __relativeText = 'beberapa saat lagi';
+
+            __countdownHTML =
+              '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);' +
+              'border:2px solid #f59e0b;border-radius:14px;padding:18px 20px;margin:20px 0;">' +
+                '<div style="font-size:11px;font-weight:900;color:#78350f;' +
+                  'letter-spacing:2px;margin-bottom:10px;">⏰ JADWAL MULAI TES</div>' +
+                '<div style="font-size:16px;font-weight:900;color:#78350f;margin-bottom:4px;">' +
+                  '📅 ' + __fmtDate + '</div>' +
+                '<div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:12px;">' +
+                  '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
+                '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
+                  'font-size:13px;color:#78350f;line-height:1.6;text-align:center;">' +
+                  'Tes dapat diakses dalam<br>' +
+                  '<b style="font-size:18px;color:#d97706;">' + __relativeText + '</b>' +
+                '</div>' +
+                '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
+                  '⚠️ Link hanya aktif mulai waktu di atas' +
+                '</div>' +
+              '</div>';
+          }
               '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
                 '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
                 '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
@@ -1467,6 +1499,7 @@
                   '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
                   '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
                 '</div>' +
+                                __countdownHTML +
                 '<div style="text-align:center;margin:24px 0;">' +
                   '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap ' + tahapVal + '</a>' +
                 '</div>' +
