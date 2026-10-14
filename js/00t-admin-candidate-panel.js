@@ -1528,7 +1528,8 @@
                   '⚠️ Link hanya aktif mulai waktu di atas' +
                 '</div>' +
               '</div>';
-          }
+                   }
+          const htmlBody =
               '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
                 '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
                 '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
