@@ -1489,6 +1489,29 @@
     const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, email, token);
     const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
+          /* 🆕 SISIPKAN PASSWORD USED KE EMAIL */
+          const __usedPwd = (typeof window.getUsedPwd === 'function')
+            ? window.getUsedPwd()
+            : null;
+          let __passwordHTML = '';
+          if (__usedPwd && __usedPwd.length > 0) {
+            __passwordHTML =
+              '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
+              'border-radius:12px;padding:16px 20px;margin:18px 0;text-align:center;">' +
+                '<div style="font-size:11px;font-weight:800;letter-spacing:2px;' +
+                  'color:rgba(255,255,255,.85);margin-bottom:8px;">' +
+                  '🔑 KODE AKSES MASUK TES</div>' +
+                '<div style="font-family:\'Courier New\',monospace;font-size:22px;' +
+                  'font-weight:900;color:#fff;letter-spacing:2px;padding:10px 16px;' +
+                  'background:rgba(0,0,0,.25);border-radius:8px;display:inline-block;">' +
+                  __usedPwd +
+                '</div>' +
+                '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;">' +
+                  'Salin kode di atas untuk login ke tes</div>' +
+              '</div>';
+          }
+
+
                    /* 🆕 Generate countdown HTML kalau ada jadwal */
           const __startVal = getStartAt();
           let __countdownHTML = '';
@@ -1542,6 +1565,7 @@
                   '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
                 '</div>' +
                                 __countdownHTML +
+                __passwordHTML +
                 '<div style="text-align:center;margin:24px 0;">' +
                   '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap ' + tahapVal + '</a>' +
                 '</div>' +
