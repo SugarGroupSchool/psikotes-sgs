@@ -21,6 +21,10 @@
    - B: approveAccessRequest() → auto-cleanup sgs_requests setelah 5 menit
    - C: rejectAccessRequest()  → auto-cleanup sgs_requests setelah 1 menit
    - D: renderAccessRequestsHTML() → tampilkan reason (SUBJECT/EXCEL)
+
+   🆕 FOLDER VIEW [2026-10-15]:
+   - __renderResultPageContent() → tampilan folder arsip responsive
+   - __toggleFolder() → expand/collapse folder
    ============================================================ */
 
 /* ============================================================
@@ -384,8 +388,6 @@ async function adminCleanupInactive() {
 
 /* ============================================================
    🆕 REAL-TIME SIGNAL LISTENER
-   - Kandidat upload → admin langsung refresh
-   - Admin lain delete → admin ini langsung refresh
    ============================================================ */
 let __lastUploadTs = null;
 let __lastDeleteTs = null;
@@ -396,7 +398,6 @@ function startSignalListeners() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return;
   if (__uploadSignalRef) return;
 
-  /* 🆕 Debounce: tunda refresh 500ms biar tidak spam */
   let __signalRefreshTimer = null;
   function __scheduleRefresh(reason) {
     clearTimeout(__signalRefreshTimer);
@@ -583,10 +584,7 @@ window.__resultFilesCache        = [];
 window.__recentlyDeletedFileIds  = new Set();
 
 /* ============================================================
-   🆕 Sinkronisasi delete file Drive → Firebase
-   ------------------------------------------------------------
-   Ketika admin hapus PDF di Drive, hapus juga datanya di Firebase
-   agar combined PDF tidak regenerate dari data lama.
+   Sinkronisasi delete file Drive → Firebase
    ============================================================ */
 function __slugifyName(name) {
   return String(name || 'tanpa-nama').toLowerCase()
@@ -602,7 +600,6 @@ function __syncDeleteToFirebase(fileName, fileId) {
 
   console.log('[ADMIN] 🔄 Sync delete ke Firebase:', n);
 
-  // ── Combined Wawancara → hapus SEMUA interviewer kandidat ini
   let m = n.match(/^(.+)-Wawancara-COMBINED\.pdf$/i);
   if (m) {
     const slug = __slugifyName(m[1]);
@@ -612,7 +609,6 @@ function __syncDeleteToFirebase(fileName, fileId) {
     return;
   }
 
-  // ── Individual Wawancara → hapus 1 interviewer
   m = n.match(/^(.+)-Wawancara-([A-Z0-9]+)\.pdf$/i);
   if (m) {
     const slug = __slugifyName(m[1]);
@@ -623,7 +619,6 @@ function __syncDeleteToFirebase(fileName, fileId) {
     return;
   }
 
-  // ── Grafis (Interpretasi) → hapus 1 assessor
   m = n.match(/^(.+)-Grafis-([A-Z0-9]+)\.pdf$/i);
   if (m) {
     const slug = __slugifyName(m[1]);
@@ -634,31 +629,20 @@ function __syncDeleteToFirebase(fileName, fileId) {
     return;
   }
 
-  // ── FGD tidak diupload ke Drive, skip
   console.log('[ADMIN] File tidak ada mapping ke Firebase:', n);
 }
 
 /* ============================================================
-   🆕 CASCADE DELETE WAWANCARA
-   ------------------------------------------------------------
-   Ketika admin hapus 1 file wawancara (individual / combined),
-   hapus SEMUA file wawancara kandidat + bersihkan Firebase.
-   
-   Contoh: hapus "Budi-Wawancara-NUG.pdf" → 
-   - Hapus semua "Budi-Wawancara-*.pdf" di Drive
-   - Hapus sgs_interviews/budi-* di Firebase
+   CASCADE DELETE WAWANCARA
    ============================================================ */
-
 function __isWawancaraFile(name) {
   return /-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i.test(String(name || ''));
 }
 
 function __extractWawancaraBase(name) {
   const n = String(name || '');
-  // Pola 1: [Nama]-...-Wawancara-XXX.pdf  → ambil dari bracket
   const m1 = n.match(/^\[([^\]]+)\]/);
   if (m1) return m1[1].replace(/-/g, ' ').trim();
-  // Pola 2: Nama-Wawancara-XXX.pdf  → strip non-greedy
   const m2 = n.match(/^(.+?)-Wawancara-(?:COMBINED|[A-Z0-9]+)\.pdf$/i);
   return m2 ? m2[1].trim() : null;
 }
@@ -669,7 +653,6 @@ async function __cascadeDeleteWawancara(baseName, keepFileId) {
 
   console.log('[ADMIN] 🔄 Cascade delete wawancara untuk:', baseName);
 
-  // === 1. Hapus SEMUA data Firebase kandidat ===
   const slug = __slugifyName(baseName);
   try {
     await firebase.database().ref('sgs_interviews/' + slug).remove();
@@ -678,7 +661,6 @@ async function __cascadeDeleteWawancara(baseName, keepFileId) {
     console.warn('[ADMIN] Gagal hapus Firebase:', e.message);
   }
 
-  // === 2. Hapus SEMUA file wawancara kandidat di Drive ===
   const allFiles = Array.isArray(window.__resultFilesCache) ? window.__resultFilesCache : [];
   const siblings = allFiles.filter(f =>
     f.id !== keepFileId &&
@@ -809,7 +791,7 @@ function __invalidateResultCache() {
 }
 
 /* ============================================================
-   deleteResultFile — POST + retry + robust JSON parsing
+   deleteResultFile
    ============================================================ */
 async function deleteResultFile(fileId, fileName) {
   const name = fileName || 'file ini';
@@ -828,7 +810,6 @@ async function deleteResultFile(fileId, fileName) {
   const idToken = await __getFirebaseIdToken();
 
   try {
-    /* 🔧 KEMBALI KE MODE CORS — TERBUKTI BERHASIL HAPUS DI DRIVE */
     await fetch(GAS_ADMIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -836,15 +817,12 @@ async function deleteResultFile(fileId, fileName) {
     });
   } catch (e) {
     console.warn('[DELETE] Fetch error (mungkin CORS):', e.message);
-    /* Lanjut saja — optimistic. Kalau GAS gagal, refresh nanti akan koreksi */
   }
 
-  /* ===== SUKSES (optimistic) ===== */
   window.__recentlyDeletedFileIds.add(fileId);
   setTimeout(() => window.__recentlyDeletedFileIds.delete(fileId), RECENTLY_DELETED_TTL_MS);
   __removeFileFromCache(fileId);
 
-  /* Cascade wawancara */
   if (__isWawancaraFile(fileName)) {
     const base = __extractWawancaraBase(fileName);
     if (base) {
@@ -853,11 +831,9 @@ async function deleteResultFile(fileId, fileName) {
     }
   }
 
-  /* Update UI langsung */
   if (document.getElementById('resultFilesPageOverlay')) __renderResultPageContent();
   if (typeof __updateAdminResultCounter === 'function') __updateAdminResultCounter();
 
-  /* Sinyal ke admin lain */
   try {
     firebase.database().ref('sgs_state/lastDelete').set({
       ts: firebase.database.ServerValue.TIMESTAMP,
@@ -867,7 +843,6 @@ async function deleteResultFile(fileId, fileName) {
 
   await __alert('File dihapus dari Drive', '✅ Sukses');
 
-  /* 🔧 FIX: tunggu GAS proses + Drive propagasi, lalu refresh list */
   await new Promise(r => setTimeout(r, 2500));
 
   __invalidateResultCache();
@@ -899,13 +874,11 @@ function __extractCandidateInfo(file) {
     const fileName = String(file.name);
     let m;
 
-    // 🆕 Fallback 1: pattern [Nama-Kandidat]-...
     m = fileName.match(/^\[([^\]]+)\]-/);
     if (m) {
       name = m[1].replace(/-/g, ' ').trim();
     }
 
-    // Fallback 2: pattern SGS lama + Wawancara + Grafis + FGD
     if (name === '-' || !name) {
       m = fileName.match(/^(.+?)-(?:Psikotes-SGSchools|Excel-\d{4}-\d{2}-\d{2}|Wawancara-(?:COMBINED|[A-Z0-9]+)|Grafis-[A-Z0-9]+|FGD-[A-Z0-9]+)/i);
       if (m) name = m[1].replace(/-/g, ' ').trim();
@@ -926,18 +899,13 @@ function __detectFileKind(file) {
   if (/\.(csv|ods)$/.test(n)) return 'excel';
   return 'other';
 }
-/* ============================================================
-   Extract nama pewawancara dari nama file
-   Format: [Nama]-Wawancara-NUG.pdf → "NUG"
-   ============================================================ */
+
 function __extractInterviewer(file) {
   const n = String(file.name || '');
   const m = n.match(/-Wawancara-([A-Z0-9]+)\.pdf$/i);
   return m ? m[1].toUpperCase() : '?';
 }
 
-/* 🆕 Extract nama assessor dari nama file Grafis
-   Format: [Nama]-Grafis-NUG.pdf → "NUG" */
 function __extractAssessorGrafis(file) {
   const n = String(file.name || '');
   const m = n.match(/-Grafis-([A-Z0-9]+)\.pdf$/i);
@@ -946,7 +914,6 @@ function __extractAssessorGrafis(file) {
 
 /* ============================================================
    Render box khusus untuk hasil wawancara
-   🆕 GLOWING effect [2026-09-23]
    ============================================================ */
 function __renderWawancaraBox(files) {
   if (!Array.isArray(files) || files.length === 0) return '';
@@ -1116,11 +1083,8 @@ function __renderWawancaraIndividualBox(files) {
   `;
 }
 
-
 /* ============================================================
    Render box khusus Interpretasi Grafis
-   - Semua PDF grafis digabung jadi 1 box
-   - Glowing teal-emerald effect
    ============================================================ */
 function __renderGrafisBox(files) {
   if (!Array.isArray(files) || files.length === 0) return '';
@@ -1224,170 +1188,163 @@ function __renderGrafisBox(files) {
   `;
 }
 
-  /* ============================================================
-     DOWNLOAD ZIP — dengan fallback anti-CORS
-     ============================================================ */
-  function __extractDriveId(url) {
-    if (!url) return null;
-    let m = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (m) return m[1];
-    m = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (m) return m[1];
-    return null;
+/* ============================================================
+   DOWNLOAD ZIP
+   ============================================================ */
+function __extractDriveId(url) {
+  if (!url) return null;
+  let m = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  m = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return null;
+}
+
+function __base64ToBlob(base64, mime) {
+  const bin = atob(base64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime || 'application/pdf' });
+}
+
+async function __fetchViaGASProxy(fileId) {
+  if (!window.GAS_ADMIN_URL) throw new Error('GAS URL tidak tersedia');
+  const idToken = (typeof __getFirebaseIdToken === 'function')
+    ? await __getFirebaseIdToken() : '';
+  const res = await fetch(GAS_ADMIN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'getFileBase64', fileId, idToken })
+  });
+  if (!res.ok) throw new Error('GAS HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.success || !data.base64) throw new Error(data.error || 'GAS gagal');
+  return __base64ToBlob(data.base64, data.mimeType || 'application/pdf');
+}
+
+async function downloadCandidateZip(candidateKey) {
+  const files = window.__candidateFilesMap[candidateKey] || [];
+  if (files.length === 0) {
+    await __alert('Tidak ada file untuk kandidat ini.', '⚠️ Kosong');
+    return;
   }
 
-  function __base64ToBlob(base64, mime) {
-    const bin = atob(base64);
-    const len = bin.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
-    return new Blob([bytes], { type: mime || 'application/pdf' });
+  if (!window.JSZip) {
+    await __alert('Library ZIP belum siap. Refresh halaman lalu coba lagi.', '⚠️ Error');
+    return;
   }
 
-  async function __fetchViaGASProxy(fileId) {
-    if (!window.GAS_ADMIN_URL) throw new Error('GAS URL tidak tersedia');
-    const idToken = (typeof __getFirebaseIdToken === 'function')
-      ? await __getFirebaseIdToken() : '';
-    const res = await fetch(GAS_ADMIN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getFileBase64', fileId, idToken })
-    });
-    if (!res.ok) throw new Error('GAS HTTP ' + res.status);
-    const data = await res.json();
-    if (!data.success || !data.base64) throw new Error(data.error || 'GAS gagal');
-    return __base64ToBlob(data.base64, data.mimeType || 'application/pdf');
-  }
+  showResultToast('📦', 'Menyiapkan ZIP…', files.length + ' file dari ' + candidateKey);
 
-  async function downloadCandidateZip(candidateKey) {
-    const files = window.__candidateFilesMap[candidateKey] || [];
-    if (files.length === 0) {
-      await __alert('Tidak ada file untuk kandidat ini.', '⚠️ Kosong');
-      return;
-    }
+  const zip = new JSZip();
+  let okCount = 0;
+  let proxyCount = 0;
+  let failCount = 0;
+  const failedFiles = [];
 
-    if (!window.JSZip) {
-      await __alert('Library ZIP belum siap. Refresh halaman lalu coba lagi.', '⚠️ Error');
-      return;
-    }
+  for (const f of files) {
+    try {
+      const safeName = String(f.name || ('file_' + (okCount + 1) + '.pdf'))
+        .replace(/[\\/:*?"<>|]/g, '_').slice(0, 100);
 
-    showResultToast('📦', 'Menyiapkan ZIP…', files.length + ' file dari ' + candidateKey);
+      let blob = null;
 
-    const zip = new JSZip();
-    let okCount = 0;
-    let proxyCount = 0;
-    let failCount = 0;
-    const failedFiles = [];
-
-    for (const f of files) {
       try {
-        const safeName = String(f.name || ('file_' + (okCount + 1) + '.pdf'))
-          .replace(/[\\/:*?"<>|]/g, '_').slice(0, 100);
+        const driveId = __extractDriveId(f.url);
+        const directUrl = driveId
+          ? 'https://drive.google.com/uc?export=download&id=' + driveId + '&confirm=t'
+          : f.url;
+        const res = await fetch(directUrl, {
+          cache: 'no-store',
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        if (res.ok) {
+          const tmp = await res.blob();
+          if (!tmp.type.includes('text/html') && tmp.size > 100) {
+            blob = tmp;
+          }
+        }
+      } catch (e) {}
 
-        let blob = null;
-
-        // ── Coba 1: direct fetch (kadang work kalau file type image)
+      if (!blob && f.id) {
         try {
-          const driveId = __extractDriveId(f.url);
-          const directUrl = driveId
-            ? 'https://drive.google.com/uc?export=download&id=' + driveId + '&confirm=t'
-            : f.url;
-          const res = await fetch(directUrl, {
-            cache: 'no-store',
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          if (res.ok) {
-            const tmp = await res.blob();
-            // Deteksi login page HTML
-            if (!tmp.type.includes('text/html') && tmp.size > 100) {
-              blob = tmp;
-            }
-          }
+          blob = await __fetchViaGASProxy(f.id);
+          if (blob) proxyCount++;
         } catch (e) {
-          // CORS error — abaikan, lanjut ke fallback
+          console.warn('[ZIP] GAS proxy gagal:', f.name, e.message);
         }
+      }
 
-        // ── Coba 2: GAS proxy (butuh endpoint GAS baru)
-        if (!blob && f.id) {
-          try {
-            blob = await __fetchViaGASProxy(f.id);
-            if (blob) proxyCount++;
-          } catch (e) {
-            console.warn('[ZIP] GAS proxy gagal:', f.name, e.message);
-          }
-        }
-
-        if (blob) {
-          zip.file(safeName, blob);
-          okCount++;
-        } else {
-          failedFiles.push(f);
-          failCount++;
-        }
-
-      } catch (e) {
-        console.warn('[ZIP] Gagal total:', f.name, e.message);
+      if (blob) {
+        zip.file(safeName, blob);
+        okCount++;
+      } else {
         failedFiles.push(f);
         failCount++;
       }
-    }
 
-    // ── Kalau semua gagal → tawarkan buka tab baru
-    if (okCount === 0) {
-      const ok = await __confirm(
-        'Semua file (' + failCount + ') tidak bisa di-bundle otomatis.\n\n' +
-        'Ini karena Google Drive tidak mengizinkan akses langsung dari browser (CORS).\n\n' +
-        'Mau buka ' + failCount + ' file di tab baru satu per satu?\n' +
-        '(Izinkan popup untuk domain ini)',
-        { title: '📂 Buka Manual', okText: 'Ya, Buka Semua Tab' }
+    } catch (e) {
+      console.warn('[ZIP] Gagal total:', f.name, e.message);
+      failedFiles.push(f);
+      failCount++;
+    }
+  }
+
+  if (okCount === 0) {
+    const ok = await __confirm(
+      'Semua file (' + failCount + ') tidak bisa di-bundle otomatis.\n\n' +
+      'Ini karena Google Drive tidak mengizinkan akses langsung dari browser (CORS).\n\n' +
+      'Mau buka ' + failCount + ' file di tab baru satu per satu?\n' +
+      '(Izinkan popup untuk domain ini)',
+      { title: '📂 Buka Manual', okText: 'Ya, Buka Semua Tab' }
+    );
+    if (ok) {
+      failedFiles.forEach((f, i) => {
+        setTimeout(() => window.open(f.url, '_blank', 'noopener,noreferrer'), i * 300);
+      });
+    }
+    return;
+  }
+
+  const content = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
+
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Hasil_' + candidateKey.replace(/[^a-zA-Z0-9]/g, '_') + '.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  let msg = '✅ ' + okCount + ' file berhasil';
+  if (proxyCount > 0) msg += ' (' + proxyCount + ' via GAS)';
+  if (failCount > 0) {
+    msg += '\n⚠️ ' + failCount + ' file gagal';
+    showResultToast('⚠️', 'ZIP Selesai (Sebagian)', msg);
+
+    setTimeout(async () => {
+      const openRest = await __confirm(
+        failCount + ' file tidak bisa di-bundle.\n\n' +
+        'Buka ' + failCount + ' file sisa di tab baru?',
+        { title: '📂 Buka Sisa File', okText: 'Ya, Buka' }
       );
-      if (ok) {
+      if (openRest) {
         failedFiles.forEach((f, i) => {
           setTimeout(() => window.open(f.url, '_blank', 'noopener,noreferrer'), i * 300);
         });
       }
-      return;
-    }
-
-    // ── Generate ZIP
-    const content = await zip.generateAsync({
-      type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 6 }
-    });
-
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Hasil_' + candidateKey.replace(/[^a-zA-Z0-9]/g, '_') + '.zip';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-
-    let msg = '✅ ' + okCount + ' file berhasil';
-    if (proxyCount > 0) msg += ' (' + proxyCount + ' via GAS)';
-    if (failCount > 0) {
-      msg += '\n⚠️ ' + failCount + ' file gagal';
-      showResultToast('⚠️', 'ZIP Selesai (Sebagian)', msg);
-
-      setTimeout(async () => {
-        const openRest = await __confirm(
-          failCount + ' file tidak bisa di-bundle.\n\n' +
-          'Buka ' + failCount + ' file sisa di tab baru?',
-          { title: '📂 Buka Sisa File', okText: 'Ya, Buka' }
-        );
-        if (openRest) {
-          failedFiles.forEach((f, i) => {
-            setTimeout(() => window.open(f.url, '_blank', 'noopener,noreferrer'), i * 300);
-          });
-        }
-      }, 800);
-    } else {
-      showResultToast('✅', 'ZIP Siap', msg);
-    }
+    }, 800);
+  } else {
+    showResultToast('✅', 'ZIP Siap', msg);
   }
+}
 
 /* ============================================================
    RENDER — 1 kandidat = 1 kartu (untuk halaman utama admin)
@@ -1480,16 +1437,16 @@ function renderResultFilesHTML(files) {
 
   return groupArr.map(g => {
     const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
-const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
-const wawancara = g.files.filter(f => {
-  const k = __detectFileKind(f);
-  return k === 'wawancara' || k === 'wawancara-combined';
-});
-const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
-const others   = g.files.filter(f => {
-  const k = __detectFileKind(f);
-  return k === 'other' || k === 'fgd-combined' || k === 'fgd';
-});
+    const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const wawancara = g.files.filter(f => {
+      const k = __detectFileKind(f);
+      return k === 'wawancara' || k === 'wawancara-combined';
+    });
+    const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
+    const others   = g.files.filter(f => {
+      const k = __detectFileKind(f);
+      return k === 'other' || k === 'fgd-combined' || k === 'fgd';
+    });
 
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
@@ -1738,16 +1695,11 @@ function stopListeningAccessRequests() {
   }
 }
 
-/* ============================================================
-   ✅ FIX [2026-10-05] D: renderAccessRequestsHTML()
-   - Tambah badge reason (SUBJECT / EXCEL / lainnya)
-   ============================================================ */
 function renderAccessRequestsHTML(requests) {
   if (!Array.isArray(requests) || requests.length === 0) {
     return `<div style="padding: 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada request izin akses</div>`;
   }
 
-  /* ✅ FIX D: Map reason → label + warna badge */
   const reasonMap = {
     'diskualifikasi_subject': { label: '📚 Diskualifikasi SUBJECT', bg: '#fef3c7', br: '#fde68a', text: '#92400e' },
     'diskualifikasi_excel':   { label: '📊 Diskualifikasi EXCEL',   bg: '#fef3c7', br: '#fde68a', text: '#92400e' }
@@ -1757,7 +1709,6 @@ function renderAccessRequestsHTML(requests) {
     const ago = r.requestedAt ? Math.round((Date.now() - r.requestedAt) / 1000) : null;
     const agoStr = ago === null ? '-' : ago < 60 ? ago + 's lalu' : ago < 3600 ? Math.floor(ago / 60) + 'm lalu' : ago < 86400 ? Math.floor(ago / 3600) + 'j lalu' : Math.floor(ago / 86400) + 'h lalu';
 
-    /* ✅ FIX D: Ambil info reason */
     const reason = reasonMap[r.reason] || null;
     const reasonBadge = reason
       ? `<span style="display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 10px;
@@ -1789,17 +1740,12 @@ function renderAccessRequestsHTML(requests) {
   }).join('');
 }
 
-/* ============================================================
-   ✅ FIX [2026-10-05] A + B: approveAccessRequest()
-   - A: pesan "password USED" (bukan FRESH)
-   - B: auto-cleanup sgs_requests setelah 5 menit
-   ============================================================ */
 async function approveAccessRequest(deviceId, name) {
   const n = name || 'kandidat';
   const ok = await __confirm(
     'Setujui izin akses untuk "' + n + '"?\n\n' +
     '• Device akan di-reset\n' +
-    '• Kandidat pakai password USED\n' +           /* ✅ FIX A */
+    '• Kandidat pakai password USED\n' +
     '• Kandidat harus login ulang',
     { title: '✓ Setujui Akses', okText: 'Ya, Setujui', okStyle: 'success' }
   );
@@ -1825,7 +1771,6 @@ async function approveAccessRequest(deviceId, name) {
       respondedBy: 'admin'
     });
 
-    /* ✅ FIX B: Auto-cleanup sgs_requests setelah 5 menit */
     setTimeout(() => {
       try {
         firebase.database().ref('sgs_requests/' + deviceId).remove()
@@ -1840,10 +1785,6 @@ async function approveAccessRequest(deviceId, name) {
   }
 }
 
-/* ============================================================
-   ✅ FIX [2026-10-05] C: rejectAccessRequest()
-   - Auto-cleanup sgs_requests setelah 1 menit
-   ============================================================ */
 async function rejectAccessRequest(deviceId) {
   const ok = await __confirmDanger('Tolak request izin ini?', { title: '✕ Tolak Request', okText: 'Ya, Tolak' });
   if (!ok) return;
@@ -1860,7 +1801,6 @@ async function rejectAccessRequest(deviceId) {
       respondedBy: 'admin'
     });
 
-    /* ✅ FIX C: Auto-cleanup sgs_requests setelah 1 menit */
     setTimeout(() => {
       try {
         firebase.database().ref('sgs_requests/' + deviceId).remove()
@@ -1910,11 +1850,6 @@ function openResultFilesPage() {
         .rf-chip:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
         .rf-chip.active { background: linear-gradient(135deg, #3b82f6, #6366f1);
           border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
-        .rf-card { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-          border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 20px;
-          transition: all .22s ease; backdrop-filter: blur(10px); animation: resultCardIn .35s ease both; }
-        .rf-card:hover { border-color: rgba(99,102,241,.4); transform: translateY(-3px);
-          box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 0 0 1px rgba(99,102,241,.2); }
         .rf-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
           border-radius: 9px; font-size: 12px; font-weight: 800; cursor: pointer;
           transition: all .18s ease; font-family: inherit; text-decoration: none; border: 0; }
@@ -2027,19 +1962,153 @@ async function loadResultFilesForPage() {
   __renderResultPageContent();
 }
 
+/* ============================================================
+   🆕 FOLDER VIEW — render hasil tes sebagai folder arsip
+   ============================================================ */
 function __renderResultPageContent() {
   const content = document.getElementById('rfContent');
   const chipsContainer = document.getElementById('rfPositionChips');
   const statsContainer = document.getElementById('rfStats');
   if (!content || !chipsContainer || !statsContainer) return;
 
+  /* Inject CSS folder view (sekali) */
+  if (!document.getElementById('rf-folder-css')) {
+    const st = document.createElement('style');
+    st.id = 'rf-folder-css';
+    st.textContent = `
+      .rf-folder-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 14px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .rf-folder-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+      }
+      @media (max-width: 640px) {
+        .rf-folder-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+      }
+      @media (max-width: 380px) {
+        .rf-folder-grid { grid-template-columns: 1fr; }
+      }
+
+      .rf-folder {
+        background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+        border: 1.5px solid rgba(255,255,255,.08);
+        border-radius: 14px;
+        overflow: hidden;
+        transition: all .25s ease;
+        backdrop-filter: blur(8px);
+      }
+      .rf-folder:hover {
+        border-color: rgba(99,102,241,.4);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(99,102,241,.15);
+      }
+      .rf-folder.open {
+        grid-column: 1 / -1;
+        border-color: rgba(99,102,241,.55);
+        box-shadow: 0 16px 42px rgba(0,0,0,.4), 0 0 0 1px rgba(99,102,241,.2);
+      }
+      .rf-folder.open:hover { transform: none; }
+
+      .rf-folder-header {
+        padding: 16px 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .rf-folder.open .rf-folder-header {
+        padding-bottom: 14px;
+        border-bottom: 1px dashed rgba(255,255,255,.1);
+      }
+
+      .rf-folder-icon {
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        display: grid;
+        place-items: center;
+        font-size: 28px;
+        background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(59,130,246,.15));
+        border: 1px solid rgba(99,102,241,.35);
+        border-radius: 12px;
+        transition: all .25s ease;
+      }
+      .rf-folder.open .rf-folder-icon { transform: rotate(-5deg) scale(1.05); }
+
+      .rf-folder-info { flex: 1; min-width: 0; }
+      .rf-folder-name {
+        font-size: 14px;
+        font-weight: 900;
+        color: #fff;
+        margin-bottom: 3px;
+        letter-spacing: -.2px;
+        word-break: break-word;
+        line-height: 1.25;
+      }
+      .rf-folder-meta {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+      .rf-folder-position {
+        font-size: 10.5px;
+        color: #a5b4fc;
+        font-weight: 700;
+        margin-top: 3px;
+      }
+      .rf-folder-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        margin-top: 5px;
+      }
+      .rf-folder-chevron {
+        font-size: 16px;
+        color: #64748b;
+        transition: transform .25s ease;
+        flex: 0 0 auto;
+      }
+      .rf-folder.open .rf-folder-chevron {
+        transform: rotate(180deg);
+        color: #a5b4fc;
+      }
+
+      .rf-folder-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height .4s ease;
+      }
+      .rf-folder.open .rf-folder-body {
+        max-height: 8000px;
+        padding: 14px;
+        padding-top: 12px;
+      }
+      .rf-folder-body-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+    `;
+    document.head.appendChild(st);
+  }
+
   const files = window.__resultFilesCache || [];
 
   const signature = JSON.stringify(files.map(f => f.id).sort());
-  if (window.__lastRenderedSignature === signature) {
-    return;
-  }
+  if (window.__lastRenderedSignature === signature) return;
   window.__lastRenderedSignature = signature;
+
+  /* ── Group by candidate ── */
   const groups = new Map();
   files.forEach(f => {
     const info = __extractCandidateInfo(f);
@@ -2063,6 +2132,7 @@ function __renderResultPageContent() {
     window.__candidateFilesMap[k] = g.files;
   });
 
+  /* ── Position chips ── */
   const positionSet = new Set();
   groupArr.forEach(g => { if (g.position && g.position !== '-') positionSet.add(g.position); });
   const positions = Array.from(positionSet).sort();
@@ -2083,6 +2153,7 @@ function __renderResultPageContent() {
   }
   chipsContainer.innerHTML = chipsHTML;
 
+  /* ── Stats ── */
   const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
   statsContainer.innerHTML = `
     <div style="padding: 8px 14px; border-radius: 10px; background: rgba(99,102,241,.12);
@@ -2092,6 +2163,7 @@ function __renderResultPageContent() {
       border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">
       📎 ${totalFiles} file</div>`;
 
+  /* ── Filter + search ── */
   const search = window.__resultSearchQuery || '';
   const filterPos = window.__resultFilterPosition || 'all';
   let filtered = groupArr;
@@ -2113,132 +2185,147 @@ function __renderResultPageContent() {
     return;
   }
 
-  const cardsHTML = filtered.map(g => {
-    const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
-const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
-const wawancara = g.files.filter(f => {
-  const k = __detectFileKind(f);
-  return k === 'wawancara' || k === 'wawancara-combined';
-});
-const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
-const others   = g.files.filter(f => {
-  const k = __detectFileKind(f);
-  return k === 'other' || k === 'fgd-combined' || k === 'fgd';
-});
+  /* ── Reusable: file row inside folder ── */
+  function fileRow(f, kind) {
+    const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+    const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
+    const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
+    let pdfPassword = '-';
+    if (kind === 'pdf') {
+      try {
+        String(f.description || '').split('\n').forEach(l => {
+          const t = l.trim();
+          if (t.startsWith('Password PDF:')) pdfPassword = t.replace('Password PDF:', '').trim();
+        });
+      } catch (e) {}
+    }
+    const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
+      ? `<div style="margin-top: 8px; padding: 8px 10px; display: inline-flex; align-items: center; gap: 8px;
+          background: rgba(250,204,21,.15); border: 1px solid rgba(250,204,21,.4); border-radius: 7px;
+          font-size: 11px; flex-wrap: wrap;">
+          <span style="font-weight: 800; color: #fde047; white-space: nowrap;">🔑 Password PDF:</span>
+          <code style="font-family: 'Courier New', monospace; font-weight: 800; color: #fff;
+            background: rgba(0,0,0,.35); padding: 3px 9px; border-radius: 4px; font-size: 11.5px;
+            word-break: break-all;">${__adminEscape(pdfPassword)}</code>
+          <button class="js-copy-pdf-password" data-password="${__adminEscape(pdfPassword)}"
+            style="padding: 3px 9px; border: 1px solid rgba(250,204,21,.5); background: rgba(255,255,255,.08);
+            border-radius: 5px; cursor: pointer; font-size: 11px; font-family: inherit;
+            font-weight: 800; color: #fde047;">📋</button></div>` : '';
+    const safeFileUrl = __safeUrl(f.url);
+    return `
+      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+        background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 11px;">
+        <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
+          background: rgba(255,255,255,.06); border-radius: 9px; font-size: 16px;">${iconMap[kind] || iconMap.other}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 800; color: #e2e8f0; font-size: 12px; margin-bottom: 3px;">${labelMap[kind] || labelMap.other}</div>
+          <div style="color: #64748b; font-size: 10.5px; word-break: break-all; line-height: 1.4;">
+            ${__adminEscape((f.name || '').slice(0, 60))}${(f.name || '').length > 60 ? '...' : ''} · ${sizeMB}</div>
+          ${passwordRow}
+        </div>
+        <div style="display: flex; gap: 6px; flex: 0 0 auto;">
+          <a href="${safeFileUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
+          <button class="js-delete-file rf-btn rf-btn-danger" data-file-id="${__adminEscape(f.id)}"
+            data-file-name="${__adminEscape(f.name)}">🗑</button>
+        </div>
+      </div>`;
+  }
+
+  /* ── Folder cards ── */
+  const avatarColors = [
+    ['#3b82f6','#1e40af'], ['#8b5cf6','#6d28d9'], ['#10b981','#047857'],
+    ['#f59e0b','#b45309'], ['#ec4899','#be185d'], ['#06b6d4','#0e7490']
+  ];
+
+  const foldersHTML = filtered.map(g => {
+    const pdfs      = g.files.filter(f => __detectFileKind(f) === 'pdf');
+    const excels    = g.files.filter(f => __detectFileKind(f) === 'excel');
+    const wawancara = g.files.filter(f => { const k = __detectFileKind(f); return k === 'wawancara' || k === 'wawancara-combined'; });
+    const grafis    = g.files.filter(f => __detectFileKind(f) === 'grafis');
+    const others    = g.files.filter(f => { const k = __detectFileKind(f); return k === 'other' || k === 'fgd-combined' || k === 'fgd'; });
+
     const latestDate = Math.max(...g.files.map(f => f.date || 0));
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
-    const initials = (g.name || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
-    const hash = (g.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    const avatarColors = [['#3b82f6','#1e40af'],['#8b5cf6','#6d28d9'],['#10b981','#047857'],['#f59e0b','#b45309'],['#ec4899','#be185d'],['#06b6d4','#0e7490']];
-    const [c1, c2] = avatarColors[hash % avatarColors.length];
+      day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
-    let badge, badgeColor;
-    if (pdfs.length > 0 && excels.length > 0) { badge = '✓ Lengkap'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' }; }
-    else if (pdfs.length > 0) { badge = '📄 PDF'; badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd' }; }
-    else if (excels.length > 0) { badge = '📊 Excel'; badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac' }; }
-    else { badge = `📁 ${g.files.length} file`; badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1' }; }
-
-    function fileRow(f, kind) {
-      const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-      const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
-      const labelMap = { pdf: 'Hasil Tes (PDF)', excel: 'Jawaban Excel', other: 'File Lain' };
-      let pdfPassword = '-';
-      if (kind === 'pdf') {
-        try {
-          String(f.description || '').split('\n').forEach(l => {
-            const t = l.trim();
-            if (t.startsWith('Password PDF:')) pdfPassword = t.replace('Password PDF:', '').trim();
-          });
-        } catch (e) {}
-      }
-      const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
-        ? `<div style="margin-top: 8px; padding: 8px 10px; display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(250,204,21,.15); border: 1px solid rgba(250,204,21,.4); border-radius: 7px;
-            font-size: 11px; flex-wrap: wrap;">
-            <span style="font-weight: 800; color: #fde047; white-space: nowrap;">🔑 Password PDF:</span>
-            <code style="font-family: 'Courier New', monospace; font-weight: 800; color: #fff;
-              background: rgba(0,0,0,.35); padding: 3px 9px; border-radius: 4px; font-size: 11.5px;
-              word-break: break-all;">${__adminEscape(pdfPassword)}</code>
-            <button class="js-copy-pdf-password" data-password="${__adminEscape(pdfPassword)}"
-              style="padding: 3px 9px; border: 1px solid rgba(250,204,21,.5); background: rgba(255,255,255,.08);
-              border-radius: 5px; cursor: pointer; font-size: 11px; font-family: inherit;
-              font-weight: 800; color: #fde047;">📋</button></div>` : '';
-      const safeFileUrl = __safeUrl(f.url);
-      return `
-        <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
-          background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 11px;">
-          <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-            background: rgba(255,255,255,.06); border-radius: 9px; font-size: 16px;">${iconMap[kind] || iconMap.other}</div>
-          <div style="flex: 1; min-width: 0;">
-            <div style="font-weight: 800; color: #e2e8f0; font-size: 12px; margin-bottom: 3px;">${labelMap[kind] || labelMap.other}</div>
-            <div style="color: #64748b; font-size: 10.5px; word-break: break-all; line-height: 1.4;">
-              ${__adminEscape((f.name || '').slice(0, 45))}${(f.name || '').length > 45 ? '...' : ''} · ${sizeMB}</div>
-            ${passwordRow}
-          </div>
-          <div style="display: flex; gap: 6px; flex: 0 0 auto;">
-            <a href="${safeFileUrl}" target="_blank" rel="noopener" class="rf-btn rf-btn-primary">⬇ Buka</a>
-            <button class="js-delete-file rf-btn rf-btn-danger" data-file-id="${__adminEscape(f.id)}"
-              data-file-name="${__adminEscape(f.name)}">🗑</button>
-          </div>
-        </div>`;
+    let badgeColor;
+    if (pdfs.length > 0 && excels.length > 0) {
+      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '✓ Lengkap' };
+    } else if (pdfs.length > 0) {
+      badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd', label: '📄 PDF' };
+    } else if (excels.length > 0) {
+      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '📊 Excel' };
+    } else {
+      badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1', label: `📁 ${g.files.length} file` };
     }
 
+    const hash = (g.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const [c1, c2] = avatarColors[hash % avatarColors.length];
     const candidateKey = __normalizeCandidateKey(g.name);
+    const folderId = 'rf-folder-' + hash + '-' + g.files.length + '-' + candidateKey.replace(/[^a-z0-9]/g, '-').slice(0, 20);
+
+    const innerFilesHTML = `
+      <div class="rf-folder-body-inner">
+        ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
+        ${excels.map(f => fileRow(f, 'excel')).join('')}
+        ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
+        ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
+        ${others.map(f => fileRow(f, 'other')).join('')}
+
+        <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:6px; padding-top:10px;
+          border-top:1px dashed rgba(255,255,255,.08); flex-wrap:wrap;">
+          <button class="js-interview-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
+            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(250,204,21,.4);
+              background: rgba(250,204,21,.15); color: #fde047; font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;">
+            🎤 Wawancara</button>
+          <button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
+            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
+              background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;">
+            ✍ Grafis</button>
+          <button class="js-download-zip" data-candidate-key="${__adminEscape(candidateKey)}"
+            style="padding: 7px 14px; border-radius: 999px;
+              border: 1px solid rgba(16,185,129,.55);
+              background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
+              color: #6ee7b7; font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;
+              box-shadow: 0 0 12px rgba(16,185,129,.25);">
+            📦 ZIP (${g.files.length})</button>
+        </div>
+      </div>`;
 
     return `
-      <div class="rf-card">
-        <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px;
-          padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.06);">
-          <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
-            background: linear-gradient(135deg, ${c1}, ${c2}); border-radius: 14px; font-size: 17px;
-            font-weight: 900; color: #fff; letter-spacing: -.5px; box-shadow: 0 6px 16px ${c1}55;">${initials}</div>
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px;">
-              <div style="font-size: 15px; font-weight: 900; color: #fff; letter-spacing: -.2px;
-                word-break: break-word;">${__adminEscape(g.name)}</div>
-              <span style="padding: 3px 10px; border-radius: 999px; background: ${badgeColor.bg};
-                border: 1px solid ${badgeColor.br}; color: ${badgeColor.text}; font-size: 10px;
-                font-weight: 800; white-space: nowrap;">${badge}</span>
-              <button class="js-interview-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-                style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(250,204,21,.4);
-                  background: rgba(250,204,21,.15); color: #fde047; font-size: 10px; font-weight: 800;
-                  cursor: pointer; font-family: inherit; white-space: nowrap;">
-                🎤 Wawancara
-              </button>
-              <button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-                style="padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
-                  background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 10px; font-weight: 800;
-                  cursor: pointer; font-family: inherit; white-space: nowrap;">
-                ✍ Grafis
-              </button>
-              <button class="js-download-zip" data-candidate-key="${__adminEscape(candidateKey)}"
-                style="padding: 4px 10px; border-radius: 999px;
-                  border: 1px solid rgba(16,185,129,.55);
-                  background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
-                  color: #6ee7b7; font-size: 10px; font-weight: 800;
-                  cursor: pointer; font-family: inherit; white-space: nowrap;
-                  box-shadow: 0 0 12px rgba(16,185,129,.25);">
-                📦 ZIP (${g.files.length})
-              </button>
-            </div>
-            <div style="color: #94a3b8; font-size: 12px; font-weight: 600;">
-              ${g.position !== '-' ? `💼 ${__adminEscape(g.position)}` : '💼 <span style="opacity:.6">Tanpa posisi</span>'}
-              <span style="opacity:.4; margin: 0 8px;">•</span>🕐 ${dateStr}</div>
+      <div class="rf-folder" id="${folderId}">
+        <div class="rf-folder-header" onclick="__toggleFolder('${folderId}')">
+          <div class="rf-folder-icon" style="background: linear-gradient(135deg, ${c1}25, ${c2}15); border-color: ${c1}55;">
+            📁
           </div>
+          <div class="rf-folder-info">
+            <div class="rf-folder-name">${__adminEscape(g.name)}</div>
+            ${g.position && g.position !== '-' ? `<div class="rf-folder-position">💼 ${__adminEscape(g.position)}</div>` : ''}
+            <div class="rf-folder-meta">📎 ${g.files.length} file · 🕐 ${dateStr}</div>
+            <span class="rf-folder-badge" style="background:${badgeColor.bg};border:1px solid ${badgeColor.br};color:${badgeColor.text};">
+              ${badgeColor.label}
+            </span>
+          </div>
+          <div class="rf-folder-chevron">▾</div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
-          ${excels.map(f => fileRow(f, 'excel')).join('')}
-          ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
-          ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
-          ${others.map(f => fileRow(f, 'other')).join('')}
+        <div class="rf-folder-body">
+          ${innerFilesHTML}
         </div>
       </div>`;
   }).join('');
 
-  content.innerHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px;">${cardsHTML}</div>`;
+  content.innerHTML = `<div class="rf-folder-grid">${foldersHTML}</div>`;
 }
+
+/* 🆕 Toggle folder open/close */
+window.__toggleFolder = function(folderId) {
+  const el = document.getElementById(folderId);
+  if (!el) return;
+  el.classList.toggle('open');
+};
 
 function __setResultFilter(pos) {
   window.__resultFilterPosition = pos;
@@ -2398,22 +2485,22 @@ function renderAdminPanel() {
           <div style="padding: 10px 18px; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff;
             border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
         </button>
-<button onclick="openAssessorSettingsPage()" style="width: 100%; padding: 20px 22px;
-  background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #93c5fd;
-  border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
-  display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;">
-  <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
-    <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
-      background: linear-gradient(135deg, #3b82f6, #1e40af); border-radius: 14px; font-size: 22px;">👥</div>
-    <div style="min-width: 0;">
-      <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px;">Kelola Asesor</div>
-      <div style="font-size: 12px; font-weight: 700; color: #1e40af;">Daftar nama untuk Interview &amp; FGD</div>
-    </div>
-  </div>
-  <div style="padding: 10px 18px; background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff;
-    border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
-</button>
-        
+
+        <button onclick="openAssessorSettingsPage()" style="width: 100%; padding: 20px 22px;
+          background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #93c5fd;
+          border-radius: 14px; margin-bottom: 16px; cursor: pointer; font-family: inherit;
+          display: flex; align-items: center; justify-content: space-between; gap: 14px; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+            <div style="width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center;
+              background: linear-gradient(135deg, #3b82f6, #1e40af); border-radius: 14px; font-size: 22px;">👥</div>
+            <div style="min-width: 0;">
+              <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px;">Kelola Asesor</div>
+              <div style="font-size: 12px; font-weight: 700; color: #1e40af;">Daftar nama untuk Interview &amp; FGD</div>
+            </div>
+          </div>
+          <div style="padding: 10px 18px; background: linear-gradient(135deg, #3b82f6, #1e40af); color: #fff;
+            border-radius: 11px; font-size: 13px; font-weight: 800; white-space: nowrap; flex: 0 0 auto;">Buka →</div>
+        </button>
 
         <div style="padding: 16px 18px; background: #f1f5f9; border-radius: 12px; margin-bottom: 16px;
           font-size: 13px; color: #334155; line-height: 1.9;">
@@ -2540,13 +2627,6 @@ function renderAdminPanel() {
 async function checkAdminUrlAndRender() {
   if (!isAdminUrl()) return false;
 
-  /* ============================================================
-     ✅ FIX [2026-10-05]: Tunggu Firebase ready dulu
-     ------------------------------------------------------------
-     Sebelumnya fungsi ini dipanggil oleh runInit() SEBELUM Firebase
-     selesai init → firebase.auth() undefined → crash silent →
-     form login tidak muncul. Sekarang tunggu max 3 detik dulu.
-     ============================================================ */
   let waited = 0;
   while ((typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) && waited < 30) {
     await new Promise(r => setTimeout(r, 100));
@@ -2758,13 +2838,13 @@ window.showResultToast = showResultToast;
 window.startSignalListeners = startSignalListeners;
 window.stopSignalListeners = stopSignalListeners;
 
-/* 🆕 Export grafis & ZIP functions */
 window.__extractInterviewer = __extractInterviewer;
 window.__extractAssessorGrafis = __extractAssessorGrafis;
 window.__renderWawancaraBox = __renderWawancaraBox;
 window.__renderGrafisBox = __renderGrafisBox;
 window.downloadCandidateZip = downloadCandidateZip;
 window.__normalizeCandidateKey = __normalizeCandidateKey;
+window.__toggleFolder = window.__toggleFolder;
 
 /* ============================================================
    SESSION TIMEOUT
@@ -2862,4 +2942,4 @@ window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
 
-console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP');
+console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER VIEW');
