@@ -1495,19 +1495,31 @@
             : null;
           let __passwordHTML = '';
           if (__usedPwd && __usedPwd.length > 0) {
+            /* 🆕 URL copy-helper — tombol copy otomatis */
+            const __copyHelperUrl = window.location.origin + window.location.pathname +
+              '?copypw=' + encodeURIComponent(__usedPwd) +
+              '&next=' + encodeURIComponent(url);
+
             __passwordHTML =
               '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
-              'border-radius:12px;padding:16px 20px;margin:18px 0;text-align:center;">' +
+              'border-radius:14px;padding:20px 22px;margin:18px 0;text-align:center;">' +
                 '<div style="font-size:11px;font-weight:800;letter-spacing:2px;' +
-                  'color:rgba(255,255,255,.85);margin-bottom:8px;">' +
+                  'color:rgba(255,255,255,.85);margin-bottom:10px;">' +
                   '🔑 KODE AKSES MASUK TES</div>' +
                 '<div style="font-family:\'Courier New\',monospace;font-size:22px;' +
-                  'font-weight:900;color:#fff;letter-spacing:2px;padding:10px 16px;' +
-                  'background:rgba(0,0,0,.25);border-radius:8px;display:inline-block;">' +
+                  'font-weight:900;color:#fff;letter-spacing:2px;padding:12px 16px;' +
+                  'background:rgba(0,0,0,.3);border-radius:10px;display:block;' +
+                  'margin-bottom:12px;word-break:break-all;">' +
                   __usedPwd +
                 '</div>' +
-                '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:8px;">' +
-                  'Salin kode di atas untuk login ke tes</div>' +
+                '<a href="' + __copyHelperUrl + '" ' +
+                  'style="display:inline-block;padding:11px 24px;' +
+                  'background:#fff;color:#1e3a8a;text-decoration:none;' +
+                  'border-radius:10px;font-weight:900;font-size:13px;">' +
+                  '📋 Salin Password & Lanjut' +
+                '</a>' +
+                '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;">' +
+                  'Klik tombol di atas — password otomatis tersalin</div>' +
               '</div>';
           }
 
@@ -1564,11 +1576,23 @@
                   '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
                   '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
                 '</div>' +
-                                __countdownHTML +
+                __countdownHTML +
                 __passwordHTML +
-                '<div style="text-align:center;margin:24px 0;">' +
-                  '<a href="' + url + '" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px;">🚀 Mulai Tes Tahap ' + tahapVal + '</a>' +
-                '</div>' +
+                (__startVal > 0
+                  ? '<div style="background:#f1f5f9;border:1.5px dashed #94a3b8;' +
+                      'border-radius:12px;padding:16px 20px;margin:18px 0;text-align:center;">' +
+                      '<div style="font-size:13.5px;color:#475569;line-height:1.7;">' +
+                        '🔒 <b>Link tes akan aktif otomatis</b> pada waktu di atas.<br>' +
+                        'Klik tombol <b>"Salin Password & Lanjut"</b> di atas untuk buka halaman tes.' +
+                      '</div>' +
+                    '</div>'
+                  : '<div style="text-align:center;margin:24px 0;">' +
+                      '<a href="' + url + '" style="display:inline-block;padding:16px 36px;' +
+                      'background:linear-gradient(135deg,#16a34a,#059669);color:#fff;' +
+                      'text-decoration:none;border-radius:12px;font-weight:900;' +
+                      'font-size:15px;">🔓 Akses Tes Sekarang</a>' +
+                    '</div>'
+                ) +
                 '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
                   '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
                 '</div>' +
