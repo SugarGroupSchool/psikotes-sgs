@@ -1815,6 +1815,8 @@ async function rejectAccessRequest(deviceId) {
 window.__resultFilterPosition = 'all';
 window.__resultSearchQuery = '';
 window.__resultFilesPageOpen = false;
+window.__candidateStatusMap = {};
+window.__candidateShowArchived = false;
 
 function openResultFilesPage() {
   const existing = document.getElementById('resultFilesPageOverlay');
@@ -1934,6 +1936,8 @@ function closeResultFilesPage() {
 async function loadResultFilesForPage() {
   const content = document.getElementById('rfContent');
   if (!content) return;
+  /* 🆕 Fetch status semua kandidat dulu */
+  try { await __fetchAllCandidateStatus(); } catch (e) {}
   if (Array.isArray(window.__resultFilesCacheData)) {
     window.__resultFilesCache = window.__resultFilesCacheData;
     __renderResultPageContent();
@@ -1955,6 +1959,55 @@ async function loadResultFilesForPage() {
   window.__resultFilesCache = files;
   __renderResultPageContent();
 }
+
+/* ============================================================
+   🆕 CANDIDATE STATUS HELPERS
+   ============================================================ */
+async function __fetchAllCandidateStatus() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return {};
+  try {
+    const snap = await firebase.database().ref('sgs_candidate_status').once('value');
+    window.__candidateStatusMap = snap.val() || {};
+    return window.__candidateStatusMap;
+  } catch (e) {
+    console.warn('[STATUS] Gagal fetch:', e.message);
+    return {};
+  }
+}
+
+function __getStatusBadge(status) {
+  const map = {
+    'lolos':           { label: '✅ Lolos',            bg: 'rgba(34,197,94,.18)',   br: 'rgba(34,197,94,.55)',   text: '#86efac', color: '#16a34a' },
+    'tidak_lolos':     { label: '❌ Tidak Lolos',      bg: 'rgba(239,68,68,.18)',   br: 'rgba(239,68,68,.55)',   text: '#fca5a5', color: '#dc2626' },
+    'dipertimbangkan': { label: '⭐ Dipertimbangkan',   bg: 'rgba(245,158,11,.18)',  br: 'rgba(245,158,11,.55)',  text: '#fcd34d', color: '#d97706' },
+    '':                { label: '⏳ Pending',           bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)',  text: '#cbd5e1', color: '#94a3b8' }
+  };
+  return map[status] || map[''];
+}
+
+function __getPengumumanBadge(statusData) {
+  const sent = statusData && statusData.emailSentAt;
+  const sentStatus = statusData && statusData.emailSentStatus;
+  if (sent && sentStatus) {
+    const label = sentStatus === 'lolos' ? 'Lolos'
+                : sentStatus === 'tidak_lolos' ? 'Tidak Lolos'
+                : sentStatus === 'dipertimbangkan' ? 'Dipertimbangkan'
+                : sentStatus;
+    return {
+      label: '📢 Sudah Diinfokan (' + label + ')',
+      bg: 'rgba(59,130,246,.18)',
+      br: 'rgba(59,130,246,.5)',
+      text: '#93c5fd'
+    };
+  }
+  return {
+    label: '🔕 Belum Diinfokan',
+    bg: 'rgba(148,163,184,.12)',
+    br: 'rgba(148,163,184,.35)',
+    text: '#94a3b8'
+  };
+}
+
 
 /* ============================================================
    FOLDER VIEW — grid folder arsip (klik → overlay)
@@ -2042,13 +2095,18 @@ function __renderResultPageContent() {
         font-weight: 700;
         margin-top: 3px;
       }
+      .rf-folder-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
       .rf-folder-badge {
         display: inline-block;
         padding: 3px 9px;
         border-radius: 999px;
         font-size: 10px;
         font-weight: 800;
-        margin-top: 5px;
       }
       .rf-folder-chevron {
         font-size: 16px;
@@ -2060,9 +2118,10 @@ function __renderResultPageContent() {
     document.head.appendChild(st);
   }
 
+  /* 🆕 Fetch status semua kandidat dulu */
   const files = window.__resultFilesCache || [];
 
-  const signature = JSON.stringify(files.map(f => f.id).sort());
+  const signature = JSON.stringify(files.map(f => f.id).sort()) + '|' + JSON.stringify(Object.keys(window.__candidateStatusMap || {}));
   if (window.__lastRenderedSignature === signature) return;
   window.__lastRenderedSignature = signature;
 
@@ -2089,38 +2148,74 @@ function __renderResultPageContent() {
     window.__candidateFilesMap[k] = g.files;
   });
 
+  /* Filter posisi chips */
   const positionSet = new Set();
   groupArr.forEach(g => { if (g.position && g.position !== '-') positionSet.add(g.position); });
   const positions = Array.from(positionSet).sort();
 
   const currentFilter = window.__resultFilterPosition || 'all';
+  const showArchived = window.__candidateShowArchived === true;
+
+  /* Filter arsip */
+  function isArchived(g) {
+    const slug = __normalizeCandidateKey(g.name);
+    const s = window.__candidateStatusMap[slug] || {};
+    return s.status === 'tidak_lolos' || s._archived === true;
+  }
+
+  function isLolos(g) {
+    const slug = __normalizeCandidateKey(g.name);
+    const s = window.__candidateStatusMap[slug] || {};
+    return s.status === 'lolos';
+  }
+
+  /* Data berdasarkan mode */
+  const sourceArr = showArchived
+    ? groupArr.filter(isArchived)
+    : groupArr.filter(g => !isArchived(g));
+
   let chipsHTML = `<button class="rf-chip ${currentFilter === 'all' ? 'active' : ''}"
-    onclick="__setResultFilter('all')">Semua (${groupArr.length})</button>`;
+    onclick="__setResultFilter('all')">Semua (${sourceArr.length})</button>`;
   positions.forEach(p => {
-    const count = groupArr.filter(g => g.position === p).length;
+    const count = sourceArr.filter(g => g.position === p).length;
+    if (count === 0) return;
     const safeP = String(p).replace(/'/g, "\\'");
     chipsHTML += `<button class="rf-chip ${currentFilter === p ? 'active' : ''}"
       onclick="__setResultFilter('${safeP}')">${__adminEscape(p)} (${count})</button>`;
   });
-  const noPosCount = groupArr.filter(g => !g.position || g.position === '-').length;
+  const noPosCount = sourceArr.filter(g => !g.position || g.position === '-').length;
   if (noPosCount > 0) {
     chipsHTML += `<button class="rf-chip ${currentFilter === '__no_position__' ? 'active' : ''}"
       onclick="__setResultFilter('__no_position__')">Tanpa Posisi (${noPosCount})</button>`;
   }
+
+  /* 🆕 Chip Arsip */
+  const archivedCount = groupArr.filter(isArchived).length;
+  chipsHTML += `<button class="rf-chip ${showArchived ? 'active' : ''}"
+    onclick="__toggleArsipFilter()" style="border-color: rgba(220,38,38,.5); color: ${showArchived ? '#fff' : '#fca5a5'};">
+    📦 ${showArchived ? 'Keluar dari Arsip' : 'Arsip'} (${archivedCount})
+  </button>`;
+
   chipsContainer.innerHTML = chipsHTML;
 
-  const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
+  /* Stats */
+  const totalFiles = sourceArr.reduce((acc, g) => acc + g.files.length, 0);
+  const lolosCount = sourceArr.filter(isLolos).length;
   statsContainer.innerHTML = `
     <div style="padding: 8px 14px; border-radius: 10px; background: rgba(99,102,241,.12);
       border: 1px solid rgba(99,102,241,.3); font-size: 12px; font-weight: 800; color: #a5b4fc;">
-      👥 ${groupArr.length} kandidat</div>
+      👥 ${sourceArr.length} kandidat</div>
     <div style="padding: 8px 14px; border-radius: 10px; background: rgba(34,197,94,.12);
       border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">
+      ✅ ${lolosCount} lolos</div>
+    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(59,130,246,.12);
+      border: 1px solid rgba(59,130,246,.3); font-size: 12px; font-weight: 800; color: #93c5fd;">
       📎 ${totalFiles} file</div>`;
 
+  /* Filter posisi + search */
   const search = window.__resultSearchQuery || '';
   const filterPos = window.__resultFilterPosition || 'all';
-  let filtered = groupArr;
+  let filtered = sourceArr;
   if (filterPos === '__no_position__') filtered = filtered.filter(g => !g.position || g.position === '-');
   else if (filterPos !== 'all') filtered = filtered.filter(g => g.position === filterPos);
   if (search) filtered = filtered.filter(g =>
@@ -2131,7 +2226,8 @@ function __renderResultPageContent() {
       padding: 80px 20px; color: #64748b; font-size: 14px; flex-direction: column; gap: 12px; text-align: center;">
       <div style="font-size: 52px; opacity: .5;">📭</div>
       <div style="font-weight: 700; color: #94a3b8;">
-        ${files.length === 0 ? 'Belum ada hasil tes yang terkirim' : 'Tidak ada kandidat yang cocok dengan filter'}</div>
+        ${showArchived ? 'Belum ada kandidat di arsip' :
+          (files.length === 0 ? 'Belum ada hasil tes yang terkirim' : 'Tidak ada kandidat yang cocok dengan filter')}</div>
       ${files.length > 0 ? `<button onclick="__resetResultFilter()" style="margin-top: 8px; padding: 9px 20px;
         background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.4);
         color: #a5b4fc; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 800;
@@ -2145,6 +2241,11 @@ function __renderResultPageContent() {
   ];
 
   const foldersHTML = filtered.map(g => {
+    const slug = __normalizeCandidateKey(g.name);
+    const statusData = window.__candidateStatusMap[slug] || {};
+    const statusBadge = __getStatusBadge(statusData.status);
+    const pengumumanBadge = __getPengumumanBadge(statusData);
+
     const pdfs      = g.files.filter(f => __detectFileKind(f) === 'pdf');
     const excels    = g.files.filter(f => __detectFileKind(f) === 'excel');
 
@@ -2152,23 +2253,22 @@ function __renderResultPageContent() {
     const dateStr = latestDate ? new Date(latestDate).toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
-    let badgeColor;
+    let filesBadge;
     if (pdfs.length > 0 && excels.length > 0) {
-      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '✓ Lengkap' };
+      filesBadge = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '✓ Lengkap' };
     } else if (pdfs.length > 0) {
-      badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd', label: '📄 PDF' };
+      filesBadge = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd', label: '📄 PDF' };
     } else if (excels.length > 0) {
-      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '📊 Excel' };
+      filesBadge = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '📊 Excel' };
     } else {
-      badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1', label: `📁 ${g.files.length} file` };
+      filesBadge = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1', label: `📁 ${g.files.length} file` };
     }
 
     const hash = (g.name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
     const [c1, c2] = avatarColors[hash % avatarColors.length];
-    const candidateKey = __normalizeCandidateKey(g.name);
 
     return `
-      <div class="rf-folder js-open-folder" data-candidate-key="${__adminEscape(candidateKey)}">
+      <div class="rf-folder js-open-folder" data-candidate-key="${__adminEscape(slug)}">
         <div class="rf-folder-header">
           <div class="rf-folder-icon" style="background: linear-gradient(135deg, ${c1}25, ${c2}15); border-color: ${c1}55;">
             📁
@@ -2177,9 +2277,17 @@ function __renderResultPageContent() {
             <div class="rf-folder-name">${__adminEscape(g.name)}</div>
             ${g.position && g.position !== '-' ? `<div class="rf-folder-position">💼 ${__adminEscape(g.position)}</div>` : ''}
             <div class="rf-folder-meta">📎 ${g.files.length} file · 🕐 ${dateStr}</div>
-            <span class="rf-folder-badge" style="background:${badgeColor.bg};border:1px solid ${badgeColor.br};color:${badgeColor.text};">
-              ${badgeColor.label}
-            </span>
+            <div class="rf-folder-badges">
+              <span class="rf-folder-badge" style="background:${statusBadge.bg};border:1px solid ${statusBadge.br};color:${statusBadge.text};">
+                ${statusBadge.label}
+              </span>
+              <span class="rf-folder-badge" style="background:${pengumumanBadge.bg};border:1px solid ${pengumumanBadge.br};color:${pengumumanBadge.text};">
+                ${pengumumanBadge.label}
+              </span>
+              <span class="rf-folder-badge" style="background:${filesBadge.bg};border:1px solid ${filesBadge.br};color:${filesBadge.text};">
+                ${filesBadge.label}
+              </span>
+            </div>
           </div>
           <div class="rf-folder-chevron">→</div>
         </div>
@@ -2188,6 +2296,12 @@ function __renderResultPageContent() {
 
   content.innerHTML = `<div class="rf-folder-grid">${foldersHTML}</div>`;
 }
+
+window.__toggleArsipFilter = function() {
+  window.__candidateShowArchived = !window.__candidateShowArchived;
+  window.__lastRenderedSignature = null;
+  __renderResultPageContent();
+};
 
 /* ============================================================
    🆕 OVERLAY: Buka Folder Kandidat (Responsive)
@@ -2202,11 +2316,15 @@ window.__openCandidateFolder = function(candidateKey) {
   const info = __extractCandidateInfo(files[0]);
   const name = info.name || candidateKey;
   const position = info.position || '';
+  const slug = candidateKey;
+
+  const statusData = window.__candidateStatusMap[slug] || {};
+  const statusBadge = __getStatusBadge(statusData.status);
+  const pengumumanBadge = __getPengumumanBadge(statusData);
 
   const old = document.getElementById('rfFolderOverlay');
   if (old) old.remove();
 
-  /* Inject overlay CSS */
   if (!document.getElementById('rf-folder-overlay-style')) {
     const st = document.createElement('style');
     st.id = 'rf-folder-overlay-style';
@@ -2216,14 +2334,12 @@ window.__openCandidateFolder = function(candidateKey) {
         from { opacity: 0; transform: translateY(20px) scale(.97); }
         to   { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .rf-folder-overlay-card {
-        animation: rfFolderSlideIn .28s cubic-bezier(.2,.8,.2,1);
-      }
+      .rf-folder-overlay-card { animation: rfFolderSlideIn .28s cubic-bezier(.2,.8,.2,1); }
       .rf-folder-overlay-scroll::-webkit-scrollbar { width: 6px; }
       .rf-folder-overlay-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); border-radius: 3px; }
       .rf-folder-overlay-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
 
-      @media (max-width: 640px) {
+      @media (max-width: 720px) {
         .rf-folder-overlay-card {
           width: 100% !important;
           max-width: 100% !important;
@@ -2231,13 +2347,8 @@ window.__openCandidateFolder = function(candidateKey) {
           max-height: calc(100vh - 20px) !important;
           border-radius: 16px !important;
         }
-        .rf-folder-overlay-actions {
-          flex-direction: column !important;
-          gap: 6px !important;
-        }
-        .rf-folder-overlay-actions button {
-          width: 100% !important;
-          justify-content: center !important;
+        .rf-folder-actions {
+          grid-template-columns: repeat(2, 1fr) !important;
         }
       }
       @media (max-width: 380px) {
@@ -2260,7 +2371,6 @@ window.__openCandidateFolder = function(candidateKey) {
     animation: rfFolderFadeIn .2s ease;
   `;
 
-  /* Build file list */
   const pdfs      = files.filter(f => __detectFileKind(f) === 'pdf');
   const excels    = files.filter(f => __detectFileKind(f) === 'excel');
   const wawancara = files.filter(f => { const k = __detectFileKind(f); return k === 'wawancara' || k === 'wawancara-combined'; });
@@ -2324,9 +2434,99 @@ window.__openCandidateFolder = function(candidateKey) {
     ${others.map(f => fileRow(f, 'other')).join('')}
   `;
 
+  /* Action buttons config */
+  const actionsHTML = `
+    <button class="js-retake-open"
+      data-slug="${__adminEscape(slug)}"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        border: 0; color: #fff; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        box-shadow: 0 4px 12px rgba(59,130,246,.3);">
+      <span style="font-size: 20px;">📤</span>
+      <span class="rf-folder-overlay-btn-label">KIRIM LINK TES</span>
+    </button>
+
+    <button class="js-pengumuman-open"
+      data-slug="${__adminEscape(slug)}"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        border: 0; color: #fff; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        box-shadow: 0 4px 12px rgba(22,163,74,.3);">
+      <span style="font-size: 20px;">📢</span>
+      <span class="rf-folder-overlay-btn-label">KIRIM PENGUMUMAN</span>
+    </button>
+
+    <button class="js-interview-link"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: rgba(250,204,21,.15);
+        border: 1px solid rgba(250,204,21,.5);
+        color: #fde047; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">🎤</span>
+      <span class="rf-folder-overlay-btn-label">WAWANCARA</span>
+    </button>
+
+    <button class="js-grafindo-link"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: rgba(168,85,247,.15);
+        border: 1px solid rgba(168,85,247,.5);
+        color: #d8b4fe; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">✍</span>
+      <span class="rf-folder-overlay-btn-label">GRAFIS</span>
+    </button>
+
+    <button class="js-fgd-link"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: rgba(139,92,246,.15);
+        border: 1px solid rgba(139,92,246,.5);
+        color: #c4b5fd; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">🎯</span>
+      <span class="rf-folder-overlay-btn-label">FGD</span>
+    </button>
+
+    <button class="js-download-zip"
+      data-candidate-key="${__adminEscape(slug)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
+        border: 1px solid rgba(16,185,129,.55);
+        color: #6ee7b7; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">📦</span>
+      <span class="rf-folder-overlay-btn-label">ZIP (${files.length})</span>
+    </button>
+  `;
+
+  const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';
+
   overlay.innerHTML = `
     <div class="rf-folder-overlay-card" style="
-      width: min(720px, 100%);
+      width: min(820px, 100%);
       max-height: calc(100vh - 32px);
       background: linear-gradient(180deg, #1e293b, #0f172a);
       border: 1px solid rgba(255,255,255,.1);
@@ -2336,102 +2536,74 @@ window.__openCandidateFolder = function(candidateKey) {
       color: #e2e8f0;
     ">
       <div style="
-        padding: 16px 20px;
+        padding: 18px 20px;
         background: linear-gradient(135deg, #1e3a8a, #3b82f6);
         display: flex; align-items: center; gap: 14px;
         flex-wrap: wrap;
       ">
         <div style="
-          width: 46px; height: 46px; flex: 0 0 46px;
+          width: 52px; height: 52px; flex: 0 0 52px;
           display: grid; place-items: center;
           background: rgba(255,255,255,.15);
           border: 1px solid rgba(255,255,255,.25);
-          border-radius: 12px; font-size: 24px;
+          border-radius: 13px; font-size: 26px;
         ">📁</div>
         <div style="flex: 1; min-width: 0;">
           <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 2px; opacity: .75; margin-bottom: 3px;">
             HASIL TES · ${files.length} FILE
           </div>
-          <div style="font-size: 17px; font-weight: 900; color: #fff; letter-spacing: -.2px;
+          <div style="font-size: 19px; font-weight: 900; color: #fff; letter-spacing: -.2px;
             word-break: break-word; line-height: 1.25;">
             ${__adminEscape(name)}
           </div>
-          ${position && position !== '-' ? `<div style="font-size: 11.5px; opacity: .85; margin-top: 3px;">💼 ${__adminEscape(position)}</div>` : ''}
+          ${position && position !== '-' ? `<div style="font-size: 12px; opacity: .85; margin-top: 3px;">💼 ${__adminEscape(position)}</div>` : ''}
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+            <span style="padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 800;
+              background:${statusBadge.bg}; border:1px solid ${statusBadge.br}; color:${statusBadge.text};">
+              ${statusBadge.label}
+            </span>
+            <span style="padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 800;
+              background:${pengumumanBadge.bg}; border:1px solid ${pengumumanBadge.br}; color:${pengumumanBadge.text};">
+              ${pengumumanBadge.label}
+            </span>
+          </div>
         </div>
         <button id="rfFolderCloseBtn" style="
-          width: 38px; height: 38px; flex: 0 0 38px;
+          width: 40px; height: 40px; flex: 0 0 40px;
           display: grid; place-items: center;
           background: rgba(255,255,255,.15);
           border: 1px solid rgba(255,255,255,.25);
-          border-radius: 10px; color: #fff; font-size: 16px;
+          border-radius: 10px; color: #fff; font-size: 17px;
           cursor: pointer; font-family: inherit; font-weight: 800;
         ">✕</button>
       </div>
 
-      <div class="rf-folder-overlay-actions" style="
-        padding: 12px 20px;
-        background: rgba(0,0,0,.25);
+      <div class="rf-folder-actions" style="
+        padding: 14px 20px;
+        background: rgba(0,0,0,.3);
         border-bottom: 1px solid rgba(255,255,255,.08);
-        display: flex; gap: 8px; flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
       ">
-        <button class="js-retake-open"
-          data-slug="${__adminEscape(candidateKey)}"
-          data-name="${__adminEscape(name)}"
-          data-position="${__adminEscape(position)}"
-          style="
-            flex: 1; min-width: 140px;
-            padding: 10px 16px; border-radius: 10px;
-            background: linear-gradient(135deg, #3b82f6, #1e40af);
-            border: 0; color: #fff; font-family: inherit;
-            font-size: 12px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(59,130,246,.3);
-          ">
-          📤 <span class="rf-folder-overlay-btn-label">Kirim Link Tes</span>
-        </button>
+        ${actionsHTML}
+      </div>
 
-        <button class="js-interview-link"
-          data-name="${__adminEscape(name)}"
-          data-position="${__adminEscape(position)}"
-          style="
-            flex: 1; min-width: 120px;
-            padding: 10px 16px; border-radius: 10px;
-            background: rgba(250,204,21,.15);
-            border: 1px solid rgba(250,204,21,.4);
-            color: #fde047; font-family: inherit;
-            font-size: 12px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;
-          ">
-          🎤 <span class="rf-folder-overlay-btn-label">Wawancara</span>
-        </button>
-
-        <button class="js-grafindo-link"
-          data-name="${__adminEscape(name)}"
-          data-position="${__adminEscape(position)}"
-          style="
-            flex: 1; min-width: 100px;
-            padding: 10px 16px; border-radius: 10px;
-            background: rgba(168,85,247,.15);
-            border: 1px solid rgba(168,85,247,.4);
-            color: #d8b4fe; font-family: inherit;
-            font-size: 12px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;
-          ">
-          ✍ <span class="rf-folder-overlay-btn-label">Grafis</span>
-        </button>
-
-        <button class="js-download-zip"
-          data-candidate-key="${__adminEscape(candidateKey)}"
-          style="
-            flex: 1; min-width: 90px;
-            padding: 10px 16px; border-radius: 10px;
-            background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
-            border: 1px solid rgba(16,185,129,.55);
-            color: #6ee7b7; font-family: inherit;
-            font-size: 12px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;
-          ">
-          📦 <span class="rf-folder-overlay-btn-label">ZIP (${files.length})</span>
+      <div style="
+        padding: 10px 20px;
+        background: rgba(0,0,0,.15);
+        border-bottom: 1px solid rgba(255,255,255,.06);
+        display: flex; gap: 8px; flex-wrap: wrap;
+        align-items: center;
+      ">
+        <button id="rfFolderArchiveBtn"
+          style="flex: 1; min-width: 130px; padding: 9px 14px; border-radius: 9px;
+            background: ${isArchived ? 'rgba(34,197,94,.15)' : 'rgba(220,38,38,.15)'};
+            border: 1px solid ${isArchived ? 'rgba(34,197,94,.5)' : 'rgba(220,38,38,.5)'};
+            color: ${isArchived ? '#86efac' : '#fca5a5'};
+            font-family: inherit; font-size: 11.5px; font-weight: 800;
+            cursor: pointer; white-space: nowrap;">
+          ${isArchived ? '📤 Keluar dari Arsip' : '📦 Arsipkan Kandidat'}
         </button>
       </div>
 
@@ -2454,6 +2626,17 @@ window.__openCandidateFolder = function(candidateKey) {
     if (e.target === overlay) overlay.remove();
   });
 
+  const archiveBtn = document.getElementById('rfFolderArchiveBtn');
+  if (archiveBtn) {
+    archiveBtn.onclick = () => {
+      if (isArchived) {
+        window.__unarchiveCandidate(slug, overlay);
+      } else {
+        window.__archiveCandidate(slug, overlay);
+      }
+    };
+  }
+
   const escHandler = (e) => {
     if (e.key === 'Escape') {
       overlay.remove();
@@ -2470,6 +2653,308 @@ window.__openCandidateFolder = function(candidateKey) {
   });
   observer.observe(document.body, { childList: true });
 };
+
+/* ============================================================
+   🆕 ARSIP KANDIDAT
+   ============================================================ */
+window.__archiveCandidate = async function(slug, overlayEl) {
+  const ok = await __confirmDanger(
+    'Arsipkan kandidat ini?\n\nKandidat akan dipindah ke folder arsip.\nBisa dikembalikan kapan saja.',
+    { title: '📦 Arsipkan', okText: 'Ya, Arsipkan' }
+  );
+  if (!ok) return;
+
+  try {
+    await firebase.database()
+      .ref('sgs_candidate_status/' + slug)
+      .update({ _archived: true, _archivedAt: firebase.database.ServerValue.TIMESTAMP });
+    if (overlayEl) overlayEl.remove();
+    window.__lastRenderedSignature = null;
+    await __fetchAllCandidateStatus();
+    __renderResultPageContent();
+    showResultToast('📦', 'Kandidat diarsipkan', slug);
+  } catch (e) {
+    await __alert('Gagal: ' + e.message, '❌ Error');
+  }
+};
+
+window.__unarchiveCandidate = async function(slug, overlayEl) {
+  const ok = await __confirm(
+    'Kembalikan kandidat dari arsip?',
+    { title: '📤 Keluar dari Arsip', okText: 'Ya, Kembalikan', okStyle: 'success' }
+  );
+  if (!ok) return;
+
+  try {
+    await firebase.database()
+      .ref('sgs_candidate_status/' + slug)
+      .update({ _archived: null, _unarchivedAt: firebase.database.ServerValue.TIMESTAMP });
+    if (overlayEl) overlayEl.remove();
+    window.__lastRenderedSignature = null;
+    await __fetchAllCandidateStatus();
+    __renderResultPageContent();
+    showResultToast('📤', 'Kandidat dikembalikan', slug);
+  } catch (e) {
+    await __alert('Gagal: ' + e.message, '❌ Error');
+  }
+};
+
+/* ============================================================
+   🆕 PENGUMUMAN HASIL SELEKSI
+   ============================================================ */
+window.__openPengumumanModal = async function(slug, name, position) {
+  const old = document.getElementById('rfPengumumanOverlay');
+  if (old) old.remove();
+
+  const statusData = window.__candidateStatusMap[slug] || {};
+  const currentStatus = statusData.status || '';
+  const currentEmailSentAt = statusData.emailSentAt;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'rfPengumumanOverlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 2147483650;
+    background: rgba(10,20,35,.92);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; overflow-y: auto;
+    font-family: Inter, system-ui, sans-serif;
+  `;
+
+  const opt = (val, label, color, desc) => `
+    <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+      background: ${currentStatus === val ? color.bg : 'rgba(255,255,255,.04)'};
+      border: 2px solid ${currentStatus === val ? color.br : 'rgba(255,255,255,.1)'};
+      border-radius: 12px; cursor: pointer; transition: all .15s ease; user-select: none;">
+      <input type="radio" name="rfPengumumanStatus" value="${val}" ${currentStatus === val ? 'checked' : ''}
+        style="width: 18px; height: 18px; accent-color: ${color.accent}; cursor: pointer; flex: 0 0 auto;">
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 14px; font-weight: 900; color: #fff; margin-bottom: 3px;">${label}</div>
+        <div style="font-size: 11.5px; color: #94a3b8; line-height: 1.4;">${desc}</div>
+      </div>
+    </label>
+  `;
+
+  const hasEmail = currentEmailSentAt;
+
+  overlay.innerHTML = `
+    <div style="
+      width: min(560px, 100%);
+      background: linear-gradient(180deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,.7);
+      color: #e2e8f0;
+    ">
+      <div style="padding: 20px 24px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        color: #fff; display: flex; align-items: center; gap: 14px;">
+        <div style="width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center;
+          background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3);
+          border-radius: 12px; font-size: 22px;">📢</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 2px; opacity: .85; margin-bottom: 2px;">
+            PENGUMUMAN HASIL SELEKSI
+          </div>
+          <div style="font-size: 16px; font-weight: 900; letter-spacing: -.2px; word-break: break-word;">
+            ${__adminEscape(name)}
+          </div>
+          ${position && position !== '-' ? `<div style="font-size: 11.5px; opacity: .85; margin-top: 2px;">💼 ${__adminEscape(position)}</div>` : ''}
+        </div>
+        <button id="rfPengumumanCloseBtn" style="
+          width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
+          background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+          border-radius: 9px; color: #fff; font-size: 15px; cursor: pointer; font-family: inherit; font-weight: 800;
+        ">✕</button>
+      </div>
+
+      <div style="padding: 20px 24px 24px;">
+        ${hasEmail ? `
+          <div style="margin-bottom: 16px; padding: 12px 14px;
+            background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.4);
+            border-radius: 10px; font-size: 12px; color: #93c5fd; line-height: 1.5;">
+            📢 <b>Pengumuman terakhir dikirim:</b><br>
+            ${new Date(currentEmailSentAt).toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            · status: <b>${statusData.emailSentStatus || '-'}</b>
+          </div>
+        ` : ''}
+
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+          color: #64748b; margin-bottom: 10px;">
+          PILIH STATUS KELULUSAN
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;">
+          ${opt('lolos', '✅ Lolos', { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.6)', accent: '#16a34a' }, 'Kandidat lolos seleksi — email/WA berisi ucapan selamat + langkah selanjutnya.')}
+          ${opt('tidak_lolos', '❌ Tidak Lolos', { bg: 'rgba(239,68,68,.15)', br: 'rgba(239,68,68,.6)', accent: '#dc2626' }, 'Tidak lolos — email/WA berisi pemberitahuan sopan. Kandidat otomatis diarsipkan.')}
+          ${opt('dipertimbangkan', '⭐ Dipertimbangkan', { bg: 'rgba(245,158,11,.15)', br: 'rgba(245,158,11,.6)', accent: '#d97706' }, 'Berkas masih dipertimbangkan — kandidat dapat notifikasi untuk tunggu.')}
+          ${opt('', '⏳ Pending (Belum Diputuskan)', { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.5)', accent: '#94a3b8' }, 'Belum ada keputusan — tidak ada notifikasi dikirim.')}
+        </div>
+
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 1.5px;
+          color: #64748b; margin-bottom: 10px;">
+          KIRIM VIA
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px;">
+          <label style="display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+            background: rgba(139,92,246,.1); border: 1.5px solid rgba(139,92,246,.4);
+            border-radius: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="rfSendEmail" checked
+              style="width: 16px; height: 16px; accent-color: #8b5cf6; cursor: pointer;">
+            <span style="font-size: 13px; font-weight: 800; color: #c4b5fd;">📧 Email</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+            background: rgba(37,211,102,.1); border: 1.5px solid rgba(37,211,102,.4);
+            border-radius: 10px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="rfSendWA"
+              style="width: 16px; height: 16px; accent-color: #25d366; cursor: pointer;">
+            <span style="font-size: 13px; font-weight: 800; color: #86efac;">📱 WhatsApp</span>
+          </label>
+        </div>
+
+        <div id="rfPengumumanStatus" style="min-height: 18px; font-size: 12px; color: #94a3b8;
+          margin-bottom: 12px; line-height: 1.5;"></div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="rfPengumumanCancel" style="flex: 1; padding: 13px; border-radius: 11px;
+            background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+            color: #cbd5e1; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;">
+            Batal
+          </button>
+          <button id="rfPengumumanSend" style="flex: 2; padding: 13px; border-radius: 11px;
+            background: linear-gradient(135deg, #16a34a, #059669); border: 0;
+            color: #fff; font-family: inherit; font-size: 13px; font-weight: 900; cursor: pointer;
+            box-shadow: 0 6px 20px rgba(22,163,74,.35);">
+            📢 Kirim Pengumuman
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeFn = () => overlay.remove();
+  document.getElementById('rfPengumumanCloseBtn').onclick = closeFn;
+  document.getElementById('rfPengumumanCancel').onclick = closeFn;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeFn(); });
+
+  document.getElementById('rfPengumumanSend').onclick = async () => {
+    const selectedStatus = overlay.querySelector('input[name="rfPengumumanStatus"]:checked')?.value;
+    const sendEmail = document.getElementById('rfSendEmail').checked;
+    const sendWA = document.getElementById('rfSendWA').checked;
+    const statusEl = document.getElementById('rfPengumumanStatus');
+
+    if (selectedStatus === undefined) {
+      statusEl.style.color = '#fca5a5';
+      statusEl.textContent = '⚠️ Pilih status kelulusan dulu';
+      return;
+    }
+    if (!sendEmail && !sendWA) {
+      statusEl.style.color = '#fca5a5';
+      statusEl.textContent = '⚠️ Pilih minimal 1 cara kirim (Email atau WA)';
+      return;
+    }
+
+    const sendBtn = document.getElementById('rfPengumumanSend');
+    sendBtn.disabled = true;
+    sendBtn.textContent = '⏳ Mengirim...';
+    statusEl.style.color = '#93c5fd';
+    statusEl.textContent = 'Memproses...';
+
+    try {
+      /* 1. Simpan status ke Firebase */
+      await firebase.database()
+        .ref('sgs_candidate_status/' + slug)
+        .update({
+          status: selectedStatus,
+          candidateName: name,
+          candidatePosition: position || '',
+          ts: firebase.database.ServerValue.TIMESTAMP,
+          updatedBy: 'admin'
+        });
+
+      /* 2. Auto arsip kalau tidak lolos */
+      if (selectedStatus === 'tidak_lolos') {
+        await firebase.database()
+          .ref('sgs_candidate_status/' + slug)
+          .update({ _archived: true, _archivedAt: firebase.database.ServerValue.TIMESTAMP });
+      } else if (selectedStatus === 'lolos') {
+        await firebase.database()
+          .ref('sgs_candidate_status/' + slug)
+          .update({ _archived: null });
+      }
+
+      /* 3. Kirim Email */
+      if (sendEmail && selectedStatus) {
+        statusEl.textContent = '📧 Mencari email kandidat...';
+        const email = await (window.__findEmail ? window.__findEmail(slug, name) : Promise.resolve(null));
+        if (!email) {
+          statusEl.style.color = '#fbbf24';
+          statusEl.innerHTML = '⚠️ Email kandidat tidak ditemukan — email dilewati.<br>Lanjut kirim via WA...';
+        } else if (typeof window.__sendStatusEmail === 'function') {
+          statusEl.textContent = '📧 Mengirim email ke ' + email + '...';
+          const okEmail = await window.__sendStatusEmail(slug, name, position, selectedStatus, email);
+          if (okEmail) {
+            statusEl.style.color = '#86efac';
+            statusEl.textContent = '✅ Email terkirim ke ' + email;
+          } else {
+            statusEl.style.color = '#fca5a5';
+            statusEl.textContent = '❌ Gagal kirim email';
+          }
+        }
+      }
+
+      /* 4. Kirim WA */
+      if (sendWA && selectedStatus) {
+        statusEl.textContent = '📱 Mencari nomor WA kandidat...';
+        let phone = await (window.__findPhone ? window.__findPhone(slug, name) : Promise.resolve(null));
+        if (!phone) {
+          const input = (typeof window.sgsPrompt === 'function')
+            ? await window.sgsPrompt('Nomor WA tidak ditemukan. Masukkan manual (08xxx):', '', { title: '📱 Nomor WA', okText: 'Kirim WA' })
+            : prompt('Nomor WA (08xxx):');
+          if (input) {
+            phone = String(input).trim();
+            try {
+              await firebase.database().ref('sgs_candidate_status/' + slug).update({ phone });
+            } catch (e) {}
+          }
+        }
+        if (phone) {
+          const norm = window.__normalizePhoneWA ? window.__normalizePhoneWA(phone) : phone;
+          const msg = window.__buildWAMessage ? window.__buildWAMessage(selectedStatus, name, position) : '';
+          if (norm && msg) {
+            const waUrl = 'https://wa.me/' + norm + '?text=' + encodeURIComponent(msg);
+            window.open(waUrl, '_blank', 'noopener,noreferrer');
+            statusEl.style.color = '#86efac';
+            statusEl.textContent = '✅ WhatsApp dibuka di tab baru';
+          }
+        } else {
+          statusEl.style.color = '#fbbf24';
+          statusEl.textContent = '⚠️ WA dilewati (nomor tidak tersedia)';
+        }
+      }
+
+      /* 5. Refresh cache status + UI */
+      await __fetchAllCandidateStatus();
+      window.__lastRenderedSignature = null;
+
+      setTimeout(() => {
+        overlay.remove();
+        __renderResultPageContent();
+        showResultToast('📢', 'Pengumuman terkirim untuk ' + name, selectedStatus.toUpperCase().replace('_',' '));
+      }, 1200);
+
+    } catch (err) {
+      sendBtn.disabled = false;
+      sendBtn.textContent = '📢 Kirim Pengumuman';
+      statusEl.style.color = '#fca5a5';
+      statusEl.textContent = '❌ Gagal: ' + err.message;
+    }
+  };
+};
+
+function __setResultFilter(pos) {
 
 function __setResultFilter(pos) {
   window.__resultFilterPosition = pos;
@@ -2903,6 +3388,16 @@ async function checkAdminUrlAndRender() {
       const candidateKey = folderEl.getAttribute('data-candidate-key');
       if (candidateKey && typeof window.__openCandidateFolder === 'function') {
         window.__openCandidateFolder(candidateKey);
+      }
+    /* 🆕 Tombol Pengumuman di overlay */
+    const pengumumanBtn = e.target.closest('.js-pengumuman-open');
+    if (pengumumanBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const slug = pengumumanBtn.getAttribute('data-slug');
+      const name = pengumumanBtn.getAttribute('data-name');
+      const position = pengumumanBtn.getAttribute('data-position');
+      if (slug && name && typeof window.__openPengumumanModal === 'function') {
+        window.__openPengumumanModal(slug, name, position);
       }
       return;
     }

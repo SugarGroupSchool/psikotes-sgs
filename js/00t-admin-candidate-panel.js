@@ -3081,6 +3081,11 @@
   window.__backfillAllContacts = backfillAllContacts;
   window.__buildRetakeUrl = __buildRetakeUrl;
   window.__getNextTahapForCandidate = __getNextTahapForCandidate;
+window.__sendStatusEmail = sendStatusEmail;
+window.__buildWAMessage = buildWAMessage;
+window.__normalizePhoneWA = normalizePhoneWA;
+window.__loadStatus = loadStatus;
+window.__saveStatus = saveStatus;
   window.__detachAllFGDRealtime = __detachAllFGDRealtime;
 
   console.log('[ADMIN-CANDIDATE-PANEL] ✓ Loaded — Tahap dinamis + dropdown sesi manual + jadwal countdown');
