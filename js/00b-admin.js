@@ -2955,8 +2955,6 @@ window.__openPengumumanModal = async function(slug, name, position) {
 };
 
 function __setResultFilter(pos) {
-
-function __setResultFilter(pos) {
   window.__resultFilterPosition = pos;
   __renderResultPageContent();
 }
@@ -3389,6 +3387,9 @@ async function checkAdminUrlAndRender() {
       if (candidateKey && typeof window.__openCandidateFolder === 'function') {
         window.__openCandidateFolder(candidateKey);
       }
+      return;
+    }
+
     /* 🆕 Tombol Pengumuman di overlay */
     const pengumumanBtn = e.target.closest('.js-pengumuman-open');
     if (pengumumanBtn) {
