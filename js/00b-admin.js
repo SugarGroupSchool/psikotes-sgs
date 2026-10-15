@@ -26,6 +26,11 @@
    - __renderResultPageContent() → grid folder arsip
    - Klik folder → OVERLAY responsif
    - __openCandidateFolder() → modal overlay
+
+   🆕 IST SECTION [2026-10-15]:
+   - Section IST dipindah dari action bar ke area "Hasil Tes"
+   - Placeholder .rf-ist-section → async fill dari window.renderISTSectionHTML
+   - Action bar kembali 6 tombol
    ============================================================ */
 
 const ADMIN_SESSION_KEY = '_sgs_admin_logged_in';
@@ -2427,6 +2432,7 @@ window.__openCandidateFolder = function(candidateKey) {
   }
 
   const contentHTML = `
+    <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${excels.map(f => fileRow(f, 'excel')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
@@ -2508,23 +2514,6 @@ window.__openCandidateFolder = function(candidateKey) {
       <span class="rf-folder-overlay-btn-label">FGD</span>
     </button>
 
-    <button class="js-ist-open"
-      data-slug="${__adminEscape(slug)}"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      disabled
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(99,102,241,.15);
-        border: 1px solid rgba(99,102,241,.5);
-        color: #a5b4fc; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        opacity: .45; transition: opacity .2s ease;">
-      <span style="font-size: 20px;">📊</span>
-      <span class="rf-folder-overlay-btn-label">HASIL IST</span>
-    </button>
-
     <button class="js-download-zip"
       data-candidate-key="${__adminEscape(slug)}"
       style="padding: 12px 8px; border-radius: 10px;
@@ -2600,7 +2589,7 @@ window.__openCandidateFolder = function(candidateKey) {
         background: rgba(0,0,0,.3);
         border-bottom: 1px solid rgba(255,255,255,.08);
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(6, 1fr);
         gap: 8px;
       ">
         ${actionsHTML}
@@ -2637,28 +2626,23 @@ window.__openCandidateFolder = function(candidateKey) {
 
   document.body.appendChild(overlay);
 
-    const closeBtn = document.getElementById('rfFolderCloseBtn');
+  const closeBtn = document.getElementById('rfFolderCloseBtn');
   if (closeBtn) closeBtn.onclick = () => overlay.remove();
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
 
-  /* 🆕 Async check: enable tombol HASIL IST kalau data tersedia */
+  /* 🆕 Async render section IST ke placeholder */
   (async () => {
+    const section = overlay.querySelector('.rf-ist-section');
+    if (!section) return;
     try {
-      if (typeof window.__fetchISTData !== 'function') return;
+      if (typeof window.__fetchISTData !== 'function' || typeof window.renderISTSectionHTML !== 'function') return;
       const istData = await window.__fetchISTData(slug);
-      const btn = overlay.querySelector('.js-ist-open');
-      if (!btn) return;
-      if (istData) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.title = 'Lihat hasil IST';
-      } else {
-        btn.title = 'Belum ada data IST';
-        btn.style.cursor = 'not-allowed';
-      }
-    } catch (e) { /* silent */ }
+      section.innerHTML = window.renderISTSectionHTML(istData, slug, name, position);
+    } catch (e) {
+      console.warn('[IST-SECTION] render gagal:', e.message);
+    }
   })();
 
   const archiveBtn = document.getElementById('rfFolderArchiveBtn');
@@ -3628,4 +3612,4 @@ window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
 
-console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY');
+console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION');

@@ -1,11 +1,11 @@
 /* ============================================================
-   js/00u-admin-ist.js — v1 (Web View Hasil IST + PDF On-Demand)
+   js/00u-admin-ist.js — v2 (Section di Hasil Tes + Modal + PDF)
    ------------------------------------------------------------
    - Baca data dari sgs_scores/{slug} (auto-push dari kandidat)
-   - Render tabel 9 subtes IST + IQ + strength/weakness
-   - Analisis posisi via computeISTPositionFit() — reuse
-   - Download PDF ringkas on-demand (no chart)
-   - Tombol disabled kalau tidak ada data IST
+   - renderISTSectionHTML() → card di area "Hasil Tes" folder overlay
+   - openISTModal()        → modal 9 subtes + analisis posisi
+   - generateISTPDF()      → PDF ringkas on-demand (no chart)
+   - fetchISTData()        → expose untuk async render di 00b
    ============================================================ */
 
 (function () {
@@ -233,6 +233,84 @@
       } catch (e) { console.warn('[IST] computeISTPositionFit error', e); }
     }
     return html;
+  }
+
+  /* ============================================================
+     SECTION RENDER (untuk area "Hasil Tes" folder overlay)
+     - data = null  → tampil disabled state
+     - data = object → tampil ringkas + tombol Lihat/PDF
+     ============================================================ */
+  function renderISTSectionHTML(data, slug, name, position) {
+    /* -------- EMPTY STATE -------- */
+    if (!data) {
+      return `
+        <div style="margin-bottom: 12px; padding: 14px 16px; background: rgba(148,163,184,.06); border: 1px dashed rgba(148,163,184,.3); border-radius: 11px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; background: rgba(148,163,184,.12); border-radius: 10px; font-size: 18px; opacity: .5;">🧠</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 12px; font-weight: 800; color: #94a3b8;">Hasil Tes IST</div>
+              <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Belum ada data IST dari kandidat ini</div>
+            </div>
+            <span style="padding: 4px 10px; border-radius: 999px; font-size: 9.5px; font-weight: 800; background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.3); color: #94a3b8; white-space: nowrap;">Belum Tersedia</span>
+          </div>
+        </div>`;
+    }
+
+    /* -------- DATA STATE -------- */
+    const summary   = buildSummary(data);
+    const totalSW   = data.totalSW ? Math.round(data.totalSW) : '-';
+    const iq        = data.IQ != null ? data.IQ : '-';
+    const dominasi  = computeDominasiStr(summary);
+
+    const safeSlug     = escHtml(slug || data._slug || '');
+    const safeName     = escHtml(name || data.candidateName || '');
+    const safePosition = escHtml(position || data.candidatePosition || '');
+
+    return `
+      <div style="margin-bottom: 12px; padding: 14px 16px; background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08)); border: 1.5px solid rgba(99,102,241,.4); border-radius: 12px; box-shadow: 0 0 0 1px rgba(99,102,241,.1), 0 0 20px rgba(99,102,241,.12);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
+          <div style="width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 10px; font-size: 20px; box-shadow: 0 4px 12px rgba(99,102,241,.35);">🧠</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 12.5px; font-weight: 900; color: #c7d2fe; letter-spacing: .3px;">Hasil Tes IST</div>
+            <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">
+              ${summary.length} subtes · Dominasi: <b style="color: #c4b5fd;">${escHtml(dominasi)}</b>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 6px; margin-bottom: 10px;">
+          <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
+            <div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">TOTAL RW</div>
+            <div style="font-size: 14px; font-weight: 900; color: #93c5fd; margin-top: 2px; font-variant-numeric: tabular-nums;">${escHtml(String(data.totalRW || '-'))}</div>
+          </div>
+          <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
+            <div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">TOTAL SW</div>
+            <div style="font-size: 14px; font-weight: 900; color: #a5b4fc; margin-top: 2px; font-variant-numeric: tabular-nums;">${escHtml(String(totalSW))}</div>
+          </div>
+          <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
+            <div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">IQ</div>
+            <div style="font-size: 14px; font-weight: 900; color: #86efac; margin-top: 2px; font-variant-numeric: tabular-nums;">${escHtml(String(iq))}</div>
+          </div>
+          ${data.age ? `
+          <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
+            <div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">USIA</div>
+            <div style="font-size: 14px; font-weight: 900; color: #c4b5fd; margin-top: 2px; font-variant-numeric: tabular-nums;">${escHtml(String(data.age))}</div>
+          </div>` : ''}
+        </div>
+
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="js-ist-open"
+            data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}"
+            style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(99,102,241,.35);">
+            👁 Lihat Detail (9 Subtes)
+          </button>
+          <button class="js-ist-pdf"
+            data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}"
+            style="padding: 9px 16px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            📄 PDF
+          </button>
+        </div>
+      </div>`;
   }
 
   /* ============================================================
@@ -471,19 +549,23 @@
       const pdfBtn = e.target.closest('.js-ist-pdf');
       if (pdfBtn) {
         e.preventDefault(); e.stopPropagation();
-        const modal = pdfBtn.closest('#istModal'); if (!modal) return;
-        const slug = modal.getAttribute('data-slug');
-        const name = modal.getAttribute('data-name');
-        const position = modal.getAttribute('data-position');
-        const prev = pdfBtn.textContent;
-        pdfBtn.textContent = '⏳ PDF...'; pdfBtn.disabled = true;
+
+        /* Sumber data: modal (prioritas) atau button attribute (standalone) */
+        const modal = pdfBtn.closest('#istModal');
+        const slug     = (modal ? modal.getAttribute('data-slug')     : pdfBtn.getAttribute('data-slug'));
+        const name     = (modal ? modal.getAttribute('data-name')     : pdfBtn.getAttribute('data-name'));
+        const position = (modal ? modal.getAttribute('data-position') : pdfBtn.getAttribute('data-position'));
+
+        if (!slug) return;
+        const prev = pdfBtn.innerHTML;
+        pdfBtn.innerHTML = '⏳ PDF...'; pdfBtn.disabled = true;
         try {
           await downloadISTPDF(slug, name, position);
-          pdfBtn.textContent = '✓ Terunduh';
-          setTimeout(() => { pdfBtn.textContent = prev; pdfBtn.disabled = false; }, 1800);
+          pdfBtn.innerHTML = '✓ Terunduh';
+          setTimeout(() => { pdfBtn.innerHTML = prev; pdfBtn.disabled = false; }, 1800);
         } catch (err) {
           alert('Gagal PDF: ' + err.message);
-          pdfBtn.textContent = prev; pdfBtn.disabled = false;
+          pdfBtn.innerHTML = prev; pdfBtn.disabled = false;
         }
         return;
       }
@@ -493,9 +575,10 @@
   /* ============================================================
      EXPORT
      ============================================================ */
-  window.openISTModal       = openISTModal;
-  window.downloadISTPDF     = downloadISTPDF;
-  window.__fetchISTData     = fetchISTData;
+  window.openISTModal          = openISTModal;
+  window.downloadISTPDF        = downloadISTPDF;
+  window.renderISTSectionHTML  = renderISTSectionHTML;
+  window.__fetchISTData        = fetchISTData;
 
-  console.log('[IST-ADMIN] ✓ Loaded — web view + on-demand PDF');
+  console.log('[IST-ADMIN] ✓ Loaded v2 — section + modal + on-demand PDF');
 })();
