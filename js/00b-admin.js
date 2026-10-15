@@ -1732,7 +1732,7 @@ function renderAccessRequestsHTML(requests) {
               style="padding: 5px 12px; background: #fff; color: #dc2626; border: 1.5px solid #fca5a5;
               border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit;">✕ Tolak</button>
             <button class="js-approve-request" data-device-id="${__adminEscape(r.deviceId)}" data-name="${__adminEscape(r.name || '')}"
-              style="padding: 5px 12px; background: linear-gradient(135deg, #16a34a, #059669); color: #fff;
+              style="padding: 5px 12px; background: linear-gradient(135deg, #4a8fa8, #2d6a83); color: #fff;
               border: 0; border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; font-family: inherit;">✓ Setujui</button>
           </div>
         </div>
@@ -1831,7 +1831,7 @@ function openResultFilesPage() {
     const overlay = document.createElement('div');
     overlay.id = 'resultFilesPageOverlay';
     overlay.style.cssText = `position: fixed; inset: 0; z-index: 100000;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      background: linear-gradient(135deg, #1a2f38 0%, #2d4a56 100%);
       display: flex; flex-direction: column;
       font-family: Inter, system-ui, -apple-system, sans-serif;
       color: #e2e8f0; animation: resultPageIn .3s cubic-bezier(.2,.8,.2,1);`;
@@ -1868,7 +1868,7 @@ function openResultFilesPage() {
           <div style="font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -.3px;">📄 Hasil Tes Terkirim</div>
         </div>
         <div id="rfStats" style="display: flex; gap: 12px; flex-wrap: wrap;"></div>
-        <button id="rfRefreshBtn" style="padding: 10px 18px; background: linear-gradient(135deg, #16a34a, #059669);
+        <button id="rfRefreshBtn" style="padding: 10px 18px; background: linear-gradient(135deg, #4a8fa8, #2d6a83);
           border: 0; border-radius: 11px; color: #fff; font-size: 13px; font-weight: 800;
           cursor: pointer; font-family: inherit;">🔄 Refresh</button>
       </div>
@@ -1971,11 +1971,19 @@ function __renderResultPageContent() {
   const statsContainer = document.getElementById('rfStats');
   if (!content || !chipsContainer || !statsContainer) return;
 
-  /* Inject CSS folder view (sekali) */
+  /* 🎨 Inject CSS — tema logo SGS (Teal + Gold) */
   if (!document.getElementById('rf-folder-css')) {
     const st = document.createElement('style');
     st.id = 'rf-folder-css';
     st.textContent = `
+      :root {
+        --sgs-teal:    #4a8fa8;
+        --sgs-teal-2:  #2d6a83;
+        --sgs-teal-3:  #1e4a5c;
+        --sgs-gold:    #c49755;
+        --sgs-gold-2:  #9d763a;
+      }
+
       .rf-folder-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -1997,21 +2005,21 @@ function __renderResultPageContent() {
 
       .rf-folder {
         background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-        border: 1.5px solid rgba(255,255,255,.08);
+        border: 1.5px solid rgba(74,143,168,.2);
         border-radius: 14px;
         overflow: hidden;
         transition: all .25s ease;
         backdrop-filter: blur(8px);
       }
       .rf-folder:hover {
-        border-color: rgba(99,102,241,.4);
+        border-color: rgba(74,143,168,.55);
         transform: translateY(-3px);
-        box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(99,102,241,.15);
+        box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(74,143,168,.2);
       }
       .rf-folder.open {
         grid-column: 1 / -1;
-        border-color: rgba(99,102,241,.55);
-        box-shadow: 0 16px 42px rgba(0,0,0,.4), 0 0 0 1px rgba(99,102,241,.2);
+        border-color: var(--sgs-gold);
+        box-shadow: 0 16px 42px rgba(0,0,0,.4), 0 0 0 2px rgba(196,151,85,.35);
       }
       .rf-folder.open:hover { transform: none; }
 
@@ -2025,7 +2033,7 @@ function __renderResultPageContent() {
       }
       .rf-folder.open .rf-folder-header {
         padding-bottom: 14px;
-        border-bottom: 1px dashed rgba(255,255,255,.1);
+        border-bottom: 1px dashed rgba(74,143,168,.25);
       }
 
       .rf-folder-icon {
@@ -2035,12 +2043,17 @@ function __renderResultPageContent() {
         display: grid;
         place-items: center;
         font-size: 28px;
-        background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(59,130,246,.15));
-        border: 1px solid rgba(99,102,241,.35);
+        background: linear-gradient(135deg, rgba(74,143,168,.35), rgba(45,106,131,.2));
+        border: 1.5px solid rgba(74,143,168,.55);
         border-radius: 12px;
         transition: all .25s ease;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 12px rgba(74,143,168,.15);
       }
-      .rf-folder.open .rf-folder-icon { transform: rotate(-5deg) scale(1.05); }
+      .rf-folder.open .rf-folder-icon {
+        transform: rotate(-5deg) scale(1.05);
+        border-color: var(--sgs-gold);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 6px 16px rgba(196,151,85,.25);
+      }
 
       .rf-folder-info { flex: 1; min-width: 0; }
       .rf-folder-name {
@@ -2060,13 +2073,13 @@ function __renderResultPageContent() {
       }
       .rf-folder-position {
         font-size: 10.5px;
-        color: #a5b4fc;
+        color: #7db8cf;
         font-weight: 700;
         margin-top: 3px;
       }
       .rf-folder-badge {
         display: inline-block;
-        padding: 2px 8px;
+        padding: 3px 9px;
         border-radius: 999px;
         font-size: 10px;
         font-weight: 800;
@@ -2074,13 +2087,13 @@ function __renderResultPageContent() {
       }
       .rf-folder-chevron {
         font-size: 16px;
-        color: #64748b;
+        color: var(--sgs-teal);
         transition: transform .25s ease;
         flex: 0 0 auto;
       }
       .rf-folder.open .rf-folder-chevron {
         transform: rotate(180deg);
-        color: #a5b4fc;
+        color: var(--sgs-gold);
       }
 
       .rf-folder-body {
@@ -2097,6 +2110,18 @@ function __renderResultPageContent() {
         display: flex;
         flex-direction: column;
         gap: 8px;
+      }
+
+      /* 🎨 Update warna tombol rf-btn-primary → teal */
+      .rf-btn-primary {
+        background: linear-gradient(135deg, var(--sgs-teal), var(--sgs-teal-2)) !important;
+        box-shadow: 0 4px 12px rgba(74,143,168,.3) !important;
+      }
+
+      /* 🎨 Update chip aktif → teal */
+      .rf-chip.active {
+        background: linear-gradient(135deg, var(--sgs-teal), var(--sgs-teal-2)) !important;
+        box-shadow: 0 4px 14px rgba(74,143,168,.4) !important;
       }
     `;
     document.head.appendChild(st);
@@ -2156,11 +2181,11 @@ function __renderResultPageContent() {
   /* ── Stats ── */
   const totalFiles = groupArr.reduce((acc, g) => acc + g.files.length, 0);
   statsContainer.innerHTML = `
-    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(99,102,241,.12);
-      border: 1px solid rgba(99,102,241,.3); font-size: 12px; font-weight: 800; color: #a5b4fc;">
+    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(74,143,168,.15);
+      border: 1px solid rgba(74,143,168,.4); font-size: 12px; font-weight: 800; color: #7db8cf;">
       👥 ${groupArr.length} kandidat</div>
-    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(34,197,94,.12);
-      border: 1px solid rgba(34,197,94,.3); font-size: 12px; font-weight: 800; color: #86efac;">
+    <div style="padding: 8px 14px; border-radius: 10px; background: rgba(196,151,85,.15);
+      border: 1px solid rgba(196,151,85,.4); font-size: 12px; font-weight: 800; color: #e0be80;">
       📎 ${totalFiles} file</div>`;
 
   /* ── Filter + search ── */
@@ -2179,13 +2204,13 @@ function __renderResultPageContent() {
       <div style="font-weight: 700; color: #94a3b8;">
         ${files.length === 0 ? 'Belum ada hasil tes yang terkirim' : 'Tidak ada kandidat yang cocok dengan filter'}</div>
       ${files.length > 0 ? `<button onclick="__resetResultFilter()" style="margin-top: 8px; padding: 9px 20px;
-        background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.4);
-        color: #a5b4fc; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 800;
+        background: rgba(74,143,168,.15); border: 1px solid rgba(74,143,168,.4);
+        color: #7db8cf; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 800;
         cursor: pointer;">Reset Filter</button>` : ''}</div>`;
     return;
   }
 
-  /* ── Reusable: file row inside folder ── */
+  /* ── File row ── */
   function fileRow(f, kind) {
     const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
     const iconMap = { pdf: '📄', excel: '📊', other: '📁' };
@@ -2201,22 +2226,22 @@ function __renderResultPageContent() {
     }
     const passwordRow = (kind === 'pdf' && pdfPassword && pdfPassword !== '-')
       ? `<div style="margin-top: 8px; padding: 8px 10px; display: inline-flex; align-items: center; gap: 8px;
-          background: rgba(250,204,21,.15); border: 1px solid rgba(250,204,21,.4); border-radius: 7px;
+          background: rgba(196,151,85,.15); border: 1px solid rgba(196,151,85,.4); border-radius: 7px;
           font-size: 11px; flex-wrap: wrap;">
-          <span style="font-weight: 800; color: #fde047; white-space: nowrap;">🔑 Password PDF:</span>
+          <span style="font-weight: 800; color: #e0be80; white-space: nowrap;">🔑 Password PDF:</span>
           <code style="font-family: 'Courier New', monospace; font-weight: 800; color: #fff;
             background: rgba(0,0,0,.35); padding: 3px 9px; border-radius: 4px; font-size: 11.5px;
             word-break: break-all;">${__adminEscape(pdfPassword)}</code>
           <button class="js-copy-pdf-password" data-password="${__adminEscape(pdfPassword)}"
-            style="padding: 3px 9px; border: 1px solid rgba(250,204,21,.5); background: rgba(255,255,255,.08);
+            style="padding: 3px 9px; border: 1px solid rgba(196,151,85,.5); background: rgba(255,255,255,.08);
             border-radius: 5px; cursor: pointer; font-size: 11px; font-family: inherit;
-            font-weight: 800; color: #fde047;">📋</button></div>` : '';
+            font-weight: 800; color: #e0be80;">📋</button></div>` : '';
     const safeFileUrl = __safeUrl(f.url);
     return `
       <div style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
-        background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 11px;">
+        background: rgba(255,255,255,.03); border: 1px solid rgba(74,143,168,.15); border-radius: 11px;">
         <div style="width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center;
-          background: rgba(255,255,255,.06); border-radius: 9px; font-size: 16px;">${iconMap[kind] || iconMap.other}</div>
+          background: rgba(74,143,168,.15); border-radius: 9px; font-size: 16px;">${iconMap[kind] || iconMap.other}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="font-weight: 800; color: #e2e8f0; font-size: 12px; margin-bottom: 3px;">${labelMap[kind] || labelMap.other}</div>
           <div style="color: #64748b; font-size: 10.5px; word-break: break-all; line-height: 1.4;">
@@ -2233,8 +2258,8 @@ function __renderResultPageContent() {
 
   /* ── Folder cards ── */
   const avatarColors = [
-    ['#3b82f6','#1e40af'], ['#8b5cf6','#6d28d9'], ['#10b981','#047857'],
-    ['#f59e0b','#b45309'], ['#ec4899','#be185d'], ['#06b6d4','#0e7490']
+    ['#4a8fa8','#2d6a83'], ['#c49755','#9d763a'], ['#5fa5b8','#3a7d94'],
+    ['#8faa6c','#5f8040'], ['#b8836b','#8a5742'], ['#a86b7d','#7a4756']
   ];
 
   const foldersHTML = filtered.map(g => {
@@ -2250,11 +2275,11 @@ function __renderResultPageContent() {
 
     let badgeColor;
     if (pdfs.length > 0 && excels.length > 0) {
-      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '✓ Lengkap' };
+      badgeColor = { bg: 'rgba(143,170,108,.18)', br: 'rgba(143,170,108,.5)', text: '#b9d394', label: '✓ Lengkap' };
     } else if (pdfs.length > 0) {
-      badgeColor = { bg: 'rgba(59,130,246,.15)', br: 'rgba(59,130,246,.4)', text: '#93c5fd', label: '📄 PDF' };
+      badgeColor = { bg: 'rgba(74,143,168,.18)', br: 'rgba(74,143,168,.5)', text: '#7db8cf', label: '📄 PDF' };
     } else if (excels.length > 0) {
-      badgeColor = { bg: 'rgba(34,197,94,.15)', br: 'rgba(34,197,94,.4)', text: '#86efac', label: '📊 Excel' };
+      badgeColor = { bg: 'rgba(143,170,108,.18)', br: 'rgba(143,170,108,.5)', text: '#b9d394', label: '📊 Excel' };
     } else {
       badgeColor = { bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)', text: '#cbd5e1', label: `📁 ${g.files.length} file` };
     }
@@ -2273,24 +2298,41 @@ function __renderResultPageContent() {
         ${others.map(f => fileRow(f, 'other')).join('')}
 
         <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:6px; padding-top:10px;
-          border-top:1px dashed rgba(255,255,255,.08); flex-wrap:wrap;">
+          border-top:1px dashed rgba(74,143,168,.2); flex-wrap:wrap;">
+
+          <!-- 🆕 TOMBOL RETake -->
+          <button class="js-retake-open"
+            data-slug="${__adminEscape(candidateKey)}"
+            data-name="${__adminEscape(g.name)}"
+            data-position="${__adminEscape(g.position !== '-' ? g.position : '')}"
+            style="padding: 7px 14px; border-radius: 999px;
+              border: 1.5px solid rgba(74,143,168,.65);
+              background: linear-gradient(135deg, rgba(74,143,168,.25), rgba(45,106,131,.18));
+              color: #7db8cf; font-size: 11px; font-weight: 800;
+              cursor: pointer; font-family: inherit;
+              box-shadow: 0 0 12px rgba(74,143,168,.3);">
+            📤 Kirim Link Tes Tahap Berikutnya
+          </button>
+
           <button class="js-interview-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(250,204,21,.4);
-              background: rgba(250,204,21,.15); color: #fde047; font-size: 11px; font-weight: 800;
+            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(196,151,85,.5);
+              background: rgba(196,151,85,.15); color: #e0be80; font-size: 11px; font-weight: 800;
               cursor: pointer; font-family: inherit;">
             🎤 Wawancara</button>
+
           <button class="js-grafindo-link" data-name="${__adminEscape(g.name)}" data-position="${__adminEscape(g.position)}"
-            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(168,85,247,.4);
+            style="padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(168,85,247,.5);
               background: rgba(168,85,247,.15); color: #d8b4fe; font-size: 11px; font-weight: 800;
               cursor: pointer; font-family: inherit;">
             ✍ Grafis</button>
+
           <button class="js-download-zip" data-candidate-key="${__adminEscape(candidateKey)}"
             style="padding: 7px 14px; border-radius: 999px;
-              border: 1px solid rgba(16,185,129,.55);
-              background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
-              color: #6ee7b7; font-size: 11px; font-weight: 800;
+              border: 1px solid rgba(143,170,108,.55);
+              background: linear-gradient(135deg, rgba(143,170,108,.2), rgba(95,128,64,.15));
+              color: #b9d394; font-size: 11px; font-weight: 800;
               cursor: pointer; font-family: inherit;
-              box-shadow: 0 0 12px rgba(16,185,129,.25);">
+              box-shadow: 0 0 12px rgba(143,170,108,.25);">
             📦 ZIP (${g.files.length})</button>
         </div>
       </div>`;
@@ -2298,7 +2340,7 @@ function __renderResultPageContent() {
     return `
       <div class="rf-folder" id="${folderId}">
         <div class="rf-folder-header" onclick="__toggleFolder('${folderId}')">
-          <div class="rf-folder-icon" style="background: linear-gradient(135deg, ${c1}25, ${c2}15); border-color: ${c1}55;">
+          <div class="rf-folder-icon" style="background: linear-gradient(135deg, ${c1}40, ${c2}25); border-color: ${c1}80;">
             📁
           </div>
           <div class="rf-folder-info">
@@ -2900,7 +2942,7 @@ function __showAdminIdleWarning() {
       <p style="color: #475569; font-size: 14.5px; line-height: 1.65; margin: 0 0 22px;">
         Anda tidak ada aktivitas selama 14 menit.<br>Sesi akan otomatis berakhir dalam <b>1 menit</b>.</p>
       <button id="btnAdminStay" style="width: 100%; padding: 14px;
-        background: linear-gradient(135deg, #16a34a, #059669); color: #fff; border: 0; border-radius: 12px;
+        background: linear-gradient(135deg, #4a8fa8, #2d6a83); color: #fff; border: 0; border-radius: 12px;
         font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit;">✅ Saya Masih di Sini</button>
       <button id="btnAdminLogoutNow" style="width: 100%; padding: 12px; margin-top: 10px;
         background: #f1f5f9; color: #475569; border: 0; border-radius: 12px;
