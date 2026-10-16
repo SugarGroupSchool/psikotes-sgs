@@ -194,6 +194,77 @@ function startKraeplinReal() {
 }
 
 /* ============================================================
+   AUTO-PUSH HASIL KRAEPLIN → Firebase (untuk admin web view)
+   ------------------------------------------------------------
+   Push ke sgs_scores/{slug}:
+     - KRAEPLIN_answers       : [[...], [...]]  jawaban per kolom
+     - KRAEPLIN_key           : [[...], [...]]  kunci jawaban per kolom
+     - KRAEPLIN_expectedPerCol: [int, ...]      jumlah soal seharusnya per kolom
+     - KRAEPLIN_completed     : true
+     - updatedAt              : timestamp (WAJIB — validasi rules)
+   ============================================================ */
+async function pushKRAEPLINResultsToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE-KRAEPLIN] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  if (!appState.completed || appState.completed.KRAEPLIN !== true) {
+    console.warn('[AUTO-SCORE-KRAEPLIN] Skip — KRAEPLIN belum ditandai selesai');
+    return false;
+  }
+
+  const answers = Array.isArray(appState.answers?.KRAEPLIN) ? appState.answers.KRAEPLIN : [];
+  const key     = Array.isArray(appState.kraeplinKey) ? appState.kraeplinKey : [];
+
+  if (!answers.length || !key.length) {
+    console.warn('[AUTO-SCORE-KRAEPLIN] Skip — tidak ada jawaban/kunci');
+    return false;
+  }
+
+  // expectedPerCol = panjang key[col] (jumlah soal seharusnya per kolom)
+  const expectedPerCol = key.map(k => Array.isArray(k) ? k.length : 0);
+
+  // Slim answers: replace null/undefined dengan -1, keep number as-is
+  const slimAnswers = answers.map(col =>
+    Array.isArray(col) ? col.map(v => (typeof v === 'number' ? v : -1)) : []
+  );
+  const slimKey = key.map(col =>
+    Array.isArray(col) ? col.map(v => (typeof v === 'number' ? v : -1)) : []
+  );
+
+  const payload = {
+    KRAEPLIN_answers:        slimAnswers,
+    KRAEPLIN_key:            slimKey,
+    KRAEPLIN_expectedPerCol: expectedPerCol,
+    KRAEPLIN_completed:      true,
+    updatedAt:               firebase.database.ServerValue.TIMESTAMP,   // ← wajib (validasi rules)
+    KRAEPLIN_updatedAt:      firebase.database.ServerValue.TIMESTAMP,   // ← audit per-tes
+    candidateName:           identity.name,
+    candidatePosition:       identity.position || '',
+    deviceId:                localStorage.getItem('_sgs_device_id') || ''
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-KRAEPLIN] ✅ Pushed ke sgs_scores/' + slug,
+      { columns: slimAnswers.length, expectedTotal: expectedPerCol.reduce((a,b)=>a+b, 0) });
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-KRAEPLIN] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushKRAEPLINResultsToFirebase = pushKRAEPLINResultsToFirebase;
+
+/* ============================================================
    FINISH
    ============================================================ */
 function finishKraeplinBoard() {
@@ -207,6 +278,18 @@ function finishKraeplinBoard() {
   } else {
     appState.completed.KRAEPLIN = true;
     markTestCompleted('KRAEPLIN');
+
+    /* 🆕 Auto-push hasil Kraeplin → Firebase (untuk admin web view) */
+    try {
+      if (typeof window.pushKRAEPLINResultsToFirebase === 'function') {
+        window.pushKRAEPLINResultsToFirebase().catch(err => {
+          console.warn('[KRAEPLIN] Auto-push gagal (non-fatal):', err.message);
+        });
+      }
+    } catch (e) {
+      console.warn('[KRAEPLIN] Auto-push error (non-fatal):', e.message);
+    }
+
     showThankYouAndHomeKRAEPLIN();
   }
 }
