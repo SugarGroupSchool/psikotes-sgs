@@ -735,8 +735,7 @@ body.kraeplin-blurred #app #kraeplinLiveStats {
    ========================================================= */
 .kraeplin-board-flex {
   flex: 1;
-  display: grid;                                       /* ← HARUS grid */
-  grid-template-columns: repeat(8, minmax(0, 1fr));   /* ← HARUS ini */
+  display: grid;
   gap: 6px;
   align-items: stretch;
   padding: 12px 10px;

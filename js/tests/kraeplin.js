@@ -459,7 +459,7 @@ function renderKraeplinBoard() {
         <div class="kp-dots">${dotHTML}</div>
       </div>
 
-      <div class="kraeplin-board-flex">
+            <div class="kraeplin-board-flex" style="grid-template-columns: repeat(${Math.max(1, batchEnd - batchStart)}, minmax(0, 1fr));">
   `;
 
    for (let c = batchStart; c < batchEnd; c++) {
