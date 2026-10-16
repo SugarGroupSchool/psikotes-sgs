@@ -2606,7 +2606,7 @@ window.__openCandidateFolder = function(candidateKey) {
         display: flex; gap: 8px; flex-wrap: wrap;
         align-items: center;
       ">
-        <button id="rfFolderArchiveBtn"
+            <button id="rfFolderArchiveBtn"
           style="flex: 1; min-width: 130px; padding: 9px 14px; border-radius: 9px;
             background: ${isArchived ? 'rgba(34,197,94,.15)' : 'rgba(220,38,38,.15)'};
             border: 1px solid ${isArchived ? 'rgba(34,197,94,.5)' : 'rgba(220,38,38,.5)'};
@@ -2614,6 +2614,16 @@ window.__openCandidateFolder = function(candidateKey) {
             font-family: inherit; font-size: 11.5px; font-weight: 800;
             cursor: pointer; white-space: nowrap;">
           ${isArchived ? '📤 Keluar dari Arsip' : '📦 Arsipkan Kandidat'}
+        </button>
+
+        <button id="rfFolderDeleteBtn"
+          style="flex: 1; min-width: 150px; padding: 9px 14px; border-radius: 9px;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            border: 0; color: #fff;
+            font-family: inherit; font-size: 11.5px; font-weight: 800;
+            cursor: pointer; white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(220,38,38,.35);">
+          🗑️ HAPUS TOTAL KANDIDAT
         </button>
       </div>
 
@@ -2712,6 +2722,158 @@ window.__openCandidateFolder = function(candidateKey) {
     };
   }
 
+  /* 🆕 Tombol Hapus Total Kandidat */
+  const deleteBtn = document.getElementById('rfFolderDeleteBtn');
+  if (deleteBtn) {
+    deleteBtn.onclick = async () => {
+      /* Konfirmasi 1 */
+      const ok1 = (typeof window.sgsConfirmDanger === 'function')
+        ? await window.sgsConfirmDanger(
+            '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
+            '👤 ' + name + '\n' +
+            '💼 ' + (position || '-') + '\n\n' +
+            'Yang akan dihapus PERMANEN:\n' +
+            '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
+            '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
+            '  subject_ratings, candidate_status, sgs_scores,\n' +
+            '  sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
+            '• Request izin & resume state\n' +
+            '• Chat room (jika ada)\n\n' +
+            'Tidak bisa dibatalkan!',
+            { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
+          )
+        : confirm('Hapus total kandidat ' + name + '?');
+      if (!ok1) return;
+
+      /* Konfirmasi 2 */
+      const ok2 = (typeof window.sgsConfirmDanger === 'function')
+        ? await window.sgsConfirmDanger(
+            'Konfirmasi terakhir:\n\nHapus permanen "' + name + '"?',
+            { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
+          )
+        : confirm('Yakin 100%? Tindakan ini permanen.');
+      if (!ok2) return;
+
+      /* Kalau ada fungsi global — pakai itu (sudah lengkap) */
+      if (typeof window.adminDeleteCandidateCompletely === 'function') {
+        overlay.remove();
+        try {
+          await window.adminDeleteCandidateCompletely(name, position);
+        } catch (e) {
+          console.warn('[DELETE] Error:', e.message);
+        }
+        /* Refresh folder list setelah hapus */
+        window.__lastRenderedSignature = null;
+        window.__candidateFilesMap = window.__candidateFilesMap || {};
+        delete window.__candidateFilesMap[slug];
+        await __fetchAllCandidateStatus();
+        if (typeof fetchResultFiles === 'function') {
+          const files = await fetchResultFiles(true);
+          window.__resultFilesCache = files;
+        }
+        __renderResultPageContent();
+        return;
+      }
+
+      /* Fallback — hapus manual kalau fungsi global tidak ada */
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = '⏳ Menghapus...';
+
+      let fbDeleted = 0;
+      let driveDeleted = 0;
+
+      /* 1. Hapus file Drive */
+      try {
+        const files = (typeof fetchResultFiles === 'function')
+          ? await fetchResultFiles(true) : [];
+        const nameLower = String(name).toLowerCase().trim();
+        const targets = files.filter(f => {
+          const n = String(f.name || '').toLowerCase();
+          const desc = String(f.description || '').toLowerCase();
+          const descMatch = desc.match(/nama:\s*(.+)/i);
+          if (descMatch && descMatch[1].trim() === nameLower) return true;
+          if (n.includes('[' + nameLower.replace(/\s+/g, '-') + ']')) return true;
+          if (n.startsWith(slug + '-')) return true;
+          return false;
+        });
+
+        if (targets.length > 0 && typeof GAS_ADMIN_URL === 'string') {
+          const idToken = await __getFirebaseIdToken();
+          for (const f of targets) {
+            try {
+              await fetch(GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'delete', fileId: f.id, idToken })
+              });
+              if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(f.id);
+              __removeFileFromCache(f.id);
+              driveDeleted++;
+              await new Promise(r => setTimeout(r, 200));
+            } catch (e) {}
+          }
+        }
+      } catch (e) {
+        console.warn('[DELETE] Drive error:', e.message);
+      }
+
+      /* 2. Hapus Firebase paths */
+      const paths = [
+        'sgs_interviews/' + slug,
+        'sgs_grafis_interp/' + slug,
+        'sgs_grafis_images/' + slug,
+        'sgs_fgd/' + slug,
+        'sgs_subject_ratings/' + slug,
+        'sgs_candidate_status/' + slug,
+        'sgs_scores/' + slug,
+        'sgs_psikogram/' + slug,
+        'sgs_psikogram_raw/' + slug,
+        'sgs_psikogram_weights/' + slug
+      ];
+
+      for (const path of paths) {
+        try {
+          await firebase.database().ref(path).remove();
+          fbDeleted++;
+        } catch (e) {}
+      }
+
+      /* 3. Hapus session + chat + requests */
+      try {
+        const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+        const sessions = sessionsSnap.val() || {};
+        const nameLower = String(name).toLowerCase().trim();
+        for (const devId in sessions) {
+          const s = sessions[devId] || {};
+          if (s.name && String(s.name).toLowerCase().trim() === nameLower) {
+            try {
+              await firebase.database().ref('sgs_state/chats/' + devId).remove();
+              await firebase.database().ref('sgs_state/sessions/' + devId).remove();
+              await firebase.database().ref('sgs_requests/' + devId).remove();
+              await firebase.database().ref('sgs_state/resume/' + devId).remove();
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+
+      /* 4. Refresh + tutup */
+      window.__lastRenderedSignature = null;
+      if (window.__candidateFilesMap) delete window.__candidateFilesMap[slug];
+      if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
+      const filesAfter = await fetchResultFiles(true);
+      window.__resultFilesCache = filesAfter;
+
+      overlay.remove();
+      await __fetchAllCandidateStatus();
+      __renderResultPageContent();
+
+      if (typeof showResultToast === 'function') {
+        showResultToast('🗑️', 'Kandidat dihapus', name + ' (' + fbDeleted + ' FB · ' + driveDeleted + ' file)');
+      } else {
+        alert('✅ Hapus total selesai:\n• Firebase: ' + fbDeleted + '\n• Drive: ' + driveDeleted);
+      }
+    };
+  }
   const escHandler = (e) => {
     if (e.key === 'Escape') {
       overlay.remove();
