@@ -423,10 +423,94 @@ function finishBIGFIVETest() {
 }
 
 /* ============================================================
+   AUTO-PUSH JAWABAN BIGFIVE → Firebase (untuk admin web view)
+   ------------------------------------------------------------
+   Push ke sgs_scores/{slug}:
+     - BIGFIVE_answers  : [1,4,5,...]  (120 item, 0 kalau kosong)
+     - BIGFIVE_result   : {O,C,E,A,N} percent
+     - BIGFIVE_completed: true
+     - updatedAt        : timestamp (WAJIB — validasi rules)
+   ============================================================ */
+async function pushBIGFIVEAnswersToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE-BIGFIVE] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  if (!appState.completed || appState.completed.BIGFIVE !== true) {
+    console.warn('[AUTO-SCORE-BIGFIVE] Skip — BIGFIVE belum ditandai selesai');
+    return false;
+  }
+
+  const answers = Array.isArray(appState.answers?.BIGFIVE) ? appState.answers.BIGFIVE : [];
+  if (!answers.length) {
+    console.warn('[AUTO-SCORE-BIGFIVE] Skip — tidak ada jawaban');
+    return false;
+  }
+
+  // Slim answers: number atau 0 (kalau undefined)
+  const slimAnswers = answers.map(v => {
+    const n = Number(v);
+    return (Number.isFinite(n) && n >= 1 && n <= 5) ? n : 0;
+  });
+
+  // Result percent saja
+  const result = {};
+  if (appState.hasilOCEAN) {
+    ['O', 'C', 'E', 'A', 'N'].forEach(dim => {
+      const r = appState.hasilOCEAN[dim];
+      if (r && typeof r.percent === 'number' && Number.isFinite(r.percent)) {
+        result[dim] = Math.round(r.percent);
+      }
+    });
+  }
+
+  const payload = {
+    BIGFIVE_answers:   slimAnswers,
+    BIGFIVE_result:    result,
+    BIGFIVE_completed: true,
+    updatedAt:         firebase.database.ServerValue.TIMESTAMP,   // ← wajib (validasi rules)
+    BIGFIVE_updatedAt: firebase.database.ServerValue.TIMESTAMP,   // ← audit per-tes
+    candidateName:     identity.name,
+    candidatePosition: identity.position || '',
+    deviceId:          localStorage.getItem('_sgs_device_id') || ''
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-BIGFIVE] ✅ Pushed ke sgs_scores/' + slug,
+      { count: slimAnswers.length, result: result });
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-BIGFIVE] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushBIGFIVEAnswersToFirebase = pushBIGFIVEAnswersToFirebase;
+
+/* ============================================================
    THANK YOU
    ============================================================ */
 function renderBIGFIVEThankYou() {
   if (typeof injectISTFuturisticStyles === 'function') injectISTFuturisticStyles();
+
+  /* 🆕 Auto-push jawaban BIGFIVE → Firebase (untuk admin web view) */
+  try {
+    if (typeof window.pushBIGFIVEAnswersToFirebase === 'function') {
+      window.pushBIGFIVEAnswersToFirebase().catch(err => {
+        console.warn('[BIGFIVE] Auto-push gagal (non-fatal):', err.message);
+      });
+    }
+  } catch (e) {
+    console.warn('[BIGFIVE] Auto-push error (non-fatal):', e.message);
+  }
 
   if (typeof window.markTestCompleted === 'function') {
     markTestCompleted('BIGFIVE');

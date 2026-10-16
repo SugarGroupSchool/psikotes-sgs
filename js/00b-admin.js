@@ -2431,11 +2431,12 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
-     const contentHTML = `
+  const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-disc-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-kraeplin-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${excels.map(f => fileRow(f, 'excel')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
@@ -2674,7 +2675,7 @@ window.__openCandidateFolder = function(candidateKey) {
     }
   })();
 
-  /* 🆕 Async render section PAPI ke placeholder */
+   /* 🆕 Async render section PAPI ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-papi-section');
     if (!section) return;
@@ -2684,6 +2685,19 @@ window.__openCandidateFolder = function(candidateKey) {
       section.innerHTML = window.renderPAPISectionHTML(papiData, slug, name, position);
     } catch (e) {
       console.warn('[PAPI-SECTION] render gagal:', e.message);
+    }
+  })();
+
+  /* 🆕 Async render section BIGFIVE ke placeholder */
+  (async () => {
+    const section = overlay.querySelector('.rf-bigfive-section');
+    if (!section) return;
+    try {
+      if (typeof window.__fetchBIGFIVEData !== 'function' || typeof window.renderBIGFIVESectionHTML !== 'function') return;
+      const bfData = await window.__fetchBIGFIVEData(slug);
+      section.innerHTML = window.renderBIGFIVESectionHTML(bfData, slug, name, position);
+    } catch (e) {
+      console.warn('[BIGFIVE-SECTION] render gagal:', e.message);
     }
   })();
 
