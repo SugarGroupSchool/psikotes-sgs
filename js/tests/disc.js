@@ -343,10 +343,11 @@ async function pushDISCAnswersToFirebase() {
   // Slim payload: hanya index p & k yang dibutuhkan untuk countDISC
   const slim = answers.map(a => ({ p: a?.p ?? null, k: a?.k ?? null }));
 
-  const payload = {
+   const payload = {
     DISC_answers:      slim,
     DISC_completed:    true,
-    DISC_updatedAt:    firebase.database.ServerValue.TIMESTAMP,
+    updatedAt:         firebase.database.ServerValue.TIMESTAMP,   // ← wajib (validasi rules)
+    DISC_updatedAt:    firebase.database.ServerValue.TIMESTAMP,   // ← audit per-tes (opsional)
     candidateName:     identity.name,
     candidatePosition: identity.position || '',
     deviceId:          localStorage.getItem('_sgs_device_id') || ''
