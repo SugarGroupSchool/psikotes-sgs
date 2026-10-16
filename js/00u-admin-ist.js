@@ -240,21 +240,9 @@
      - data = null  → tampil disabled state
      - data = object → tampil ringkas + tombol Lihat/PDF
      ============================================================ */
-  function renderISTSectionHTML(data, slug, name, position) {
-    /* -------- EMPTY STATE -------- */
-    if (!data) {
-      return `
-        <div style="margin-bottom: 12px; padding: 14px 16px; background: rgba(148,163,184,.06); border: 1px dashed rgba(148,163,184,.3); border-radius: 11px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; background: rgba(148,163,184,.12); border-radius: 10px; font-size: 18px; opacity: .5;">🧠</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-size: 12px; font-weight: 800; color: #94a3b8;">Hasil Tes IST</div>
-              <div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Belum ada data IST dari kandidat ini</div>
-            </div>
-            <span style="padding: 4px 10px; border-radius: 999px; font-size: 9.5px; font-weight: 800; background: rgba(148,163,184,.1); border: 1px solid rgba(148,163,184,.3); color: #94a3b8; white-space: nowrap;">Belum Tersedia</span>
-          </div>
-        </div>`;
-    }
+   function renderISTSectionHTML(data, slug, name, position) {
+    /* Kandidat belum kerjakan IST → tidak tampil sama sekali */
+    if (!data) return '';
 
     /* -------- DATA STATE -------- */
     const summary   = buildSummary(data);
