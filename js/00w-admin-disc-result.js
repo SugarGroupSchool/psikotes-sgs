@@ -263,10 +263,10 @@
      ============================================================ */
   function renderChartBlockHTML(canvasId, title, color, subtitle) {
     return `
-      <div style="flex: 1; min-width: 140px; padding: 10px; background: rgba(0,0,0,.28); border-radius: 11px; border: 1px solid rgba(255,255,255,.08);">
-        <div style="text-align: center; font-size: 11px; font-weight: 900; color: ${color}; letter-spacing: .5px; margin-bottom: 6px;">${title}</div>
+      <div style="flex: 0 1 140px; max-width: 140px; padding: 8px; background: rgba(0,0,0,.28); border-radius: 11px; border: 1px solid rgba(255,255,255,.08);">
+        <div style="text-align: center; font-size: 10.5px; font-weight: 900; color: ${color}; letter-spacing: .5px; margin-bottom: 5px;">${title}</div>
         <canvas id="${canvasId}" width="170" height="420" style="width: 100%; height: auto; display: block;"></canvas>
-        <div style="text-align: center; font-size: 10px; color: #94a3b8; margin-top: 6px; line-height: 1.35;">${subtitle}</div>
+        <div style="text-align: center; font-size: 9.5px; color: #94a3b8; margin-top: 5px; line-height: 1.3;">${subtitle}</div>
       </div>`;
   }
 
@@ -418,7 +418,7 @@
             ${renderStatsTableHTML(hasil)}
           </div>
 
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:16px;">
             ${renderChartBlockHTML('discModalMost',   'MOST (P)',   '#2176C7', 'Perilaku alami saat nyaman')}
             ${renderChartBlockHTML('discModalLeast',  'LEAST (K)',  '#DE9000', 'Respons di bawah tekanan')}
             ${renderChartBlockHTML('discModalChange', 'CHANGE (P-K)', '#18B172', 'Adaptasi diri')}
