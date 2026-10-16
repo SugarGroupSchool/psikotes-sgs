@@ -1328,8 +1328,7 @@ body.kraeplin-blurred #app #kraeplinLiveStats {
     padding-left: 18px;
     padding-right: 18px;
   }
-  .kraeplin-board-flex { gap: 12px; }
-  .kraeplin-col-vertical { min-width: 110px; }
+  .kraeplin-board-flex { gap: 5px; }
   .instruction-content { padding: 32px 32px 24px; }
   .instruction-header { padding: 30px 32px 22px; }
   .instruction-footer { padding: 26px 32px 30px; }
@@ -1350,16 +1349,15 @@ body.kraeplin-blurred #app #kraeplinLiveStats {
   .kraeplin-board-flex {
     height: auto;
     min-height: 320px;
-    padding: 12px 8px;
-    gap: 10px;
+    padding: 10px 6px;
+    gap: 4px;
   }
   .kraeplin-col-vertical {
-    min-width: 88px;
-    padding: 10px 8px 14px;
+    padding: 8px 4px 12px;
   }
-  .kraeplin-row { min-height: 32px; }
-  .kraeplin-input-bottom { width: 44px !important; height: 44px !important; font-size: 1.35rem; }
-  .kraeplin-num { width: 32px; height: 32px; font-size: 1rem; }
+  .kraeplin-row { min-height: 26px; }
+  .kraeplin-input-bottom { width: 38px !important; height: 38px !important; font-size: 1.2rem; }
+  .kraeplin-num { width: 28px; height: 28px; font-size: 0.92rem; }
   .timer-float-top { top: 14px !important; right: 14px !important; padding: 8px 12px !important; }
 
   .instruction-row { grid-template-columns: 1fr; }
@@ -1436,18 +1434,17 @@ body.kraeplin-blurred #app #kraeplinLiveStats {
   .kraeplin-card .header h2 { font-size: 1.05rem; }
   .kraeplin-board-flex {
     min-height: 280px;
-    gap: 6px;
-    padding: 10px 4px;
+    gap: 3px;
+    padding: 8px 3px;
     border-radius: 15px;
   }
   .kraeplin-col-vertical {
-    min-width: 72px;
-    padding: 8px 5px 12px;
-    border-radius: 14px;
+    padding: 6px 3px 10px;
+    border-radius: 10px;
   }
-  .kraeplin-row { min-height: 26px; gap: 3px; }
-  .kraeplin-input-bottom { width: 34px !important; height: 34px !important; font-size: 1rem; border-radius: 9px; }
-  .kraeplin-num { width: 26px; height: 26px; font-size: 0.82rem; border-radius: 7px; }
+  .kraeplin-row { min-height: 22px; gap: 2px; }
+  .kraeplin-input-bottom { width: 30px !important; height: 30px !important; font-size: 1rem; border-radius: 7px; }
+  .kraeplin-num { width: 22px; height: 22px; font-size: 0.78rem; border-radius: 6px; }
 
   .overlay-modal { padding: 32px 22px 28px; border-radius: 22px; }
   .overlay-modal h3 { font-size: 1.3rem; }
