@@ -387,14 +387,17 @@ function renderKraeplinBoard() {
   if (!app || !columns.length) return;
 
   const colCount = columns.length;
-  const visibleRows = 5;
-  const visibleCols = 4;
+  const visibleRows = 12;
+  const BATCH_SIZE = 8;
 
   const activeCol = appState.currentColumn ?? 0;
   const isSelesai = appState.completed.KRAEPLIN;
 
-  const windowEnd = Math.min(colCount, activeCol + 1);
-  const windowStart = Math.max(0, windowEnd - visibleCols);
+  /* 🆕 Batch 8 kolom per layar.
+     Aktif mulai dari kiri (pos 0), geser ke kanan tiap 15s.
+     Setelah kolom ke-8 → batch baru, aktif kembali ke posisi paling kiri. */
+  const batchStart = Math.floor(activeCol / BATCH_SIZE) * BATCH_SIZE;
+  const batchEnd = Math.min(colCount, batchStart + BATCH_SIZE);
 
   const treadmillIndexes = (col) => {
     const arr = [];
@@ -459,7 +462,7 @@ function renderKraeplinBoard() {
       <div class="kraeplin-board-flex">
   `;
 
-  for (let c = windowStart; c < windowEnd; c++) {
+   for (let c = batchStart; c < batchEnd; c++) {
     html += `
       <div class="kraeplin-col-vertical ${c === activeCol ? 'kraeplin-active' : ''}" data-col="${c}" style="position:relative;">
         <div style="display:flex;flex-direction:row;align-items:flex-end;justify-content:center;width:100%;height:100%;">
@@ -492,7 +495,7 @@ function renderKraeplinBoard() {
       const inputEmpty = (existingAnswer === undefined || existingAnswer === null || existingAnswer === '');
 
       html += `
-        <div class="kraeplin-click-wrapper" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;margin-left:8px;padding-bottom:2px;position:relative;">
+                <div class="kraeplin-click-wrapper" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;margin-left:4px;padding-bottom:2px;position:relative;">
           <div style="font-size:.65rem;color:#64748b;font-weight:700;margin-bottom:5px;white-space:nowrap;">
             ${angkaAtas} + ${angkaBawah}
           </div>
@@ -518,7 +521,7 @@ function renderKraeplinBoard() {
       `;
     } else {
       html += `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;margin-left:8px;padding-bottom:2px;">
+               <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;margin-left:4px;padding-bottom:2px;">
           <div style="font-size:.65rem;color:#94a3b8;font-weight:600;margin-bottom:5px;">+</div>
           <input type="text" class="kraeplin-input-bottom" disabled placeholder="–" />
         </div>
