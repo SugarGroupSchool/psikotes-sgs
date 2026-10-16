@@ -306,30 +306,104 @@
     }
   }
   
+/* ============================================================
+   AUTO-PUSH JAWABAN DISC → Firebase (untuk admin web view)
+   ------------------------------------------------------------
+   Dipanggil saat kandidat selesai DISC.
+   Mirror pattern dari pushISTScoresToFirebase().
+   Push ke sgs_scores/{slug}:
+     - DISC_answers  : [{ p, k }, ...]  (index option yang dipilih)
+     - DISC_completed: true
+     - DISC_updatedAt: timestamp
+   ============================================================ */
+async function pushDISCAnswersToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE-DISC] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  if (!appState.completed || appState.completed.DISC !== true) {
+    console.warn('[AUTO-SCORE-DISC] Skip — DISC belum ditandai selesai');
+    return false;
+  }
+
+  const answers = Array.isArray(appState.answers?.DISC) ? appState.answers.DISC : [];
+  if (!answers.length) {
+    console.warn('[AUTO-SCORE-DISC] Skip — tidak ada jawaban DISC');
+    return false;
+  }
+
+  // Slim payload: hanya index p & k yang dibutuhkan untuk countDISC
+  const slim = answers.map(a => ({ p: a?.p ?? null, k: a?.k ?? null }));
+
+  const payload = {
+    DISC_answers:      slim,
+    DISC_completed:    true,
+    DISC_updatedAt:    firebase.database.ServerValue.TIMESTAMP,
+    candidateName:     identity.name,
+    candidatePosition: identity.position || '',
+    deviceId:          localStorage.getItem('_sgs_device_id') || ''
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-DISC] ✅ Pushed ke sgs_scores/' + slug, { count: slim.length });
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-DISC] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushDISCAnswersToFirebase = pushDISCAnswersToFirebase;
+
+/* ============================================================
+   THANK YOU
+   ============================================================ */
+function showThankYouAndHomeDISC() {
+   window.__inTestView = false;
+
   /* ============================================================
      THANK YOU
      ============================================================ */
   function showThankYouAndHomeDISC() {
      window.__inTestView = false;
-    if (typeof window.markTestCompleted === 'function') {
-      markTestCompleted('DISC');
-    } else {
-      window.appState = window.appState || {};
-      appState.completed = appState.completed || {};
-      appState.completed.DISC = true;
-  
-      try {
-        const saved = JSON.parse(localStorage.getItem('completed') || '{}');
-        saved.DISC = true;
-        localStorage.setItem('completed', JSON.stringify(saved));
-      } catch (e) {}
-  
-      if (typeof window.updateDownloadButtonState === 'function') {
-        window.updateDownloadButtonState();
-      }
+   if (typeof window.markTestCompleted === 'function') {
+    markTestCompleted('DISC');
+  } else {
+    window.appState = window.appState || {};
+    appState.completed = appState.completed || {};
+    appState.completed.DISC = true;
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('completed') || '{}');
+      saved.DISC = true;
+      localStorage.setItem('completed', JSON.stringify(saved));
+    } catch (e) {}
+
+    if (typeof window.updateDownloadButtonState === 'function') {
+      window.updateDownloadButtonState();
     }
-  
-    const app = document.getElementById('app');
+  }
+
+  /* 🆕 Auto-push jawaban DISC → Firebase (untuk admin web view) */
+  try {
+    if (typeof window.pushDISCAnswersToFirebase === 'function') {
+      window.pushDISCAnswersToFirebase().catch(err => {
+        console.warn('[DISC] Auto-push gagal (non-fatal):', err.message);
+      });
+    }
+  } catch (e) {
+    console.warn('[DISC] Auto-push error (non-fatal):', e.message);
+  }
+
+  const app = document.getElementById('app');
   
     app.innerHTML = `
       <div class="ist-shell">

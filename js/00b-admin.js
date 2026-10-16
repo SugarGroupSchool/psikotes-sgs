@@ -2433,6 +2433,7 @@ window.__openCandidateFolder = function(candidateKey) {
 
   const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-disc-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${excels.map(f => fileRow(f, 'excel')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
@@ -2642,6 +2643,19 @@ window.__openCandidateFolder = function(candidateKey) {
       section.innerHTML = window.renderISTSectionHTML(istData, slug, name, position);
     } catch (e) {
       console.warn('[IST-SECTION] render gagal:', e.message);
+    }
+  })();
+
+  /* 🆕 Async render section DISC ke placeholder */
+  (async () => {
+    const section = overlay.querySelector('.rf-disc-section');
+    if (!section) return;
+    try {
+      if (typeof window.__fetchDISCData !== 'function' || typeof window.renderDISCSectionHTML !== 'function') return;
+      const discData = await window.__fetchDISCData(slug);
+      section.innerHTML = window.renderDISCSectionHTML(discData, slug, name, position);
+    } catch (e) {
+      console.warn('[DISC-SECTION] render gagal:', e.message);
     }
   })();
 
