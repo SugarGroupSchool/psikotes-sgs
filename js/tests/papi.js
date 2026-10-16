@@ -482,10 +482,93 @@ function finishPAPITest() {
 }
 
 /* ============================================================
+   AUTO-PUSH JAWABAN PAPI → Firebase (untuk admin web view)
+   ------------------------------------------------------------
+   Push ke sgs_scores/{slug}:
+     - PAPI_answers  : [{ id, answer }, ...]  (90 soal slim)
+     - PAPI_scores   : { N,G,A, L,P,I, T,V, X,S,B,O, R,D,C, Z,E,K, F,W }
+     - PAPI_completed: true
+     - updatedAt     : timestamp (WAJIB — validasi rules)
+   ============================================================ */
+async function pushPAPIAnswersToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) {
+    console.warn('[AUTO-SCORE-PAPI] Skip — identity.name kosong');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  if (!appState.completed || appState.completed.PAPI !== true) {
+    console.warn('[AUTO-SCORE-PAPI] Skip — PAPI belum ditandai selesai');
+    return false;
+  }
+
+  const answers = Array.isArray(appState.answers?.PAPI) ? appState.answers.PAPI : [];
+  if (!answers.length) {
+    console.warn('[AUTO-SCORE-PAPI] Skip — tidak ada jawaban');
+    return false;
+  }
+
+  // Slim: hanya id + answer yang dibutuhkan skorPAPI*
+  const slimAnswers = answers
+    .filter(a => a && a.id != null && a.answer)
+    .map(a => ({ id: a.id, answer: a.answer }));
+
+  // Flat skor 20 dimensi
+  const scores = Object.assign({},
+    appState.skorPAPIArahKerja     || {},
+    appState.skorPAPIKepemimpinan  || {},
+    appState.skorPAPIAktivitas     || {},
+    appState.skorPAPIPergaulan     || {},
+    appState.skorPAPIGayaKerja     || {},
+    appState.skorPAPISifat         || {},
+    appState.skorPAPIKetaatan      || {}
+  );
+
+  const payload = {
+    PAPI_answers:     slimAnswers,
+    PAPI_scores:      scores,
+    PAPI_completed:   true,
+    updatedAt:        firebase.database.ServerValue.TIMESTAMP,   // ← wajib (validasi rules)
+    PAPI_updatedAt:   firebase.database.ServerValue.TIMESTAMP,   // ← audit per-tes
+    candidateName:    identity.name,
+    candidatePosition: identity.position || '',
+    deviceId:         localStorage.getItem('_sgs_device_id') || ''
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-PAPI] ✅ Pushed ke sgs_scores/' + slug,
+      { count: slimAnswers.length, dims: Object.keys(scores).length });
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-PAPI] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushPAPIAnswersToFirebase = pushPAPIAnswersToFirebase;
+
+/* ============================================================
    THANK YOU
    ============================================================ */
 function renderPAPIThankYou() {
   markTestCompleted('PAPI');
+
+  /* 🆕 Auto-push jawaban PAPI → Firebase (untuk admin web view) */
+  try {
+    if (typeof window.pushPAPIAnswersToFirebase === 'function') {
+      window.pushPAPIAnswersToFirebase().catch(err => {
+        console.warn('[PAPI] Auto-push gagal (non-fatal):', err.message);
+      });
+    }
+  } catch (e) {
+    console.warn('[PAPI] Auto-push error (non-fatal):', e.message);
+  }
 
   window.__inTestView = false;
   const app = document.getElementById('app');

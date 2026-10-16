@@ -2431,10 +2431,11 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
-    const contentHTML = `
+     const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-disc-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-kraeplin-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${excels.map(f => fileRow(f, 'excel')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
@@ -2660,7 +2661,7 @@ window.__openCandidateFolder = function(candidateKey) {
     }
   })();
 
-  /* 🆕 Async render section KRAEPLIN ke placeholder */
+   /* 🆕 Async render section KRAEPLIN ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-kraeplin-section');
     if (!section) return;
@@ -2670,6 +2671,19 @@ window.__openCandidateFolder = function(candidateKey) {
       section.innerHTML = window.renderKRAEPLINSectionHTML(kpData, slug, name, position);
     } catch (e) {
       console.warn('[KRAEPLIN-SECTION] render gagal:', e.message);
+    }
+  })();
+
+  /* 🆕 Async render section PAPI ke placeholder */
+  (async () => {
+    const section = overlay.querySelector('.rf-papi-section');
+    if (!section) return;
+    try {
+      if (typeof window.__fetchPAPIData !== 'function' || typeof window.renderPAPISectionHTML !== 'function') return;
+      const papiData = await window.__fetchPAPIData(slug);
+      section.innerHTML = window.renderPAPISectionHTML(papiData, slug, name, position);
+    } catch (e) {
+      console.warn('[PAPI-SECTION] render gagal:', e.message);
     }
   })();
 
