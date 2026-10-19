@@ -199,14 +199,14 @@ function renderHome() {
           background:rgba(255,255,255,.08);border-radius:50%;pointer-events:none;"></div>
         <div style="position:relative;z-index:1;">
           <div style="font-size:10.5px;font-weight:900;letter-spacing:3px;
-            opacity:.85;margin-bottom:5px;">SELAMAT, ANDA LOLOS</div>
+            opacity:.85;margin-bottom:5px;">PENCAPAIAN ANDA</div>
           <div style="font-size:20px;font-weight:900;letter-spacing:-.3px;
             display:flex;align-items:center;justify-content:center;gap:8px;">
             <span style="font-size:22px;">🎉</span>
             <span>Tes Tahap ${currentTahap}</span>
           </div>
           <div style="font-size:11.5px;opacity:.85;margin-top:6px;line-height:1.4;">
-            Anda telah lolos ke tahap ini. Kerjakan dengan teliti dan jujur.
+            Selamat! Anda lolos ke tahap ini.
           </div>
         </div>
       </div>
@@ -238,7 +238,7 @@ function renderHome() {
         <b style="display:block;font-size:1.12rem;font-weight:800;color:#174f7d;">Halo, ${nickname}!</b>
         <div style="margin-top:8px;font-size:.98rem;line-height:1.55;color:#526575;">
           ${currentTahap >= 2
-            ? `Anda sedang mengerjakan <b style="color:#6366f1;">Tes Tahap ${currentTahap}</b>.<br>Silakan kerjakan tes berikutnya dengan teliti.`
+            ? `Silakan pilih dan kerjakan tes Anda di bawah ini.`
             : `Instruksi sudah selesai.<br>Silakan mulai mengerjakan tes yang telah dipilih.`}<br>
           <span style="display:inline-block;margin-top:3px;color:#27843b;font-size:.94rem;">Semoga lancar!</span>
         </div>
