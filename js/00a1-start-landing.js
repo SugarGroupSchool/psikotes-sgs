@@ -17,6 +17,23 @@
   const startParam = url.searchParams.get('start');
   if (!startParam) return;
 
+  /* 🆕 FIX [2026-10-19]: Skip landing mode kalau:
+     - URL punya ?retake=1 → ini retake flow, bukan landing
+     - URL punya ?token= → retake flow juga
+     - startParam tidak mengandung '.' → bukan signedToken format
+       (bisa jadi ?start=<unixTimestamp> dari retake scheduledAt)
+     
+     Format signedToken yang valid: "{tokenId}.{signature}" (ada titik) */
+  if (url.searchParams.get('retake') === '1' ||
+      url.searchParams.get('token') ||
+      startParam.indexOf('.') === -1) {
+    console.log('[START-LANDING] ⏭️ Skip — bukan signedToken URL (bukan landing mode)',
+      '| start:', startParam.slice(0, 30),
+      '| retake:', url.searchParams.get('retake'),
+      '| has token:', !!url.searchParams.get('token'));
+    return;
+  }
+
   console.log('[START-LANDING] 🎯 Landing mode aktif — token:', startParam.slice(0, 16) + '...');
 
   /* ---------- Hide default UI ---------- */
