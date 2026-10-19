@@ -737,13 +737,22 @@ async function __callAdminGAS(payload) {
 }
 
 async function __generateSignedRetakeToken(params) {
+  /* 🆕 Auto-derive origin dari URL saat ini.
+     Mencegah GAS pakai fallback origin yang salah kalau
+     aplikasi di-deploy di custom domain / staging / localhost. */
+  const _u = new URL(window.location.href);
+  const _origin = _u.origin + _u.pathname
+    .replace(/\/index\.html?$/i, '')
+    .replace(/\/$/, '');
+
   const data = await __callAdminGAS({
     action: 'generate_token',
     name: params.name,
     position: params.position || '',
     tahap: params.tahap,
     tests: params.tests,
-    scheduledAt: params.scheduledAt || 0
+    scheduledAt: params.scheduledAt || 0,
+    origin: _origin
   });
   if (!data || !data.success) {
     throw new Error(data?.error || 'Generate token gagal');

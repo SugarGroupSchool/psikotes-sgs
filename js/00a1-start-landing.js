@@ -394,13 +394,28 @@ function tick() {
       state.remainingMs = remainingSec > 0 ? remainingSec * 1000 : 0;
       state.expiredInMs = Math.max(0, (expiresAt - state.serverNow) * 1000);
 
-      if (state.remainingMs > 0) {
+       if (state.remainingMs > 0) {
         state.view = 'waiting';
         renderWaiting();
       } else {
         state.view = 'ready';
         audit('ready_immediate');
         renderReady();
+
+        /* 🆕 Re-arm expire timer untuk skenario immediate-ready
+           (kandidat buka link setelah scheduledAt lewat).
+           Tanpa ini: user bisa idle di halaman ready sampai expiresAt,
+           UI tetap "ready" padahal sudah kadaluarsa. */
+        if (state.expiredInMs > 0) {
+          state.expireHandle = setTimeout(() => {
+            if (state.view === 'ready') {
+              audit('expired_view');
+              state.view = 'expired';
+              cleanup();
+              renderExpired();
+            }
+          }, state.expiredInMs);
+        }
       }
 
     } catch (e) {
