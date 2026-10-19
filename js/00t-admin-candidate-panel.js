@@ -1526,7 +1526,7 @@ async function __generateSignedRetakeToken(params) {
 
     try {
       // 🔒 Generate signed token via GAS (HMAC)
-      const tokenData = await __generateSignedRetakeToken({
+           const tokenData = await __generateSignedRetakeToken({
         name: name,
         position: position,
         tahap: tahapVal,
@@ -1536,15 +1536,33 @@ async function __generateSignedRetakeToken(params) {
       const url = tokenData.startUrl;
       const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
 
+      /* 🆕 FIX [2026-10-19]: Build retake URL — kandidat klik tombol
+         "Salin Password & Lanjut" di email → langsung ke password screen
+         aplikasi (skip landing countdown). Time-window tetap divalidasi
+         di 04-auth.js — kalau belum waktunya, kandidat akan di-block saat
+         input password. */
+      const __retakeBase = window.location.origin + window.location.pathname;
+      const __retakeParams = [
+        'retake=1',
+        'n=' + encodeURIComponent(name),
+        'p=' + encodeURIComponent(position || ''),
+        'tests=' + encodeURIComponent(tests.join(',')),
+        'tahap=' + tahapVal,
+        'start=' + tokenData.scheduledAt,
+        'expiresAt=' + tokenData.expiresAt,
+        'token=' + encodeURIComponent(tokenData.tokenId)
+      ];
+      const __retakeUrl = __retakeBase + '?' + __retakeParams.join('&');
+
       /* Password HTML */
       const __usedPwd = (typeof window.getUsedPwd === 'function')
         ? window.getUsedPwd()
         : null;
       let __passwordHTML = '';
-      if (__usedPwd && __usedPwd.length > 0) {
+            if (__usedPwd && __usedPwd.length > 0) {
         const __copyHelperUrl = window.location.origin + window.location.pathname +
           '?copypw=' + encodeURIComponent(__usedPwd) +
-          '&next=' + encodeURIComponent(url);
+          '&next=' + encodeURIComponent(__retakeUrl);
         __passwordHTML =
           '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
           'border-radius:14px;padding:20px 22px;margin:18px 0;text-align:center;">' +
@@ -1588,9 +1606,9 @@ async function __generateSignedRetakeToken(params) {
               '📅 ' + __fmtDate + '</div>' +
             '<div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:12px;">' +
               '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
-            '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
+                       '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
               'font-size:12.5px;color:#78350f;line-height:1.6;text-align:center;">' +
-              '⏳ <b>Klik tombol di bawah untuk melihat hitung mundur live</b>' +
+              '📌 <b>Klik tombol "Salin Password & Lanjut" di bawah setelah jadwal tiba</b>' +
             '</div>' +
             '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
               '⚠️ Link hanya aktif mulai waktu di atas · Berlaku 24 jam' +
@@ -1610,15 +1628,8 @@ async function __generateSignedRetakeToken(params) {
             '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
             '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
           '</div>' +
-          __countdownInfoHTML +
+                   __countdownInfoHTML +
           __passwordHTML +
-          '<div style="text-align:center;margin:24px 0;">' +
-            '<a href="' + url + '" style="display:inline-block;padding:16px 36px;' +
-            'background:linear-gradient(135deg,#06b6d4,#0ea5e9);color:#fff;' +
-            'text-decoration:none;border-radius:12px;font-weight:900;' +
-            'font-size:15px;box-shadow:0 6px 20px rgba(6,182,212,.35);">' +
-            '🚀 Buka Halaman Tes</a>' +
-          '</div>' +
           '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
             '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
           '</div>' +
