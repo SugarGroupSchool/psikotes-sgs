@@ -227,20 +227,119 @@ function copyToClipboard(text, btnEl) {
     btnEl.textContent = '✓';
     setTimeout(() => { btnEl.textContent = prev; }, 1200);
   };
-  try {
-    navigator.clipboard.writeText(text).then(done).catch(() => { fallbackCopy(text); done(); });
-  } catch (e) { fallbackCopy(text); done(); }
+  copyTextSafe(text).then(result => {
+    if (result === true || result === null) done();
+  }).catch(() => done());
 }
 
 function fallbackCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch (e) {}
-  document.body.removeChild(ta);
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = String(text || '');
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0.01;z-index:2147483647;';
+    document.body.appendChild(ta);
+
+    const activeEl = document.activeElement;
+    const selection = window.getSelection();
+    const savedRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+    try { window.focus(); } catch (e) {}
+    ta.focus();
+    ta.select();
+    try { ta.setSelectionRange(0, text.length); } catch (e) {}
+
+    let success = false;
+    try { success = document.execCommand('copy'); } catch (e) {}
+
+    document.body.removeChild(ta);
+
+    try {
+      if (activeEl && typeof activeEl.focus === 'function') activeEl.focus();
+    } catch (e) {}
+    try {
+      if (savedRange && selection) {
+        selection.removeAllRanges();
+        selection.addRange(savedRange);
+      }
+    } catch (e) {}
+
+    return success;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ============================================================
+   COPY SAFE — coba clipboard API → execCommand → manual dialog
+   ============================================================ */
+async function copyTextSafe(text, opts) {
+  opts = opts || {};
+  const value = String(text || '');
+  if (!value) return false;
+
+  /* 1) Coba modern clipboard API */
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { window.focus(); } catch (e) {}
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (e) {
+    console.log('[COPY] clipboard.writeText gagal:', e.name, '—', e.message);
+  }
+
+  /* 2) Coba fallback execCommand */
+  const ok = fallbackCopy(value);
+  if (ok) return true;
+
+  /* 3) Last resort: manual dialog */
+  showManualCopyDialog(value, opts.title || 'Copy Manual');
+  return null;
+}
+
+function showManualCopyDialog(text, title) {
+  const old = document.getElementById('manualCopyModal');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'manualCopyModal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.92);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+
+  overlay.innerHTML = `
+    <div style="width:min(520px,100%);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(99,102,241,.4);border-radius:18px;padding:24px;color:#e2e8f0;box-shadow:0 30px 90px rgba(0,0,0,.7);">
+      <div style="font-size:11px;font-weight:900;letter-spacing:2px;color:#a5b4fc;margin-bottom:8px;">📋 COPY MANUAL</div>
+      <div style="font-size:15px;font-weight:900;color:#fff;margin-bottom:6px;">${__adminEscape(title || 'Copy Manual')}</div>
+      <div style="font-size:11.5px;color:#94a3b8;line-height:1.6;margin-bottom:14px;">
+        Browser menolak copy otomatis (document tidak fokus). Silakan <b>klik teks di bawah</b> lalu tekan <b>Ctrl+C</b> (Windows) atau <b>Cmd+C</b> (Mac).
+      </div>
+      <textarea id="manualCopyText" readonly
+        style="width:100%;padding:14px;background:rgba(0,0,0,.4);border:1.5px solid rgba(99,102,241,.4);border-radius:10px;color:#fff;font-family:'Courier New',monospace;font-size:13px;font-weight:800;letter-spacing:.5px;box-sizing:border-box;resize:none;min-height:80px;outline:none;">${__adminEscape(text)}</textarea>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button id="manualCopyClose" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:10px;color:#cbd5e1;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;">Tutup</button>
+        <button id="manualCopySelect" style="flex:2;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;">📋 Pilih Semua & Copy</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const ta = overlay.querySelector('#manualCopyText');
+  setTimeout(() => {
+    try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); } catch (e) {}
+  }, 100);
+
+  overlay.querySelector('#manualCopyClose').onclick = () => overlay.remove();
+  overlay.querySelector('#manualCopySelect').onclick = () => {
+    try { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); } catch (e) {}
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    const btn = overlay.querySelector('#manualCopySelect');
+    btn.textContent = ok ? '✓ Ter-copy' : '⚠️ Ctrl+C manual';
+    setTimeout(() => { btn.textContent = '📋 Pilih Semua & Copy'; }, 1600);
+  };
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
 /* ============================================================
@@ -3614,18 +3713,28 @@ async function checkAdminUrlAndRender() {
       return;
     }
 
-    const copyBtn = e.target.closest('.js-copy-pdf-password');
+        const copyBtn = e.target.closest('.js-copy-pdf-password');
     if (copyBtn) {
       e.preventDefault(); e.stopPropagation();
       const password = copyBtn.getAttribute('data-password');
       if (password) {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(password).then(() => {
-            const prev = copyBtn.textContent;
+        const prev = copyBtn.textContent;
+        copyBtn.textContent = '⏳';
+        copyBtn.disabled = true;
+        copyTextSafe(password, { title: 'Password PDF' }).then(result => {
+          copyBtn.disabled = false;
+          if (result === true) {
             copyBtn.textContent = '✓';
-            setTimeout(() => { copyBtn.textContent = prev; }, 1000);
-          }).catch(() => fallbackCopy(password));
-        } else fallbackCopy(password);
+          } else if (result === null) {
+            copyBtn.textContent = '📋';
+          } else {
+            copyBtn.textContent = '⚠️';
+          }
+          setTimeout(() => { copyBtn.textContent = prev; }, 1400);
+        }).catch(() => {
+          copyBtn.disabled = false;
+          copyBtn.textContent = prev;
+        });
       }
       return;
     }
