@@ -129,24 +129,22 @@ async function checkPassword() {
   }
 
   /* ---------- CEK 4: Cocok? ---------- */
-  if (value !== validPwd) {
+    if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
-    if (!window.__sgsAutoLogin) {
-      if (typeof runWrongPasswordEffects === 'function') {
-        runWrongPasswordEffects();
-      } else if (typeof playWrongPasswordAlarm === 'function') {
-        playWrongPasswordAlarm();
-      }
+    if (typeof runWrongPasswordEffects === 'function') {
+      runWrongPasswordEffects();
+    } else if (typeof playWrongPasswordAlarm === 'function') {
+      playWrongPasswordAlarm();
     }
     input.focus();
     input.select();
     return;
   }
 
-   /* ---------- LOGIN SUKSES ---------- */
+    /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
-  if (!window.__sgsAutoLogin && typeof playFuturisticSound === 'function') {
-    playFuturisticSound();
+  if (typeof playFuturisticSound === 'function') {
+    try { playFuturisticSound(); } catch (e) {}
   }
 
   document.getElementById('welcomeMessage').classList.add('show');
@@ -474,11 +472,7 @@ window.checkPassword = checkPassword;
       clearInterval(timer);
       console.log('[AUTO-LOGIN] ✅ Cloud ready — submit password otomatis');
 
-            input.value = autopw;
-
-      /* 🆕 Set flag: skip sound effect karena tidak ada user gesture
-         (browser autoplay policy akan block AudioContext) */
-      window.__sgsAutoLogin = true;
+       input.value = autopw;
 
       setTimeout(() => {
         try {
@@ -489,11 +483,41 @@ window.checkPassword = checkPassword;
           }
         } catch (e) {
           console.warn('[AUTO-LOGIN] Auto-submit error:', e);
-        } finally {
-          /* Reset flag setelah submit (biar user gesture normal berikutnya tidak affected) */
-          setTimeout(() => { window.__sgsAutoLogin = false; }, 5000);
         }
       }, 400);
+
+      /* 🆕 BACKUP: Putar suara sukses pada user gesture pertama.
+         Browser blokir audio sebelum gesture → kita tunggu klik
+         pertama (biasanya user klik kartu tes) lalu putar sound. */
+      let __soundPlayed = false;
+      const playOnFirstGesture = function() {
+        if (__soundPlayed) return;
+        __soundPlayed = true;
+        try {
+          // Resume AudioContext kalau suspended
+          const ctx = window.__audioCtx || window.audioCtx;
+          if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+            ctx.resume().catch(() => {});
+          }
+          setTimeout(() => {
+            try {
+              if (typeof playFuturisticSound === 'function') playFuturisticSound();
+            } catch (e) {}
+          }, 50);
+        } catch (e) {}
+        ['click','touchstart','keydown'].forEach(evt => 
+          document.removeEventListener(evt, playOnFirstGesture, true)
+        );
+      };
+      // Arm setelah splash selesai (delay 3.5 detik)
+      setTimeout(() => {
+        if (__soundPlayed) return;
+        ['click','touchstart','keydown'].forEach(evt => 
+          document.addEventListener(evt, playOnFirstGesture, true)
+        );
+        console.log('[AUTO-LOGIN] 🔊 Suara aktif pada klik pertama');
+      }, 3500);
+      
       return;
     }
 
