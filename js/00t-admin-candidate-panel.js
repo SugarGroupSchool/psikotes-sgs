@@ -799,19 +799,32 @@ async function __generateSignedRetakeToken(params) {
   /* ============================================================
      🆕 Helper: auto-detect tahap berikutnya
      ============================================================ */
-  async function __getNextTahapForCandidate(slug) {
+   async function __getNextTahapForCandidate(slug) {
     try {
       if (typeof firebase === 'undefined' || !firebase.apps.length) return 2;
+
+      let maxTahap = 1;
+
+      // 1. Cek dari candidate_status (ini yang paling akurat karena disimpan 04-auth)
+      const csSnap = await firebase.database().ref('sgs_candidate_status/' + slug).once('value');
+      const cs = csSnap.val() || {};
+      
+      if (cs.retake_history) {
+        for (const t in cs.retake_history) {
+          const num = parseInt(t, 10) || 0;
+          if (num > maxTahap) maxTahap = num;
+        }
+      }
+
+      // 2. Fallback ke sgs_state/sessions (jaga-jaga data lama)
       const snap = await firebase.database().ref('sgs_state/sessions').once('value');
       const sessions = snap.val() || {};
       const slugLower = String(slug || '').toLowerCase();
 
-      let maxTahap = 1;
       for (const devId in sessions) {
         const s = sessions[devId] || {};
         if (!s.name) continue;
-        const sSlug = String(s.name).toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+        const sSlug = String(s.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
         if (sSlug !== slugLower) continue;
 
         const hist = s.retake_history || {};
@@ -820,6 +833,8 @@ async function __generateSignedRetakeToken(params) {
           if (num > maxTahap) maxTahap = num;
         }
       }
+
+      // Kembalikan tahap berikutnya (maximal 20)
       return Math.min(20, maxTahap + 1);
     } catch (e) {
       return 2;
@@ -1195,8 +1210,8 @@ async function __generateSignedRetakeToken(params) {
               '<b>ℹ️ Info:</b> Tes yang sudah selesai otomatis disembunyikan. ' +
               'Kandidat akan menerima link dan <b>langsung masuk ke tes</b> tanpa isi data ulang.' +
             '</div>' +
-            '<div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;' +
-            'margin-bottom:8px;">PILIH TES YANG AKAN DIULANG</div>' +
+            '<div style="font-ssize:11px;font-weight:800;color:#64748b;letter-spacing:1px;' +
+            'margin-bottom:8px;">PILIH TES TAHAP BERIKUTNYA</div>' +
             '<div id="retakeCheckboxGrid" style="display:grid;' +
             'grid-template-columns:repeat(2,1fr);gap:8px;">' +
               checkboxHTML +
@@ -1540,7 +1555,7 @@ async function __generateSignedRetakeToken(params) {
       const tahapText = tahapWords[tahapVal] || ('Ke-' + tahapVal);
 
       // Logo untuk email
-      const emailLogo = '<img src="https://wsrv.nl/?url=cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png&w=160&h=140&output=webp&q=85" alt="Logo SGS" style="height:70px;margin-bottom:10px;">';
+      const emailLogo = '<img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" alt="Logo SGS" style="height:70px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">';
       /* 🆕 FIX [2026-10-19]: Build retake URL — kandidat klik tombol
          "Salin Password & Lanjut" di email → langsung ke password screen
          aplikasi (skip landing countdown). Time-window tetap divalidasi
@@ -1644,7 +1659,7 @@ async function __generateSignedRetakeToken(params) {
                             '📌 <b>Tautan tes akan aktif secara otomatis sesuai jadwal di atas.</b>' +
             '</div>' +
             '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
-              '⚠️ Link hanya aktif mulai waktu di atas · Berlaku 24 jam' +
+              '⚠️ Tautan hanya berlaku 24 jam sejak jadwal dimulai.' +
             '</div>' +
           '</div>';
       }

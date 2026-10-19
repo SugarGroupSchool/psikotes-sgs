@@ -461,7 +461,7 @@ window.checkPassword = checkPassword;
 
 
 /* ============================================================
-   🆕 AUTO-LOGIN PINTAR (Wait + Klik + Connect 5s + Logo + Suara)
+   🆕 AUTO-LOGIN PINTAR (Countdown + Klik Lanjutkan + Connect 5s)
    ============================================================ */
 (function autoLoginFromEmailLink() {
   const url = new URL(window.location.href);
@@ -477,19 +477,22 @@ window.checkPassword = checkPassword;
     window.history.replaceState({}, '', url.toString());
   } catch (e) {}
 
-  // 1. Siapkan Overlay (Dengan Logo)
+  let phase = 'waiting'; // waiting, ready, connecting
+  let isAudioUnlocked = false;
+  let connectEndTime = 0;
+  let timer;
+
+  // 1. Siapkan Overlay
   const overlay = document.createElement('div');
   overlay.id = 'autoLoginCountdown';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;cursor:pointer;';
-  
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:20px;';
+
   overlay.innerHTML = `
-    <img src="https://wsrv.nl/?url=cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png&w=160&h=140&output=webp&q=85" alt="Logo SGS" style="height:80px;margin-bottom:20px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));">
+    <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" style="height:80px;margin-bottom:20px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));">
     <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
-    
     <div id="cd-text" style="font-size:36px;font-weight:900;margin-bottom:10px;font-variant-numeric:tabular-nums;">Menyiapkan...</div>
     <div id="cd-sub" style="font-size:14px;color:#94a3b8;margin-bottom:30px;">Mohon tunggu sebentar</div>
-    
-    <div id="cd-click-warn" style="transition:all 0.4s ease;">
+    <div id="cd-action" style="transition:all 0.4s ease; cursor:pointer;">
       <span style="display:inline-block;padding:12px 24px;border:1px solid rgba(255,255,255,0.15);border-radius:30px;background:rgba(255,255,255,0.05);font-size:13px;color:#cbd5e1;letter-spacing:0.5px;animation:pulse 1.5s infinite;">
         Sentuh layar untuk melanjutkan
       </span>
@@ -498,21 +501,15 @@ window.checkPassword = checkPassword;
   `;
   document.body.appendChild(overlay);
 
-  // 2. Status & Fungsi Audio
-  let phase = 'waiting';
-  let connectEndTime = 0;
-  const nowSec = Math.floor(Date.now() / 1000);
-  let targetTime = scheduledAt > nowSec ? scheduledAt : nowSec;
-  let timer;
+  const elText = document.getElementById('cd-text');
+  const elSub = document.getElementById('cd-sub');
+  const elAction = document.getElementById('cd-action');
 
-  function unlockAudioAndConnect() {
-    if (phase === 'connecting' || phase === 'splash') return; // Cegah klik ganda
-
-    // Buka gembok AudioContext
+  // 2. Fungsi Unlock Audio (Hanya membuka gembok suara)
+  function unlockAudio() {
+    if (isAudioUnlocked) return;
     const ctx = window.__audioCtx || window.audioCtx;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume().catch(()=>{});
-    }
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
     try {
       const buffer = ctx.createBuffer(1, 1, 22050);
       const source = ctx.createBufferSource();
@@ -520,35 +517,44 @@ window.checkPassword = checkPassword;
       source.connect(ctx.destination);
       source.start(0);
     } catch(e) {}
-
-    // Ubah UI ke mode Connecting
-    phase = 'connecting';
-    connectEndTime = Math.floor(Date.now() / 1000) + 5; // Jeda 5 Detik
-    document.getElementById('cd-sub').textContent = 'Menghubungkan ke server...';
-    document.getElementById('cd-click-warn').style.display = 'none';
-
-    clearInterval(timer);
-    startConnectingTimer();
+    
+    isAudioUnlocked = true;
+    if (phase === 'waiting') {
+      elAction.innerHTML = '<span style="display:inline-block;padding:12px 24px;border:1px solid rgba(34,197,94,0.4);border-radius:30px;background:rgba(34,197,94,0.1);font-size:13px;color:#86efac;letter-spacing:0.5px;">✓ Sesi Siap (Menunggu Jadwal)</span>';
+    }
   }
 
-  // Pasang event listener klik
-  overlay.addEventListener('click', unlockAudioAndConnect);
-  overlay.addEventListener('touchstart', unlockAudioAndConnect);
+  // 3. Event Listener Klik
+  function handleInteraction() {
+    unlockAudio();
+    if (phase === 'ready') {
+      startConnecting();
+    }
+  }
+  overlay.addEventListener('click', handleInteraction);
+  overlay.addEventListener('touchstart', handleInteraction);
 
-  // 3. Logika Hitung Mundur Jadwal (Waiting)
-  function startWaitingTimer() {
-    timer = setInterval(() => {
-      if (phase !== 'waiting') return;
-      const now = Math.floor(Date.now() / 1000);
+  const nowSec = Math.floor(Date.now() / 1000);
+  let targetTime = scheduledAt > nowSec ? scheduledAt : 0;
+
+  // 4. Cek Waktu
+  function checkPhase() {
+    const now = Math.floor(Date.now() / 1000);
+
+    if (phase === 'waiting') {
       const diff = targetTime - now;
-
+      
+      // Jika waktu sudah tiba
       if (diff <= 0) {
+        phase = 'ready';
+        elText.textContent = 'Waktunya Mulai!';
+        elSub.textContent = 'Silakan lanjutkan ke halaman tes';
+        elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
         clearInterval(timer);
-        document.getElementById('cd-text').textContent = 'Waktunya Mulai!';
-        document.getElementById('cd-sub').textContent = 'Silakan sentuh layar untuk masuk';
         return;
       }
-      
+
+      // Tampilkan hitungan mundur
       const d = Math.floor(diff / 86400);
       const h = Math.floor((diff % 86400) / 3600);
       const m = Math.floor((diff % 3600) / 60);
@@ -560,40 +566,44 @@ window.checkPassword = checkPassword;
       if (m > 0 || h > 0 || d > 0) str += `${m} mnt `;
       str += `${s} dtk`;
       
-      document.getElementById('cd-text').textContent = str;
-    }, 1000);
+      elText.textContent = str;
+      elSub.textContent = `Tautan akan aktif otomatis sesuai jadwal`;
+    }
   }
 
-  // 4. Logika Koneksi 5 Detik
-  function startConnectingTimer() {
+  // 5. Koneksi 5 Detik
+  function startConnecting() {
+    if (phase === 'connecting') return;
+    phase = 'connecting';
+    elText.textContent = '5';
+    elSub.textContent = 'Menghubungkan ke server...';
+    elAction.style.display = 'none';
+    
+    connectEndTime = Math.floor(Date.now() / 1000) + 5;
+    clearInterval(timer);
+
     timer = setInterval(() => {
-      if (phase !== 'connecting') return;
       const now = Math.floor(Date.now() / 1000);
       const diff = connectEndTime - now;
-
       if (diff <= 0) {
         clearInterval(timer);
-        phase = 'splash';
-        document.getElementById('cd-text').textContent = 'Siap!';
-        document.getElementById('cd-sub').textContent = 'Memuat halaman tes...';
-        setTimeout(startSplashScreen, 500);
-        return;
+        startSplashScreen();
+      } else {
+        elText.textContent = diff;
       }
-      document.getElementById('cd-text').textContent = diff + ' detik';
     }, 1000);
   }
 
-  // 5. Fungsi Transisi Masuk (Splash + Suara Elegan)
+  // 6. Splash & Suara
   function startSplashScreen() {
-    overlay.remove(); 
+    overlay.remove();
     
-    // 🔊 Putar Suara (Dijamin bunyi karena user sudah klik overlay tadi)
     try {
       const ctx = window.__audioCtx || window.audioCtx;
       if (ctx) {
         if (ctx.state === 'suspended') ctx.resume();
         const now = ctx.currentTime;
-        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 (Nada Elegan)
+        const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
         notes.forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -610,27 +620,30 @@ window.checkPassword = checkPassword;
       }
     } catch(e) {}
 
-    // Animasi Logo Mengecil
     document.getElementById('welcomeMessage').classList.add('show');
     const logo = document.getElementById('passwordLogo');
     if (logo) logo.classList.add('small');
 
-    // Jalankan checkPassword otomatis
     setTimeout(() => {
       document.getElementById('passwordScreen').classList.add('hidden');
       const input = document.getElementById('passwordInput');
       if (input) input.value = autopw;
-      
-      window.__sgsAutoLogin = true; 
-      
-      if (typeof window.checkPassword === 'function') {
-        window.checkPassword();
-      } else if (typeof checkPassword === 'function') {
-        checkPassword();
-      }
+      window.__sgsAutoLogin = true;
+      if (typeof window.checkPassword === 'function') window.checkPassword();
+      else if (typeof checkPassword === 'function') checkPassword();
     }, APP_CONFIG.TIMING.SPLASH_DELAY || 1500);
   }
 
-  // Jalankan timer awal (Waiting)
-  startWaitingTimer();
+  // 7. Inisialisasi awal
+  if (targetTime <= nowSec) {
+    // Jika kandidat telat buka link, langsung siap tanpa hitung mundur
+    phase = 'ready';
+    elText.textContent = 'Waktunya Mulai!';
+    elSub.textContent = 'Silakan lanjutkan ke halaman tes';
+    elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
+  } else {
+    checkPhase();
+    timer = setInterval(checkPhase, 1000);
+  }
+
 })();
