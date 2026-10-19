@@ -463,6 +463,9 @@ window.checkPassword = checkPassword;
 /* ============================================================
    🆕 AUTO-LOGIN PINTAR (Countdown + Splash + Anti-Replay)
    ============================================================ */
+/* ============================================================
+   🆕 AUTO-LOGIN PINTAR (Countdown + Buffer 10s + Unlock Suara)
+   ============================================================ */
 (function autoLoginFromEmailLink() {
   const url = new URL(window.location.href);
   const autopw = url.searchParams.get('autopw');
@@ -472,138 +475,145 @@ window.checkPassword = checkPassword;
 
   if (!autopw || !isRetake) return;
 
-  // Hapus autopw & start dari URL segera
   try {
     url.searchParams.delete('autopw');
     window.history.replaceState({}, '', url.toString());
   } catch (e) {}
 
-  console.log('[AUTO-LOGIN] 📧 Memulai alur login pintar...');
+  // 1. Siapkan Overlay Countdown
+  const overlay = document.createElement('div');
+  overlay.id = 'autoLoginCountdown';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;cursor:pointer;';
+  
+  overlay.innerHTML = `
+    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
+    <div id="cd-text" style="font-size:36px;font-weight:900;margin-bottom:10px;font-variant-numeric:tabular-nums;">Menyiapkan...</div>
+    <div id="cd-sub" style="font-size:14px;color:#94a3b8;margin-bottom:20px;">Mohon tunggu sebentar</div>
+    <div id="cd-click-warn" style="padding:12px 20px;background:rgba(239,68,68,.2);border:1px solid #ef4444;border-radius:12px;font-size:13px;color:#fca5a5;font-weight:800;animation:pulse 1.5s infinite;">
+      👆 SENTUH LAYAR INI AGAR SUARA AKTIF
+    </div>
+    <style>@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}</style>
+  `;
+  document.body.appendChild(overlay);
 
-  // 1. CEK APAKAH SUDAH SELESAI (TOKEN SEKALI PAKAI)
-  async function checkFinished() {
-    return new Promise((resolve) => {
-      if (typeof firebase === 'undefined' || !firebase.apps.length) return resolve(false);
-      const name = url.searchParams.get('n') || '';
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
-      
-      firebase.database().ref('sgs_state/sessions').once('value').then(snap => {
-        const sessions = snap.val() || {};
-        let isDone = false;
-        for (const devId in sessions) {
-          const s = sessions[devId];
-          if (s.name && String(s.name).toLowerCase().trim() === name.toLowerCase().trim()) {
-            if (s.finished === true || s.disqualified === true) isDone = true;
-          }
-        }
-        resolve(isDone);
-      }).catch(() => resolve(false));
-    });
-  }
-
-  // 2. TAMPILKAN OVERLAY COUNTDOWN
-  function showCountdown(targetTime, onComplete) {
-    const overlay = document.createElement('div');
-    overlay.id = 'autoLoginCountdown';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;';
+  // 2. Fungsi Membuka Blokir Audio Chrome
+  let isAudioUnlocked = false;
+  function unlockAudio() {
+    if (isAudioUnlocked) return;
+    const ctx = window.__audioCtx || window.audioCtx;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(()=>{});
+    }
+    // Mainkan buffer kosong untuk membuka izin suara
+    try {
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch(e) {}
     
-    overlay.innerHTML = `
-      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
-      <div id="cd-text" style="font-size:32px;font-weight:900;margin-bottom:10px;">Menyiapkan...</div>
-      <div id="cd-sub" style="font-size:14px;color:#94a3b8;">Mohon tunggu sebentar</div>
-    `;
-    document.body.appendChild(overlay);
+    isAudioUnlocked = true;
+    const warn = document.getElementById('cd-click-warn');
+    if (warn) {
+      warn.style.background = 'rgba(34,197,94,.2)';
+      warn.style.borderColor = '#22c55e';
+      warn.style.color = '#86efac';
+      warn.style.animation = 'none';
+      warn.textContent = '✅ Suara Telah Aktif';
+    }
+  }
+  
+  // Dengerin sentuhan/klik di mana saja pada layar overlay
+  overlay.addEventListener('click', unlockAudio);
+  overlay.addEventListener('touchstart', unlockAudio);
+  overlay.addEventListener('mousemove', unlockAudio);
 
-    function tick() {
-      const now = Math.floor(Date.now() / 1000);
+  // 3. Logika Waktu
+  let phase = 'waiting';
+  let connectEndTime = 0;
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // Jika waktu belum tiba, hitung mundur ke scheduledAt.
+  // Jika sudah lewat / pas, langsung ke Buffer 10 Detik.
+  let targetTime = scheduledAt > nowSec ? scheduledAt : nowSec;
+
+  const timer = setInterval(() => {
+    const now = Math.floor(Date.now() / 1000);
+    const elText = document.getElementById('cd-text');
+    const elSub = document.getElementById('cd-sub');
+
+    if (phase === 'waiting') {
       const diff = targetTime - now;
-
       if (diff <= 0) {
-        clearInterval(timer);
-        document.getElementById('cd-text').textContent = 'Waktunya Mulai!';
-        document.getElementById('cd-sub').textContent = 'Memuat halaman tes...';
-        setTimeout(onComplete, 500); // Jeda sedikit sebelum splash
+        phase = 'connecting';
+        connectEndTime = now + 10; // Buffer 10 detik
+        elSub.textContent = 'Menghubungkan ke server...';
         return;
       }
-
-      const h = Math.floor(diff / 3600);
+      
+      const d = Math.floor(diff / 86400);
+      const h = Math.floor((diff % 86400) / 3600);
       const m = Math.floor((diff % 3600) / 60);
       const s = diff % 60;
-      let timeStr = '';
       
-      if (h > 0) timeStr += `${h}j `;
-      if (m > 0 || h > 0) timeStr += `${m}m `;
-      timeStr += `${s}s`;
+      let str = '';
+      if (d > 0) str += `${d} hari `;
+      if (h > 0) str += `${h} jam `;
+      if (m > 0 || h > 0 || d > 0) str += `${m} mnt `;
+      str += `${s} dtk`;
+      
+      elText.textContent = str;
+      elSub.textContent = `Tes akan terbuka otomatis pada jadwalnya`;
+    } 
+    else if (phase === 'connecting') {
+      const diff = connectEndTime - now;
+      if (diff <= 0) {
+        clearInterval(timer);
+        elText.textContent = 'Waktunya Mulai!';
+        elSub.textContent = 'Memuat halaman tes...';
+        setTimeout(startSplashScreen, 500); // Jeda sedikit baru masuk
+        return;
+      }
+      elText.textContent = diff + ' detik';
+    }
+  }, 1000);
 
-      document.getElementById('cd-text').textContent = timeStr;
-      document.getElementById('cd-sub').textContent = 'Tes akan terbuka otomatis';
+  // 4. Fungsi Transisi Masuk (Splash + Suara)
+  function startSplashScreen() {
+    overlay.remove(); // Hapus layar hitung mundur
+    
+    // Putar suara (Dijamin bunyi karena user sudah menyentuh overlay tadi)
+    if (typeof playFuturisticSound === 'function') {
+      try { playFuturisticSound(); } catch(e) { console.warn('Audio error:', e); }
     }
 
-    // Resume AudioContext saat user klik di overlay ini (biar suara nanti tidak diblokir)
-    const resumeAudio = () => {
-      const ctx = window.__audioCtx || window.audioCtx;
-      if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
-      document.removeEventListener('click', resumeAudio, true);
-    };
-    document.addEventListener('click', resumeAudio, true);
+    // Animasi Logo Mengecil & Welcome Message
+    document.getElementById('welcomeMessage').classList.add('show');
+    const logo = document.getElementById('passwordLogo');
+    if (logo) logo.classList.add('small');
 
-    tick();
-    const timer = setInterval(tick, 1000);
+    // Setelah animasi selesai, jalankan checkPassword asli
+    setTimeout(() => {
+      document.getElementById('passwordScreen').classList.add('hidden');
+      
+      const input = document.getElementById('passwordInput');
+      if (input) input.value = autopw;
+      
+      window.__sgsAutoLogin = true; // Skip sound ganda
+      
+      if (typeof window.checkPassword === 'function') {
+        window.checkPassword();
+      } else if (typeof checkPassword === 'function') {
+        checkPassword();
+      }
+    }, APP_CONFIG.TIMING.SPLASH_DELAY || 1500);
   }
 
-  // 3. EKSEKUSI UTAMA
-  setTimeout(async () => {
-    const isDone = await checkFinished();
-    
-    if (isDone) {
-      alert('⚠️ Akses Ditolak\n\nAnda sudah menyelesaikan tes ini. Link email sudah tidak berlaku.');
-      window.location.href = window.location.pathname; // Lempar ke halaman login normal
-      return;
-    }
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const timeUntilStart = scheduledAt > nowSec ? scheduledAt : nowSec + 3; // Jika sudah waktunya, kasih jeda 3 detik
-
-    // Sembunyikan form password asli
-    const pwdForm = document.getElementById('passwordForm');
-    if (pwdForm) pwdForm.style.display = 'none';
-
-    showCountdown(timeUntilStart, () => {
-      // Hapus overlay countdown
-      const ov = document.getElementById('autoLoginCountdown');
-      if (ov) ov.remove();
-
-      // --- MULAI PROSES SPLASH SCREEN ---
-      console.log('[AUTO-LOGIN] 🚀 Menjalankan splash screen...');
-      
-      // 1. Mainkan suara (AudioContext sudah di-resume saat klik overlay tadi)
-      if (typeof playFuturisticSound === 'function') {
-        try { playFuturisticSound(); } catch(e) {}
-      }
-
-      // 2. Animasi Logo Mengecil & Welcome Message
-      document.getElementById('welcomeMessage').classList.add('show');
-      const logo = document.getElementById('passwordLogo');
-      if (logo) logo.classList.add('small');
-
-      // 3. Setelah splash selesai, sembunyikan password screen & masuk aplikasi
-      setTimeout(() => {
-        const pwdScreen = document.getElementById('passwordScreen');
-        if (pwdScreen) pwdScreen.classList.add('hidden');
-        
-        // Trik: Isi input password dengan autopw, lalu panggil fungsi asli
-        // agar semua logika restore identity & render home berjalan.
-        const input = document.getElementById('passwordInput');
-        if (input) input.value = autopw;
-        
-        window.__sgsAutoLogin = true; // Flag untuk skip sound ganda
-        
-        if (typeof window.checkPassword === 'function') {
-          window.checkPassword();
-        } else if (typeof checkPassword === 'function') {
-          checkPassword();
-        }
-      }, APP_CONFIG.TIMING.SPLASH_DELAY || 1500);
-    });
-  }, 100);
+  // Jika dari awal sudah lewat jadwalnya, langsung ke connecting
+  if (targetTime <= nowSec) {
+    phase = 'connecting';
+    connectEndTime = nowSec + 10;
+    document.getElementById('cd-sub').textContent = 'Menghubungkan ke server...';
+  }
 })();

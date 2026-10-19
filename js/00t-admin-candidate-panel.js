@@ -1535,7 +1535,12 @@ async function __generateSignedRetakeToken(params) {
       });
       const url = tokenData.startUrl;
       const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
+      // Konversi angka ke teks (2 -> Kedua, 3 -> Ketiga, dst)
+      const tahapWords = ['', '', 'Kedua', 'Ketiga', 'Keempat', 'Kelima', 'Keenam', 'Ketujuh', 'Kedelapan', 'Kesembilan', 'Kesepuluh'];
+      const tahapText = tahapWords[tahapVal] || ('Ke-' + tahapVal);
 
+      // Logo untuk email
+      const emailLogo = '<img src="https://wsrv.nl/?url=cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png&w=160&h=140&output=webp&q=85" alt="Logo SGS" style="height:70px;margin-bottom:10px;">';
       /* 🆕 FIX [2026-10-19]: Build retake URL — kandidat klik tombol
          "Salin Password & Lanjut" di email → langsung ke password screen
          aplikasi (skip landing countdown). Time-window tetap divalidasi
@@ -1644,14 +1649,16 @@ async function __generateSignedRetakeToken(params) {
           '</div>';
       }
 
-      const htmlBody =
-        '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
-          '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
-          '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
+       const htmlBody =
+        '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:30px 24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
+          emailLogo +
+          '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:15px;">SUGAR GROUP SCHOOLS</div>' +
+          '<div style="font-size:22px;font-weight:900;line-height:1.3;">🎉 Selamat! Anda Melaju ke Tahap ' + tahapText + '</div>' +
         '</div>' +
-        '<div style="background:#fff;padding:28px 24px;">' +
-          '<p>Halo <b>' + name + '</b>,</p>' +
-          '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap ' + tahapVal + '</b>.</p>' +
+        '<div style="background:#fff;padding:32px 28px;line-height:1.7;">' +
+          '<p style="font-size:15px;color:#1e293b;">Yth. <b>' + name + '</b>,</p>' +
+          '<p style="font-size:14px;color:#475569;margin-bottom:16px;">Kami mengucapkan <b>selamat dan sukses</b> atas pencapaian luar biasa Anda. Berdasarkan hasil evaluasi, Anda dinilai memenuhi kualifikasi untuk melanjutkan ke <b>Tes Tahap ' + tahapText + '</b>.</p>' +
+          '<p style="font-size:14px;color:#475569;margin-bottom:24px;">Silakan ikuti jadwal dan instruksi di bawah ini untuk melanjutkan proses seleksi:</p>' +
           '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
             '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
             '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
