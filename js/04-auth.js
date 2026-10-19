@@ -141,11 +141,28 @@ async function checkPassword() {
     return;
   }
 
-    /* ---------- LOGIN SUKSES ---------- */
+     /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
-  if (typeof playFuturisticSound === 'function') {
-    try { playFuturisticSound(); } catch (e) {}
-  }
+  
+  // 1. Coba putar suara saat logo mengecil (biasanya Chrome blokir karena autologin)
+  try {
+    if (typeof playFuturisticSound === 'function') playFuturisticSound();
+  } catch (e) {}
+
+  // 2. Siapkan suara cadangan jika Chrome memblokir: Bunyikan saat user klik pertama
+  window.__sgsPendingSound = true;
+  const playOnFirstClick = () => {
+    if (window.__sgsPendingSound) {
+      window.__sgsPendingSound = false;
+      try {
+        if (typeof playFuturisticSound === 'function') playFuturisticSound();
+      } catch (e) {}
+    }
+    document.removeEventListener('click', playOnFirstClick, true);
+    document.removeEventListener('touchstart', playOnFirstClick, true);
+  };
+  document.addEventListener('click', playOnFirstClick, true);
+  document.addEventListener('touchstart', playOnFirstClick, true);
 
   document.getElementById('welcomeMessage').classList.add('show');
   document.getElementById('passwordLogo').classList.add('small');
@@ -254,13 +271,13 @@ async function checkPassword() {
 
             const nowSec = Math.floor(Date.now() / 1000);
 
-            /* Time-window validation (server-side already checked at landing,
-               ini sebagai layer 2 defense — client-side double check) */
+                       /* Time-window validation */
             if (tk.scheduledAt && nowSec < tk.scheduledAt) {
-              throw new Error('Tes belum bisa dimulai. Jadwal: ' +
-                new Date(tk.scheduledAt * 1000).toLocaleString('id-ID'));
+              // JANGAN throw error! Biarkan lolos agar masuk ke halaman hitung mundur
+              console.log('[RETAKE] ⏳ Belum waktunya. Countdown akan ditampilkan.');
             }
             if (tk.expiresAt && nowSec > tk.expiresAt) {
+              // Ini baru boleh throw karena link benar-benar mati
               throw new Error('Link sudah kadaluarsa pada ' +
                 new Date(tk.expiresAt * 1000).toLocaleString('id-ID'));
             }
