@@ -2438,6 +2438,7 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
     ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
@@ -2724,6 +2725,20 @@ window.__openCandidateFolder = function(candidateKey) {
       }
     } catch (e) {
       console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message);
+    }
+  })();
+
+  /* 🆕 Async render section PSIKOGRAM ke placeholder (paling bawah) */
+  (async () => {
+    const section = overlay.querySelector('.rf-psikogram-section');
+    if (!section) return;
+    try {
+      if (typeof window.renderPsikogramBox !== 'function') return;
+      const html = await window.renderPsikogramBox(slug, name, position);
+      // renderPsikogramBox return '' untuk posisi non-Guru/Dosen — aman
+      section.innerHTML = html || '';
+    } catch (e) {
+      console.warn('[PSIKOGRAM-SECTION] render gagal:', e.message);
     }
   })();
 
