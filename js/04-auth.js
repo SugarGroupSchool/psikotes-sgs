@@ -141,15 +141,15 @@ async function checkPassword() {
     return;
   }
 
-     /* ---------- LOGIN SUKSES ---------- */
+   /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
   
-  // 1. Coba putar suara saat logo mengecil (biasanya Chrome blokir karena autologin)
+  // 1. Paksa putar suara (mungkin diblokir Chrome jika via email autologin)
   try {
     if (typeof playFuturisticSound === 'function') playFuturisticSound();
   } catch (e) {}
 
-  // 2. Siapkan suara cadangan jika Chrome memblokir: Bunyikan saat user klik pertama
+  // 2. Cadangan: Bunyikan saat user klik pertama kali (karena Chrome blokir autoplay)
   window.__sgsPendingSound = true;
   const playOnFirstClick = () => {
     if (window.__sgsPendingSound) {
@@ -271,9 +271,9 @@ async function checkPassword() {
 
             const nowSec = Math.floor(Date.now() / 1000);
 
-                       /* Time-window validation */
+                                  /* Time-window validation */
             if (tk.scheduledAt && nowSec < tk.scheduledAt) {
-              // JANGAN throw error! Biarkan lolos agar masuk ke halaman hitung mundur
+              // JANGAN throw error! Biarkan masuk agar bisa tampilkan countdown
               console.log('[RETAKE] ⏳ Belum waktunya. Countdown akan ditampilkan.');
             }
             if (tk.expiresAt && nowSec > tk.expiresAt) {
@@ -427,7 +427,7 @@ async function checkPassword() {
     }
 
 
-     const hasValidIdentity =
+      const hasValidIdentity =
       identitySaved &&
       typeof identitySaved === 'object' &&
       typeof identitySaved.name === 'string' &&
@@ -436,6 +436,19 @@ async function checkPassword() {
     if (hasValidIdentity) {
       window.appState = window.appState || {};
       window.appState.identity = identitySaved;
+
+      // 🆕 Cek jadwal lock — jika user me-refresh halaman saat hitung mundur, jangan bypass!
+      const startAtLock = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
+      if (startAtLock > 0 && Date.now() < startAtLock * 1000) {
+        if (typeof window.__showRetakeCountdown === 'function') {
+          window.__showRetakeCountdown(startAtLock, function () {
+            try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+            if (typeof window.renderHome === 'function') window.renderHome();
+          });
+          return;
+        }
+      }
+
       if (typeof window.renderHome === 'function') window.renderHome();
       else renderIdentityForm();
     } else {
