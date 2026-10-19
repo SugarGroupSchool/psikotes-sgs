@@ -70,7 +70,7 @@ async function checkPassword() {
     return;
   }
 
-    /* ---------- 🔒 CEK 2: Device finished server-side ---------- */
+  /* ---------- 🔒 CEK 2: Device finished server-side ---------- */
   /* 🆕 Skip seluruh cek ini kalau sedang retake mode */
   const __isRetakeFlow = localStorage.getItem('_sgs_retake_mode') === '1' ||
                          localStorage.getItem('_sgs_retake_skip_form') === '1';
@@ -86,7 +86,6 @@ async function checkPassword() {
   );
 
   if (finishedServer) {
-    // 🔒 Sync ke server kalau ternyata lokal lebih dulu
     if (deviceId && typeof window.syncFinishedStateToServer === 'function') {
       try { await window.syncFinishedStateToServer(deviceId); } catch (e) {}
     }
@@ -129,7 +128,7 @@ async function checkPassword() {
   }
 
   /* ---------- CEK 4: Cocok? ---------- */
-    if (value !== validPwd) {
+  if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
     if (typeof runWrongPasswordEffects === 'function') {
       runWrongPasswordEffects();
@@ -141,16 +140,13 @@ async function checkPassword() {
     return;
   }
 
-    /* ---------- LOGIN SUKSES ---------- */
+  /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
   
   // Putar suara HANYA JIKA BUKAN dari email auto-login
   if (!window.__sgsAutoLogin && typeof playFuturisticSound === 'function') {
     try { playFuturisticSound(); } catch (e) {}
   }
-  };
-  document.addEventListener('click', playOnFirstClick, true);
-  document.addEventListener('touchstart', playOnFirstClick, true);
 
   document.getElementById('welcomeMessage').classList.add('show');
   document.getElementById('passwordLogo').classList.add('small');
@@ -173,7 +169,7 @@ async function checkPassword() {
       if (raw) retakeData = JSON.parse(raw);
     } catch (e) {}
 
-      if (retakeData && retakeData.name && Array.isArray(retakeData.tests)) {
+    if (retakeData && retakeData.name && Array.isArray(retakeData.tests)) {
       (async () => {
         let restored = false;
         try {
@@ -181,7 +177,7 @@ async function checkPassword() {
             .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
           if (!slug) throw new Error('Slug kosong');
 
-              /* 🆕 1. Baca status kandidat (permanen, lintas device) */
+          /* 🆕 1. Baca status kandidat (permanen, lintas device) */
           let csSnap = await firebase.database()
             .ref('sgs_candidate_status/' + slug).once('value');
           let cs = csSnap.val() || {};
@@ -210,7 +206,6 @@ async function checkPassword() {
               }
             }
 
-            /* Sekalian MIRROR ke candidate_status biar retake berikutnya cepat */
             if (cs.candidateName) {
               try {
                 await firebase.database()
@@ -240,14 +235,14 @@ async function checkPassword() {
             throw new Error('Nama tidak cocok: "' + cs.candidateName + '" vs "' + retakeData.name + '"');
           }
 
-          /* 🆕 3. Validasi email (kalau ada di URL & di DB) */
+          /* 🆕 3. Validasi email */
           if (retakeData.email && cs.email) {
             if (String(cs.email).toLowerCase().trim() !== String(retakeData.email).toLowerCase().trim()) {
               throw new Error('Email tidak cocok');
             }
           }
 
-                   /* 🆕 4. Validasi token — baca dari /sgs_retake_tokens/{tokenId} */
+          /* 🆕 4. Validasi token */
           if (retakeData.token) {
             const tkSnap = await firebase.database()
               .ref('sgs_retake_tokens/' + retakeData.token)
@@ -259,18 +254,14 @@ async function checkPassword() {
 
             const nowSec = Math.floor(Date.now() / 1000);
 
-                                  /* Time-window validation */
             if (tk.scheduledAt && nowSec < tk.scheduledAt) {
-              // JANGAN throw error! Biarkan masuk agar bisa tampilkan countdown
               console.log('[RETAKE] ⏳ Belum waktunya. Countdown akan ditampilkan.');
             }
             if (tk.expiresAt && nowSec > tk.expiresAt) {
-              // Ini baru boleh throw karena link benar-benar mati
               throw new Error('Link sudah kadaluarsa pada ' +
                 new Date(tk.expiresAt * 1000).toLocaleString('id-ID'));
             }
 
-            /* Override data dari Firebase — anti tamper URL params */
             if (tk.name) retakeData.name = tk.name;
             if (tk.position !== undefined) retakeData.position = tk.position || '';
             if (Array.isArray(tk.tests) && tk.tests.length) retakeData.tests = tk.tests.slice();
@@ -280,7 +271,7 @@ async function checkPassword() {
               '| expires:', new Date(tk.expiresAt * 1000).toLocaleString('id-ID'));
           }
 
-          /* 5. Restore identity dari candidate_status */
+          /* 5. Restore identity */
           const identity = {
             name: cs.candidateName,
             nickname: cs.nickname || cs.candidateName.split(' ')[0],
@@ -307,7 +298,6 @@ async function checkPassword() {
 
           window.appState.completed = window.appState.completed || {};
           retakeData.tests.forEach(t => { window.appState.completed[t] = false; });
-          /* 🆕 Isi completed dari candidate_status (biar tes lama tetap terkunci) */
           if (cs.completed && typeof cs.completed === 'object') {
             Object.keys(cs.completed).forEach(t => {
               if (cs.completed[t] === true) window.appState.completed[t] = true;
@@ -320,7 +310,7 @@ async function checkPassword() {
           window.appState.currentTahap = __tahap;
           try { localStorage.setItem('_sgs_current_tahap', String(__tahap)); } catch (e) {}
 
-          /* 🆕 8. Buat/update session di device INI (apapun device-nya) */
+          /* 🆕 8. Buat/update session */
           const myDeviceId = localStorage.getItem('_sgs_device_id');
           if (myDeviceId && typeof firebase !== 'undefined' && firebase.apps.length) {
             try {
@@ -348,7 +338,7 @@ async function checkPassword() {
             }
           }
 
-          /* 🆕 9. Catat retake_history ke candidate_status */
+          /* 🆕 9. Catat retake_history */
           try {
             await firebase.database()
               .ref('sgs_candidate_status/' + slug + '/retake_history/' + __tahap)
@@ -379,27 +369,6 @@ async function checkPassword() {
         } catch (e) {}
 
         if (restored) {
-                    /* 🆕 Cek jadwal + expiry */
-          const startAt = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
-          const expiresAtLS = parseInt(localStorage.getItem('_sgs_schedule_expires') || '0', 10) || 0;
-
-          if (expiresAtLS > 0 && Date.now() > expiresAtLS * 1000) {
-            try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
-            try { localStorage.removeItem('_sgs_schedule_expires'); } catch (e) {}
-            alert('⌛ Link tes ini sudah kadaluarsa.\n\nSilakan hubungi admin untuk link baru.');
-            renderIdentityForm();
-            return;
-          }
-
-          if (startAt > 0 && Date.now() < startAt * 1000) {
-            if (typeof window.__showRetakeCountdown === 'function') {
-              window.__showRetakeCountdown(startAt, function () {
-                try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
-                if (typeof window.renderHome === 'function') window.renderHome();
-              });
-              return;
-            }
-          }
           try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
           try { localStorage.removeItem('_sgs_schedule_expires'); } catch (e) {}
 
@@ -414,8 +383,7 @@ async function checkPassword() {
       return;  // Skip flow normal
     }
 
-
-      const hasValidIdentity =
+    const hasValidIdentity =
       identitySaved &&
       typeof identitySaved === 'object' &&
       typeof identitySaved.name === 'string' &&
@@ -424,16 +392,6 @@ async function checkPassword() {
     if (hasValidIdentity) {
       window.appState = window.appState || {};
       window.appState.identity = identitySaved;
-
-      // 🆕 Cek jadwal lock — jika user me-refresh halaman saat hitung mundur, jangan bypass!
-      if (typeof window.renderHome === 'function') window.renderHome();
-      else renderIdentityForm();
-    } else {
-      renderIdentityForm();
-    }
-  }, APP_CONFIG.TIMING.SPLASH_DELAY);
-}
-
       if (typeof window.renderHome === 'function') window.renderHome();
       else renderIdentityForm();
     } else {
@@ -449,188 +407,173 @@ window.checkPassword = checkPassword;
    🆕 AUTO-LOGIN PINTAR (Countdown + Klik Lanjutkan + Connect 5s)
    ============================================================ */
 (function autoLoginFromEmailLink() {
-  const url = new URL(window.location.href);
-  const autopw = url.searchParams.get('autopw');
-  const isRetake = url.searchParams.get('retake') === '1';
-  const startRaw = url.searchParams.get('start');
-  const scheduledAt = startRaw ? parseInt(startRaw, 10) : 0;
-
-  if (!autopw || !isRetake) return;
-
   try {
-    url.searchParams.delete('autopw');
-    window.history.replaceState({}, '', url.toString());
-  } catch (e) {}
+    const url = new URL(window.location.href);
+    const autopw = url.searchParams.get('autopw');
+    const isRetake = url.searchParams.get('retake') === '1';
+    const startRaw = url.searchParams.get('start');
+    const scheduledAt = startRaw ? parseInt(startRaw, 10) : 0;
 
-  let phase = 'waiting'; // waiting, ready, connecting
-  let isAudioUnlocked = false;
-  let connectEndTime = 0;
-  let timer;
+    if (!autopw || !isRetake) return;
 
-  // 1. Siapkan Overlay
-  const overlay = document.createElement('div');
-  overlay.id = 'autoLoginCountdown';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:20px;';
-
-   overlay.innerHTML = `
-    <div style="background:#ffffff;padding:16px 28px;border-radius:20px;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,0.3);">
-      <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" style="height:80px;display:block;">
-    </div>
-    <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
-    <div id="cd-text" style="font-size:36px;font-weight:900;margin-bottom:10px;font-variant-numeric:tabular-nums;">Menyiapkan...</div>
-    <div id="cd-sub" style="font-size:14px;color:#94a3b8;margin-bottom:30px;">Mohon tunggu sebentar</div>
-    <div id="cd-action" style="transition:all 0.4s ease; cursor:pointer;">
-      <span style="display:inline-block;padding:12px 24px;border:1px solid rgba(255,255,255,0.15);border-radius:30px;background:rgba(255,255,255,0.05);font-size:13px;color:#cbd5e1;letter-spacing:0.5px;animation:pulse 1.5s infinite;">
-        Sentuh layar untuk melanjutkan
-      </span>
-    </div>
-    <style>@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}</style>
-  `;
-  document.body.appendChild(overlay);
-
-  const elText = document.getElementById('cd-text');
-  const elSub = document.getElementById('cd-sub');
-  const elAction = document.getElementById('cd-action');
-
-  // 2. Fungsi Unlock Audio (Hanya membuka gembok suara)
-  function unlockAudio() {
-    if (isAudioUnlocked) return;
-    const ctx = window.__audioCtx || window.audioCtx;
-    if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
     try {
-      const buffer = ctx.createBuffer(1, 1, 22050);
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      source.start(0);
-    } catch(e) {}
-    
-    isAudioUnlocked = true;
-    if (phase === 'waiting') {
-      elAction.innerHTML = '<span style="display:inline-block;padding:12px 24px;border:1px solid rgba(34,197,94,0.4);border-radius:30px;background:rgba(34,197,94,0.1);font-size:13px;color:#86efac;letter-spacing:0.5px;">✓ Sesi Siap (Menunggu Jadwal)</span>';
-    }
-  }
+      url.searchParams.delete('autopw');
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
 
-  // 3. Event Listener Klik
-  function handleInteraction() {
-    unlockAudio();
-    if (phase === 'ready') {
-      startConnecting();
-    }
-  }
-  overlay.addEventListener('click', handleInteraction);
-  overlay.addEventListener('touchstart', handleInteraction);
+    let phase = 'waiting';
+    let isAudioUnlocked = false;
+    let connectEndTime = 0;
+    let timer;
 
-  const nowSec = Math.floor(Date.now() / 1000);
-  let targetTime = scheduledAt > nowSec ? scheduledAt : 0;
+    const overlay = document.createElement('div');
+    overlay.id = 'autoLoginCountdown';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:20px;';
 
-  // 4. Cek Waktu
-  function checkPhase() {
-    const now = Math.floor(Date.now() / 1000);
+    overlay.innerHTML = `
+      <div style="background:#ffffff;padding:16px 28px;border-radius:20px;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+        <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" style="height:80px;display:block;">
+      </div>
+      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
+      <div id="cd-text" style="font-size:36px;font-weight:900;margin-bottom:10px;font-variant-numeric:tabular-nums;">Menyiapkan...</div>
+      <div id="cd-sub" style="font-size:14px;color:#94a3b8;margin-bottom:30px;">Mohon tunggu sebentar</div>
+      <div id="cd-action" style="transition:all 0.4s ease; cursor:pointer;">
+        <span style="display:inline-block;padding:12px 24px;border:1px solid rgba(255,255,255,0.15);border-radius:30px;background:rgba(255,255,255,0.05);font-size:13px;color:#cbd5e1;letter-spacing:0.5px;animation:pulse 1.5s infinite;">
+          Sentuh layar untuk melanjutkan
+        </span>
+      </div>
+      <style>@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}</style>
+    `;
+    document.body.appendChild(overlay);
 
-    if (phase === 'waiting') {
-      const diff = targetTime - now;
+    const elText = document.getElementById('cd-text');
+    const elSub = document.getElementById('cd-sub');
+    const elAction = document.getElementById('cd-action');
+
+    function unlockAudio() {
+      if (isAudioUnlocked) return;
+      try {
+        const ctx = window.__audioCtx || window.audioCtx;
+        if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+      } catch(e) {}
       
-      // Jika waktu sudah tiba
-      if (diff <= 0) {
-        phase = 'ready';
-        elText.textContent = 'Waktunya Mulai!';
-        elSub.textContent = 'Silakan lanjutkan ke halaman tes';
-        elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
-        clearInterval(timer);
-        return;
+      isAudioUnlocked = true;
+      if (phase === 'waiting') {
+        elAction.innerHTML = '<span style="display:inline-block;padding:12px 24px;border:1px solid rgba(34,197,94,0.4);border-radius:30px;background:rgba(34,197,94,0.1);font-size:13px;color:#86efac;letter-spacing:0.5px;">✓ Sesi Siap (Menunggu Jadwal)</span>';
       }
-
-      // Tampilkan hitungan mundur
-      const d = Math.floor(diff / 86400);
-      const h = Math.floor((diff % 86400) / 3600);
-      const m = Math.floor((diff % 3600) / 60);
-      const s = diff % 60;
-      
-      let str = '';
-      if (d > 0) str += `${d} hari `;
-      if (h > 0) str += `${h} jam `;
-      if (m > 0 || h > 0 || d > 0) str += `${m} mnt `;
-      str += `${s} dtk`;
-      
-      elText.textContent = str;
-      elSub.textContent = `Tautan akan aktif otomatis sesuai jadwal`;
     }
-  }
 
-  // 5. Koneksi 5 Detik
-  function startConnecting() {
-    if (phase === 'connecting') return;
-    phase = 'connecting';
-    elText.textContent = '5';
-    elSub.textContent = 'Menghubungkan ke server...';
-    elAction.style.display = 'none';
-    
-    connectEndTime = Math.floor(Date.now() / 1000) + 5;
-    clearInterval(timer);
+    function handleInteraction() {
+      unlockAudio();
+      if (phase === 'ready') startConnecting();
+    }
+    overlay.addEventListener('click', handleInteraction);
+    overlay.addEventListener('touchstart', handleInteraction);
 
-    timer = setInterval(() => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    let targetTime = scheduledAt > nowSec ? scheduledAt : 0;
+
+    function checkPhase() {
       const now = Math.floor(Date.now() / 1000);
-      const diff = connectEndTime - now;
-      if (diff <= 0) {
-        clearInterval(timer);
-        startSplashScreen();
-      } else {
-        elText.textContent = diff;
+      if (phase === 'waiting') {
+        const diff = targetTime - now;
+        if (diff <= 0) {
+          phase = 'ready';
+          elText.textContent = 'Waktunya Mulai!';
+          elSub.textContent = 'Silakan lanjutkan ke halaman tes';
+          elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
+          clearInterval(timer);
+          return;
+        }
+        const d = Math.floor(diff / 86400);
+        const h = Math.floor((diff % 86400) / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+        let str = '';
+        if (d > 0) str += `${d} hari `;
+        if (h > 0) str += `${h} jam `;
+        if (m > 0 || h > 0 || d > 0) str += `${m} mnt `;
+        str += `${s} dtk`;
+        elText.textContent = str;
+        elSub.textContent = `Tautan akan aktif otomatis sesuai jadwal`;
       }
-    }, 1000);
+    }
+
+    function startConnecting() {
+      if (phase === 'connecting') return;
+      phase = 'connecting';
+      elText.textContent = '5';
+      elSub.textContent = 'Menghubungkan ke server...';
+      elAction.style.display = 'none';
+      
+      connectEndTime = Math.floor(Date.now() / 1000) + 5;
+      clearInterval(timer);
+
+      timer = setInterval(() => {
+        const now = Math.floor(Date.now() / 1000);
+        const diff = connectEndTime - now;
+        if (diff <= 0) {
+          clearInterval(timer);
+          startSplashScreen();
+        } else {
+          elText.textContent = diff;
+        }
+      }, 1000);
+    }
+
+    function startSplashScreen() {
+      overlay.remove();
+      try {
+        const ctx = window.__audioCtx || window.audioCtx;
+        if (ctx) {
+          if (ctx.state === 'suspended') ctx.resume();
+          const now = ctx.currentTime;
+          const notes = [523.25, 659.25, 783.99];
+          notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0, now);
+            gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + i * 0.08);
+            osc.stop(now + 1.5);
+          });
+        }
+      } catch(e) {}
+
+      document.getElementById('welcomeMessage').classList.add('show');
+      const logo = document.getElementById('passwordLogo');
+      if (logo) logo.classList.add('small');
+
+      setTimeout(() => {
+        document.getElementById('passwordScreen').classList.add('hidden');
+        const input = document.getElementById('passwordInput');
+        if (input) input.value = autopw;
+        window.__sgsAutoLogin = true;
+        if (typeof window.checkPassword === 'function') window.checkPassword();
+        else if (typeof checkPassword === 'function') checkPassword();
+      }, (window.APP_CONFIG && APP_CONFIG.TIMING && APP_CONFIG.TIMING.SPLASH_DELAY) ? APP_CONFIG.TIMING.SPLASH_DELAY : 1500);
+    }
+
+    if (targetTime <= nowSec) {
+      phase = 'ready';
+      elText.textContent = 'Waktunya Mulai!';
+      elSub.textContent = 'Silakan lanjutkan ke halaman tes';
+      elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
+    } else {
+      checkPhase();
+      timer = setInterval(checkPhase, 1000);
+    }
+  } catch (err) {
+    console.warn('[AUTO-LOGIN] Error internal:', err);
   }
-
-  // 6. Splash & Suara
-  function startSplashScreen() {
-    overlay.remove();
-    
-    try {
-      const ctx = window.__audioCtx || window.audioCtx;
-      if (ctx) {
-        if (ctx.state === 'suspended') ctx.resume();
-        const now = ctx.currentTime;
-        const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
-        notes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.linearRampToValueAtTime(0.15, now + 0.05);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now + i * 0.08);
-          osc.stop(now + 1.5);
-        });
-      }
-    } catch(e) {}
-
-    document.getElementById('welcomeMessage').classList.add('show');
-    const logo = document.getElementById('passwordLogo');
-    if (logo) logo.classList.add('small');
-
-    setTimeout(() => {
-      document.getElementById('passwordScreen').classList.add('hidden');
-      const input = document.getElementById('passwordInput');
-      if (input) input.value = autopw;
-      window.__sgsAutoLogin = true;
-      if (typeof window.checkPassword === 'function') window.checkPassword();
-      else if (typeof checkPassword === 'function') checkPassword();
-    }, APP_CONFIG.TIMING.SPLASH_DELAY || 1500);
-  }
-
-  // 7. Inisialisasi awal
-  if (targetTime <= nowSec) {
-    // Jika kandidat telat buka link, langsung siap tanpa hitung mundur
-    phase = 'ready';
-    elText.textContent = 'Waktunya Mulai!';
-    elSub.textContent = 'Silakan lanjutkan ke halaman tes';
-    elAction.innerHTML = '<span style="display:inline-block;padding:14px 32px;border:none;border-radius:30px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);font-size:15px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(6,182,212,.4);animation:pulse 1.5s infinite;">Lanjutkan Tes</span>';
-  } else {
-    checkPhase();
-    timer = setInterval(checkPhase, 1000);
-  }
-
 })();
