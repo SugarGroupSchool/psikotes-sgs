@@ -1554,8 +1554,8 @@ async function __generateSignedRetakeToken(params) {
       const tahapWords = ['', '', 'Kedua', 'Ketiga', 'Keempat', 'Kelima', 'Keenam', 'Ketujuh', 'Kedelapan', 'Kesembilan', 'Kesepuluh'];
       const tahapText = tahapWords[tahapVal] || ('Ke-' + tahapVal);
 
-      // Logo untuk email
-      const emailLogo = '<img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" alt="Logo SGS" style="height:70px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">';
+       // Logo untuk email (dengan BG putih)
+      const emailLogo = '<div style="background:#ffffff;display:inline-block;padding:12px 24px;border-radius:16px;margin-bottom:15px;box-shadow:0 4px 15px rgba(0,0,0,0.15);"><img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" alt="Logo SGS" style="height:70px;display:block;"></div>';
       /* 🆕 FIX [2026-10-19]: Build retake URL — kandidat klik tombol
          "Salin Password & Lanjut" di email → langsung ke password screen
          aplikasi (skip landing countdown). Time-window tetap divalidasi

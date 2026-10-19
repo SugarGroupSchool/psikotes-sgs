@@ -487,8 +487,10 @@ window.checkPassword = checkPassword;
   overlay.id = 'autoLoginCountdown';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:20px;';
 
-  overlay.innerHTML = `
-    <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" style="height:80px;margin-bottom:20px;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.5));">
+   overlay.innerHTML = `
+    <div style="background:#ffffff;padding:16px 28px;border-radius:20px;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+      <img src="https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png" style="height:80px;display:block;">
+    </div>
     <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
     <div id="cd-text" style="font-size:36px;font-weight:900;margin-bottom:10px;font-variant-numeric:tabular-nums;">Menyiapkan...</div>
     <div id="cd-sub" style="font-size:14px;color:#94a3b8;margin-bottom:30px;">Mohon tunggu sebentar</div>
