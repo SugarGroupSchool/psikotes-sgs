@@ -424,7 +424,7 @@ window.checkPassword = checkPassword;
     let phase = 'waiting';
     let timer;
 
-    // 1. Siapkan Overlay (Logo + Hitung Mundur + Tombol)
+    // 1. Siapkan Overlay
     const overlay = document.createElement('div');
     overlay.id = 'autoLoginCountdown';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:20px;';
@@ -451,7 +451,7 @@ window.checkPassword = checkPassword;
     const nowSec = Math.floor(Date.now() / 1000);
     let targetTime = scheduledAt > nowSec ? scheduledAt : 0;
 
-    // 2. Fungsi Cek Hitung Mundur
+    // 2. Hitung Mundur
     function checkPhase() {
       const now = Math.floor(Date.now() / 1000);
       if (phase === 'waiting') {
@@ -459,10 +459,10 @@ window.checkPassword = checkPassword;
         
         if (diff <= 0) {
           phase = 'ready';
-          elText.style.display = 'none'; // Sembunyikan angka
+          elText.style.display = 'none'; 
           elSub.textContent = 'Waktunya Mulai!';
           elSub.style.color = '#86efac';
-          btnStart.style.display = 'inline-block'; // Munculkan tombol
+          btnStart.style.display = 'inline-block'; 
           clearInterval(timer);
           return;
         }
@@ -483,22 +483,32 @@ window.checkPassword = checkPassword;
       }
     }
 
-    // 3. Fungsi Koneksi 5 Detik & Splash
+    // 3. Koneksi 5 Detik (Membuka Gembok Suara)
     function startConnecting() {
       if (phase === 'connecting') return;
       phase = 'connecting';
       
-      btnStart.style.display = 'none'; // Sembunyikan tombol
-      elText.style.display = 'block';  // Munculkan angka koneksi
+      btnStart.style.display = 'none'; 
+      elText.style.display = 'block';  
       elText.textContent = '5';
       elSub.textContent = 'Menghubungkan ke server...';
       elSub.style.color = '#94a3b8';
 
-      // Buka gembok Audio (Karena klik tombol ini adalah *user gesture*)
+      // 🔓 BUKA GEMBOK AUDIO CHROME (Tepat Saat Diklik)
       try {
-        const ctx = window.__audioCtx || window.audioCtx;
-        if (ctx && ctx.state === 'suspended') ctx.resume();
-      } catch(e){}
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          window.__sgsAudioCtx = new AudioCtx();
+          if (window.__sgsAudioCtx.state === 'suspended') {
+            window.__sgsAudioCtx.resume();
+          }
+          const buffer = window.__sgsAudioCtx.createBuffer(1, 1, 22050);
+          const source = window.__sgsAudioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(window.__sgsAudioCtx.destination);
+          source.start(0);
+        }
+      } catch(e) { console.warn('Audio unlock failed:', e); }
 
       let connectEndTime = Math.floor(Date.now() / 1000) + 5;
       
@@ -514,14 +524,14 @@ window.checkPassword = checkPassword;
       }, 1000);
     }
 
-    // 4. Fungsi Splash & Suara (Dipanggil setelah koneksi 5 detik)
+    // 4. Splash & Suara
     function startSplashScreen() {
       overlay.remove();
       
-      // Putar Suara
+      // 🔊 PUTAR SUARA ELEGAN
       try {
-        const ctx = window.__audioCtx || window.audioCtx;
-        if (ctx) {
+        if (window.__sgsAudioCtx) {
+          const ctx = window.__sgsAudioCtx;
           if (ctx.state === 'suspended') ctx.resume();
           const now = ctx.currentTime;
           const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
@@ -538,8 +548,10 @@ window.checkPassword = checkPassword;
             osc.start(now + i * 0.08);
             osc.stop(now + 1.5);
           });
+        } else if (typeof playFuturisticSound === 'function') {
+          playFuturisticSound(); // Fallback jika AudioContext gagal dibuat
         }
-      } catch(e) {}
+      } catch(e) { console.warn('Play sound failed:', e); }
 
       // Animasi Logo Mengecil
       document.getElementById('welcomeMessage').classList.add('show');
@@ -557,10 +569,10 @@ window.checkPassword = checkPassword;
       }, (window.APP_CONFIG && APP_CONFIG.TIMING && APP_CONFIG.TIMING.SPLASH_DELAY) ? APP_CONFIG.TIMING.SPLASH_DELAY : 1500);
     }
 
-    // 5. Tombol Mulai Diklik
+    // 5. Pasang Event Klik
     btnStart.addEventListener('click', startConnecting);
 
-    // 6. Jalankan Inisialisasi
+    // 6. Inisialisasi
     if (targetTime <= nowSec) {
       phase = 'ready';
       elText.style.display = 'none';
