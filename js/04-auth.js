@@ -141,25 +141,13 @@ async function checkPassword() {
     return;
   }
 
-   /* ---------- LOGIN SUKSES ---------- */
+    /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
   
-  // 1. Paksa putar suara (mungkin diblokir Chrome jika via email autologin)
-  try {
-    if (typeof playFuturisticSound === 'function') playFuturisticSound();
-  } catch (e) {}
-
-  // 2. Cadangan: Bunyikan saat user klik pertama kali (karena Chrome blokir autoplay)
-  window.__sgsPendingSound = true;
-  const playOnFirstClick = () => {
-    if (window.__sgsPendingSound) {
-      window.__sgsPendingSound = false;
-      try {
-        if (typeof playFuturisticSound === 'function') playFuturisticSound();
-      } catch (e) {}
-    }
-    document.removeEventListener('click', playOnFirstClick, true);
-    document.removeEventListener('touchstart', playOnFirstClick, true);
+  // Putar suara HANYA JIKA BUKAN dari email auto-login
+  if (!window.__sgsAutoLogin && typeof playFuturisticSound === 'function') {
+    try { playFuturisticSound(); } catch (e) {}
+  }
   };
   document.addEventListener('click', playOnFirstClick, true);
   document.addEventListener('touchstart', playOnFirstClick, true);
