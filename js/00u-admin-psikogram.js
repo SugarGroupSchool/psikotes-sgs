@@ -124,64 +124,108 @@
       _sources: { IST:false, PAPI:false, BigFive:false, Wawancara:false, FGD:false, Grafis:false, Subject:false } };
     if (!fbReady()) return raw;
 
-        /* ---------- 1) Prioritas: sgs_psikogram_raw (admin override manual) ---------- */
+    /* 🆕 Slug fallback — coba SPACED dan DASHED (mirror 00u-admin-ist.js) */
+    const dashed = String(slug || '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    const candidates = [slug, dashed].filter((v, i, a) => v && a.indexOf(v) === i);
+
+    /* Helper: fetch path/{slug} — coba semua kandidat, return first non-null */
+    async function _fetchFirst(path) {
+      for (const s of candidates) {
+        try {
+          const snap = await firebase.database().ref(path + '/' + s).once('value');
+          const val = snap.val();
+          if (val) return val;
+        } catch (e) { /* silent */ }
+      }
+      return null;
+    }
+
+    /* ---------- 1) Prioritas: sgs_psikogram_raw (admin override manual) ---------- */
     try {
-      const snap = await firebase.database().ref('sgs_psikogram_raw/' + slug).once('value');
-      const d = snap.val() || {};
-      if (d.IST && Object.keys(d.IST).length)      { raw.IST = d.IST;      raw._sources.IST = true; }
-      if (d.PAPI && Object.keys(d.PAPI).length)    { raw.PAPI = d.PAPI;    raw._sources.PAPI = true; }
-      if (d.BigFive && Object.keys(d.BigFive).length) { raw.BigFive = d.BigFive; raw._sources.BigFive = true; }
-      if (d.Subject && typeof d.Subject === 'number' && d.Subject > 0) { raw.Subject = d.Subject; raw._sources.Subject = true; }
+      const d = await _fetchFirst('sgs_psikogram_raw');
+      if (d) {
+        if (d.IST && Object.keys(d.IST).length)      { raw.IST = d.IST;      raw._sources.IST = true; }
+        if (d.PAPI && Object.keys(d.PAPI).length)    { raw.PAPI = d.PAPI;    raw._sources.PAPI = true; }
+        if (d.BigFive && Object.keys(d.BigFive).length) { raw.BigFive = d.BigFive; raw._sources.BigFive = true; }
+        if (d.Subject && typeof d.Subject === 'number' && d.Subject > 0) { raw.Subject = d.Subject; raw._sources.Subject = true; }
+      }
     } catch (e) {}
 
     /* ---------- 2) Fallback: sgs_scores (auto-push dari kandidat) ---------- */
     try {
-      const snap = await firebase.database().ref('sgs_scores/' + slug).once('value');
-      const d = snap.val() || {};
-      if (!raw._sources.IST && d.IST && Object.keys(d.IST).length) {
-        raw.IST = d.IST; raw._sources.IST = true;
-      }
-      if (!raw._sources.PAPI && d.PAPI && Object.keys(d.PAPI).length) {
-        raw.PAPI = d.PAPI; raw._sources.PAPI = true;
-      }
-      if (!raw._sources.BigFive && d.BigFive && Object.keys(d.BigFive).length) {
-        raw.BigFive = d.BigFive; raw._sources.BigFive = true;
-      }
-    } catch (e) {}
-
-    try {
-      const snap = await firebase.database().ref('sgs_interviews/' + slug).once('value');
-      const d = snap.val() || {};
-      const avgs = Object.values(d).map(x => x && Number(x.average)).filter(v => !isNaN(v) && v > 0);
-      if (avgs.length) { raw.Wawancara = avgs.reduce((a,b)=>a+b,0)/avgs.length; raw._sources.Wawancara = true; }
-    } catch (e) {}
-
-    try {
-      const snap = await firebase.database().ref('sgs_fgd/' + slug).once('value');
-      const d = snap.val() || {};
-      const avgs = Object.values(d).map(x => x && Number(x.average)).filter(v => !isNaN(v) && v > 0);
-      if (avgs.length) { raw.FGD = avgs.reduce((a,b)=>a+b,0)/avgs.length; raw._sources.FGD = true; }
-    } catch (e) {}
-
-    try {
-      const snap = await firebase.database().ref('sgs_grafis_interp/' + slug).once('value');
-      const d = snap.val() || {};
-      for (const assessor of Object.keys(d)) {
-        const a = d[assessor];
-        if (a && a.autoScoring && Array.isArray(a.autoScoring.perKategori)) {
-          a.autoScoring.perKategori.forEach(pk => { raw.Grafis[pk.kategori] = pk.skor; });
+      const d = await _fetchFirst('sgs_scores');
+      if (d) {
+        if (!raw._sources.IST && d.IST && Object.keys(d.IST).length) {
+          raw.IST = d.IST; raw._sources.IST = true;
+        }
+        if (!raw._sources.PAPI && d.PAPI && Object.keys(d.PAPI).length) {
+          raw.PAPI = d.PAPI; raw._sources.PAPI = true;
+        }
+        if (!raw._sources.BigFive && d.BigFive && Object.keys(d.BigFive).length) {
+          raw.BigFive = d.BigFive; raw._sources.BigFive = true;
+        }
+        /* Subject mungkin di sgs_scores juga (dari pushSubject) */
+        if (!raw._sources.Subject) {
+          const subVal = Number(d.Subject ?? d.SUBJECT ?? d.subject);
+          if (subVal > 0) { raw.Subject = subVal; raw._sources.Subject = true; }
         }
       }
-      if (Object.keys(raw.Grafis).length) raw._sources.Grafis = true;
     } catch (e) {}
 
+    /* ---------- 3) Wawancara ---------- */
+    try {
+      const d = await _fetchFirst('sgs_interviews');
+      if (d) {
+        const avgs = Object.values(d).map(x => x && Number(x.average)).filter(v => !isNaN(v) && v > 0);
+        if (avgs.length) { raw.Wawancara = avgs.reduce((a,b)=>a+b,0)/avgs.length; raw._sources.Wawancara = true; }
+      }
+    } catch (e) {}
+
+    /* ---------- 4) FGD ---------- */
+    try {
+      const d = await _fetchFirst('sgs_fgd');
+      if (d) {
+        const avgs = Object.values(d).map(x => x && Number(x.average)).filter(v => !isNaN(v) && v > 0);
+        if (avgs.length) { raw.FGD = avgs.reduce((a,b)=>a+b,0)/avgs.length; raw._sources.FGD = true; }
+      }
+    } catch (e) {}
+
+    /* ---------- 5) GRAFIS — multi-assessor AVERAGE per kategori ---------- */
+    try {
+      const d = await _fetchFirst('sgs_grafis_interp');
+      if (d) {
+        const katScores = {};
+        for (const assessor of Object.keys(d)) {
+          const a = d[assessor];
+          if (a && a.autoScoring && Array.isArray(a.autoScoring.perKategori)) {
+            a.autoScoring.perKategori.forEach(pk => {
+              if (pk && pk.kategori && typeof pk.skor === 'number' && !isNaN(pk.skor)) {
+                if (!katScores[pk.kategori]) katScores[pk.kategori] = [];
+                katScores[pk.kategori].push(pk.skor);
+              }
+            });
+          }
+        }
+        /* Average across assessors */
+        for (const [kat, arr] of Object.entries(katScores)) {
+          raw.Grafis[kat] = arr.reduce((a,b)=>a+b,0) / arr.length;
+        }
+        if (Object.keys(raw.Grafis).length) raw._sources.Grafis = true;
+      }
+    } catch (e) {}
+
+    /* ---------- 6) Subject ratings (fallback) ---------- */
     if (!raw.Subject) {
       try {
-        const snap = await firebase.database().ref('sgs_subject_ratings/' + slug + '/rating').once('value');
-        const r = Number(snap.val());
-        if (r > 0) { raw.Subject = r; raw._sources.Subject = true; }
+        const r = await _fetchFirst('sgs_subject_ratings');
+        if (r) {
+          const rating = Number(r.rating ?? r);
+          if (rating > 0) { raw.Subject = rating; raw._sources.Subject = true; }
+        }
       } catch (e) {}
     }
+
     return raw;
   }
 
