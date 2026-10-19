@@ -30,6 +30,10 @@
 /* 🆕 Baca jadwal mulai (unix detik) */
 const startRaw = url.searchParams.get('start') || '0';
 const startAt = Math.max(0, parseInt(startRaw, 10) || 0);
+
+/* 🆕 Baca expires (unix detik) — 24 jam setelah start */
+const expiresRaw = url.searchParams.get('expiresAt') || '0';
+const expiresAt = Math.max(0, parseInt(expiresRaw, 10) || 0);
     const testsRaw = url.searchParams.get('tests') || '';
     const tests = testsRaw.split(',').map(x => x.trim()).filter(Boolean);
 
@@ -69,15 +73,16 @@ const startAt = Math.max(0, parseInt(startRaw, 10) || 0);
     }
 
     /* --- Simpan data retake supaya 04-auth.js bisa restore --- */
-try {                                                         
+try {
       sessionStorage.setItem('__sgs_retake', JSON.stringify({
         name: n,
         position: p,
-        email: e,            
-        token: token,        
+        email: e,
+        token: token,
         tests: tests,
         tahap: tahap,
         startAt: startAt,
+        expiresAt: expiresAt,
         deviceId: d,
         ts: Date.now()
       }));
@@ -88,8 +93,11 @@ try {
   localStorage.setItem('_sgs_retake_skip_form', '1');
   localStorage.setItem('_sgs_retake_tahap', String(tahap));
 
-  if (startAt > 0) {                                          
+   if (startAt > 0) {
     localStorage.setItem('_sgs_schedule_lock', String(startAt));
+  }
+  if (expiresAt > 0) {
+    localStorage.setItem('_sgs_schedule_expires', String(expiresAt));
   }
 } catch (e) {}
 

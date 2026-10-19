@@ -718,6 +718,49 @@
     }
   }
 
+/* ============================================================
+   🆕 GAS ADMIN CLIENT — Generate signed token via GAS
+   ============================================================ */
+async function __callAdminGAS(payload) {
+  let idToken = '';
+  try {
+    const u = firebase.auth().currentUser;
+    if (u) idToken = await u.getIdToken();
+  } catch (e) {}
+  const res = await fetch(EMAIL_GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, idToken: idToken })
+  });
+  if (!res.ok) throw new Error('GAS HTTP ' + res.status);
+  return await res.json();
+}
+
+async function __generateSignedRetakeToken(params) {
+  const data = await __callAdminGAS({
+    action: 'generate_token',
+    name: params.name,
+    position: params.position || '',
+    tahap: params.tahap,
+    tests: params.tests,
+    scheduledAt: params.scheduledAt || 0
+  });
+  if (!data || !data.success) {
+    throw new Error(data?.error || 'Generate token gagal');
+  }
+  return {
+    tokenId: data.tokenId,
+    signedToken: data.signedToken,
+    scheduledAt: data.scheduledAt,
+    expiresAt: data.expiresAt,
+    startUrl: data.startUrl
+  };
+}
+
+/* ============================================================
+   __buildRetakeUrl (existing) — tetap dipakai sebagai fallback
+   ============================================================ */
+
   /* ============================================================
      Build URL retake
      ============================================================ */
@@ -1260,7 +1303,7 @@
         applySession();
       }
 
-      const copyBtn = document.getElementById('retakeCopyBtn');
+            const copyBtn = document.getElementById('retakeCopyBtn');
       if (copyBtn) {
         copyBtn.onclick = async () => {
           const tests = getSelected();
@@ -1269,57 +1312,48 @@
             return;
           }
           const tahapVal = getSelectedTahap();
-    /* 🆕 Mirror candidate_status dari session sebelum kirim link */
-    try {
-      const csCheck = await firebase.database()
-        .ref('sgs_candidate_status/' + slug).once('value');
-      const csData = csCheck.val();
-      if (!csData || !csData.candidateName) {
-        // Cari session by name, copy ke candidate_status
-        const sessSnap = await firebase.database()
-          .ref('sgs_state/sessions').once('value');
-        const sessions = sessSnap.val() || {};
-        const nameTarget = String(name).toLowerCase().trim();
-        for (const devId in sessions) {
-          const s = sessions[devId] || {};
-          if (s.name && String(s.name).toLowerCase().trim() === nameTarget) {
-            await firebase.database()
-              .ref('sgs_candidate_status/' + slug).update({
-                candidateName: s.name,
-                email: s.email || '',
-                candidatePosition: s.position || '',
-                phone: s.phone || '',
-                completed: s.completed || {},
-                ts: firebase.database.ServerValue.TIMESTAMP
-              });
-            console.log('[RETAKE-EMAIL] ✅ Mirror ke candidate_status:', s.name);
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
-    }
-
-          /* 🆕 Token + email untuk copy link */
-          const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
-          const emailForCopy = await findEmail(slug, name);
+          /* Mirror candidate_status dari session sebelum kirim link */
           try {
-            await firebase.database()
-              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
-              .set({
-                tahap: tahapVal,
-                tests: tests,
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                status: 'active'
-              });
+            const csCheck = await firebase.database()
+              .ref('sgs_candidate_status/' + slug).once('value');
+            const csData = csCheck.val();
+            if (!csData || !csData.candidateName) {
+              const sessSnap = await firebase.database().ref('sgs_state/sessions').once('value');
+              const sessions = sessSnap.val() || {};
+              const nameTarget = String(name).toLowerCase().trim();
+              for (const devId in sessions) {
+                const s = sessions[devId] || {};
+                if (s.name && String(s.name).toLowerCase().trim() === nameTarget) {
+                  await firebase.database().ref('sgs_candidate_status/' + slug).update({
+                    candidateName: s.name,
+                    email: s.email || '',
+                    candidatePosition: s.position || '',
+                    phone: s.phone || '',
+                    completed: s.completed || {},
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                  });
+                  break;
+                }
+              }
+            }
           } catch (e) {}
 
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, emailForCopy || '', token);
+          const prev = copyBtn.textContent;
+          copyBtn.textContent = '⏳ Membuat link...';
+          copyBtn.disabled = true;
           try {
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(url).then(() => {
-                const prev = copyBtn.textContent;
+            const tokenData = await __generateSignedRetakeToken({
+              name: name,
+              position: position,
+              tahap: tahapVal,
+              tests: tests,
+              scheduledAt: getStartAt()
+            });
+            const url = tokenData.startUrl;
+
+            try {
+              if (navigator.clipboard) {
+                await navigator.clipboard.writeText(url);
                 copyBtn.textContent = '✅ Tersalin';
                 copyBtn.style.background = 'rgba(34,197,94,.15)';
                 copyBtn.style.borderColor = 'rgba(34,197,94,.4)';
@@ -1327,18 +1361,25 @@
                 if (typeof window.__showToast === 'function') {
                   window.__showToast('📋 Link Tes Tahap ' + tahapVal + ' tersalin', 'success');
                 }
-                setTimeout(() => {
-                  copyBtn.textContent = prev;
-                  copyBtn.style.background = 'rgba(59,130,246,.12)';
-                  copyBtn.style.borderColor = 'rgba(59,130,246,.35)';
-                  copyBtn.style.color = '#1e40af';
-                }, 1800);
-              }).catch(() => window.prompt('Copy link ini:', url));
-            } else {
+              } else {
+                window.prompt('Copy link ini:', url);
+                copyBtn.textContent = prev;
+              }
+            } catch (e) {
               window.prompt('Copy link ini:', url);
+              copyBtn.textContent = prev;
             }
-          } catch (e) {
-            window.prompt('Copy link ini:', url);
+            setTimeout(() => {
+              copyBtn.textContent = prev;
+              copyBtn.disabled = false;
+              copyBtn.style.background = 'rgba(59,130,246,.12)';
+              copyBtn.style.borderColor = 'rgba(59,130,246,.35)';
+              copyBtn.style.color = '#1e40af';
+            }, 1800);
+          } catch (err) {
+            alert('Gagal generate link: ' + err.message);
+            copyBtn.textContent = prev;
+            copyBtn.disabled = false;
           }
         };
       }
@@ -1394,29 +1435,32 @@
       console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
     }
 
-          /* 🆕 Generate token juga untuk WA */
-          const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
-          const emailForWA = await findEmail(slug, name);
+                  const prevWa = waBtn.textContent;
+          waBtn.textContent = '⏳ Membuat link...';
+          waBtn.disabled = true;
           try {
-            await firebase.database()
-              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
-              .set({
-                tahap: tahapVal,
-                tests: tests,
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                status: 'active'
-              });
-          } catch (e) {}
-
-          const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, emailForWA || '', token);
-          const message =
-            'Halo ' + name + ',\n\n' +
-            'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
-            '📋 Tes yang harus dikerjakan: *' + tests.join(', ') + '*\n\n' +
-            '🔗 Link: ' + url + '\n\n' +
-            'Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.\n\n' +
-            'Terima kasih.';
-          window.open('https://wa.me/' + norm + '?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
+            const tokenData = await __generateSignedRetakeToken({
+              name: name,
+              position: position,
+              tahap: tahapVal,
+              tests: tests,
+              scheduledAt: getStartAt()
+            });
+            const url = tokenData.startUrl;
+            const message =
+              'Halo ' + name + ',\n\n' +
+              'Admin Sugar Group Schools mengirimkan link untuk *Tes Tahap ' + tahapVal + '*.\n\n' +
+              '📋 Tes yang harus dikerjakan: *' + tests.join(', ') + '*\n\n' +
+              '🔗 Link: ' + url + '\n\n' +
+              'Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.\n\n' +
+              'Terima kasih.';
+            window.open('https://wa.me/' + norm + '?text=' + encodeURIComponent(message), '_blank', 'noopener,noreferrer');
+          } catch (err) {
+            alert('Gagal generate link: ' + err.message);
+          } finally {
+            waBtn.textContent = prevWa;
+            waBtn.disabled = false;
+          }
         };
       }
 
@@ -1467,141 +1511,151 @@
       console.warn('[RETAKE-EMAIL] Mirror gagal:', e.message);
     }
 
-    /* 🆕 Generate token unik untuk link cross-device */
-    const token = 'tok_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+    const prev = emailBtn.textContent;
+    emailBtn.disabled = true;
+    emailBtn.textContent = '⏳ Membuat link...';
 
-    /* 🆕 Simpan token ke Firebase */
     try {
-      await firebase.database()
-        .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + token)
-        .set({
-          tahap: tahapVal,
-          tests: tests,
-          createdAt: firebase.database.ServerValue.TIMESTAMP,
-          status: 'active'
+      // 🔒 Generate signed token via GAS (HMAC)
+      const tokenData = await __generateSignedRetakeToken({
+        name: name,
+        position: position,
+        tahap: tahapVal,
+        tests: tests,
+        scheduledAt: getStartAt()
+      });
+      const url = tokenData.startUrl;
+      const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
+
+      /* Password HTML */
+      const __usedPwd = (typeof window.getUsedPwd === 'function')
+        ? window.getUsedPwd()
+        : null;
+      let __passwordHTML = '';
+      if (__usedPwd && __usedPwd.length > 0) {
+        const __copyHelperUrl = window.location.origin + window.location.pathname +
+          '?copypw=' + encodeURIComponent(__usedPwd) +
+          '&next=' + encodeURIComponent(url);
+        __passwordHTML =
+          '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
+          'border-radius:14px;padding:20px 22px;margin:18px 0;text-align:center;">' +
+            '<div style="font-size:11px;font-weight:800;letter-spacing:2px;' +
+              'color:rgba(255,255,255,.85);margin-bottom:10px;">' +
+              '🔑 KODE AKSES MASUK TES</div>' +
+            '<div style="font-family:\'Courier New\',monospace;font-size:22px;' +
+              'font-weight:900;color:#fff;letter-spacing:2px;padding:12px 16px;' +
+              'background:rgba(0,0,0,.3);border-radius:10px;display:block;' +
+              'margin-bottom:12px;word-break:break-all;">' +
+              __usedPwd +
+            '</div>' +
+            '<a href="' + __copyHelperUrl + '" ' +
+              'style="display:inline-block;padding:11px 24px;' +
+              'background:#fff;color:#1e3a8a;text-decoration:none;' +
+              'border-radius:10px;font-weight:900;font-size:13px;">' +
+              '📋 Salin Password & Lanjut' +
+            '</a>' +
+            '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;">' +
+              'Klik tombol di atas — password otomatis tersalin</div>' +
+          '</div>';
+      }
+
+      /* ⏰ Info countdown live (bukan static) */
+      const __startVal = getStartAt();
+      let __countdownInfoHTML = '';
+      if (__startVal > 0) {
+        const __targetDate = new Date(__startVal * 1000);
+        const __fmtDate = __targetDate.toLocaleDateString('id-ID', {
+          weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
         });
-      console.log('[RETAKE-TOKEN] ✅ Token disimpan:', token);
-    } catch (e) {
-      console.warn('[RETAKE-TOKEN] ⚠️ Gagal simpan token:', e.message);
+        const __fmtTime = __targetDate.toLocaleTimeString('id-ID', {
+          hour: '2-digit', minute: '2-digit'
+        });
+        __countdownInfoHTML =
+          '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);' +
+          'border:2px solid #f59e0b;border-radius:14px;padding:18px 20px;margin:20px 0;">' +
+            '<div style="font-size:11px;font-weight:900;color:#78350f;' +
+              'letter-spacing:2px;margin-bottom:10px;">⏰ JADWAL MULAI TES</div>' +
+            '<div style="font-size:16px;font-weight:900;color:#78350f;margin-bottom:4px;">' +
+              '📅 ' + __fmtDate + '</div>' +
+            '<div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:12px;">' +
+              '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
+            '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
+              'font-size:12.5px;color:#78350f;line-height:1.6;text-align:center;">' +
+              '⏳ <b>Klik tombol di bawah untuk melihat hitung mundur live</b>' +
+            '</div>' +
+            '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
+              '⚠️ Link hanya aktif mulai waktu di atas · Berlaku 24 jam' +
+            '</div>' +
+          '</div>';
+      }
+
+      const htmlBody =
+        '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
+          '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
+          '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
+        '</div>' +
+        '<div style="background:#fff;padding:28px 24px;">' +
+          '<p>Halo <b>' + name + '</b>,</p>' +
+          '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap ' + tahapVal + '</b>.</p>' +
+          '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
+            '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
+            '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
+          '</div>' +
+          __countdownInfoHTML +
+          __passwordHTML +
+          '<div style="text-align:center;margin:24px 0;">' +
+            '<a href="' + url + '" style="display:inline-block;padding:16px 36px;' +
+            'background:linear-gradient(135deg,#06b6d4,#0ea5e9);color:#fff;' +
+            'text-decoration:none;border-radius:12px;font-weight:900;' +
+            'font-size:15px;box-shadow:0 6px 20px rgba(6,182,212,.35);">' +
+            '🚀 Buka Halaman Tes</a>' +
+          '</div>' +
+          '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
+            '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
+          '</div>' +
+          '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
+        '</div>' +
+        '<div style="background:#0f172a;color:#94a3b8;padding:16px;text-align:center;font-size:11px;border-radius:0 0 12px 12px;">Email otomatis · Jangan balas langsung</div>';
+
+      emailBtn.textContent = '⏳ Mengirim...';
+
+      let idToken = '';
+      try {
+        const u = firebase.auth().currentUser;
+        if (u) idToken = await u.getIdToken();
+      } catch (e) {}
+
+      await fetch(EMAIL_GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'send_status_email',
+          idToken: idToken,
+          to: email,
+          name: name,
+          position: position || '',
+          status: 'retake',
+          subject: subject,
+          htmlBody: htmlBody
+        })
+      });
+
+      emailBtn.textContent = '✅ Terkirim';
+      emailBtn.style.background = 'linear-gradient(135deg,#16a34a,#059669)';
+      if (typeof window.__showToast === 'function') {
+        window.__showToast('📧 Link Tes Tahap ' + tahapVal + ' terkirim ke ' + email, 'success');
+      }
+      setTimeout(() => {
+        emailBtn.disabled = false;
+        emailBtn.textContent = prev;
+        emailBtn.style.background = 'linear-gradient(135deg,#8b5cf6,#6d28d9)';
+      }, 2200);
+    } catch (err) {
+      emailBtn.disabled = false;
+      emailBtn.textContent = prev;
+      alert('Gagal kirim email: ' + err.message);
     }
-
-    /* 🆕 Bangun URL dengan email + token (TANPA device ID wajib) */
-    const url = await __buildRetakeUrl(name, position, tests, tahapVal, getStartAt(), null, email, token);
-    const subject = '🔗 Link Tes Tahap ' + tahapVal + ' — ' + name;
-
-          /* 🆕 SISIPKAN PASSWORD USED KE EMAIL */
-          const __usedPwd = (typeof window.getUsedPwd === 'function')
-            ? window.getUsedPwd()
-            : null;
-          let __passwordHTML = '';
-          if (__usedPwd && __usedPwd.length > 0) {
-            /* 🆕 URL copy-helper — tombol copy otomatis */
-            const __copyHelperUrl = window.location.origin + window.location.pathname +
-              '?copypw=' + encodeURIComponent(__usedPwd) +
-              '&next=' + encodeURIComponent(url);
-
-            __passwordHTML =
-              '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
-              'border-radius:14px;padding:20px 22px;margin:18px 0;text-align:center;">' +
-                '<div style="font-size:11px;font-weight:800;letter-spacing:2px;' +
-                  'color:rgba(255,255,255,.85);margin-bottom:10px;">' +
-                  '🔑 KODE AKSES MASUK TES</div>' +
-                '<div style="font-family:\'Courier New\',monospace;font-size:22px;' +
-                  'font-weight:900;color:#fff;letter-spacing:2px;padding:12px 16px;' +
-                  'background:rgba(0,0,0,.3);border-radius:10px;display:block;' +
-                  'margin-bottom:12px;word-break:break-all;">' +
-                  __usedPwd +
-                '</div>' +
-                '<a href="' + __copyHelperUrl + '" ' +
-                  'style="display:inline-block;padding:11px 24px;' +
-                  'background:#fff;color:#1e3a8a;text-decoration:none;' +
-                  'border-radius:10px;font-weight:900;font-size:13px;">' +
-                  '📋 Salin Password & Lanjut' +
-                '</a>' +
-                '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;">' +
-                  'Klik tombol di atas — password otomatis tersalin</div>' +
-              '</div>';
-          }
-
-
-                   /* 🆕 Generate countdown HTML kalau ada jadwal */
-          const __startVal = getStartAt();
-          let __countdownHTML = '';
-          if (__startVal > 0) {
-            const __targetDate = new Date(__startVal * 1000);
-            const __fmtDate = __targetDate.toLocaleDateString('id-ID', {
-              weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
-            });
-            const __fmtTime = __targetDate.toLocaleTimeString('id-ID', {
-              hour: '2-digit', minute: '2-digit'
-            });
-            const __diffMs = __targetDate.getTime() - Date.now();
-            const __days = Math.floor(__diffMs / 86400000);
-            const __hours = Math.floor((__diffMs % 86400000) / 3600000);
-            const __mins = Math.floor((__diffMs % 3600000) / 60000);
-            let __relativeText = '';
-            if (__days > 0) __relativeText = __days + ' hari ' + __hours + ' jam lagi';
-            else if (__hours > 0) __relativeText = __hours + ' jam ' + __mins + ' menit lagi';
-            else if (__mins > 0) __relativeText = __mins + ' menit lagi';
-            else __relativeText = 'beberapa saat lagi';
-
-            __countdownHTML =
-              '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);' +
-              'border:2px solid #f59e0b;border-radius:14px;padding:18px 20px;margin:20px 0;">' +
-                '<div style="font-size:11px;font-weight:900;color:#78350f;' +
-                  'letter-spacing:2px;margin-bottom:10px;">⏰ JADWAL MULAI TES</div>' +
-                '<div style="font-size:16px;font-weight:900;color:#78350f;margin-bottom:4px;">' +
-                  '📅 ' + __fmtDate + '</div>' +
-                '<div style="font-size:14px;font-weight:800;color:#92400e;margin-bottom:12px;">' +
-                  '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
-                '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
-                  'font-size:13px;color:#78350f;line-height:1.6;text-align:center;">' +
-                  'Tes dapat diakses dalam<br>' +
-                  '<b style="font-size:18px;color:#d97706;">' + __relativeText + '</b>' +
-                '</div>' +
-                '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
-                  '⚠️ Link hanya aktif mulai waktu di atas' +
-                '</div>' +
-              '</div>';
-                   }
-          const htmlBody =
-              '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:24px;text-align:center;border-radius:12px 12px 0 0;color:#fff;">' +
-                '<div style="font-size:11px;font-weight:800;letter-spacing:3px;opacity:.85;margin-bottom:4px;">SUGAR GROUP SCHOOLS</div>' +
-                '<div style="font-size:18px;font-weight:900;">Tes Tahap ' + tahapVal + '</div>' +
-              '</div>' +
-              '<div style="background:#fff;padding:28px 24px;">' +
-                '<p>Halo <b>' + name + '</b>,</p>' +
-                '<p>Admin Sugar Group Schools mengirimkan link untuk <b>Tes Tahap ' + tahapVal + '</b>.</p>' +
-                '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin:18px 0;">' +
-                  '<div style="font-size:12px;font-weight:800;color:#1e40af;margin-bottom:6px;">📋 TES YANG HARUS DIKERJAKAN</div>' +
-                  '<div style="font-size:14px;font-weight:900;color:#1e40af;">' + tests.join(' · ') + '</div>' +
-                '</div>' +
-                __countdownHTML +
-                __passwordHTML +
-                (__startVal > 0
-                  ? '<div style="background:#f1f5f9;border:1.5px dashed #94a3b8;' +
-                      'border-radius:12px;padding:16px 20px;margin:18px 0;text-align:center;">' +
-                      '<div style="font-size:13.5px;color:#475569;line-height:1.7;">' +
-                        '🔒 <b>Link tes akan aktif otomatis</b> pada waktu di atas.<br>' +
-                        'Klik tombol <b>"Salin Password & Lanjut"</b> di atas untuk buka halaman tes.' +
-                      '</div>' +
-                    '</div>'
-                  : '<div style="text-align:center;margin:24px 0;">' +
-                      '<a href="' + url + '" style="display:inline-block;padding:16px 36px;' +
-                      'background:linear-gradient(135deg,#16a34a,#059669);color:#fff;' +
-                      'text-decoration:none;border-radius:12px;font-weight:900;' +
-                      'font-size:15px;">🔓 Akses Tes Sekarang</a>' +
-                    '</div>'
-                ) +
-                '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
-                  '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
-                '</div>' +
-                '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
-              '</div>' +
-              '<div style="background:#0f172a;color:#94a3b8;padding:16px;text-align:center;font-size:11px;border-radius:0 0 12px 12px;">Email otomatis · Jangan balas langsung</div>' +
-            '</div>';
-
-          const prev = emailBtn.textContent;
           emailBtn.disabled = true;
           emailBtn.textContent = '⏳ Mengirim...';
 

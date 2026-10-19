@@ -240,15 +240,37 @@ async function checkPassword() {
             }
           }
 
-          /* 🆕 4. Validasi token (kalau ada) */
+                   /* 🆕 4. Validasi token — baca dari /sgs_retake_tokens/{tokenId} */
           if (retakeData.token) {
             const tkSnap = await firebase.database()
-              .ref('sgs_candidate_status/' + slug + '/retake_tokens/' + retakeData.token)
+              .ref('sgs_retake_tokens/' + retakeData.token)
               .once('value');
             const tk = tkSnap.val();
             if (!tk) {
-              throw new Error('Token tidak valid / sudah kedaluwarsa');
+              throw new Error('Token tidak valid atau tidak ditemukan');
             }
+
+            const nowSec = Math.floor(Date.now() / 1000);
+
+            /* Time-window validation (server-side already checked at landing,
+               ini sebagai layer 2 defense — client-side double check) */
+            if (tk.scheduledAt && nowSec < tk.scheduledAt) {
+              throw new Error('Tes belum bisa dimulai. Jadwal: ' +
+                new Date(tk.scheduledAt * 1000).toLocaleString('id-ID'));
+            }
+            if (tk.expiresAt && nowSec > tk.expiresAt) {
+              throw new Error('Link sudah kadaluarsa pada ' +
+                new Date(tk.expiresAt * 1000).toLocaleString('id-ID'));
+            }
+
+            /* Override data dari Firebase — anti tamper URL params */
+            if (tk.name) retakeData.name = tk.name;
+            if (tk.position !== undefined) retakeData.position = tk.position || '';
+            if (Array.isArray(tk.tests) && tk.tests.length) retakeData.tests = tk.tests.slice();
+            if (tk.tahap) retakeData.tahap = tk.tahap;
+
+            console.log('[RETAKE] ✅ Token valid — tahap:', tk.tahap,
+              '| expires:', new Date(tk.expiresAt * 1000).toLocaleString('id-ID'));
           }
 
           /* 5. Restore identity dari candidate_status */
@@ -350,8 +372,18 @@ async function checkPassword() {
         } catch (e) {}
 
         if (restored) {
-          /* 🆕 Cek jadwal */
+                    /* 🆕 Cek jadwal + expiry */
           const startAt = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
+          const expiresAtLS = parseInt(localStorage.getItem('_sgs_schedule_expires') || '0', 10) || 0;
+
+          if (expiresAtLS > 0 && Date.now() > expiresAtLS * 1000) {
+            try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+            try { localStorage.removeItem('_sgs_schedule_expires'); } catch (e) {}
+            alert('⌛ Link tes ini sudah kadaluarsa.\n\nSilakan hubungi admin untuk link baru.');
+            renderIdentityForm();
+            return;
+          }
+
           if (startAt > 0 && Date.now() < startAt * 1000) {
             if (typeof window.__showRetakeCountdown === 'function') {
               window.__showRetakeCountdown(startAt, function () {
@@ -362,6 +394,7 @@ async function checkPassword() {
             }
           }
           try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
+          try { localStorage.removeItem('_sgs_schedule_expires'); } catch (e) {}
 
           if (typeof window.renderHome === 'function') window.renderHome();
           else renderIdentityForm();
