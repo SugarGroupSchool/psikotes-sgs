@@ -131,19 +131,23 @@ async function checkPassword() {
   /* ---------- CEK 4: Cocok? ---------- */
   if (value !== validPwd) {
     error.textContent = 'Kode akses salah!';
-    if (typeof runWrongPasswordEffects === 'function') {
-  runWrongPasswordEffects();
-} else if (typeof playWrongPasswordAlarm === 'function') {
-  playWrongPasswordAlarm();
-}
+    if (!window.__sgsAutoLogin) {
+      if (typeof runWrongPasswordEffects === 'function') {
+        runWrongPasswordEffects();
+      } else if (typeof playWrongPasswordAlarm === 'function') {
+        playWrongPasswordAlarm();
+      }
+    }
     input.focus();
     input.select();
     return;
   }
 
-  /* ---------- LOGIN SUKSES ---------- */
+   /* ---------- LOGIN SUKSES ---------- */
   error.textContent = '';
-  if (typeof playFuturisticSound === 'function') playFuturisticSound();
+  if (!window.__sgsAutoLogin && typeof playFuturisticSound === 'function') {
+    playFuturisticSound();
+  }
 
   document.getElementById('welcomeMessage').classList.add('show');
   document.getElementById('passwordLogo').classList.add('small');
@@ -470,7 +474,11 @@ window.checkPassword = checkPassword;
       clearInterval(timer);
       console.log('[AUTO-LOGIN] ✅ Cloud ready — submit password otomatis');
 
-      input.value = autopw;
+            input.value = autopw;
+
+      /* 🆕 Set flag: skip sound effect karena tidak ada user gesture
+         (browser autoplay policy akan block AudioContext) */
+      window.__sgsAutoLogin = true;
 
       setTimeout(() => {
         try {
@@ -481,6 +489,9 @@ window.checkPassword = checkPassword;
           }
         } catch (e) {
           console.warn('[AUTO-LOGIN] Auto-submit error:', e);
+        } finally {
+          /* Reset flag setelah submit (biar user gesture normal berikutnya tidak affected) */
+          setTimeout(() => { window.__sgsAutoLogin = false; }, 5000);
         }
       }, 400);
       return;

@@ -141,3 +141,39 @@
   window.__unlockAudio = __unlockAudio;
 })();
    console.log('[AUDIO] ✓ Loaded');
+
+/* ============================================================
+   🆕 Audio Unlock on User Gesture
+   ------------------------------------------------------------
+   Browser blokir AudioContext sebelum ada user interaction.
+   Handler ini resume AudioContext pada click/touch/keydown
+   pertama kali — jadi sound berikutnya (setelah gesture) normal.
+   ============================================================ */
+(function unlockAudioOnFirstGesture() {
+  let unlocked = false;
+
+  function tryUnlock() {
+    if (unlocked) return;
+    try {
+      // Cari AudioContext yang sudah ada di scope global
+      const ctx = window.__audioCtx
+        || window.audioCtx
+        || (typeof audioCtx !== 'undefined' ? audioCtx : null)
+        || (typeof audioContext !== 'undefined' ? audioContext : null);
+
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(function () {
+          unlocked = true;
+          console.log('[AUDIO] ✅ AudioContext resumed setelah user gesture');
+        }).catch(function () {});
+      } else if (ctx && ctx.state === 'running') {
+        unlocked = true;
+      }
+    } catch (e) {}
+  }
+
+  ['click', 'touchstart', 'keydown'].forEach(function (evt) {
+    document.addEventListener(evt, tryUnlock, { once: false, passive: true });
+  });
+})();
+
