@@ -1541,7 +1541,10 @@ async function __generateSignedRetakeToken(params) {
          aplikasi (skip landing countdown). Time-window tetap divalidasi
          di 04-auth.js — kalau belum waktunya, kandidat akan di-block saat
          input password. */
-      const __retakeBase = window.location.origin + window.location.pathname;
+            const __retakeBase = window.location.origin + window.location.pathname;
+      const __usedPwdForEmail = (typeof window.getUsedPwd === 'function')
+        ? window.getUsedPwd() : null;
+
       const __retakeParams = [
         'retake=1',
         'n=' + encodeURIComponent(name),
@@ -1552,37 +1555,62 @@ async function __generateSignedRetakeToken(params) {
         'expiresAt=' + tokenData.expiresAt,
         'token=' + encodeURIComponent(tokenData.tokenId)
       ];
+      /* 🆕 Auto-login: kirim password di URL (dihapus di 04-auth segera setelah dibaca) */
+      if (__usedPwdForEmail) {
+        __retakeParams.push('autopw=' + encodeURIComponent(__usedPwdForEmail));
+      }
       const __retakeUrl = __retakeBase + '?' + __retakeParams.join('&');
 
       /* Password HTML */
       const __usedPwd = (typeof window.getUsedPwd === 'function')
         ? window.getUsedPwd()
         : null;
-      let __passwordHTML = '';
-            if (__usedPwd && __usedPwd.length > 0) {
-        const __copyHelperUrl = window.location.origin + window.location.pathname +
-          '?copypw=' + encodeURIComponent(__usedPwd) +
-          '&next=' + encodeURIComponent(__retakeUrl);
+           let __passwordHTML = '';
+      if (__usedPwdForEmail && __usedPwdForEmail.length > 0) {
         __passwordHTML =
-          '<div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);' +
-          'border-radius:14px;padding:20px 22px;margin:18px 0;text-align:center;">' +
-            '<div style="font-size:11px;font-weight:800;letter-spacing:2px;' +
-              'color:rgba(255,255,255,.85);margin-bottom:10px;">' +
-              '🔑 KODE AKSES MASUK TES</div>' +
-            '<div style="font-family:\'Courier New\',monospace;font-size:22px;' +
-              'font-weight:900;color:#fff;letter-spacing:2px;padding:12px 16px;' +
-              'background:rgba(0,0,0,.3);border-radius:10px;display:block;' +
-              'margin-bottom:12px;word-break:break-all;">' +
-              __usedPwd +
-            '</div>' +
-            '<a href="' + __copyHelperUrl + '" ' +
-              'style="display:inline-block;padding:11px 24px;' +
-              'background:#fff;color:#1e3a8a;text-decoration:none;' +
-              'border-radius:10px;font-weight:900;font-size:13px;">' +
-              '📋 Salin Password & Lanjut' +
+          /* 🆕 CTA Utama: klik → auto-login */
+          '<div style="text-align:center;margin:24px 0;">' +
+            '<a href="' + __retakeUrl + '" ' +
+              'style="display:inline-block;padding:18px 44px;' +
+              'background:linear-gradient(135deg,#06b6d4,#0ea5e9);color:#fff;' +
+              'text-decoration:none;border-radius:14px;font-weight:900;' +
+              'font-size:16px;letter-spacing:.5px;' +
+              'box-shadow:0 10px 28px rgba(6,182,212,.45);">' +
+              '🚀 Buka Halaman Tes' +
             '</a>' +
-            '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px;">' +
-              'Klik tombol di atas — password otomatis tersalin</div>' +
+            '<div style="font-size:11.5px;color:#64748b;margin-top:10px;' +
+              'font-style:italic;">' +
+              'Klik tombol di atas — Anda langsung masuk tanpa isi password' +
+            '</div>' +
+          '</div>' +
+
+          /* Password backup (kalau auto-login gagal) */
+          '<div style="background:#f8fafc;border:1.5px dashed #cbd5e1;' +
+            'border-radius:12px;padding:14px 16px;margin:18px 0;text-align:center;">' +
+            '<div style="font-size:10.5px;font-weight:800;color:#64748b;' +
+              'letter-spacing:1.5px;margin-bottom:6px;">' +
+              '🔑 CADANGAN — KODE AKSES MANUAL</div>' +
+            '<div style="font-family:\'Courier New\',monospace;font-size:16px;' +
+              'font-weight:900;color:#1e293b;letter-spacing:1.5px;' +
+              'padding:8px 12px;background:#fff;border:1px solid #e2e8f0;' +
+              'border-radius:8px;display:inline-block;word-break:break-all;">' +
+              __usedPwdForEmail +
+            '</div>' +
+            '<div style="font-size:10.5px;color:#94a3b8;margin-top:6px;">' +
+              'Hanya dipakai kalau tombol di atas tidak berfungsi' +
+            '</div>' +
+          '</div>';
+      } else {
+        /* Fallback: tidak ada password, tombol tetap ada tanpa autopw */
+        __passwordHTML =
+          '<div style="text-align:center;margin:24px 0;">' +
+            '<a href="' + __retakeUrl + '" ' +
+              'style="display:inline-block;padding:18px 44px;' +
+              'background:linear-gradient(135deg,#06b6d4,#0ea5e9);color:#fff;' +
+              'text-decoration:none;border-radius:14px;font-weight:900;' +
+              'font-size:16px;">' +
+              '🚀 Buka Halaman Tes' +
+            '</a>' +
           '</div>';
       }
 
@@ -1608,7 +1636,7 @@ async function __generateSignedRetakeToken(params) {
               '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
                        '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
               'font-size:12.5px;color:#78350f;line-height:1.6;text-align:center;">' +
-              '📌 <b>Klik tombol "Salin Password & Lanjut" di bawah setelah jadwal tiba</b>' +
+              '📌 <b>Link aktif mulai waktu di atas. Klik tombol di bawah untuk masuk otomatis.</b>' +
             '</div>' +
             '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
               '⚠️ Link hanya aktif mulai waktu di atas · Berlaku 24 jam' +
@@ -1630,8 +1658,8 @@ async function __generateSignedRetakeToken(params) {
           '</div>' +
                    __countdownInfoHTML +
           __passwordHTML +
-          '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#78350f;">' +
-            '<b>⚠️ Catatan:</b> Isi password yang diberikan admin untuk masuk. Anda akan langsung masuk ke tes tanpa isi data ulang.' +
+                   '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#166534;line-height:1.6;">' +
+            '<b>✅ Catatan:</b> Klik tombol "Buka Halaman Tes" di atas — password otomatis terisi dan Anda langsung masuk ke tes. Tidak perlu isi data ulang.' +
           '</div>' +
           '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
         '</div>' +

@@ -426,3 +426,69 @@ async function checkPassword() {
 }
 
 window.checkPassword = checkPassword;
+
+
+/* ============================================================
+   🆕 AUTO-LOGIN FROM EMAIL LINK (Retake Flow)
+   ------------------------------------------------------------
+   Kalau URL punya ?retake=1 + ?autopw=<password>, otomatis:
+   1. Pre-fill password input
+   2. Submit checkPassword()
+   3. Login sukses → masuk home tes (tanpa klik manual)
+
+   URL autopw dihapus segera setelah dibaca (history.replaceState).
+   Fallback: kalau autopw tidak match / cloud belum ready → timeout
+   60 detik, kandidat pakai password manual dari box email.
+   ============================================================ */
+(function autoLoginFromEmailLink() {
+  const url = new URL(window.location.href);
+  const autopw = url.searchParams.get('autopw');
+  const isRetake = url.searchParams.get('retake') === '1';
+  if (!autopw || !isRetake) return;
+
+  // Hapus autopw dari URL segera (jaga-jaga screenshot/forward)
+  try {
+    url.searchParams.delete('autopw');
+    window.history.replaceState({}, '', url.toString());
+  } catch (e) {}
+
+  console.log('[AUTO-LOGIN] 📧 Auto-login dari email aktif — submit password otomatis');
+
+  let attempts = 0;
+  const MAX_ATTEMPTS = 120; // 60 detik max
+  const TICK_MS = 500;
+
+  const timer = setInterval(() => {
+    attempts++;
+
+    const cloudReady = (typeof window.isCloudReady !== 'function') || window.isCloudReady();
+    const input = document.getElementById('passwordInput');
+    const pwdScreen = document.getElementById('passwordScreen');
+    const screenVisible = pwdScreen && !pwdScreen.classList.contains('hidden');
+
+    if (cloudReady && input && screenVisible) {
+      clearInterval(timer);
+      console.log('[AUTO-LOGIN] ✅ Cloud ready — submit password otomatis');
+
+      input.value = autopw;
+
+      setTimeout(() => {
+        try {
+          if (typeof window.checkPassword === 'function') {
+            window.checkPassword();
+          } else if (typeof checkPassword === 'function') {
+            checkPassword();
+          }
+        } catch (e) {
+          console.warn('[AUTO-LOGIN] Auto-submit error:', e);
+        }
+      }, 400);
+      return;
+    }
+
+    if (attempts >= MAX_ATTEMPTS) {
+      clearInterval(timer);
+      console.warn('[AUTO-LOGIN] ⚠️ Timeout 60 detik — fallback manual: ketik password dari email.');
+    }
+  }, TICK_MS);
+})();
