@@ -461,99 +461,149 @@ window.checkPassword = checkPassword;
 
 
 /* ============================================================
-   🆕 AUTO-LOGIN FROM EMAIL LINK (Retake Flow)
-   ------------------------------------------------------------
-   Kalau URL punya ?retake=1 + ?autopw=<password>, otomatis:
-   1. Pre-fill password input
-   2. Submit checkPassword()
-   3. Login sukses → masuk home tes (tanpa klik manual)
-
-   URL autopw dihapus segera setelah dibaca (history.replaceState).
-   Fallback: kalau autopw tidak match / cloud belum ready → timeout
-   60 detik, kandidat pakai password manual dari box email.
+   🆕 AUTO-LOGIN PINTAR (Countdown + Splash + Anti-Replay)
    ============================================================ */
 (function autoLoginFromEmailLink() {
   const url = new URL(window.location.href);
   const autopw = url.searchParams.get('autopw');
   const isRetake = url.searchParams.get('retake') === '1';
+  const startRaw = url.searchParams.get('start');
+  const scheduledAt = startRaw ? parseInt(startRaw, 10) : 0;
+
   if (!autopw || !isRetake) return;
 
-  // Hapus autopw dari URL segera (jaga-jaga screenshot/forward)
+  // Hapus autopw & start dari URL segera
   try {
     url.searchParams.delete('autopw');
     window.history.replaceState({}, '', url.toString());
   } catch (e) {}
 
-  console.log('[AUTO-LOGIN] 📧 Auto-login dari email aktif — submit password otomatis');
+  console.log('[AUTO-LOGIN] 📧 Memulai alur login pintar...');
 
-  let attempts = 0;
-  const MAX_ATTEMPTS = 120; // 60 detik max
-  const TICK_MS = 500;
-
-  const timer = setInterval(() => {
-    attempts++;
-
-    const cloudReady = (typeof window.isCloudReady !== 'function') || window.isCloudReady();
-    const input = document.getElementById('passwordInput');
-    const pwdScreen = document.getElementById('passwordScreen');
-    const screenVisible = pwdScreen && !pwdScreen.classList.contains('hidden');
-
-    if (cloudReady && input && screenVisible) {
-      clearInterval(timer);
-      console.log('[AUTO-LOGIN] ✅ Cloud ready — submit password otomatis');
-
-       input.value = autopw;
-
-      setTimeout(() => {
-        try {
-          if (typeof window.checkPassword === 'function') {
-            window.checkPassword();
-          } else if (typeof checkPassword === 'function') {
-            checkPassword();
-          }
-        } catch (e) {
-          console.warn('[AUTO-LOGIN] Auto-submit error:', e);
-        }
-      }, 400);
-
-      /* 🆕 BACKUP: Putar suara sukses pada user gesture pertama.
-         Browser blokir audio sebelum gesture → kita tunggu klik
-         pertama (biasanya user klik kartu tes) lalu putar sound. */
-      let __soundPlayed = false;
-      const playOnFirstGesture = function() {
-        if (__soundPlayed) return;
-        __soundPlayed = true;
-        try {
-          // Resume AudioContext kalau suspended
-          const ctx = window.__audioCtx || window.audioCtx;
-          if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-            ctx.resume().catch(() => {});
-          }
-          setTimeout(() => {
-            try {
-              if (typeof playFuturisticSound === 'function') playFuturisticSound();
-            } catch (e) {}
-          }, 50);
-        } catch (e) {}
-        ['click','touchstart','keydown'].forEach(evt => 
-          document.removeEventListener(evt, playOnFirstGesture, true)
-        );
-      };
-      // Arm setelah splash selesai (delay 3.5 detik)
-      setTimeout(() => {
-        if (__soundPlayed) return;
-        ['click','touchstart','keydown'].forEach(evt => 
-          document.addEventListener(evt, playOnFirstGesture, true)
-        );
-        console.log('[AUTO-LOGIN] 🔊 Suara aktif pada klik pertama');
-      }, 3500);
+  // 1. CEK APAKAH SUDAH SELESAI (TOKEN SEKALI PAKAI)
+  async function checkFinished() {
+    return new Promise((resolve) => {
+      if (typeof firebase === 'undefined' || !firebase.apps.length) return resolve(false);
+      const name = url.searchParams.get('n') || '';
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
       
+      firebase.database().ref('sgs_state/sessions').once('value').then(snap => {
+        const sessions = snap.val() || {};
+        let isDone = false;
+        for (const devId in sessions) {
+          const s = sessions[devId];
+          if (s.name && String(s.name).toLowerCase().trim() === name.toLowerCase().trim()) {
+            if (s.finished === true || s.disqualified === true) isDone = true;
+          }
+        }
+        resolve(isDone);
+      }).catch(() => resolve(false));
+    });
+  }
+
+  // 2. TAMPILKAN OVERLAY COUNTDOWN
+  function showCountdown(targetTime, onComplete) {
+    const overlay = document.createElement('div');
+    overlay.id = 'autoLoginCountdown';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0a1124 0%,#1a2547 50%,#2c3e50 100%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;';
+    
+    overlay.innerHTML = `
+      <div style="font-size:11px;font-weight:900;letter-spacing:3px;color:#67e8f9;margin-bottom:20px;">SUGAR GROUP SCHOOLS</div>
+      <div id="cd-text" style="font-size:32px;font-weight:900;margin-bottom:10px;">Menyiapkan...</div>
+      <div id="cd-sub" style="font-size:14px;color:#94a3b8;">Mohon tunggu sebentar</div>
+    `;
+    document.body.appendChild(overlay);
+
+    function tick() {
+      const now = Math.floor(Date.now() / 1000);
+      const diff = targetTime - now;
+
+      if (diff <= 0) {
+        clearInterval(timer);
+        document.getElementById('cd-text').textContent = 'Waktunya Mulai!';
+        document.getElementById('cd-sub').textContent = 'Memuat halaman tes...';
+        setTimeout(onComplete, 500); // Jeda sedikit sebelum splash
+        return;
+      }
+
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      const s = diff % 60;
+      let timeStr = '';
+      
+      if (h > 0) timeStr += `${h}j `;
+      if (m > 0 || h > 0) timeStr += `${m}m `;
+      timeStr += `${s}s`;
+
+      document.getElementById('cd-text').textContent = timeStr;
+      document.getElementById('cd-sub').textContent = 'Tes akan terbuka otomatis';
+    }
+
+    // Resume AudioContext saat user klik di overlay ini (biar suara nanti tidak diblokir)
+    const resumeAudio = () => {
+      const ctx = window.__audioCtx || window.audioCtx;
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      document.removeEventListener('click', resumeAudio, true);
+    };
+    document.addEventListener('click', resumeAudio, true);
+
+    tick();
+    const timer = setInterval(tick, 1000);
+  }
+
+  // 3. EKSEKUSI UTAMA
+  setTimeout(async () => {
+    const isDone = await checkFinished();
+    
+    if (isDone) {
+      alert('⚠️ Akses Ditolak\n\nAnda sudah menyelesaikan tes ini. Link email sudah tidak berlaku.');
+      window.location.href = window.location.pathname; // Lempar ke halaman login normal
       return;
     }
 
-    if (attempts >= MAX_ATTEMPTS) {
-      clearInterval(timer);
-      console.warn('[AUTO-LOGIN] ⚠️ Timeout 60 detik — fallback manual: ketik password dari email.');
-    }
-  }, TICK_MS);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const timeUntilStart = scheduledAt > nowSec ? scheduledAt : nowSec + 3; // Jika sudah waktunya, kasih jeda 3 detik
+
+    // Sembunyikan form password asli
+    const pwdForm = document.getElementById('passwordForm');
+    if (pwdForm) pwdForm.style.display = 'none';
+
+    showCountdown(timeUntilStart, () => {
+      // Hapus overlay countdown
+      const ov = document.getElementById('autoLoginCountdown');
+      if (ov) ov.remove();
+
+      // --- MULAI PROSES SPLASH SCREEN ---
+      console.log('[AUTO-LOGIN] 🚀 Menjalankan splash screen...');
+      
+      // 1. Mainkan suara (AudioContext sudah di-resume saat klik overlay tadi)
+      if (typeof playFuturisticSound === 'function') {
+        try { playFuturisticSound(); } catch(e) {}
+      }
+
+      // 2. Animasi Logo Mengecil & Welcome Message
+      document.getElementById('welcomeMessage').classList.add('show');
+      const logo = document.getElementById('passwordLogo');
+      if (logo) logo.classList.add('small');
+
+      // 3. Setelah splash selesai, sembunyikan password screen & masuk aplikasi
+      setTimeout(() => {
+        const pwdScreen = document.getElementById('passwordScreen');
+        if (pwdScreen) pwdScreen.classList.add('hidden');
+        
+        // Trik: Isi input password dengan autopw, lalu panggil fungsi asli
+        // agar semua logika restore identity & render home berjalan.
+        const input = document.getElementById('passwordInput');
+        if (input) input.value = autopw;
+        
+        window.__sgsAutoLogin = true; // Flag untuk skip sound ganda
+        
+        if (typeof window.checkPassword === 'function') {
+          window.checkPassword();
+        } else if (typeof checkPassword === 'function') {
+          checkPassword();
+        }
+      }, APP_CONFIG.TIMING.SPLASH_DELAY || 1500);
+    });
+  }, 100);
 })();
