@@ -276,20 +276,23 @@
   function startCountdown() {
     cleanup();
 
-    function tick() {
-      if (state.view !== 'waiting') return;
-      const el = document.getElementById('landingCountdown');
-      if (!el) return;
+   // Di init, setelah set state.serverNow:
+state.targetAtMs = Date.now() + (state.remainingMs);
 
-      state.remainingMs = Math.max(0, state.remainingMs - 1000);
-      el.textContent = fmtCountdown(state.remainingMs);
+// Di tick():
+function tick() {
+  if (state.view !== 'waiting') return;
+  const el = document.getElementById('landingCountdown');
+  if (!el) return;
 
-      if (state.remainingMs <= 0) {
-        // Waktunya! Switch to ready
-        cleanup();
-        transitionToReady();
-      }
-    }
+  state.remainingMs = Math.max(0, state.targetAtMs - Date.now());
+  el.textContent = fmtCountdown(state.remainingMs);
+
+  if (state.remainingMs <= 0) {
+    cleanup();
+    transitionToReady();
+  }
+}
 
     tick();
     state.tickHandle = setInterval(tick, 1000);
@@ -306,11 +309,23 @@
   }
 
   function transitionToReady() {
-    state.view = 'ready';
-    cleanup();
-    audit('ready');
-    renderReady();
+  state.view = 'ready';
+  cleanup();
+  audit('ready');
+  renderReady();
+
+  // Re-arm expire timer
+  if (state.expiredInMs > 0) {
+    state.expireHandle = setTimeout(() => {
+      if (state.view === 'ready') {
+        audit('expired_view');
+        state.view = 'expired';
+        cleanup();
+        renderExpired();
+      }
+    }, state.expiredInMs);
   }
+}
 
   /* ---------- Click handler ---------- */
   window.__landingStart = function () {
