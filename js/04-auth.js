@@ -426,16 +426,13 @@ async function checkPassword() {
       window.appState.identity = identitySaved;
 
       // 🆕 Cek jadwal lock — jika user me-refresh halaman saat hitung mundur, jangan bypass!
-      const startAtLock = parseInt(localStorage.getItem('_sgs_schedule_lock') || '0', 10) || 0;
-      if (startAtLock > 0 && Date.now() < startAtLock * 1000) {
-        if (typeof window.__showRetakeCountdown === 'function') {
-          window.__showRetakeCountdown(startAtLock, function () {
-            try { localStorage.removeItem('_sgs_schedule_lock'); } catch (e) {}
-            if (typeof window.renderHome === 'function') window.renderHome();
-          });
-          return;
-        }
-      }
+      if (typeof window.renderHome === 'function') window.renderHome();
+      else renderIdentityForm();
+    } else {
+      renderIdentityForm();
+    }
+  }, APP_CONFIG.TIMING.SPLASH_DELAY);
+}
 
       if (typeof window.renderHome === 'function') window.renderHome();
       else renderIdentityForm();
