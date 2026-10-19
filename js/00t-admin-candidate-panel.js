@@ -1583,9 +1583,9 @@ async function __generateSignedRetakeToken(params) {
               'box-shadow:0 10px 28px rgba(6,182,212,.45);">' +
               '🚀 Buka Halaman Tes' +
             '</a>' +
-            '<div style="font-size:11.5px;color:#64748b;margin-top:10px;' +
+                       '<div style="font-size:11.5px;color:#64748b;margin-top:10px;' +
               'font-style:italic;">' +
-              'Klik tombol di atas — Anda langsung masuk tanpa isi password' +
+              'Silakan akses tautan di atas untuk langsung masuk ke dalam tes.' +
             '</div>' +
           '</div>' +
 
@@ -1601,8 +1601,8 @@ async function __generateSignedRetakeToken(params) {
               'border-radius:8px;display:inline-block;word-break:break-all;">' +
               __usedPwdForEmail +
             '</div>' +
-            '<div style="font-size:10.5px;color:#94a3b8;margin-top:6px;">' +
-              'Hanya dipakai kalau tombol di atas tidak berfungsi' +
+                       '<div style="font-size:10.5px;color:#94a3b8;margin-top:6px;">' +
+              'Gunakan kode akses ini apabila tautan utama mengalami kendala.' +
             '</div>' +
           '</div>';
       } else {
@@ -1641,7 +1641,7 @@ async function __generateSignedRetakeToken(params) {
               '🕐 Pukul ' + __fmtTime + ' WIB</div>' +
                        '<div style="background:#fff;border-radius:10px;padding:12px 14px;' +
               'font-size:12.5px;color:#78350f;line-height:1.6;text-align:center;">' +
-              '📌 <b>Link aktif mulai waktu di atas. Klik tombol di bawah untuk masuk otomatis.</b>' +
+                            '📌 <b>Tautan tes akan aktif secara otomatis sesuai jadwal di atas.</b>' +
             '</div>' +
             '<div style="font-size:11px;color:#92400e;margin-top:10px;text-align:center;font-style:italic;">' +
               '⚠️ Link hanya aktif mulai waktu di atas · Berlaku 24 jam' +
@@ -1666,7 +1666,7 @@ async function __generateSignedRetakeToken(params) {
                    __countdownInfoHTML +
           __passwordHTML +
                    '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#166534;line-height:1.6;">' +
-            '<b>✅ Catatan:</b> Klik tombol "Buka Halaman Tes" di atas — password otomatis terisi dan Anda langsung masuk ke tes. Tidak perlu isi data ulang.' +
+                        '<b>✅ Catatan:</b> Silakan akses tautan yang tersedia. Sistem akan mengarahkan Anda langsung ke dalam halaman tes tanpa perlu mengisi data ulang.' +
           '</div>' +
           '<p style="margin-top:20px;font-size:13px;color:#64748b;">Terima kasih,<br><b>Tim Recruitment</b><br>Sugar Group Schools</p>' +
         '</div>' +
