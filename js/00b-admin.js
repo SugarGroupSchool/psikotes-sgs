@@ -2437,8 +2437,8 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-kraeplin-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
-    ${excels.map(f => fileRow(f, 'excel')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
     ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
     ${others.map(f => fileRow(f, 'other')).join('')}
@@ -2708,6 +2708,22 @@ window.__openCandidateFolder = function(candidateKey) {
       section.innerHTML = window.renderBIGFIVESectionHTML(bfData, slug, name, position);
     } catch (e) {
       console.warn('[BIGFIVE-SECTION] render gagal:', e.message);
+    }
+  })();
+
+  /* 🆕 Async render section GRAFIS ke placeholder (dengan realtime listener) */
+  (async () => {
+    const section = overlay.querySelector('.rf-grafis-result-section');
+    if (!section) return;
+    try {
+      if (typeof window.__attachGrafisRealtime === 'function') {
+        window.__attachGrafisRealtime(slug, name, position, section, overlay);
+      } else if (typeof window.__fetchGrafisData === 'function' && typeof window.renderGrafisSectionHTML === 'function') {
+        const graData = await window.__fetchGrafisData(slug);
+        section.innerHTML = window.renderGrafisSectionHTML(graData, slug, name, position);
+      }
+    } catch (e) {
+      console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message);
     }
   })();
 
