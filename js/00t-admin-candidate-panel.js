@@ -1665,47 +1665,7 @@ async function __generateSignedRetakeToken(params) {
       emailBtn.textContent = prev;
       alert('Gagal kirim email: ' + err.message);
     }
-          emailBtn.disabled = true;
-          emailBtn.textContent = '⏳ Mengirim...';
-
-          let idToken = '';
-          try {
-            const u = firebase.auth().currentUser;
-            if (u) idToken = await u.getIdToken();
-          } catch (e) {}
-
-          try {
-            await fetch(EMAIL_GAS_URL, {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify({
-                action: 'send_status_email',
-                idToken: idToken,
-                to: email,
-                name: name,
-                position: position || '',
-                status: 'retake',
-                subject: subject,
-                htmlBody: htmlBody
-              })
-            });
-
-            emailBtn.textContent = '✅ Terkirim';
-            emailBtn.style.background = 'linear-gradient(135deg,#16a34a,#059669)';
-            if (typeof window.__showToast === 'function') {
-              window.__showToast('📧 Link Tes Tahap ' + tahapVal + ' terkirim ke ' + email, 'success');
-            }
-            setTimeout(() => {
-              emailBtn.disabled = false;
-              emailBtn.textContent = prev;
-              emailBtn.style.background = 'linear-gradient(135deg,#8b5cf6,#6d28d9)';
-            }, 2200);
-          } catch (err) {
-            emailBtn.disabled = false;
-            emailBtn.textContent = prev;
-            alert('Gagal kirim email: ' + err.message);
-          }
+         
         };
       }
 
