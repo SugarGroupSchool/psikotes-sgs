@@ -199,14 +199,14 @@ function renderHome() {
           background:rgba(255,255,255,.08);border-radius:50%;pointer-events:none;"></div>
         <div style="position:relative;z-index:1;">
           <div style="font-size:10.5px;font-weight:900;letter-spacing:3px;
-            opacity:.85;margin-bottom:5px;">MODE RETAKE</div>
+            opacity:.85;margin-bottom:5px;">SELAMAT, ANDA LOLOS</div>
           <div style="font-size:20px;font-weight:900;letter-spacing:-.3px;
             display:flex;align-items:center;justify-content:center;gap:8px;">
-            <span style="font-size:22px;">📤</span>
+            <span style="font-size:22px;">🎉</span>
             <span>Tes Tahap ${currentTahap}</span>
           </div>
           <div style="font-size:11.5px;opacity:.85;margin-top:6px;line-height:1.4;">
-            Kerjakan tes berikutnya dengan teliti
+            Anda telah lolos ke tahap ini. Kerjakan dengan teliti dan jujur.
           </div>
         </div>
       </div>
