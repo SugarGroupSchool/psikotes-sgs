@@ -144,13 +144,14 @@
       return state[normCategory(cat)].list.indexOf(name) !== -1;
     },
 
-    async load(cat) {
+       async load(cat) {
       if (cat === undefined) {
         await Promise.all(CATEGORIES.map(c => loadOnce(c)));
         CATEGORIES.forEach(c => startListener(c));
         return {
           fgd: state.fgd.list.slice(),
-          interview: state.interview.list.slice()
+          interview: state.interview.list.slice(),
+          subject: state.subject.list.slice()    /* ← 🆕 tambah ini */
         };
       }
       await loadOnce(cat);

@@ -266,5 +266,5 @@
     }
   };
 
-  console.log('[ADMIN-ASSESSORS] ✓ Loaded (2 kategori)');
+  console.log('[ADMIN-ASSESSORS] ✓ Loaded (3 kategori)');
 })();
