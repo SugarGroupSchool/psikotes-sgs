@@ -2090,12 +2090,14 @@ async function __generateSignedRetakeToken(params) {
       console.warn('[DELETE TOTAL] Drive error:', e.message);
     }
 
-    const paths = [
+        const paths = [
       'sgs_interviews/' + slug,
       'sgs_grafis_interp/' + slug,
       'sgs_grafis_images/' + slug,
       'sgs_fgd/' + slug,
       'sgs_subject_ratings/' + slug,
+      'sgs_subject_images/' + slug,          /* 🆕 */
+      'sgs_subject_assessments/' + slug,     /* 🆕 */
       'sgs_candidate_status/' + slug,
       'sgs_scores/' + slug,
       'sgs_psikogram/' + slug,
