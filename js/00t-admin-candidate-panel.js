@@ -577,7 +577,7 @@
     } catch (e) { return false; }
   }
 
-  function ratingHTML(slug, current) {
+    function ratingHTML(slug, current) {
     const val = Number(current?.rating) || 0;
     const opts = SUBJECT_RATINGS.map(r =>
       '<option value="' + r.value + '"' + (r.value === val ? ' selected' : '') + '>' +
@@ -587,16 +587,269 @@
       '<div style="padding:14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);' +
       'border:1px solid #fde68a;border-radius:12px;">' +
       '<div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:10px;">' +
-      '📝 Penilaian Subject Test</div>' +
+      '📝 Penilaian Subject Test (Admin)</div>' +
       '<select class="js-subject-rating" data-slug="' + esc(slug) + '" ' +
       'style="width:100%;padding:10px 12px;border:1.5px solid #fbbf24;border-radius:10px;' +
       'background:#fff;font-family:inherit;font-size:13px;font-weight:700;color:#78350f;cursor:pointer;">' +
       opts + '</select>' +
       '<div style="font-size:10.5px;color:#a16207;margin-top:8px;">' +
-      'Nilai subject test kandidat. Tersimpan otomatis.</div>' +
+      'Nilai subject test kandidat. Tersimpan otomatis. Akan dipakai sebagai fallback jika belum ada korektor submit.</div>' +
       '</div>'
     );
   }
+
+  /* 🆕 [2026-10-20] Tombol generate link koreksi subject */
+  function subjectLinkHTML(slug, name, position) {
+    return (
+      '<div style="padding:14px;margin-top:10px;background:linear-gradient(135deg,rgba(13,148,136,.08),rgba(20,184,166,.05));' +
+      'border:1.5px solid rgba(13,148,136,.3);border-radius:12px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+          '<div style="width:36px;height:36px;flex:0 0 36px;display:grid;place-items:center;' +
+          'background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:10px;font-size:18px;">📚</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:12px;font-weight:900;color:#134e4a;margin-bottom:2px;">📚 Kirim Link Koreksi</div>' +
+            '<div style="font-size:10.5px;color:#0f766e;line-height:1.4;">' +
+              'Generate link untuk korektor menilai jawaban tertulis kandidat.</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="js-subject-link" ' +
+          'data-slug="' + esc(slug) + '" ' +
+          'data-name="' + esc(name) + '" ' +
+          'data-position="' + esc(position) + '" ' +
+          'style="width:100%;padding:11px 14px;border-radius:10px;' +
+          'background:linear-gradient(135deg,#0d9488,#14b8a6);' +
+          'border:0;color:#fff;font-family:inherit;font-size:12.5px;' +
+          'font-weight:900;cursor:pointer;' +
+          'box-shadow:0 4px 12px rgba(13,148,136,.3);">' +
+          '📚 Generate Link Koreksi Subject' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  /* 🆕 [2026-10-20] Modal generate link subject korektor */
+  window.openSubjectLink = function (candidateName, candidatePosition) {
+    const base = window.location.origin + window.location.pathname;
+    const slug = slugify(candidateName);
+
+    function buildLink(kode) {
+      return base + '?subjectdo=1'
+        + '&n=' + encodeURIComponent(candidateName)
+        + '&p=' + encodeURIComponent(candidatePosition || '')
+        + '&kode=' + encodeURIComponent(kode);
+    }
+
+    const old = document.getElementById('subjectLinkModal');
+    if (old) old.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'subjectLinkModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+    document.body.appendChild(modal);
+
+    let ASSESSOR_LIST = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+    if (typeof window.ASSESSORS !== 'undefined') {
+      window.ASSESSORS.load('subject').then(list => {
+        if (Array.isArray(list) && list.length > 0) {
+          ASSESSOR_LIST = list;
+          if (document.getElementById('subjectPickList')) renderStep1();
+        }
+      });
+    }
+
+    function escapeH(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function renderStep1() {
+      modal.innerHTML = `
+        <div style="width:min(560px,100%);background:#fff;border-radius:22px;
+          overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+          <div style="padding:24px 26px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">
+              KOREKSI SUBJECT TEST
+            </div>
+            <div style="font-size:20px;font-weight:900;">📚 Pilih Korektor</div>
+          </div>
+          <div style="padding:22px 26px;">
+            <div style="padding:12px 14px;background:#f0fdfa;border:1px solid #5eead4;
+              border-radius:12px;margin-bottom:18px;">
+              <div style="font-size:11px;font-weight:800;color:#0f766e;letter-spacing:1px;margin-bottom:6px;">KANDIDAT</div>
+              <div style="font-size:14px;font-weight:800;color:#134e4a;">${escapeH(candidateName)}</div>
+              <div style="font-size:12px;color:#0f766e;margin-top:2px;">💼 ${escapeH(candidatePosition || '(tanpa posisi)')}</div>
+            </div>
+
+            <div style="font-size:12px;font-weight:800;color:#475569;letter-spacing:1px;margin-bottom:10px;">
+              PILIH KOREKTOR (1-4 korektor)
+            </div>
+
+            <div id="subjectPickList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:20px;">
+              ${ASSESSOR_LIST.map(n => `
+                <label class="subject-pick-item" data-val="${escapeH(n)}"
+                  style="display:flex;align-items:center;gap:8px;padding:12px 14px;
+                    background:#fff;border:2px solid #e2e8f0;border-radius:10px;
+                    cursor:pointer;font-size:14px;font-weight:800;color:#134e4a;
+                    user-select:none;transition:all .15s ease;">
+                  <input type="checkbox" value="${escapeH(n)}"
+                    style="width:16px;height:16px;accent-color:#0d9488;cursor:pointer;">
+                  <span>${escapeH(n)}</span>
+                </label>
+              `).join('')}
+            </div>
+
+            <div id="subjectPickInfo" style="font-size:12px;color:#64748b;margin-bottom:14px;text-align:center;">
+              Belum ada korektor dipilih
+            </div>
+
+            <div style="display:flex;gap:10px;">
+              <button id="subjectGenBtn" disabled
+                style="flex:2;padding:14px;border:0;border-radius:12px;
+                  background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;
+                  font-family:inherit;font-size:14px;font-weight:900;
+                  cursor:not-allowed;opacity:.5;">
+                🔗 Generate Link
+              </button>
+              <button id="subjectCloseBtn"
+                style="flex:1;padding:14px;border:0;border-radius:12px;
+                  background:#f1f5f9;color:#475569;font-family:inherit;
+                  font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      modal.querySelectorAll('.subject-pick-item').forEach(lbl => {
+        const cb = lbl.querySelector('input');
+        cb.addEventListener('change', () => setTimeout(updateState, 0));
+      });
+
+      document.getElementById('subjectGenBtn').onclick = () => {
+        const picked = getChecked();
+        if (picked.length < 1) { alert('Pilih minimal 1 korektor.'); return; }
+        renderStep2(picked);
+      };
+      document.getElementById('subjectCloseBtn').onclick = () => modal.remove();
+    }
+
+    function getChecked() {
+      const out = [];
+      modal.querySelectorAll('#subjectPickList input[type="checkbox"]:checked')
+        .forEach(cb => out.push(cb.value));
+      return out;
+    }
+
+    function updateState() {
+      const picked = getChecked();
+      const infoEl = document.getElementById('subjectPickInfo');
+      const btn = document.getElementById('subjectGenBtn');
+
+      modal.querySelectorAll('.subject-pick-item').forEach(lbl => {
+        const cb = lbl.querySelector('input');
+        if (cb.checked) { lbl.style.background = '#f0fdfa'; lbl.style.borderColor = '#0d9488'; }
+        else { lbl.style.background = '#fff'; lbl.style.borderColor = '#e2e8f0'; }
+      });
+
+      if (picked.length === 0) {
+        infoEl.textContent = 'Belum ada korektor dipilih';
+        infoEl.style.color = '#64748b';
+        btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+      } else {
+        infoEl.innerHTML = `<b style="color:#0d9488;">${picked.length} korektor</b>: ${picked.join(', ')}`;
+        infoEl.style.color = '#475569';
+        btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+      }
+    }
+
+    function renderStep2(picked) {
+      const links = picked.map(k => ({ kode: k, url: buildLink(k) }));
+      modal.innerHTML = `
+        <div style="width:min(640px,100%);background:#fff;border-radius:22px;
+          overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+          <div style="padding:24px 26px;background:linear-gradient(135deg,#065f46,#16a34a);color:#fff;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">LINK SIAP</div>
+            <div style="font-size:20px;font-weight:900;">✅ ${links.length} Link Koreksi Dibuat</div>
+            <div style="font-size:12px;opacity:.9;margin-top:4px;">Kirim setiap link ke korektor yang sesuai.</div>
+          </div>
+          <div style="padding:22px 26px;">
+            <div style="padding:12px 14px;background:#f0fdfa;border:1px solid #5eead4;border-radius:12px;margin-bottom:18px;">
+              <div style="font-size:11px;font-weight:800;color:#0f766e;letter-spacing:1px;margin-bottom:6px;">KANDIDAT</div>
+              <div style="font-size:14px;font-weight:800;color:#134e4a;">${escapeH(candidateName)}</div>
+              <div style="font-size:12px;color:#0f766e;margin-top:2px;">💼 ${escapeH(candidatePosition || '(tanpa posisi)')}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;max-height:340px;overflow-y:auto;">
+              ${links.map(l => `
+                <div style="padding:12px 14px;background:#f0fdfa;border:1px solid #5eead4;border-radius:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <div style="font-size:13px;font-weight:900;color:#0f766e;">
+                      👤 Korektor: <span style="background:#fff;padding:3px 10px;border-radius:6px;">${escapeH(l.kode)}</span>
+                    </div>
+                    <button class="subj-copy-link" data-url="${escapeH(l.url)}"
+                      style="padding:6px 12px;border:0;border-radius:7px;background:#14b8a6;color:#fff;
+                        font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;">📋 Copy</button>
+                  </div>
+                  <input type="text" readonly value="${escapeH(l.url)}"
+                    style="width:100%;padding:9px 11px;background:#fff;border:1px solid #cbd5e1;
+                      border-radius:8px;font-family:'Courier New',monospace;font-size:11px;color:#334155;
+                      outline:none;box-sizing:border-box;">
+                </div>
+              `).join('')}
+            </div>
+            <div style="display:flex;gap:10px;">
+              <button id="subjCopyAllBtn"
+                style="flex:2;padding:14px;border:0;border-radius:12px;
+                  background:linear-gradient(135deg,#065f46,#16a34a);color:#fff;
+                  font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;">
+                📋 Copy Semua Link
+              </button>
+              <button id="subjBackBtn"
+                style="flex:1;padding:14px;border:2px solid #cbd5e1;border-radius:12px;
+                  background:#fff;color:#475569;font-family:inherit;font-size:14px;
+                  font-weight:800;cursor:pointer;">← Kembali</button>
+              <button id="subjDoneBtn"
+                style="flex:1;padding:14px;border:0;border-radius:12px;
+                  background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;
+                  font-weight:800;cursor:pointer;">Tutup</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      modal.querySelectorAll('.subj-copy-link').forEach(btn => {
+        btn.onclick = () => {
+          const u = btn.getAttribute('data-url');
+          const done = () => {
+            const prev = btn.textContent;
+            btn.textContent = '✅ Tersalin';
+            setTimeout(() => { btn.textContent = prev; }, 1500);
+          };
+          try {
+            if (navigator.clipboard) navigator.clipboard.writeText(u).then(done);
+            else { window.prompt('Copy:', u); done(); }
+          } catch (e) { window.prompt('Copy:', u); }
+        };
+      });
+
+      document.getElementById('subjCopyAllBtn').onclick = () => {
+        const text = links.map(l => `${l.kode}: ${l.url}`).join('\n\n');
+        const btn = document.getElementById('subjCopyAllBtn');
+        const done = () => {
+          const prev = btn.textContent;
+          btn.textContent = '✅ Semua Tersalin';
+          setTimeout(() => { btn.textContent = prev; }, 1800);
+        };
+        try {
+          if (navigator.clipboard) navigator.clipboard.writeText(text).then(done);
+          else { window.prompt('Copy:', text); }
+        } catch (e) { window.prompt('Copy:', text); }
+      };
+
+      document.getElementById('subjBackBtn').onclick = () => renderStep1();
+      document.getElementById('subjDoneBtn').onclick = () => modal.remove();
+    }
+
+    renderStep1();
+  };
 
   /* ============================================================
      RETAKE — Tombol pembuka modal
@@ -2645,8 +2898,9 @@ async function __generateSignedRetakeToken(params) {
       const panel = wrapper.querySelector('.js-tab-panel[data-panel="' + t.id + '"]');
       if (!panel) return;
 
-      if (t.special === 'subject') {
-        panel.innerHTML = ratingHTML(slug, ratingData);
+            if (t.special === 'subject') {
+        panel.innerHTML = ratingHTML(slug, ratingData)
+          + subjectLinkHTML(slug, name, position);
         return;
       }
 
@@ -3008,6 +3262,18 @@ async function __generateSignedRetakeToken(params) {
         }
       })();
 
+      return;
+    }
+
+ const subjLinkBtn = e.target.closest('.js-subject-link');
+    if (subjLinkBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const name = subjLinkBtn.getAttribute('data-name');
+      const position = subjLinkBtn.getAttribute('data-position');
+      if (name && typeof window.openSubjectLink === 'function') {
+        window.openSubjectLink(name, position);
+      }
       return;
     }
 

@@ -21,16 +21,18 @@
 (function () {
   'use strict';
 
-  const CATEGORIES = ['fgd', 'interview'];
+  const CATEGORIES = ['fgd', 'interview', 'subject'];
 
   const DEFAULTS = {
     fgd:       ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
-    interview: ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF']
+    interview: ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
+    subject:   ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF']
   };
 
   const FIREBASE_PATHS = {
     fgd:       'sgs_config/assessors_fgd',
-    interview: 'sgs_config/assessors_interview'
+    interview: 'sgs_config/assessors_interview',
+    subject:   'sgs_config/assessors_subject'
   };
 
   const state = {
@@ -42,6 +44,12 @@
     },
     interview: {
       list: DEFAULTS.interview.slice(),
+      ready: false,
+      listeners: [],
+      ref: null
+    },
+    subject: {
+      list: DEFAULTS.subject.slice(),
       ready: false,
       listeners: [],
       ref: null
@@ -192,7 +200,8 @@
     getAll() {
       return {
         fgd: state.fgd.list.slice(),
-        interview: state.interview.list.slice()
+        interview: state.interview.list.slice(),
+        subject: state.subject.list.slice()
       };
     }
   };
@@ -200,11 +209,12 @@
   /* ============================================================
      AUTO-INIT
      ============================================================ */
-  async function init() {
+    async function init() {
     await Promise.all(CATEGORIES.map(c => loadOnce(c)));
     CATEGORIES.forEach(c => startListener(c));
     console.log('[ASSESSORS] ✓ FGD:', state.fgd.list.join(', '));
     console.log('[ASSESSORS] ✓ Interview:', state.interview.list.join(', '));
+    console.log('[ASSESSORS] ✓ Subject:', state.subject.list.join(', '));
   }
 
   if (document.readyState === 'loading') {

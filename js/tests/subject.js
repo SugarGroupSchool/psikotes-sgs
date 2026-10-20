@@ -455,7 +455,7 @@ function renderSubjectUpload() {
 
   fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
-  function handleFiles(files) {
+    function handleFiles(files) {
     Array.from(files)
       .filter(f => f.type.startsWith("image/"))
       .forEach(file => {
@@ -470,6 +470,47 @@ function renderSubjectUpload() {
         };
         reader.readAsDataURL(file);
       });
+  }
+
+  /* 🆕 [2026-10-20] Simpan foto ke Firebase agar korektor bisa akses */
+  async function __saveSubjectImagesToFirebase(images) {
+    if (!Array.isArray(images) || images.length === 0) return false;
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+      console.warn('[SUBJECT] Firebase belum siap — foto tidak tersimpan ke DB');
+      return false;
+    }
+
+    let name = '', position = '';
+    try {
+      const identity = JSON.parse(localStorage.getItem('identity') || '{}');
+      name = identity.name || '';
+      position = identity.position || '';
+    } catch (e) {}
+
+    if (!name) { console.warn('[SUBJECT] Nama kandidat kosong — skip save'); return false; }
+
+    const slug = name.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+
+    try {
+      const imagesMap = {};
+      images.forEach((dataUrl, idx) => {
+        imagesMap[String(idx)] = { dataUrl, ts: Date.now() };
+      });
+
+      await firebase.database().ref('sgs_subject_images/' + slug).set({
+        candidateName: name,
+        candidatePosition: position,
+        images: imagesMap,
+        ts: firebase.database.ServerValue.TIMESTAMP
+      });
+
+      console.log('[SUBJECT] ✅ Foto tersimpan ke Firebase:', slug, '(', images.length, 'gambar)');
+      return true;
+    } catch (e) {
+      console.error('[SUBJECT] Gagal simpan foto:', e.message);
+      return false;
+    }
   }
 
   function showPreview() {
@@ -511,11 +552,18 @@ function renderSubjectUpload() {
   btnFinish.style.opacity = '.5';
   btnFinish.style.cursor = 'not-allowed';
 
-  btnFinish.onclick = () => {
+    btnFinish.onclick = async () => {
     if (base64List.length === 0) {
       alert('Upload minimal 1 gambar jawaban terlebih dahulu.');
       return;
     }
+
+    btnFinish.disabled = true;
+    btnFinish.textContent = '⏳ Menyimpan foto...';
+
+    /* 🆕 Simpan foto ke Firebase SEBELUM lanjut */
+    await __saveSubjectImagesToFirebase(base64List);
+
     selesaiSubjectUpload();
   };
 }

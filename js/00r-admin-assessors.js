@@ -57,7 +57,7 @@
       </div>
 
       <div style="padding: 0 28px; background: rgba(0,0,0,.15); border-bottom: 1px solid rgba(255,255,255,.08);">
-        <div style="display: flex; gap: 4px; padding: 12px 0 0 0;">
+               <div style="display: flex; gap: 4px; padding: 12px 0 0 0;">
           <button class="as-tab" data-tab="fgd"
             style="padding: 12px 22px; border: 0; background: transparent; color: #94a3b8;
               font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
@@ -69,6 +69,12 @@
               font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
               border-bottom: 3px solid transparent; border-radius: 0; transition: all .18s ease;">
             🎤 Interviewer
+          </button>
+          <button class="as-tab" data-tab="subject"
+            style="padding: 12px 22px; border: 0; background: transparent; color: #94a3b8;
+              font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+              border-bottom: 3px solid transparent; border-radius: 0; transition: all .18s ease;">
+            📚 Korektor Subject
           </button>
         </div>
       </div>
@@ -144,7 +150,9 @@
     });
 
     document.getElementById('asResetBtn').onclick = () => {
-      const label = activeTab === 'fgd' ? 'Asesor FGD' : 'Interviewer';
+        const label = activeTab === 'fgd' ? 'Asesor FGD'
+                   : activeTab === 'interview' ? 'Interviewer'
+                   : 'Korektor Subject';
       if (!confirm('Reset daftar ' + label + ' ke default?')) return;
       window.ASSESSORS.reset(activeTab).then(() => {
         toast('✅ Reset ke default');
@@ -152,18 +160,23 @@
       }).catch(e => alert('Gagal: ' + e.message));
     };
 
-    function renderInfo() {
+        function renderInfo() {
       const box = document.getElementById('asInfoBox');
-      const isFgd = activeTab === 'fgd';
-      box.innerHTML = isFgd
-        ? `<b style="color:#93c5fd;">ℹ️ Asesor FGD</b><br>
-           • Daftar ini <b>hanya</b> muncul di <b>Form Penilaian FGD</b><br>
-           • Tidak mempengaruhi daftar Interviewer<br>
-           • Perubahan real-time (tanpa refresh)`
-        : `<b style="color:#93c5fd;">ℹ️ Interviewer</b><br>
-           • Daftar ini <b>hanya</b> muncul di <b>Form Wawancara</b><br>
-           • Tidak mempengaruhi daftar Asesor FGD<br>
-           • Perubahan real-time (tanpa refresh)`;
+      const map = {
+        fgd: `<b style="color:#93c5fd;">ℹ️ Asesor FGD</b><br>
+              • Daftar ini <b>hanya</b> muncul di <b>Form Penilaian FGD</b><br>
+              • Tidak mempengaruhi daftar Interviewer/Subject<br>
+              • Perubahan real-time (tanpa refresh)`,
+        interview: `<b style="color:#93c5fd;">ℹ️ Interviewer</b><br>
+                    • Daftar ini <b>hanya</b> muncul di <b>Form Wawancara</b><br>
+                    • Tidak mempengaruhi daftar FGD/Subject<br>
+                    • Perubahan real-time (tanpa refresh)`,
+        subject: `<b style="color:#93c5fd;">ℹ️ Korektor Subject</b><br>
+                  • Daftar ini <b>hanya</b> muncul di <b>Form Koreksi Subject</b><br>
+                  • Digunakan untuk generate link koreksi (?subjectdo=1)<br>
+                  • Perubahan real-time (tanpa refresh)`
+      };
+      box.innerHTML = map[activeTab] || map.fgd;
     }
 
     function renderList() {
@@ -175,14 +188,20 @@
         return;
       }
 
-      const tabLabel = activeTab === 'fgd' ? 'Asesor FGD' : 'Interviewer';
+            const tabLabel = activeTab === 'fgd' ? 'Asesor FGD'
+                     : activeTab === 'interview' ? 'Interviewer'
+                     : 'Korektor Subject';
+
+      const avatarColor = activeTab === 'fgd' ? '#3b82f6, #1e40af'
+                        : activeTab === 'interview' ? '#8b5cf6, #6d28d9'
+                        : '#0d9488, #14b8a6';
 
       listEl.innerHTML = list.map((name, idx) => `
         <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px;
           background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
           border: 1px solid rgba(255,255,255,.08); border-radius: 12px;">
-          <div style="width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center;
-            background: linear-gradient(135deg, ${activeTab === 'fgd' ? '#3b82f6, #1e40af' : '#8b5cf6, #6d28d9'});
+                   <div style="width: 38px; height: 38px; flex: 0 0 38px; display: grid; place-items: center;
+            background: linear-gradient(135deg, ${avatarColor});
             color: #fff; border-radius: 10px; font-weight: 900; font-size: 13px;">
             ${idx + 1}
           </div>

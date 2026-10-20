@@ -2537,6 +2537,7 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
@@ -2544,8 +2545,7 @@ window.__openCandidateFolder = function(candidateKey) {
     ${others.map(f => fileRow(f, 'other')).join('')}
   `;
 
-  /* Action buttons config */
-  const actionsHTML = `
+  const topActionsHTML = `
     <button class="js-retake-open"
       data-slug="${__adminEscape(slug)}"
       data-name="${__adminEscape(name)}"
@@ -2559,21 +2559,6 @@ window.__openCandidateFolder = function(candidateKey) {
         box-shadow: 0 4px 12px rgba(59,130,246,.3);">
       <span style="font-size: 20px;">📤</span>
       <span class="rf-folder-overlay-btn-label">KIRIM LINK TES</span>
-    </button>
-
-    <button class="js-pengumuman-open"
-      data-slug="${__adminEscape(slug)}"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: linear-gradient(135deg, #16a34a, #059669);
-        border: 0; color: #fff; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        box-shadow: 0 4px 12px rgba(22,163,74,.3);">
-      <span style="font-size: 20px;">📢</span>
-      <span class="rf-folder-overlay-btn-label">KIRIM PENGUMUMAN</span>
     </button>
 
     <button class="js-interview-link"
@@ -2617,7 +2602,11 @@ window.__openCandidateFolder = function(candidateKey) {
       <span style="font-size: 20px;">🎯</span>
       <span class="rf-folder-overlay-btn-label">FGD</span>
     </button>
+  `;
 
+  const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';
+
+  const bottomActionsHTML = `
     <button class="js-download-zip"
       data-candidate-key="${__adminEscape(slug)}"
       style="padding: 12px 8px; border-radius: 10px;
@@ -2630,9 +2619,46 @@ window.__openCandidateFolder = function(candidateKey) {
       <span style="font-size: 20px;">📦</span>
       <span class="rf-folder-overlay-btn-label">ZIP (${files.length})</span>
     </button>
-  `;
 
-  const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';
+    <button class="js-pengumuman-open"
+      data-slug="${__adminEscape(slug)}"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: linear-gradient(135deg, #16a34a, #059669);
+        border: 0; color: #fff; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        box-shadow: 0 4px 12px rgba(22,163,74,.3);">
+      <span style="font-size: 20px;">📢</span>
+      <span class="rf-folder-overlay-btn-label">PENGUMUMAN</span>
+    </button>
+
+    <button id="rfFolderArchiveBtn"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: ${isArchived ? 'rgba(34,197,94,.15)' : 'rgba(220,38,38,.15)'};
+        border: 1px solid ${isArchived ? 'rgba(34,197,94,.5)' : 'rgba(220,38,38,.5)'};
+        color: ${isArchived ? '#86efac' : '#fca5a5'};
+        font-family: inherit; font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">${isArchived ? '📤' : '📦'}</span>
+      <span class="rf-folder-overlay-btn-label">${isArchived ? 'KELUAR ARSIP' : 'ARSIPKAN'}</span>
+    </button>
+
+    <button id="rfFolderDeleteBtn"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: linear-gradient(135deg, #dc2626, #991b1b);
+        border: 0; color: #fff;
+        font-family: inherit; font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        box-shadow: 0 4px 12px rgba(220,38,38,.35);">
+      <span style="font-size: 20px;">🗑️</span>
+      <span class="rf-folder-overlay-btn-label">HAPUS TOTAL</span>
+    </button>
+  `;
 
   overlay.innerHTML = `
     <div class="rf-folder-overlay-card" style="
@@ -2693,38 +2719,10 @@ window.__openCandidateFolder = function(candidateKey) {
         background: rgba(0,0,0,.3);
         border-bottom: 1px solid rgba(255,255,255,.08);
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 8px;
       ">
-        ${actionsHTML}
-      </div>
-
-      <div style="
-        padding: 10px 20px;
-        background: rgba(0,0,0,.15);
-        border-bottom: 1px solid rgba(255,255,255,.06);
-        display: flex; gap: 8px; flex-wrap: wrap;
-        align-items: center;
-      ">
-            <button id="rfFolderArchiveBtn"
-          style="flex: 1; min-width: 130px; padding: 9px 14px; border-radius: 9px;
-            background: ${isArchived ? 'rgba(34,197,94,.15)' : 'rgba(220,38,38,.15)'};
-            border: 1px solid ${isArchived ? 'rgba(34,197,94,.5)' : 'rgba(220,38,38,.5)'};
-            color: ${isArchived ? '#86efac' : '#fca5a5'};
-            font-family: inherit; font-size: 11.5px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;">
-          ${isArchived ? '📤 Keluar dari Arsip' : '📦 Arsipkan Kandidat'}
-        </button>
-
-        <button id="rfFolderDeleteBtn"
-          style="flex: 1; min-width: 150px; padding: 9px 14px; border-radius: 9px;
-            background: linear-gradient(135deg, #dc2626, #991b1b);
-            border: 0; color: #fff;
-            font-family: inherit; font-size: 11.5px; font-weight: 800;
-            cursor: pointer; white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(220,38,38,.35);">
-          🗑️ HAPUS TOTAL KANDIDAT
-        </button>
+        ${topActionsHTML}
       </div>
 
       <div class="rf-folder-overlay-scroll" style="
@@ -2735,18 +2733,35 @@ window.__openCandidateFolder = function(candidateKey) {
       ">
         ${contentHTML}
       </div>
+
+      <div style="
+        padding: 12px 20px;
+        background: rgba(0,0,0,.35);
+        border-top: 1px solid rgba(255,255,255,.08);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      ">
+        ${bottomActionsHTML}
+      </div>
     </div>
   `;
 
-  document.body.appendChild(overlay);
+   document.body.appendChild(overlay);
+
+  /* 🔑 Cleanup listener saat close */
+  const closeOverlay = () => {
+    try { __detachSubjectRealtime(slug); } catch (e) {}
+    overlay.remove();
+  };
 
   const closeBtn = document.getElementById('rfFolderCloseBtn');
-  if (closeBtn) closeBtn.onclick = () => overlay.remove();
+  if (closeBtn) closeBtn.onclick = closeOverlay;
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) closeOverlay();
   });
 
-  /* 🆕 Async render section IST ke placeholder */
+  /* Async renders */
   (async () => {
     const section = overlay.querySelector('.rf-ist-section');
     if (!section) return;
@@ -2754,12 +2769,9 @@ window.__openCandidateFolder = function(candidateKey) {
       if (typeof window.__fetchISTData !== 'function' || typeof window.renderISTSectionHTML !== 'function') return;
       const istData = await window.__fetchISTData(slug);
       section.innerHTML = window.renderISTSectionHTML(istData, slug, name, position);
-    } catch (e) {
-      console.warn('[IST-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[IST-SECTION] render gagal:', e.message); }
   })();
 
-  /* 🆕 Async render section DISC ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-disc-section');
     if (!section) return;
@@ -2767,12 +2779,9 @@ window.__openCandidateFolder = function(candidateKey) {
       if (typeof window.__fetchDISCData !== 'function' || typeof window.renderDISCSectionHTML !== 'function') return;
       const discData = await window.__fetchDISCData(slug);
       section.innerHTML = window.renderDISCSectionHTML(discData, slug, name, position);
-    } catch (e) {
-      console.warn('[DISC-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[DISC-SECTION] render gagal:', e.message); }
   })();
 
-   /* 🆕 Async render section KRAEPLIN ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-kraeplin-section');
     if (!section) return;
@@ -2780,12 +2789,9 @@ window.__openCandidateFolder = function(candidateKey) {
       if (typeof window.__fetchKRAEPLINData !== 'function' || typeof window.renderKRAEPLINSectionHTML !== 'function') return;
       const kpData = await window.__fetchKRAEPLINData(slug);
       section.innerHTML = window.renderKRAEPLINSectionHTML(kpData, slug, name, position);
-    } catch (e) {
-      console.warn('[KRAEPLIN-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[KRAEPLIN-SECTION] render gagal:', e.message); }
   })();
 
-   /* 🆕 Async render section PAPI ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-papi-section');
     if (!section) return;
@@ -2793,12 +2799,9 @@ window.__openCandidateFolder = function(candidateKey) {
       if (typeof window.__fetchPAPIData !== 'function' || typeof window.renderPAPISectionHTML !== 'function') return;
       const papiData = await window.__fetchPAPIData(slug);
       section.innerHTML = window.renderPAPISectionHTML(papiData, slug, name, position);
-    } catch (e) {
-      console.warn('[PAPI-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[PAPI-SECTION] render gagal:', e.message); }
   })();
 
-  /* 🆕 Async render section BIGFIVE ke placeholder */
   (async () => {
     const section = overlay.querySelector('.rf-bigfive-section');
     if (!section) return;
@@ -2806,12 +2809,9 @@ window.__openCandidateFolder = function(candidateKey) {
       if (typeof window.__fetchBIGFIVEData !== 'function' || typeof window.renderBIGFIVESectionHTML !== 'function') return;
       const bfData = await window.__fetchBIGFIVEData(slug);
       section.innerHTML = window.renderBIGFIVESectionHTML(bfData, slug, name, position);
-    } catch (e) {
-      console.warn('[BIGFIVE-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[BIGFIVE-SECTION] render gagal:', e.message); }
   })();
 
-  /* 🆕 Async render section GRAFIS ke placeholder (dengan realtime listener) */
   (async () => {
     const section = overlay.querySelector('.rf-grafis-result-section');
     if (!section) return;
@@ -2822,25 +2822,30 @@ window.__openCandidateFolder = function(candidateKey) {
         const graData = await window.__fetchGrafisData(slug);
         section.innerHTML = window.renderGrafisSectionHTML(graData, slug, name, position);
       }
-    } catch (e) {
-      console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message); }
   })();
 
-  /* 🆕 Async render section PSIKOGRAM ke placeholder (paling bawah) */
+  (async () => {
+    const section = overlay.querySelector('.rf-subject-result-section');
+    if (!section) return;
+    try {
+      if (typeof window.__attachSubjectRealtime === 'function') {
+        window.__attachSubjectRealtime(slug, section, name, position);
+      }
+    } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
+  })();
+
   (async () => {
     const section = overlay.querySelector('.rf-psikogram-section');
     if (!section) return;
     try {
       if (typeof window.renderPsikogramBox !== 'function') return;
       const html = await window.renderPsikogramBox(slug, name, position);
-      // renderPsikogramBox return '' untuk posisi non-Guru/Dosen — aman
       section.innerHTML = html || '';
-    } catch (e) {
-      console.warn('[PSIKOGRAM-SECTION] render gagal:', e.message);
-    }
+    } catch (e) { console.warn('[PSIKOGRAM-SECTION] render gagal:', e.message); }
   })();
 
+  /* Archive button */
   const archiveBtn = document.getElementById('rfFolderArchiveBtn');
   if (archiveBtn) {
     archiveBtn.onclick = () => {
@@ -2852,21 +2857,20 @@ window.__openCandidateFolder = function(candidateKey) {
     };
   }
 
-  /* 🆕 Tombol Hapus Total Kandidat */
+  /* Delete button */
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
   if (deleteBtn) {
     deleteBtn.onclick = async () => {
-      /* Konfirmasi 1 */
       const ok1 = (typeof window.sgsConfirmDanger === 'function')
         ? await window.sgsConfirmDanger(
             '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
             '👤 ' + name + '\n' +
             '💼 ' + (position || '-') + '\n\n' +
             'Yang akan dihapus PERMANEN:\n' +
-            '• Semua file di Drive (PDF, Excel, Grafis, Wawancara, FGD)\n' +
+            '• Semua file di Drive\n' +
             '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
-            '  subject_ratings, candidate_status, sgs_scores,\n' +
-            '  sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
+            '  subject_ratings, subject_images, subject_assessments, candidate_status,\n' +
+            '  sgs_scores, sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
             '• Request izin & resume state\n' +
             '• Chat room (jika ada)\n\n' +
             'Tidak bisa dibatalkan!',
@@ -2875,7 +2879,6 @@ window.__openCandidateFolder = function(candidateKey) {
         : confirm('Hapus total kandidat ' + name + '?');
       if (!ok1) return;
 
-      /* Konfirmasi 2 */
       const ok2 = (typeof window.sgsConfirmDanger === 'function')
         ? await window.sgsConfirmDanger(
             'Konfirmasi terakhir:\n\nHapus permanen "' + name + '"?',
@@ -2884,15 +2887,11 @@ window.__openCandidateFolder = function(candidateKey) {
         : confirm('Yakin 100%? Tindakan ini permanen.');
       if (!ok2) return;
 
-      /* Kalau ada fungsi global — pakai itu (sudah lengkap) */
       if (typeof window.adminDeleteCandidateCompletely === 'function') {
+        try { __detachSubjectRealtime(slug); } catch (e) {}
         overlay.remove();
-        try {
-          await window.adminDeleteCandidateCompletely(name, position);
-        } catch (e) {
-          console.warn('[DELETE] Error:', e.message);
-        }
-        /* Refresh folder list setelah hapus */
+        try { await window.adminDeleteCandidateCompletely(name, position); }
+        catch (e) { console.warn('[DELETE] Error:', e.message); }
         window.__lastRenderedSignature = null;
         window.__candidateFilesMap = window.__candidateFilesMap || {};
         delete window.__candidateFilesMap[slug];
@@ -2905,17 +2904,14 @@ window.__openCandidateFolder = function(candidateKey) {
         return;
       }
 
-      /* Fallback — hapus manual kalau fungsi global tidak ada */
       deleteBtn.disabled = true;
       deleteBtn.textContent = '⏳ Menghapus...';
 
       let fbDeleted = 0;
       let driveDeleted = 0;
 
-      /* 1. Hapus file Drive */
       try {
-        const files = (typeof fetchResultFiles === 'function')
-          ? await fetchResultFiles(true) : [];
+        const files = (typeof fetchResultFiles === 'function') ? await fetchResultFiles(true) : [];
         const nameLower = String(name).toLowerCase().trim();
         const targets = files.filter(f => {
           const n = String(f.name || '').toLowerCase();
@@ -2943,17 +2939,16 @@ window.__openCandidateFolder = function(candidateKey) {
             } catch (e) {}
           }
         }
-      } catch (e) {
-        console.warn('[DELETE] Drive error:', e.message);
-      }
+      } catch (e) { console.warn('[DELETE] Drive error:', e.message); }
 
-      /* 2. Hapus Firebase paths */
       const paths = [
         'sgs_interviews/' + slug,
         'sgs_grafis_interp/' + slug,
         'sgs_grafis_images/' + slug,
         'sgs_fgd/' + slug,
         'sgs_subject_ratings/' + slug,
+        'sgs_subject_images/' + slug,
+        'sgs_subject_assessments/' + slug,
         'sgs_candidate_status/' + slug,
         'sgs_scores/' + slug,
         'sgs_psikogram/' + slug,
@@ -2968,7 +2963,6 @@ window.__openCandidateFolder = function(candidateKey) {
         } catch (e) {}
       }
 
-      /* 3. Hapus session + chat + requests */
       try {
         const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
         const sessions = sessionsSnap.val() || {};
@@ -2986,14 +2980,13 @@ window.__openCandidateFolder = function(candidateKey) {
         }
       } catch (e) {}
 
-      /* 4. Refresh + tutup */
       window.__lastRenderedSignature = null;
       if (window.__candidateFilesMap) delete window.__candidateFilesMap[slug];
       if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
       const filesAfter = await fetchResultFiles(true);
       window.__resultFilesCache = filesAfter;
 
-      overlay.remove();
+      closeOverlay();
       await __fetchAllCandidateStatus();
       __renderResultPageContent();
 
@@ -3004,9 +2997,10 @@ window.__openCandidateFolder = function(candidateKey) {
       }
     };
   }
+
   const escHandler = (e) => {
     if (e.key === 'Escape') {
-      overlay.remove();
+      closeOverlay();
       document.removeEventListener('keydown', escHandler);
     }
   };
@@ -3697,6 +3691,292 @@ async function checkAdminUrlAndRender() {
 }
 
 /* ============================================================
+   🆕 SUBJECT TEST — Hasil Koreksi (realtime)
+   ============================================================ */
+const __subjectRealtimeListeners = new Map();
+
+const SUBJECT_RATING_MAP = {
+  1: { label: '❌ Not Rec', color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)' },
+  2: { label: '⚠️ Fairly',  color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)' },
+  3: { label: '✅ Rec',     color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)' },
+  4: { label: '🌟 Highly',  color: '#5eead4', bg: 'rgba(13,148,136,.2)',  border: 'rgba(13,148,136,.55)' }
+};
+
+function __renderSubjectBox(data, slug, name, position) {
+  const assessments = (data && data.assessments) || {};
+  const keys = Object.keys(assessments).filter(k => {
+    const a = assessments[k];
+    return a && typeof a.rating === 'number' && a.rating >= 1 && a.rating <= 4;
+  });
+
+  /* Card otomatis hilang jika belum ada korektor submit */
+  if (keys.length === 0) return '';
+
+  const ratings = keys.map(k => Number(assessments[k].rating)).filter(v => v >= 1 && v <= 4);
+  const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+
+  const rowsHTML = keys.map(k => {
+    const a = assessments[k] || {};
+    const rating = Number(a.rating) || 0;
+    const rMap = SUBJECT_RATING_MAP[rating] || SUBJECT_RATING_MAP[1];
+    const hasNotes = a.notes && String(a.notes).trim().length > 0;
+    const hasPhoto = a.notePhotoUrl && String(a.notePhotoUrl).length > 0;
+    return `
+      <div class="js-subject-row" data-kode="${__adminEscape(k)}"
+        style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+          background:rgba(255,255,255,.03);border:1px solid rgba(13,148,136,.25);
+          border-radius:9px;margin-bottom:6px;flex-wrap:wrap;">
+        <div style="width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;
+          background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;border-radius:8px;
+          font-weight:900;font-size:10px;letter-spacing:.5px;">
+          ${__adminEscape(String(k).slice(0,3).toUpperCase())}
+        </div>
+        <div style="flex:1;min-width:100px;">
+          <div style="font-weight:900;font-size:12.5px;color:#fff;line-height:1.2;">
+            ${__adminEscape(a.assessorName || k)}
+          </div>
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:1px;">
+            ⭐ ${rating.toFixed(1)}${hasNotes ? ' · 📝 catatan' : ''}${hasPhoto ? ' · 📷' : ''}
+          </div>
+        </div>
+        <span style="padding:2px 8px;border-radius:999px;font-size:9.5px;font-weight:800;
+          background:${rMap.bg};border:1px solid ${rMap.border};color:${rMap.color};
+          white-space:nowrap;">${rMap.label}</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="js-subject-box" data-slug="${__adminEscape(slug)}"
+      style="padding:12px;margin-bottom:12px;
+        background:linear-gradient(135deg,rgba(13,148,136,.08),rgba(20,184,166,.05));
+        border:1.5px solid rgba(13,148,136,.35);border-radius:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;
+          background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:9px;font-size:16px;">📚</div>
+        <div style="flex:1;min-width:100px;">
+          <div style="font-size:12px;font-weight:900;color:#5eead4;">Hasil Tes Subject</div>
+          <div style="font-size:10px;color:#94a3b8;">${keys.length} korektor submit</div>
+        </div>
+        <button class="js-subject-detail"
+          data-slug="${__adminEscape(slug)}"
+          data-name="${__adminEscape(name)}"
+          data-position="${__adminEscape(position)}"
+          style="padding:5px 12px;background:rgba(13,148,136,.2);
+            border:1px solid rgba(13,148,136,.5);border-radius:8px;
+            color:#5eead4;font-family:inherit;font-size:10.5px;font-weight:800;
+            cursor:pointer;white-space:nowrap;">
+          👁️ Lihat Detail
+        </button>
+        <div style="padding:5px 10px;background:rgba(34,197,94,.15);
+          border:1px solid rgba(34,197,94,.4);border-radius:999px;
+          font-size:10.5px;font-weight:900;color:#86efac;
+          white-space:nowrap;font-variant-numeric:tabular-nums;">
+          ⭐ ${avg.toFixed(2)}
+        </div>
+      </div>
+      ${rowsHTML}
+    </div>`;
+}
+
+function __attachSubjectRealtime(slug, wrapper, name, position) {
+  __detachSubjectRealtime(slug);
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#f87171;font-size:11.5px;">❌ Firebase belum siap</div>';
+    return;
+  }
+  const ref = firebase.database().ref('sgs_subject_assessments/' + slug);
+  const cb = (snap) => {
+    try {
+      if (!wrapper.isConnected) { __detachSubjectRealtime(slug); return; }
+      const data = snap.val();
+      wrapper.innerHTML = __renderSubjectBox(data, slug, name, position);
+    } catch (e) {
+      console.warn('[SUBJECT-REALTIME] render error:', e.message);
+    }
+  };
+  ref.on('value', cb, (err) => {
+    console.warn('[SUBJECT-REALTIME] listener error:', err.message);
+  });
+  __subjectRealtimeListeners.set(slug, { ref, cb });
+}
+
+function __detachSubjectRealtime(slug) {
+  if (!slug) return;
+  const item = __subjectRealtimeListeners.get(slug);
+  if (!item) return;
+  try { item.ref.off('value', item.cb); } catch (e) {}
+  __subjectRealtimeListeners.delete(slug);
+}
+
+function __detachAllSubjectRealtime() {
+  __subjectRealtimeListeners.forEach((item) => {
+    try { item.ref.off('value', item.cb); } catch (e) {}
+  });
+  __subjectRealtimeListeners.clear();
+}
+
+/* Modal detail: tab per korektor */
+window.__openSubjectDetailModal = async function (slug, name, position) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    await __alert('Firebase belum siap', '❌ Error');
+    return;
+  }
+
+  let data;
+  try {
+    const snap = await firebase.database().ref('sgs_subject_assessments/' + slug).once('value');
+    data = snap.val() || {};
+  } catch (e) {
+    await __alert('Gagal ambil data: ' + e.message, '❌ Error');
+    return;
+  }
+
+  const assessments = data.assessments || {};
+  const keys = Object.keys(assessments).filter(k => assessments[k] && typeof assessments[k].rating === 'number');
+  if (keys.length === 0) {
+    await __alert('Belum ada korektor submit.', '⚠️ Kosong');
+    return;
+  }
+
+  const old = document.getElementById('subjectDetailModal');
+  if (old) old.remove();
+
+  let activeKode = keys[0];
+
+  const ov = document.createElement('div');
+  ov.id = 'subjectDetailModal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.92);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+
+  function renderTabs() {
+    return keys.map(k => {
+      const a = assessments[k];
+      const rMap = SUBJECT_RATING_MAP[Number(a.rating)] || SUBJECT_RATING_MAP[1];
+      const active = k === activeKode;
+      return `
+        <button class="js-subj-tab" data-kode="${__adminEscape(k)}"
+          style="padding:10px 16px;border:0;border-radius:10px;
+            background:${active ? 'linear-gradient(135deg,#0d9488,#14b8a6)' : 'rgba(255,255,255,.06)'};
+            color:${active ? '#fff' : '#cbd5e1'};font-family:inherit;
+            font-size:12px;font-weight:900;cursor:pointer;
+            white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
+          ${__adminEscape(String(k).slice(0,3).toUpperCase())}
+          <span style="padding:1px 6px;border-radius:999px;font-size:9px;
+            background:${rMap.bg};border:1px solid ${rMap.border};color:${rMap.color};">
+            ${a.rating}
+          </span>
+        </button>`;
+    }).join('');
+  }
+
+  function renderContent() {
+    const a = assessments[activeKode] || {};
+    const rating = Number(a.rating) || 0;
+    const rMap = SUBJECT_RATING_MAP[rating] || SUBJECT_RATING_MAP[1];
+    const notes = String(a.notes || '').trim() || '(tidak ada catatan)';
+    const photoUrl = String(a.notePhotoUrl || '').trim();
+    const ts = a.ts ? new Date(a.ts).toLocaleString('id-ID', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : '-';
+
+    return `
+      <div style="padding:20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="width:44px;height:44px;flex:0 0 44px;display:grid;place-items:center;
+            background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:11px;
+            color:#fff;font-weight:900;font-size:13px;">${__adminEscape(String(activeKode).slice(0,3).toUpperCase())}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:16px;font-weight:900;color:#fff;">${__adminEscape(a.assessorName || activeKode)}</div>
+            <div style="font-size:11.5px;color:#94a3b8;margin-top:2px;">📅 ${ts}</div>
+          </div>
+          <span style="padding:6px 14px;border-radius:999px;font-size:11px;font-weight:900;
+            background:${rMap.bg};border:1.5px solid ${rMap.border};color:${rMap.color};">
+            ${rating} — ${rMap.label}
+          </span>
+        </div>
+
+        <div style="padding:14px;background:rgba(13,148,136,.08);
+          border:1px solid rgba(13,148,136,.3);border-radius:12px;margin-bottom:14px;">
+          <div style="font-size:10.5px;font-weight:900;color:#5eead4;letter-spacing:1px;margin-bottom:8px;">
+            📝 CATATAN KOREKSI
+          </div>
+          <div style="font-size:13.5px;color:#e2e8f0;line-height:1.7;white-space:pre-wrap;word-break:break-word;">
+            ${__adminEscape(notes)}
+          </div>
+        </div>
+
+        ${photoUrl ? `
+          <div style="padding:14px;background:rgba(13,148,136,.08);
+            border:1px solid rgba(13,148,136,.3);border-radius:12px;">
+            <div style="font-size:10.5px;font-weight:900;color:#5eead4;letter-spacing:1px;margin-bottom:8px;">
+              📷 FOTO CATATAN
+            </div>
+            <img src="${__adminEscape(photoUrl)}" alt="Catatan korektor"
+              style="width:100%;max-height:420px;object-fit:contain;border-radius:10px;
+                background:#fff;cursor:zoom-in;"
+              onclick="window.open(this.src,'_blank','noopener,noreferrer')">
+          </div>
+        ` : `
+          <div style="padding:14px;background:rgba(148,163,184,.08);
+            border:1px solid rgba(148,163,184,.25);border-radius:12px;
+            text-align:center;font-size:12px;color:#94a3b8;">
+            📷 Tidak ada foto catatan
+          </div>
+        `}
+      </div>`;
+  }
+
+  function renderAll() {
+    ov.innerHTML = `
+      <div style="width:min(720px,100%);max-height:calc(100vh - 40px);
+        background:linear-gradient(180deg,#1e293b,#0f172a);
+        border:1.5px solid rgba(13,148,136,.4);border-radius:18px;
+        overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.65);
+        color:#e2e8f0;display:flex;flex-direction:column;">
+        <div style="padding:16px 20px;background:linear-gradient(135deg,#0d9488,#14b8a6);
+          display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;display:grid;place-items:center;
+            background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
+            border-radius:11px;font-size:20px;">📚</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:900;letter-spacing:2px;opacity:.85;">HASIL KOREKSI SUBJECT</div>
+            <div style="font-size:15px;font-weight:900;color:#fff;margin-top:2px;word-break:break-word;">
+              ${__adminEscape(name)}
+            </div>
+            ${position && position !== '-' ? `<div style="font-size:11px;opacity:.85;margin-top:2px;">💼 ${__adminEscape(position)}</div>` : ''}
+          </div>
+          <button id="subjDetailClose"
+            style="width:36px;height:36px;display:grid;place-items:center;
+              background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+              border-radius:10px;color:#fff;font-size:16px;cursor:pointer;font-family:inherit;">✕</button>
+        </div>
+
+        <div style="padding:12px 20px;background:rgba(0,0,0,.28);
+          border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:8px;
+          flex-wrap:wrap;overflow-x:auto;">
+          ${renderTabs()}
+        </div>
+
+        <div class="subj-detail-scroll" style="flex:1;overflow-y:auto;">
+          ${renderContent()}
+        </div>
+      </div>
+    `;
+
+    ov.querySelector('#subjDetailClose').onclick = () => ov.remove();
+    ov.querySelectorAll('.js-subj-tab').forEach(btn => {
+      btn.onclick = () => {
+        activeKode = btn.getAttribute('data-kode');
+        renderAll();
+      };
+    });
+  }
+
+  renderAll();
+  document.body.appendChild(ov);
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+};
+
+/* ============================================================
    EVENT DELEGATION
    ============================================================ */
 (function attachAdminEventDelegation() {
@@ -3818,6 +4098,19 @@ async function checkAdminUrlAndRender() {
       }
       return;
     }
+    /* 🆕 Subject Detail modal */
+    const subjectDetailBtn = e.target.closest('.js-subject-detail');
+    if (subjectDetailBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const slug = subjectDetailBtn.getAttribute('data-slug');
+      const name = subjectDetailBtn.getAttribute('data-name');
+      const position = subjectDetailBtn.getAttribute('data-position');
+      if (slug && name && typeof window.__openSubjectDetailModal === 'function') {
+        window.__openSubjectDetailModal(slug, name, position);
+      }
+      return;
+    }
   }, true);
 })();
 
@@ -3873,6 +4166,12 @@ window.__renderGrafisBox = __renderGrafisBox;
 window.downloadCandidateZip = downloadCandidateZip;
 window.__normalizeCandidateKey = __normalizeCandidateKey;
 window.__openCandidateFolder = window.__openCandidateFolder;
+
+/* 🆕 Subject Test exports */
+window.__renderSubjectBox = __renderSubjectBox;
+window.__attachSubjectRealtime = __attachSubjectRealtime;
+window.__detachSubjectRealtime = __detachSubjectRealtime;
+window.__detachAllSubjectRealtime = __detachAllSubjectRealtime;
 
 /* ============================================================
    SESSION TIMEOUT
@@ -3969,5 +4268,12 @@ function __stopAdminIdleTracking() {
 window.__resetAdminIdleTimer = __resetAdminIdleTimer;
 window.__startAdminIdleTracking = __startAdminIdleTracking;
 window.__stopAdminIdleTracking = __stopAdminIdleTracking;
+window.addEventListener('beforeunload', () => {
+  try {
+    if (typeof window.__detachAllSubjectRealtime === 'function') {
+      window.__detachAllSubjectRealtime();
+    }
+  } catch (e) {}
+});
 
-console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION');
+console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT ASSESSMENTS');

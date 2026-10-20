@@ -215,19 +215,40 @@
       }
     } catch (e) {}
 
-    /* ---------- 6) Subject ratings (fallback) ---------- */
+     /* ---------- 6) SUBJECT — PRIORITAS KOREKTOR (Q8) ---------- */
+    /* 🆕 [2026-10-20] Fetch sgs_subject_assessments/{slug} → rata-rata rating */
+    try {
+      const d = await _fetchFirst('sgs_subject_assessments');
+      if (d && d.assessments) {
+        const ratings = Object.values(d.assessments)
+          .map(a => Number(a && a.rating))
+          .filter(r => !isNaN(r) && r >= 1 && r <= 4);
+        if (ratings.length > 0) {
+          raw.Subject = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+          raw._sources.Subject = true;
+          raw._subjectSource = 'korektor';
+          raw._subjectCount = ratings.length;
+        }
+      }
+    } catch (e) {}
+
+    /* Fallback: admin manual rating (jika belum ada korektor submit) */
     if (!raw.Subject) {
       try {
         const r = await _fetchFirst('sgs_subject_ratings');
         if (r) {
           const rating = Number(r.rating ?? r);
-          if (rating > 0) { raw.Subject = rating; raw._sources.Subject = true; }
+          if (rating > 0) {
+            raw.Subject = rating;
+            raw._sources.Subject = true;
+            raw._subjectSource = 'admin';
+            raw._subjectCount = 1;
+          }
         }
       } catch (e) {}
     }
 
     return raw;
-  }
 
   /* ============================================================
      FIREBASE: WEIGHTS + OVERRIDES
@@ -309,9 +330,14 @@
       const v = normGrafis(raw.Grafis[aspect.grafisCat]);
       if (v !== null) parts.push({ src:'Grafis', val: v, w: W.Grafis });
     }
-    if (aspect.subjectTest && raw._sources.Subject && W.SubjectTest) {
+      if (aspect.subjectTest && raw._sources.Subject && W.SubjectTest) {
       const v = normSubject(raw.Subject);
-      if (v !== null) parts.push({ src:'SubjectTest', val: v, w: W.SubjectTest });
+      if (v !== null) {
+        const srcLabel = raw._subjectSource === 'korektor'
+          ? `SubjectTest (${raw._subjectCount} korektor)`
+          : 'SubjectTest (admin)';
+        parts.push({ src: srcLabel, val: v, w: W.SubjectTest });
+      }
     }
 
     const totalW = parts.reduce((a,p)=>a+p.w, 0);
@@ -411,10 +437,14 @@
     const avgPct = (avg/4)*100;
     const avgKet = scoreToKet(avg);
 
+      const subjectLabel = raw._subjectSource === 'korektor'
+      ? `Subject (${raw._subjectCount || 1} korektor)`
+      : 'Subject (admin)';
+
     const srcChips = [
       ['IST', raw._sources.IST], ['PAPI', raw._sources.PAPI], ['BigFive', raw._sources.BigFive],
       ['Wawancara', raw._sources.Wawancara], ['FGD', raw._sources.FGD],
-      ['Grafis', raw._sources.Grafis], ['Subject', raw._sources.Subject]
+      ['Grafis', raw._sources.Grafis], [subjectLabel, raw._sources.Subject]
     ].map(([n, ok]) => `
       <span style="padding:2px 8px;border-radius:999px;font-size:9px;font-weight:800;
         background:${ok?'rgba(34,197,94,.15)':'rgba(148,163,184,.1)'};
