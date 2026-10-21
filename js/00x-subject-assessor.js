@@ -484,7 +484,9 @@
           action: 'upload_subject_note_photo',
           idToken: idToken,
           slug: slug,
-          kode: state.kode,
+           kode: state.kode,
+          candidateName: candidateName,           // 🆕 Tambah ini
+          candidatePosition: candidatePosition,   // 🆕 Tambah ini
           base64: base64Only,
           mimeType: state.noteFileMime || 'image/jpeg',
           fileName: state.noteFileName || ''

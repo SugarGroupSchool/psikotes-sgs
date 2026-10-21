@@ -843,11 +843,7 @@ async function fetchResultFiles(forceRefresh = false) {
 
         if (data && data.success) {
           const allFiles = data.files || [];
-                    const filtered = allFiles.filter(f => {
-            // 🆕 Sembunyikan file lampiran catatan korektor dari daftar kandidat
-            if (f.name && String(f.name).indexOf('SubjectNote-') === 0) return false;
-            return !window.__recentlyDeletedFileIds.has(f.id);
-          });
+          const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
 
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
@@ -991,6 +987,7 @@ function __extractCandidateInfo(file) {
 
 function __detectFileKind(file) {
   const n = String(file.name || '').toLowerCase();
+  if (/^subjectnote-/i.test(n)) return 'subjectnote';
   if (/-wawancara-combined\.pdf$/i.test(n)) return 'wawancara-combined';
   if (/-wawancara-/.test(n))  return 'wawancara';
   if (/-fgd-combined\.pdf$/i.test(n)) return 'fgd-combined';
@@ -1483,10 +1480,11 @@ function renderResultFilesHTML(files) {
 
   function renderFileRow(f, kind) {
     const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-    const styleMap = {
+        const styleMap = {
       pdf:   { icon: '📄', label: 'Hasil Tes (PDF)', bg: '#eff6ff', br: '#bfdbfe', iconBg: '#dbeafe', text: '#1e40af' },
       excel: { icon: '📊', label: 'Jawaban Excel',    bg: '#ecfdf5', br: '#86efac', iconBg: '#d1fae5', text: '#15803d' },
-      other: { icon: '📁', label: 'File Lain',         bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' }
+      other: { icon: '📁', label: 'File Lain',         bg: '#f8fafc', br: '#cbd5e1', iconBg: '#e2e8f0', text: '#475569' },
+      subjectnote: { icon: '📚', label: 'Lampiran Koreksi Subject', bg: '#f0fdfa', br: '#5eead4', iconBg: '#ccfbf1', text: '#0f766e' }
     };
     const s = styleMap[kind] || styleMap.other;
     const shortName = (f.name || '').length > 42 ? (f.name || '').slice(0, 42) + '...' : (f.name || '');
@@ -1538,13 +1536,14 @@ function renderResultFilesHTML(files) {
   }
 
   return groupArr.map(g => {
-    const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
+        const pdfs     = g.files.filter(f => __detectFileKind(f) === 'pdf');
     const excels   = g.files.filter(f => __detectFileKind(f) === 'excel');
     const wawancara = g.files.filter(f => {
       const k = __detectFileKind(f);
       return k === 'wawancara' || k === 'wawancara-combined';
     });
     const grafis   = g.files.filter(f => __detectFileKind(f) === 'grafis');
+    const subjectnotes = g.files.filter(f => __detectFileKind(f) === 'subjectnote');
     const others   = g.files.filter(f => {
       const k = __detectFileKind(f);
       return k === 'other' || k === 'fgd-combined' || k === 'fgd';
@@ -1585,10 +1584,11 @@ function renderResultFilesHTML(files) {
           ${badge}
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
-          ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
+	  ${pdfs.map(f => renderFileRow(f, 'pdf')).join('')}
           ${excels.map(f => renderFileRow(f, 'excel')).join('')}
           ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
           ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
+          ${subjectnotes.map(f => renderFileRow(f, 'subjectnote')).join('')}
           ${others.map(f => renderFileRow(f, 'other')).join('')}
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
