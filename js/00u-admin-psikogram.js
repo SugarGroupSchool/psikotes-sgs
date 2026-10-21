@@ -30,14 +30,14 @@
 
   const PAPI_CONFIG = { A:{inv:false}, N:{inv:false}, G:{inv:false}, T:{inv:false}, V:{inv:false}, W:{inv:false}, F:{inv:false}, C:{inv:false}, L:{inv:false}, P:{inv:false}, I:{inv:false}, E:{inv:false}, K:{inv:true},  O:{inv:false}, S:{inv:false}, B:{inv:false}, X:{inv:false}, Z:{inv:false}, D:{inv:false}, R:{inv:false} };
 
-  function clamp04(v){ return Math.max(0, Math.min(4, v)); }
-  function normIST(sw){ return typeof sw==='number' ? clamp04((sw - 75) / 12.5) : null; }
-  function normWawancara(s){ return typeof s==='number' ? clamp04(s - 1) : null; }
-  function normFGD(s){ return typeof s==='number' ? clamp04(s) : null; }
-  function normGrafis(s){ return typeof s==='number' ? clamp04(s) : null; }
-  function normPAPI(s, inv){ if(typeof s!=='number')return null; return clamp04(((inv?9-s:s)/9)*4); }
-  function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp04(((inv?100-s:s)/100)*4); }
-  function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp04(s); }
+  function clamp05(v){ return Math.max(0, Math.min(5, v)); }
+  function normIST(sw){ return typeof sw==='number' ? clamp05((sw - 75) / 10) : null; }
+  function normWawancara(s){ return typeof s==='number' ? clamp05(s) : null; }
+  function normFGD(s){ return typeof s==='number' ? clamp05(s * 1.25) : null; }
+  function normGrafis(s){ return typeof s==='number' ? clamp05(s * 1.25) : null; }
+  function normPAPI(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?9-s:s)/9)*5); }
+  function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?100-s:s)/100)*5); }
+  function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
 
   function detectCategory(p) { if (!p) return null; return /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
   function scoreToKet(s) {
@@ -162,7 +162,7 @@
     return computed.map((item, idx) => {
       const { aspect, parts, finalScore, override, effectiveWeights, isCustomWeight } = item;
       const score = finalScore !== null ? finalScore : 0;
-      const pct = Math.round((score/4)*1000)/10;
+      const pct = Math.round((score/5)*1000)/10;
       const ket = scoreToKet(score);
       const isOverridden = override !== null;
       const wBadge = Object.entries(effectiveWeights || {}).filter(([k,v]) => v > 0).map(([k,v]) => `${k}=${v}%`).join(' · ');
@@ -176,7 +176,7 @@
             <details style="cursor:pointer;"><summary style="font-size:9px;color:#64748b;font-weight:700;outline:none;">▸ breakdown · bobot: ${escHtml(wBadge||'-')}</summary><div style="margin-top:4px;padding:6px 8px;background:rgba(0,0,0,.22);border-radius:6px;">${partsHTML}</div></details>
           </div>
           <div class="psiko-pct" style="font-size:13px;font-weight:800;color:#a5b4fc;text-align:right;font-variant-numeric:tabular-nums;">${pct.toFixed(1)}%</div>
-          <div class="psiko-score" style="font-size:11.5px;font-weight:800;color:#e2e8f0;text-align:center;font-variant-numeric:tabular-nums;">${score.toFixed(2)} / 4</div>
+          <div class="psiko-score" style="font-size:11.5px;font-weight:800;color:#e2e8f0;text-align:center;font-variant-numeric:tabular-nums;">${score.toFixed(2)} / 5</div>
           <div style="text-align:center;"><span class="psiko-ket" style="display:inline-block;padding:3px 8px;border-radius:999px;font-size:9px;font-weight:900;background:${ket.bg};border:1px solid ${ket.border};color:${ket.color};white-space:nowrap;">${ket.label}</span></div>
           <div style="display:flex;gap:4px;justify-content:center;">
             <button class="psiko-weight-btn" data-aspect-id="${aspect.id}" title="Edit bobot" style="width:30px;height:30px;display:grid;place-items:center;background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.45);border-radius:7px;color:#c4b5fd;font-size:13px;cursor:pointer;font-family:inherit;padding:0;">⚙️</button>
@@ -192,7 +192,7 @@
     const computed = computeAll(raw, overrides, customWeights);
     const valid = computed.map(c => c.finalScore).filter(s => s !== null);
     const avg = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0;
-    const avgPct = (avg/4)*100;
+    const avgPct = (avg/5)*100;
     const avgKet = scoreToKet(avg);
     const subjectLabel = raw._subjectSource === 'korektor' ? `Subject (${raw._subjectCount || 1} korektor)` : 'Subject (admin)';
     const srcChips = [['IST', raw._sources.IST], ['PAPI', raw._sources.PAPI], ['BigFive', raw._sources.BigFive], ['Wawancara', raw._sources.Wawancara], ['FGD', raw._sources.FGD], ['Grafis', raw._sources.Grafis], [subjectLabel, raw._sources.Subject]].map(([n, ok]) => `<span style="padding:2px 8px;border-radius:999px;font-size:9px;font-weight:800;background:${ok?'rgba(34,197,94,.15)':'rgba(148,163,184,.1)'};border:1px solid ${ok?'rgba(34,197,94,.4)':'rgba(148,163,184,.25)'};color:${ok?'#86efac':'#94a3b8'};white-space:nowrap;">${ok?'✓':'×'} ${n}</span>`).join('');
@@ -212,7 +212,7 @@
         </div>
         <div style="padding:12px 20px;background:rgba(0,0,0,.28);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:9px;font-weight:800;color:#64748b;letter-spacing:1px;">SUMBER:</span>${srcChips}</div>
-          <div class="psiko-avg-chip" style="padding:6px 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:999px;font-size:11px;font-weight:800;color:#a5b4fc;display:flex;align-items:center;gap:8px;"><span>Rata-rata: <b style="color:#fff;">${avg.toFixed(2)}/4</b> · ${avgPct.toFixed(1)}%</span><span style="padding:2px 8px;background:${avgKet.bg};border:1px solid ${avgKet.border};color:${avgKet.color};border-radius:999px;font-size:9.5px;font-weight:900;">${avgKet.label}</span></div>
+          <div class="psiko-avg-chip" style="padding:6px 12px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);border-radius:999px;font-size:11px;font-weight:800;color:#a5b4fc;display:flex;align-items:center;gap:8px;"><span>Rata-rata: <b style="color:#fff;">${avg.toFixed(2)}/5</b> · ${avgPct.toFixed(1)}%</span><span style="padding:2px 8px;background:${avgKet.bg};border:1px solid ${avgKet.border};color:${avgKet.color};border-radius:999px;font-size:9.5px;font-weight:900;">${avgKet.label}</span></div>
         </div>
         <div style="display:grid;grid-template-columns:30px minmax(0,1fr) 62px 78px 62px 70px;gap:10px;padding:8px 14px;background:rgba(0,0,0,.32);border-bottom:1px solid rgba(255,255,255,.05);font-size:9.5px;font-weight:900;letter-spacing:.8px;color:#64748b;"><div style="text-align:center;">#</div><div>ASPEK</div><div style="text-align:right;">%</div><div style="text-align:center;">SKOR</div><div style="text-align:center;">KET</div><div style="text-align:center;">AKSI</div></div>
         <div class="psiko-modal-body" style="flex:1;overflow-y:auto;"><div class="psiko-rows">${renderTable(computed)}</div></div>
@@ -366,7 +366,7 @@
     [['Nama', candidateName || '-'], ['Posisi', position || '-'], ['Tanggal', tanggal]].forEach(([k, v]) => { doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10); doc.text(k + ' :', M, y); doc.setFont('helvetica', 'normal'); doc.text(String(v), M + 30, y); y += 5.5; }); y += 3;
     const valid = computed.map(c => c.finalScore).filter(s => s !== null); const avg = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0; const avgPct = (avg / 4) * 100; const avgKet = scoreToKet(avg);
     doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241); doc.rect(M, y, CW, 16, 'FD'); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(67, 56, 202);
-    doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 4.00  (' + avgPct.toFixed(1) + '%)', M + 4, y + 6); doc.setFontSize(10); doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 12); y += 20;
+    doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 5.00  (' + avgPct.toFixed(1) + '%)', M + 4, y + 6); doc.setFontSize(10); doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 12); y += 20;
     doc.setFillColor(59, 130, 246); doc.rect(M, y, CW, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
     doc.text('#', M + 2, y + 5); doc.text('ASPEK', M + 12, y + 5); doc.text('PERSEN', M + 130, y + 5, { align: 'right' }); doc.text('SKOR', M + 155, y + 5, { align: 'center' }); doc.text('KATEGORI', M + CW - 4, y + 5, { align: 'right' }); y += 7;
     computed.forEach((item, i) => {
