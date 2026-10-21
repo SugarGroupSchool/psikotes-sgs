@@ -32,7 +32,6 @@
     4: { label: 'Highly Recommended', short: 'Highly', icon: '🌟', color: '#5eead4', bg: 'rgba(13,148,136,.2)', br: 'rgba(13,148,136,.55)' }
   };
 
-  /* ---------- FETCH ---------- */
   async function fetchSubjectData(slug) {
     if (!fbReady()) return null;
     const dashed = slugifyDashed(slug);
@@ -70,7 +69,6 @@
       .filter(Boolean);
   }
 
-  /* ---------- SECTION ---------- */
   function renderSubjectSectionHTML(data, slug, name, position) {
     if (!data) return '';
     const assessors = getAssessorList(data.assessments);
@@ -124,7 +122,6 @@
       + '</div>';
   }
 
-  /* ---------- MODAL ---------- */
   async function openSubjectModal(slug, name, position) {
     const old = document.getElementById('subjectResultModal');
     if (old) old.remove();
@@ -229,7 +226,6 @@
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
-  /* ---------- PDF ---------- */
   async function generateSubjectPDF(name, position, data) {
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
@@ -296,7 +292,8 @@
       y += imgH + 8;
     }
 
-    assessors.forEach((a, idx) => {
+    for (let idx = 0; idx < assessors.length; idx++) {
+      const a = assessors[idx];
       if (y > PH - 40) { doc.addPage(); y = M; }
       doc.setFillColor(13, 148, 136); doc.rect(M, y, CW, 8, 'F');
       doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
@@ -352,7 +349,7 @@
         y += 4;
       }
       y += 5;
-    });
+    }
 
     if (y > PH - 15) { doc.addPage(); y = M; }
     doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
@@ -369,7 +366,6 @@
     doc.save('Hasil-Subject-' + safeFileName(name) + '.pdf');
   }
 
-  /* ---------- IMAGES-ONLY MODAL ---------- */
   async function openSubjectImagesOnlyModal(slug, name) {
     const data = await fetchSubjectData(slug);
     const images = data ? getCandidateImages(data.images) : [];
@@ -398,7 +394,6 @@
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
   }
 
-  /* ---------- REALTIME (override dari 00b-admin.js) ---------- */
   const __subjectRealtimeListeners = new Map();
 
   window.__attachSubjectRealtime = function (slug, wrapper, name, position) {
@@ -458,7 +453,6 @@
     __subjectRealtimeListeners.clear();
   };
 
-  /* ---------- EVENT DELEGATION ---------- */
   if (!window.__subjectResultDelegationAttached) {
     window.__subjectResultDelegationAttached = true;
     document.addEventListener('click', async function (e) {
@@ -493,7 +487,6 @@
     }, true);
   }
 
-  /* ---------- EXPORTS ---------- */
   window.renderSubjectSectionHTML = renderSubjectSectionHTML;
   window.openSubjectModal = openSubjectModal;
   window.downloadSubjectPDF = downloadSubjectPDF;
