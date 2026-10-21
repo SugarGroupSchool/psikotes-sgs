@@ -26,7 +26,8 @@
   const DEFAULTS = {
     fgd:       ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
     interview: ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
-    subject:   ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],`n    grafis:    ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF', 'DENI']
+    subject:   ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
+    grafis:    ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF', 'DENI']
   };
 
   const FIREBASE_PATHS = {
