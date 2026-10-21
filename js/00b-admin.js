@@ -2421,9 +2421,13 @@ window.__openCandidateFolder = function(candidateKey) {
     return;
   }
 
-  const info = __extractCandidateInfo(files[0]);
-  const name = info.name || candidateKey;
-  const position = info.position || '';
+   let name = candidateKey;
+  let position = '';
+  for (const f of files) {
+    const _info = __extractCandidateInfo(f);
+    if (_info.name && _info.name !== '-') name = _info.name;
+    if (_info.position && _info.position !== '-') { position = _info.position; break; }
+  }
   const slug = candidateKey;
 
   const statusData = window.__candidateStatusMap[slug] || {};
