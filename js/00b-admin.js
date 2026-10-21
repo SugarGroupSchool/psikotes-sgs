@@ -2884,31 +2884,9 @@ window.__openCandidateFolder = function(candidateKey) {
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
   if (deleteBtn) {
     deleteBtn.onclick = async () => {
-      const ok1 = (typeof window.sgsConfirmDanger === 'function')
-        ? await window.sgsConfirmDanger(
-            '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
-            '👤 ' + name + '\n' +
-            '💼 ' + (position || '-') + '\n\n' +
-            'Yang akan dihapus PERMANEN:\n' +
-            '• Semua file di Drive\n' +
-            '• Firebase: interviews, grafis_interp, grafis_images, fgd,\n' +
-            '  subject_ratings, subject_images, subject_assessments, candidate_status,\n' +
-            '  sgs_scores, sgs_psikogram, sgs_psikogram_raw, sgs_psikogram_weights\n' +
-            '• Request izin & resume state\n' +
-            '• Chat room (jika ada)\n\n' +
-            'Tidak bisa dibatalkan!',
-            { title: '🗑️ Hapus Kandidat', okText: 'Ya, Saya Yakin' }
-          )
-        : confirm('Hapus total kandidat ' + name + '?');
-      if (!ok1) return;
+      const ok1 = (typeof window.sgsConfirmDanger === 'function') ? await window.sgsConfirmDanger('?? HAPUS TOTAL KANDIDAT\n\n?? ' + name + '\n?? ' + (position || '-') + '\n\nSemua file Drive dan data Firebase akan dihapus permanen.\nTindakan ini tidak bisa dibatalkan!', { title: '??? Hapus Kandidat', okText: 'Ya, Hapus' }) : confirm('Hapus total kandidat ' + name + '?'); if (!ok1) return;
 
-      const ok2 = (typeof window.sgsConfirmDanger === 'function')
-        ? await window.sgsConfirmDanger(
-            'Konfirmasi terakhir:\n\nHapus permanen "' + name + '"?',
-            { title: '⚠️ Konfirmasi Terakhir', okText: 'Ya, Hapus Sekarang' }
-          )
-        : confirm('Yakin 100%? Tindakan ini permanen.');
-      if (!ok2) return;
+      
 
       if (false && typeof window.adminDeleteCandidateCompletely === 'function') {
         try { __detachSubjectRealtime(slug); } catch (e) {}
@@ -2927,7 +2905,7 @@ window.__openCandidateFolder = function(candidateKey) {
         return;
       }
 
-      deleteBtn.disabled = true;
+      const loadingOverlay = document.createElement('div'); loadingOverlay.id = 'deleteLoadingOverlay'; loadingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:Inter,system-ui,sans-serif;'; loadingOverlay.innerHTML = '<style>@keyframes spinDelete { to { transform: rotate(360deg); } }</style><div style='width:60px;height:60px;border:6px solid rgba(255,255,255,.1);border-top-color:#ef4444;border-radius:50%;animation:spinDelete 1s linear infinite;margin-bottom:20px;'></div><div style='font-size:18px;font-weight:900;color:#fca5a5;'>Menghapus Kandidat...</div><div style='font-size:13px;color:#94a3b8;margin-top:8px;text-align:center;max-width:300px;'>Mohon tunggu, sedang menghapus file Drive dan data Firebase.</div>'; document.body.appendChild(loadingOverlay); deleteBtn.disabled = true;
       deleteBtn.textContent = '⏳ Menghapus...';
 
       let fbDeleted = 0;
