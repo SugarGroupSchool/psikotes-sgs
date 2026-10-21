@@ -33,7 +33,8 @@
   const FIREBASE_PATHS = {
     fgd:       'sgs_config/assessors_fgd',
     interview: 'sgs_config/assessors_interview',
-    subject:   'sgs_config/assessors_subject',`n    grafis:    'sgs_config/assessors_grafis'
+    subject:   'sgs_config/assessors_subject',
+    grafis:    'sgs_config/assessors_grafis'
   };
 
   const state = {
