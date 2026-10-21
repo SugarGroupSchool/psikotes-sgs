@@ -21,18 +21,18 @@
 (function () {
   'use strict';
 
-  const CATEGORIES = ['fgd', 'interview', 'subject'];
+  const CATEGORIES = ['fgd', 'interview', 'subject', 'grafis'];
 
   const DEFAULTS = {
     fgd:       ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
     interview: ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],
-    subject:   ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF']
+    subject:   ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'],`n    grafis:    ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF', 'DENI']
   };
 
   const FIREBASE_PATHS = {
     fgd:       'sgs_config/assessors_fgd',
     interview: 'sgs_config/assessors_interview',
-    subject:   'sgs_config/assessors_subject'
+    subject:   'sgs_config/assessors_subject',`n    grafis:    'sgs_config/assessors_grafis'
   };
 
   const state = {
