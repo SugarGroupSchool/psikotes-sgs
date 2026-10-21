@@ -107,8 +107,20 @@
     return raw;
   }
 
-  async function loadWeights(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value'); const val = snap.val(); if (!val) return {}; const w = val.weights || {}; delete w.updatedAt; return w; } catch (e) { return {}; } }
-  async function saveWeights(slug, weights) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights: weights, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
+  async function loadWeights(slug) { 
+    if (!fbReady()) return {}; 
+    try { 
+      const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value'); 
+      const val = snap.val(); 
+      return (val && val.weights) ? val.weights : {}; 
+    } catch (e) { return {}; } 
+  }
+  
+  async function saveWeights(slug, weights) { 
+    if (!fbReady()) throw new Error('Firebase belum siap'); 
+    await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights, updatedAt: firebase.database.ServerValue.TIMESTAMP }); 
+  }
+  
   async function loadOverrides(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram/' + slug + '/overrides').once('value'); return snap.val() || {}; } catch (e) { return {}; } }
   async function saveOverrides(slug, overrides) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram/' + slug).update({ category: 'guru', overrides, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
   async function saveRaw(slug, raw) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_raw/' + slug).update({ IST: raw.IST || {}, PAPI: raw.PAPI || {}, BigFive: raw.BigFive || {}, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
@@ -227,8 +239,8 @@
     if (aspect.bigfive && aspect.bigfive.length) sources.push('BigFive');
     if (aspect.grafisCat) sources.push('Grafis');
     if (aspect.subjectTest) sources.push('SubjectTest');
-    if ((currentWeights || aspect.weights || {}).Wawancara !== undefined) sources.push('Wawancara');
-    if ((currentWeights || aspect.weights || {}).FGD !== undefined) sources.push('FGD');
+    if ((aspect.weights || {}).Wawancara !== undefined) sources.push('Wawancara');
+    if ((aspect.weights || {}).FGD !== undefined) sources.push('FGD');
     const uniqueSources = [...new Set(sources)];
     const w = Object.assign({}, aspect.weights || {}, currentWeights || {});
 
@@ -267,7 +279,11 @@
     updateTotal();
     ov.querySelector('#psikoWeightCancel').onclick = () => ov.remove();
     ov.querySelector('#psikoWeightSave').onclick = () => {
-      const newW = {}; inputs.forEach(i => { const v = parseFloat(i.value) || 0; if (v > 0) newW[i.dataset.src] = v; });
+      const newW = {}; 
+      inputs.forEach(i => { 
+        const v = parseFloat(i.value) || 0; 
+        newW[i.dataset.src] = v; 
+      });
       const total = Object.values(newW).reduce((a,b)=>a+b,0);
       if (total !== 100) { if (!confirm('Total bobot ' + total + '% (bukan 100%). Tetap simpan?')) return; }
       ov.remove(); onSave(newW);
