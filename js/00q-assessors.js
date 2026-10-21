@@ -55,7 +55,7 @@
       ready: false,
       listeners: [],
       ref: null
-    }
+    }, grafis: { list: DEFAULTS.grafis.slice(), ready: false, listeners: [], ref: null }
   };
 
   function normCategory(cat) {
