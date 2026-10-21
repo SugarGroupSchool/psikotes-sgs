@@ -28,9 +28,7 @@
     { id: 'teaching_practice', label: 'Teaching Practice Skills', weights: { Wawancara: 40, SubjectTest: 60 }, ist: [], papi: [], bigfive: [], subjectTest: true }
   ];
 
-  const PAPI_CONFIG = {
-    A:{inv:false}, N:{inv:false}, G:{inv:false}, T:{inv:false}, V:{inv:false}, W:{inv:false}, F:{inv:false}, C:{inv:false}, L:{inv:false}, P:{inv:false}, I:{inv:false}, E:{inv:false}, K:{inv:true},  O:{inv:false}, S:{inv:false}, B:{inv:false}, X:{inv:false}, Z:{inv:false}, D:{inv:false}, R:{inv:false}
-  };
+  const PAPI_CONFIG = { A:{inv:false}, N:{inv:false}, G:{inv:false}, T:{inv:false}, V:{inv:false}, W:{inv:false}, F:{inv:false}, C:{inv:false}, L:{inv:false}, P:{inv:false}, I:{inv:false}, E:{inv:false}, K:{inv:true},  O:{inv:false}, S:{inv:false}, B:{inv:false}, X:{inv:false}, Z:{inv:false}, D:{inv:false}, R:{inv:false} };
 
   function clamp04(v){ return Math.max(0, Math.min(4, v)); }
   function normIST(sw){ return typeof sw==='number' ? clamp04((sw - 75) / 12.5) : null; }
