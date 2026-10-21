@@ -107,8 +107,8 @@
     return raw;
   }
 
-  async function loadWeights(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value'); return snap.val() || {}; } catch (e) { return {}; } }
-  async function saveWeights(slug, weights) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
+  async function loadWeights(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value'); const val = snap.val(); if (!val) return {}; const w = val.weights || {}; delete w.updatedAt; return w; } catch (e) { return {}; } }
+  async function saveWeights(slug, weights) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights: weights, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
   async function loadOverrides(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram/' + slug + '/overrides').once('value'); return snap.val() || {}; } catch (e) { return {}; } }
   async function saveOverrides(slug, overrides) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram/' + slug).update({ category: 'guru', overrides, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
   async function saveRaw(slug, raw) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_raw/' + slug).update({ IST: raw.IST || {}, PAPI: raw.PAPI || {}, BigFive: raw.BigFive || {}, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
