@@ -2602,6 +2602,20 @@ window.__openCandidateFolder = function(candidateKey) {
       <span style="font-size: 20px;">🎯</span>
       <span class="rf-folder-overlay-btn-label">FGD</span>
     </button>
+
+    <button class="js-subject-link"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: rgba(13,148,136,.15);
+        border: 1px solid rgba(13,148,136,.5);
+        color: #5eead4; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">📚</span>
+      <span class="rf-folder-overlay-btn-label">SUBJEK</span>
+    </button>
   `;
 
   const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';
@@ -2714,12 +2728,12 @@ window.__openCandidateFolder = function(candidateKey) {
         ">✕</button>
       </div>
 
-      <div class="rf-folder-actions" style="
+           <div class="rf-folder-actions" style="
         padding: 14px 20px;
         background: rgba(0,0,0,.3);
         border-bottom: 1px solid rgba(255,255,255,.08);
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
         gap: 8px;
       ">
         ${topActionsHTML}
@@ -3702,15 +3716,19 @@ const SUBJECT_RATING_MAP = {
   4: { label: '🌟 Highly',  color: '#5eead4', bg: 'rgba(13,148,136,.2)',  border: 'rgba(13,148,136,.55)' }
 };
 
-function __renderSubjectBox(data, slug, name, position) {
-  const assessments = (data && data.assessments) || {};
+function __renderSubjectBox(assessData, imagesData, slug, name, position) {
+  const assessments = (assessData && assessData.assessments) || {};
+  const imagesMap = (imagesData && imagesData.images) || {};
+  const imageKeys = Object.keys(imagesMap);
+  const hasImages = imageKeys.length > 0;
+
   const keys = Object.keys(assessments).filter(k => {
     const a = assessments[k];
     return a && typeof a.rating === 'number' && a.rating >= 1 && a.rating <= 4;
   });
 
-  /* Card otomatis hilang jika belum ada korektor submit */
-  if (keys.length === 0) return '';
+  /* Card hilang jika TIDAK ada korektor submit DAN TIDAK ada foto jawaban */
+  if (keys.length === 0 && !hasImages) return '';
 
   const ratings = keys.map(k => Number(assessments[k].rating)).filter(v => v >= 1 && v <= 4);
   const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
@@ -3755,8 +3773,22 @@ function __renderSubjectBox(data, slug, name, position) {
           background:linear-gradient(135deg,#0d9488,#14b8a6);border-radius:9px;font-size:16px;">📚</div>
         <div style="flex:1;min-width:100px;">
           <div style="font-size:12px;font-weight:900;color:#5eead4;">Hasil Tes Subject</div>
-          <div style="font-size:10px;color:#94a3b8;">${keys.length} korektor submit</div>
+          <div style="font-size:10px;color:#94a3b8;">
+            ${keys.length} korektor submit${hasImages ? ' · ' + imageKeys.length + ' foto jawaban' : ''}
+          </div>
         </div>
+        ${hasImages ? `
+        <button class="js-subject-images"
+          data-slug="${__adminEscape(slug)}"
+          data-name="${__adminEscape(name)}"
+          style="padding:5px 12px;background:rgba(59,130,246,.2);
+            border:1px solid rgba(59,130,246,.5);border-radius:8px;
+            color:#93c5fd;font-family:inherit;font-size:10.5px;font-weight:800;
+            cursor:pointer;white-space:nowrap;">
+          📷 Lihat Foto
+        </button>
+        ` : ''}
+        ${keys.length > 0 ? `
         <button class="js-subject-detail"
           data-slug="${__adminEscape(slug)}"
           data-name="${__adminEscape(name)}"
@@ -3765,14 +3797,17 @@ function __renderSubjectBox(data, slug, name, position) {
             border:1px solid rgba(13,148,136,.5);border-radius:8px;
             color:#5eead4;font-family:inherit;font-size:10.5px;font-weight:800;
             cursor:pointer;white-space:nowrap;">
-          👁️ Lihat Detail
+          👁️ Lihat Koreksi
         </button>
+        ` : ''}
+        ${keys.length > 0 ? `
         <div style="padding:5px 10px;background:rgba(34,197,94,.15);
           border:1px solid rgba(34,197,94,.4);border-radius:999px;
           font-size:10.5px;font-weight:900;color:#86efac;
           white-space:nowrap;font-variant-numeric:tabular-nums;">
           ⭐ ${avg.toFixed(2)}
         </div>
+        ` : ''}
       </div>
       ${rowsHTML}
     </div>`;
@@ -3784,27 +3819,46 @@ function __attachSubjectRealtime(slug, wrapper, name, position) {
     wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#f87171;font-size:11.5px;">❌ Firebase belum siap</div>';
     return;
   }
-  const ref = firebase.database().ref('sgs_subject_assessments/' + slug);
-  const cb = (snap) => {
+
+  const refAssess = firebase.database().ref('sgs_subject_assessments/' + slug);
+  const refImages = firebase.database().ref('sgs_subject_images/' + slug);
+
+  let assessData = null;
+  let imgData = null;
+
+  const render = () => {
+    if (!wrapper.isConnected) { __detachSubjectRealtime(slug); return; }
     try {
-      if (!wrapper.isConnected) { __detachSubjectRealtime(slug); return; }
-      const data = snap.val();
-      wrapper.innerHTML = __renderSubjectBox(data, slug, name, position);
+      wrapper.innerHTML = __renderSubjectBox(assessData, imgData, slug, name, position);
     } catch (e) {
       console.warn('[SUBJECT-REALTIME] render error:', e.message);
     }
   };
-  ref.on('value', cb, (err) => {
-    console.warn('[SUBJECT-REALTIME] listener error:', err.message);
+
+  const cbAssess = (snap) => { assessData = snap.val(); render(); };
+  const cbImages = (snap) => { imgData = snap.val(); render(); };
+
+  refAssess.on('value', cbAssess);
+  refImages.on('value', cbImages);
+
+  __subjectRealtimeListeners.set(slug, {
+    ref: {
+      off: () => {
+        try { refAssess.off('value', cbAssess); } catch (e) {}
+        try { refImages.off('value', cbImages); } catch (e) {}
+      }
+    },
+    cb: null
   });
-  __subjectRealtimeListeners.set(slug, { ref, cb });
 }
 
 function __detachSubjectRealtime(slug) {
   if (!slug) return;
   const item = __subjectRealtimeListeners.get(slug);
   if (!item) return;
-  try { item.ref.off('value', item.cb); } catch (e) {}
+  try {
+    if (item.ref && typeof item.ref.off === 'function') item.ref.off();
+  } catch (e) {}
   __subjectRealtimeListeners.delete(slug);
 }
 
@@ -4098,6 +4152,30 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
       }
       return;
     }
+
+    /* 🆕 Subject Link */
+    const subjectLinkBtn = e.target.closest('.js-subject-link');
+    if (subjectLinkBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const name = subjectLinkBtn.getAttribute('data-name');
+      const position = subjectLinkBtn.getAttribute('data-position');
+      if (name && typeof window.openSubjectLink === 'function') {
+        window.openSubjectLink(name, position);
+      }
+      return;
+    }
+
+    /* 🆕 Subject Images Viewer */
+    const subjImagesBtn = e.target.closest('.js-subject-images');
+    if (subjImagesBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const slug = subjImagesBtn.getAttribute('data-slug');
+      const name = subjImagesBtn.getAttribute('data-name');
+      if (slug && typeof window.__openSubjectImagesModal === 'function') {
+        window.__openSubjectImagesModal(slug, name);
+      }
+      return;
+    }
     /* 🆕 Subject Detail modal */
     const subjectDetailBtn = e.target.closest('.js-subject-detail');
     if (subjectDetailBtn) {
@@ -4275,5 +4353,132 @@ window.addEventListener('beforeunload', () => {
     }
   } catch (e) {}
 });
+/* ============================================================
+   🆕 MODAL KIRIM LINK SUBJEK
+   ============================================================ */
+window.openSubjectLink = function (candidateName, candidatePosition) {
+  const base = window.location.origin + window.location.pathname;
+  let assessorList = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+  if (typeof window.ASSESSORS !== 'undefined') {
+    const list = window.ASSESSORS.getList('subject');
+    if (list && list.length > 0) assessorList = list;
+  }
 
+  const old = document.getElementById('subjLinkModal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'subjLinkModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+
+  modal.innerHTML = `
+    <div style="width:min(560px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+      <div style="padding:24px 26px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KOREKSI SUBJECT · ADMIN ONLY</div>
+        <div style="font-size:20px;font-weight:900;">📚 Kirim Link ke Korektor</div>
+      </div>
+      <div style="padding:22px 26px;">
+        <div style="padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:6px;">KANDIDAT</div>
+          <div style="font-size:14px;font-weight:800;color:#1e293b;">${__adminEscape(candidateName)}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">💼 ${__adminEscape(candidatePosition || '(tanpa posisi)')}</div>
+        </div>
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px;">KLIK KODE → LINK OTOMATIS TERSALIN</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:18px;">
+          ${assessorList.map(kode => `
+            <button class="subj-copy-btn" data-kode="${__adminEscape(kode)}"
+              style="padding:12px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;
+                color:#1e293b;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s ease;">
+              ${__adminEscape(kode)}
+            </button>
+          `).join('')}
+        </div>
+        <button id="subjLinkClose" style="width:100%;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  document.getElementById('subjLinkClose').onclick = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+  modal.querySelectorAll('.subj-copy-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const kode = btn.getAttribute('data-kode');
+      // ✅ PASTIKAN &kode= (sesuai 00x-subject-assessor.js)
+      const url = base + '?subjectdo=1&n=' + encodeURIComponent(candidateName)
+                + '&p=' + encodeURIComponent(candidatePosition)
+                + '&kode=' + encodeURIComponent(kode);
+      try {
+        if (navigator.clipboard) await navigator.clipboard.writeText(url);
+        else prompt('Copy link manual:', url);
+        const prev = btn.innerHTML;
+        btn.style.background = '#dcfce7';
+        btn.style.borderColor = '#86efac';
+        btn.style.color = '#166534';
+        btn.innerHTML = '✅ Tersalin';
+        setTimeout(() => {
+          btn.style.background = '#fff';
+          btn.style.borderColor = '#e2e8f0';
+          btn.style.color = '#1e293b';
+          btn.innerHTML = prev;
+        }, 1500);
+      } catch (e) { prompt('Copy link manual:', url); }
+    };
+  });
+};
+
+/* ============================================================
+   🆕 MODAL LIHAT FOTO JAWABAN SUBJECT
+   ============================================================ */
+window.__openSubjectImagesModal = async function (slug, candidateName) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    await __alert('Firebase belum siap', '❌ Error'); return;
+  }
+
+  let data;
+  try {
+    const snap = await firebase.database().ref('sgs_subject_images/' + slug).once('value');
+    data = snap.val();
+  } catch (e) {
+    await __alert('Gagal ambil foto: ' + e.message, '❌ Error'); return;
+  }
+
+  if (!data || !data.images) {
+    await __alert('Kandidat belum mengupload foto jawaban.', '⚠️ Kosong'); return;
+  }
+
+  const images = Object.values(data.images);
+  const old = document.getElementById('subjImagesModal');
+  if (old) old.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'subjImagesModal';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.94);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+
+  ov.innerHTML = `
+    <div style="width:min(920px,100%);max-height:calc(100vh - 40px);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(59,130,246,.4);border-radius:18px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.65);color:#e2e8f0;display:flex;flex-direction:column;">
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;display:grid;place-items:center;background:rgba(255,255,255,.18);border-radius:11px;font-size:20px;">📷</div>
+        <div style="flex:1;">
+          <div style="font-size:10px;font-weight:900;letter-spacing:2px;opacity:.85;">FOTO JAWABAN SUBJECT</div>
+          <div style="font-size:15px;font-weight:900;color:#fff;margin-top:2px;">${__adminEscape(candidateName)}</div>
+        </div>
+        <button id="subjImgClose" style="width:36px;height:36px;display:grid;place-items:center;background:rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:16px;cursor:pointer;font-family:inherit;">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;">
+        ${images.map((img, i) => `
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;cursor:zoom-in;" onclick="window.open('${img.dataUrl}','_blank')">
+            <img src="${img.dataUrl}" style="width:100%;height:260px;object-fit:contain;background:#000;">
+            <div style="padding:10px;text-align:center;font-size:12px;font-weight:800;color:#93c5fd;">📄 Halaman ${i + 1}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(ov);
+  document.getElementById('subjImgClose').onclick = () => ov.remove();
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+};
 console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT ASSESSMENTS');
