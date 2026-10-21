@@ -2888,7 +2888,7 @@ window.__openCandidateFolder = function(candidateKey) {
 
       
 
-      if (false && typeof window.adminDeleteCandidateCompletely === 'function') {
+      iif (false && typeof window.adminDeleteCandidateCompletely === 'function') {
         try { __detachSubjectRealtime(slug); } catch (e) {}
         overlay.remove();
         try { await window.adminDeleteCandidateCompletely(name, position); }
@@ -2905,7 +2905,7 @@ window.__openCandidateFolder = function(candidateKey) {
         return;
       }
 
-      const loadingOverlay = document.createElement('div'); loadingOverlay.id = 'deleteLoadingOverlay'; loadingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:Inter,system-ui,sans-serif;'; loadingOverlay.innerHTML = '<style>@keyframes spinDelete { to { transform: rotate(360deg); } }</style><div style='width:60px;height:60px;border:6px solid rgba(255,255,255,.1);border-top-color:#ef4444;border-radius:50%;animation:spinDelete 1s linear infinite;margin-bottom:20px;'></div><div style='font-size:18px;font-weight:900;color:#fca5a5;'>Menghapus Kandidat...</div><div style='font-size:13px;color:#94a3b8;margin-top:8px;text-align:center;max-width:300px;'>Mohon tunggu, sedang menghapus file Drive dan data Firebase.</div>'; document.body.appendChild(loadingOverlay); deleteBtn.disabled = true;
+      const loadingOverlay = document.createElement('div'); loadingOverlay.id = 'deleteLoadingOverlay'; loadingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:Inter,system-ui,sans-serif;'; loadingOverlay.innerHTML = "<style>@keyframes spinDelete { to { transform: rotate(360deg); } }</style><div style='width:60px;height:60px;border:6px solid rgba(255,255,255,.1);border-top-color:#ef4444;border-radius:50%;animation:spinDelete 1s linear infinite;margin-bottom:20px;'></div><div style='font-size:18px;font-weight:900;color:#fca5a5;'>Menghapus Kandidat...</div><div style='font-size:13px;color:#94a3b8;margin-top:8px;text-align:center;max-width:300px;'>Mohon tunggu, sedang menghapus file Drive dan data Firebase.</div>"; document.body.appendChild(loadingOverlay); deleteBtn.disabled = true;
       deleteBtn.textContent = '⏳ Menghapus...';
 
       let fbDeleted = 0;
