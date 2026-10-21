@@ -2910,7 +2910,7 @@ window.__openCandidateFolder = function(candidateKey) {
         : confirm('Yakin 100%? Tindakan ini permanen.');
       if (!ok2) return;
 
-      if (typeof window.adminDeleteCandidateCompletely === 'function') {
+      if (false && typeof window.adminDeleteCandidateCompletely === 'function') {
         try { __detachSubjectRealtime(slug); } catch (e) {}
         overlay.remove();
         try { await window.adminDeleteCandidateCompletely(name, position); }
@@ -2964,6 +2964,7 @@ window.__openCandidateFolder = function(candidateKey) {
         }
       } catch (e) { console.warn('[DELETE] Drive error:', e.message); }
 
+      console.log('[DELETE] Deleting Firebase for slug:', slug);
       const paths = [
         'sgs_interviews/' + slug,
         'sgs_grafis_interp/' + slug,
@@ -2979,7 +2980,7 @@ window.__openCandidateFolder = function(candidateKey) {
         'sgs_psikogram_weights/' + slug
       ];
 
-      for (const path of paths) {
+      for (const path of paths) { console.log('[DELETE] Removing:', path);
         try {
           await firebase.database().ref(path).remove();
           fbDeleted++;
