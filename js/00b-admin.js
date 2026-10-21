@@ -1453,8 +1453,12 @@ function renderResultFilesHTML(files) {
     return `<div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada PDF yang dikirim kandidat</div>`;
   }
 
-  const groups = new Map();
-  files.forEach(f => {`r`n    const n = String(f.name || '');`r`n    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;`r`n    const info = __extractCandidateInfo(f);
+    const groups = new Map();
+  files.forEach(f => {
+    const n = String(f.name || '');
+    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;
+    
+    const info = __extractCandidateInfo(f);
     const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
     if (!groups.has(key)) {
       groups.set(key, { name: info.name, position: info.position, password: info.password, files: [] });
@@ -2232,8 +2236,12 @@ function __renderResultPageContent() {
   if (window.__lastRenderedSignature === signature) return;
   window.__lastRenderedSignature = signature;
 
-  const groups = new Map();
-  files.forEach(f => {`r`n    const n = String(f.name || '');`r`n    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;`r`n    const info = __extractCandidateInfo(f);
+   const groups = new Map();
+  files.forEach(f => {
+    const n = String(f.name || '');
+    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;
+    
+    const info = __extractCandidateInfo(f);
     const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
     if (!groups.has(key)) groups.set(key, { name: info.name, position: info.position, files: [] });
     const g = groups.get(key);
