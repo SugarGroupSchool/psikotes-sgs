@@ -521,7 +521,7 @@
   /* ============================================================
      MODAL EDIT BOBOT
      ============================================================ */
-  function openWeightModal(aspect, currentWeights, onSave) {
+  function openWeightModal(aspect, currentWeights, onSave) { try {
     const old = document.getElementById('psikoWeightModal'); if (old) old.remove();
 
     // Tentukan sumber valid berdasarkan aspect
@@ -603,7 +603,7 @@
       onSave(newW);
     };
 
-    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); }); } catch (err) { alert('Gagal buka modal bobot: ' + err.message); }
   }
 
   /* ============================================================
@@ -634,7 +634,7 @@
     ov.querySelector('#psikoEditSave').onclick = save;
     ov.querySelector('#psikoEditReset').onclick = useAuto;
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') ov.remove(); });
-    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); }); } catch (err) { alert('Gagal buka modal bobot: ' + err.message); }
   }
 
   /* ============================================================
@@ -827,7 +827,7 @@
       }
 
       /* EDIT BOBOT */
-      const wBtn = e.target.closest('.psiko-weight-btn');
+      const wBtn = e.target.closest('.psiko-weight-btn'); console.log('Klik bobot', wBtn);
       if (wBtn) {
         e.preventDefault(); e.stopPropagation();
         const modal = wBtn.closest('#psikoModal'); if (!modal) return;
