@@ -410,8 +410,8 @@
     }
 
     const assessors = sortAssessors(Object.keys(data));
-    const tabs = ['combined', ...assessors];
-    let currentTab = 'combined';
+    const tabs = assessors.length > 1 ? ['combined', ...assessors] : assessors;
+    let currentTab = assessors.length > 1 ? 'combined' : (assessors[0] || 'combined');
 
     const finalName = name || data[assessors[0]]?.candidateName || 'Kandidat';
     const finalPos  = position || data[assessors[0]]?.candidatePosition || '-';
