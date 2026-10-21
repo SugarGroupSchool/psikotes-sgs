@@ -2884,33 +2884,39 @@ window.__openCandidateFolder = function(candidateKey) {
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
   if (deleteBtn) {
     deleteBtn.onclick = async () => {
-      const ok1 = (typeof window.sgsConfirmDanger === 'function') ? await window.sgsConfirmDanger('?? HAPUS TOTAL KANDIDAT\n\n?? ' + name + '\n?? ' + (position || '-') + '\n\nSemua file Drive dan data Firebase akan dihapus permanen.\nTindakan ini tidak bisa dibatalkan!', { title: '??? Hapus Kandidat', okText: 'Ya, Hapus' }) : confirm('Hapus total kandidat ' + name + '?'); if (!ok1) return;
+      const ok1 = (typeof window.sgsConfirmDanger === 'function')
+        ? await window.sgsConfirmDanger(
+            '⚠️ HAPUS TOTAL KANDIDAT\n\n' +
+            '👤 ' + name + '\n' +
+            '💼 ' + (position || '-') + '\n\n' +
+            'Semua file Drive dan data Firebase akan dihapus permanen.\n' +
+            'Tindakan ini tidak bisa dibatalkan!',
+            { title: '🗑️ Hapus Kandidat', okText: 'Ya, Hapus' }
+          )
+        : confirm('Hapus total kandidat ' + name + '?');
+      if (!ok1) return;
 
+      const loadingOverlay = document.createElement('div');
+      loadingOverlay.id = 'deleteLoadingOverlay';
+      loadingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:Inter,system-ui,sans-serif;';
       
+      loadingOverlay.innerHTML = `
+        <style>@keyframes spinDelete { to { transform: rotate(360deg); } }</style>
+        <div style="width:60px;height:60px;border:6px solid rgba(255,255,255,.1);border-top-color:#ef4444;border-radius:50%;animation:spinDelete 1s linear infinite;margin-bottom:20px;"></div>
+        <div style="font-size:18px;font-weight:900;color:#fca5a5;">Menghapus Kandidat...</div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:8px;text-align:center;max-width:300px;">Mohon tunggu, sedang menghapus file Drive dan data Firebase.</div>
+      `;
+      
+      document.body.appendChild(loadingOverlay);
 
-      iif (false && typeof window.adminDeleteCandidateCompletely === 'function') {
-        try { __detachSubjectRealtime(slug); } catch (e) {}
-        overlay.remove();
-        try { await window.adminDeleteCandidateCompletely(name, position); }
-        catch (e) { console.warn('[DELETE] Error:', e.message); }
-        window.__lastRenderedSignature = null;
-        window.__candidateFilesMap = window.__candidateFilesMap || {};
-        delete window.__candidateFilesMap[slug];
-        await __fetchAllCandidateStatus();
-        if (typeof fetchResultFiles === 'function') {
-          const files = await fetchResultFiles(true);
-          window.__resultFilesCache = files;
-        }
-        __renderResultPageContent();
-        return;
-      }
-
-      const loadingOverlay = document.createElement('div'); loadingOverlay.id = 'deleteLoadingOverlay'; loadingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:Inter,system-ui,sans-serif;'; loadingOverlay.innerHTML = "<style>@keyframes spinDelete { to { transform: rotate(360deg); } }</style><div style='width:60px;height:60px;border:6px solid rgba(255,255,255,.1);border-top-color:#ef4444;border-radius:50%;animation:spinDelete 1s linear infinite;margin-bottom:20px;'></div><div style='font-size:18px;font-weight:900;color:#fca5a5;'>Menghapus Kandidat...</div><div style='font-size:13px;color:#94a3b8;margin-top:8px;text-align:center;max-width:300px;'>Mohon tunggu, sedang menghapus file Drive dan data Firebase.</div>"; document.body.appendChild(loadingOverlay); deleteBtn.disabled = true;
+      deleteBtn.disabled = true;
       deleteBtn.textContent = '⏳ Menghapus...';
-
+      
+      try { __detachSubjectRealtime(slug); } catch (e) {}
+      
       let fbDeleted = 0;
       let driveDeleted = 0;
-
+      
       try {
         const files = (typeof fetchResultFiles === 'function') ? await fetchResultFiles(true) : [];
         const nameLower = String(name).toLowerCase().trim();
@@ -2941,8 +2947,7 @@ window.__openCandidateFolder = function(candidateKey) {
           }
         }
       } catch (e) { console.warn('[DELETE] Drive error:', e.message); }
-
-      console.log('[DELETE] Deleting Firebase for slug:', slug);
+      
       const paths = [
         'sgs_interviews/' + slug,
         'sgs_grafis_interp/' + slug,
@@ -2957,14 +2962,14 @@ window.__openCandidateFolder = function(candidateKey) {
         'sgs_psikogram_raw/' + slug,
         'sgs_psikogram_weights/' + slug
       ];
-
-      for (const path of paths) { console.log('[DELETE] Removing:', path);
+      
+      for (const path of paths) {
         try {
           await firebase.database().ref(path).remove();
           fbDeleted++;
         } catch (e) {}
       }
-
+      
       try {
         const sessionsSnap = await firebase.database().ref('sgs_state/sessions').once('value');
         const sessions = sessionsSnap.val() || {};
@@ -2981,17 +2986,19 @@ window.__openCandidateFolder = function(candidateKey) {
           }
         }
       } catch (e) {}
-
+      
       window.__lastRenderedSignature = null;
       if (window.__candidateFilesMap) delete window.__candidateFilesMap[slug];
       if (typeof __invalidateResultCache === 'function') __invalidateResultCache();
       const filesAfter = await fetchResultFiles(true);
       window.__resultFilesCache = filesAfter;
-
+      
       closeOverlay();
       await __fetchAllCandidateStatus();
       __renderResultPageContent();
-
+      
+      if (loadingOverlay) loadingOverlay.remove();
+      
       if (typeof showResultToast === 'function') {
         showResultToast('🗑️', 'Kandidat dihapus', name + ' (' + fbDeleted + ' FB · ' + driveDeleted + ' file)');
       } else {
