@@ -90,7 +90,8 @@
      ============================================================ */
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
-    const url = base + '?grafindo=1'
+    const iv = prompt('Masukkan Nama Assessor', 'DENI PRAGAS') || 'ADMIN';
+  const url = base + '?grafindo=1&iv=' + encodeURIComponent(iv)
       + '&n=' + encodeURIComponent(candidateName)
       + '&p=' + encodeURIComponent(candidatePosition || '');
 
