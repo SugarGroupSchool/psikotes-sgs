@@ -364,7 +364,7 @@ function __safeUrl(url) {
    HELPER: Normalize candidate key
    ============================================================ */
 function __normalizeCandidateKey(name) {
-  return String(name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
+  return String(name || 'tanpa-nama').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'tanpa-nama';
 }
 
 /* ============================================================
@@ -3823,9 +3823,9 @@ function __attachSubjectRealtime(slug, wrapper, name, position) {
     wrapper.innerHTML = '<div style="padding:14px;text-align:center;color:#f87171;font-size:11.5px;">❌ Firebase belum siap</div>';
     return;
   }
-
-  const refAssess = firebase.database().ref('sgs_subject_assessments/' + slug);
-  const refImages = firebase.database().ref('sgs_subject_images/' + slug);
+  const safeSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const refAssess = firebase.database().ref('sgs_subject_assessments/' + safeSlug);
+  const refImages = firebase.database().ref('sgs_subject_images/' + safeSlug);
 
   let assessData = null;
   let imgData = null;
@@ -3882,7 +3882,8 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
 
   let data;
   try {
-    const snap = await firebase.database().ref('sgs_subject_assessments/' + slug).once('value');
+    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const snap = await firebase.database().ref('sgs_subject_assessments/' + safeSlug).once('value');
     data = snap.val() || {};
   } catch (e) {
     await __alert('Gagal ambil data: ' + e.message, '❌ Error');
@@ -4470,7 +4471,8 @@ window.__openSubjectImagesModal = async function (slug, candidateName) {
 
   let data;
   try {
-    const snap = await firebase.database().ref('sgs_subject_images/' + slug).once('value');
+    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const snap = await firebase.database().ref('sgs_subject_images/' + safeSlug).once('value');
     data = snap.val();
   } catch (e) {
     await __alert('Gagal ambil foto: ' + e.message, '❌ Error'); return;
