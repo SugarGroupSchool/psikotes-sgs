@@ -843,7 +843,12 @@ async function fetchResultFiles(forceRefresh = false) {
 
         if (data && data.success) {
           const allFiles = data.files || [];
-          const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
+                    const filtered = allFiles.filter(f => {
+            if (window.__recentlyDeletedFileIds.has(f.id)) return false;
+            const n = String(f.name || '');
+            if (n.startsWith('SubjectNote-') || n === '-' || n === '') return false;
+            return true;
+          });
 
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
