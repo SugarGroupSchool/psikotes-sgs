@@ -1,14 +1,6 @@
 /* ============================================================
    js/00x3-admin-subject-result.js — Admin View Subject Test
-   ------------------------------------------------------------
-   - Fetch sgs_subject_assessments/{slug} + sgs_subject_images/{slug}
-   - Section card di folder overlay (gaya DISC/PAPI/BigFive)
-   - Modal tab per korektor + tab foto jawaban
-   - PDF combined (semua korektor + foto jawaban)
-   - Realtime listener (override __attachSubjectRealtime dari 00b-admin.js)
-   - Event delegation: .js-subject-open, .js-subject-pdf, .js-subject-images
    ============================================================ */
-
 (function () {
   'use strict';
 
@@ -321,7 +313,8 @@
         doc.text(line, M + 3, y); y += 3.5;
       });
       y += 3;
-           if (a.notePhotoUrl) {
+      
+      if (a.notePhotoUrl) {
         if (y > PH - 40) { doc.addPage(); y = M; }
         doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(13, 148, 136);
         doc.text('Lampiran:', M + 2, y); y += 4;
@@ -352,6 +345,7 @@
           urlLines.forEach(l => { if (y > PH - 15) { doc.addPage(); y = M; } doc.text(l, M + 4, y); y += 3.5; });
         }
       }
+      
       if (a.ts) {
         doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(120);
         doc.text('Disubmit: ' + new Date(a.ts).toLocaleString('id-ID'), M + 2, y);
@@ -418,7 +412,7 @@
       return;
     }
 
-        const safeSlug = slugifyDashed(slug);
+    const safeSlug = slugifyDashed(slug);
     const refAssess = firebase.database().ref('sgs_subject_assessments/' + safeSlug);
     const refImages = firebase.database().ref('sgs_subject_images/' + safeSlug);
     let assessData = null, imgData = null;
@@ -506,5 +500,5 @@
   window.__fetchSubjectData = fetchSubjectData;
   window.__openSubjectImagesModal = openSubjectImagesOnlyModal;
 
-  console.log('[SUBJECT-RESULT-ADMIN] ✓ Loaded v1 — section + modal + PDF + realtime');
+  console.log('[SUBJECT-RESULT-ADMIN] ✓ Loaded v2 — section + modal + PDF + realtime + embed images');
 })();
