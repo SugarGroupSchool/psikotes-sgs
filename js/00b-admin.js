@@ -2546,11 +2546,12 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
-    <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    
     ${pdfs.map(f => fileRow(f, 'pdf')).join('')}
     ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
     ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
     ${others.map(f => fileRow(f, 'other')).join('')}
+    <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
   `;
 
   const topActionsHTML = `
