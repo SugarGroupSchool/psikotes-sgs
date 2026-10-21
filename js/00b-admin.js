@@ -843,7 +843,11 @@ async function fetchResultFiles(forceRefresh = false) {
 
         if (data && data.success) {
           const allFiles = data.files || [];
-          const filtered = allFiles.filter(f => !window.__recentlyDeletedFileIds.has(f.id));
+                    const filtered = allFiles.filter(f => {
+            // 🆕 Sembunyikan file lampiran catatan korektor dari daftar kandidat
+            if (f.name && String(f.name).indexOf('SubjectNote-') === 0) return false;
+            return !window.__recentlyDeletedFileIds.has(f.id);
+          });
 
           window.__resultFilesCacheData = filtered;
           window.__resultFilesCacheTime = Date.now();
