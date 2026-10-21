@@ -3928,6 +3928,9 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
     const rMap = SUBJECT_RATING_MAP[rating] || SUBJECT_RATING_MAP[1];
     const notes = String(a.notes || '').trim() || '(tidak ada catatan)';
     const photoUrl = String(a.notePhotoUrl || '').trim();
+    const noteMime = String(a.noteFileMime || '').trim();
+    const noteName = String(a.noteFileName || '').trim();
+    const isImageFile = /^image\//i.test(noteMime) || /\.(jpg|jpeg|png|webp|gif)$/i.test(photoUrl);
     const ts = a.ts ? new Date(a.ts).toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '-';
@@ -3958,7 +3961,7 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
           </div>
         </div>
 
-        ${photoUrl ? `
+                ${photoUrl ? (isImageFile ? `
           <div style="padding:14px;background:rgba(13,148,136,.08);
             border:1px solid rgba(13,148,136,.3);border-radius:12px;">
             <div style="font-size:10.5px;font-weight:900;color:#5eead4;letter-spacing:1px;margin-bottom:8px;">
@@ -3968,12 +3971,37 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
               style="width:100%;max-height:420px;object-fit:contain;border-radius:10px;
                 background:#fff;cursor:zoom-in;"
               onclick="window.open(this.src,'_blank','noopener,noreferrer')">
+            ${noteName ? `<div style="font-size:10.5px;color:#64748b;margin-top:8px;word-break:break-all;">📎 ${__adminEscape(noteName)}</div>` : ''}
           </div>
         ` : `
+          <div style="padding:14px;background:rgba(13,148,136,.08);
+            border:1px solid rgba(13,148,136,.3);border-radius:12px;">
+            <div style="font-size:10.5px;font-weight:900;color:#5eead4;letter-spacing:1px;margin-bottom:8px;">
+              📎 LAMPIRAN DOKUMEN CATATAN
+            </div>
+            <a href="${__adminEscape(photoUrl)}" target="_blank" rel="noopener noreferrer"
+              style="display:flex;align-items:center;gap:12px;padding:14px;
+                background:#fff;border:1px solid #5eead4;border-radius:10px;
+                text-decoration:none;color:#0f766e;">
+              <div style="font-size:32px;line-height:1;">
+                ${(/pdf/i.test(noteMime) || /\.pdf$/i.test(photoUrl)) ? '📄' : '📝'}
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:900;color:#0f766e;word-break:break-all;">
+                  ${__adminEscape(noteName || ((/pdf/i.test(noteMime) || /\.pdf$/i.test(photoUrl)) ? 'Dokumen PDF' : 'Dokumen Word'))}
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-top:3px;">
+                  Klik untuk membuka di tab baru
+                </div>
+              </div>
+              <div style="font-size:18px;color:#0d9488;">↗</div>
+            </a>
+          </div>
+        `) : `
           <div style="padding:14px;background:rgba(148,163,184,.08);
             border:1px solid rgba(148,163,184,.25);border-radius:12px;
             text-align:center;font-size:12px;color:#94a3b8;">
-            📷 Tidak ada foto catatan
+            📷 Tidak ada lampiran catatan
           </div>
         `}
       </div>`;

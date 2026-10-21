@@ -80,8 +80,11 @@
     assessorName: '',
     notes: '',
     rating: 0,
-    notePhotoBase64: null,
+        notePhotoBase64: null,
     notePhotoUrl: '',
+    noteFileMime: '',
+    noteFileName: '',
+    noteFileSize: 0,
     candidateImages: [],
     existingData: null
   };
@@ -145,7 +148,10 @@
       state.assessorName = data.assessorName || '';
       state.notes = data.notes || '';
       state.rating = Number(data.rating) || 0;
-      state.notePhotoUrl = data.notePhotoUrl || '';
+            state.notePhotoUrl = data.notePhotoUrl || '';
+      state.noteFileMime = data.noteFileMime || '';
+      state.noteFileName = data.noteFileName || '';
+      state.noteFileSize = data.noteFileSize || 0;
       console.log('[SUBJECT-KOREKTOR] Existing loaded');
     } catch (e) {
       console.warn('[SUBJECT-KOREKTOR] Gagal load existing:', e.message);
@@ -238,13 +244,26 @@
         </div>`
       : '';
 
+       const isImageMime = (m) => /^image\//i.test(String(m || ''));
+    const existingFileIsImage = isImageMime(state.noteFileMime) || /\.(jpg|jpeg|png|webp|gif)$/i.test(state.notePhotoUrl || '');
     const photoPreview = state.notePhotoUrl
-      ? `<div style="margin-top:10px;padding:10px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;">
-          <div style="font-size:11px;font-weight:800;color:#0f766e;margin-bottom:6px;">📎 Foto catatan saat ini:</div>
-          <img src="${esc(state.notePhotoUrl)}" alt="Catatan"
-            style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #5eead4;"
-            onclick="window.__viewFullImage(this.src)">
-        </div>`
+      ? (existingFileIsImage
+          ? `<div style="margin-top:10px;padding:10px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;">
+              <div style="font-size:11px;font-weight:800;color:#0f766e;margin-bottom:6px;">📎 Foto catatan saat ini:</div>
+              <img src="${esc(state.notePhotoUrl)}" alt="Catatan"
+                style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #5eead4;"
+                onclick="window.__viewFullImage(this.src)">
+            </div>`
+          : `<div style="margin-top:10px;padding:10px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;">
+              <div style="font-size:11px;font-weight:800;color:#0f766e;margin-bottom:6px;">📎 Dokumen catatan saat ini:</div>
+              <a href="${esc(state.notePhotoUrl)}" target="_blank" rel="noopener"
+                style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;
+                  background:#fff;border:1px solid #5eead4;border-radius:8px;
+                  text-decoration:none;color:#0f766e;font-weight:800;font-size:12px;">
+                ${(/\.pdf$/i.test(state.notePhotoUrl) || /pdf/i.test(state.noteFileMime)) ? '📄' : '📝'}
+                ${esc(state.noteFileName || 'Lihat Dokumen')}
+              </a>
+            </div>`)
       : '';
 
     root.innerHTML = `
@@ -298,9 +317,10 @@
 
           <div style="margin-bottom:20px;">
             <label style="display:block;font-size:12px;font-weight:900;color:#134e4a;letter-spacing:.5px;margin-bottom:8px;">
-              📎 FOTO CATATAN KOREKSI <span style="font-size:10.5px;font-weight:700;color:#64748b;">(opsional — misal foto lembar coretan benar/salah)</span>
+                            📎 LAMPIRAN CATATAN KOREKSI <span style="font-size:10.5px;font-weight:700;color:#64748b;">(opsional — foto, PDF, atau Word)</span>
             </label>
-            <input type="file" id="subjNotePhoto" accept="image/*"
+                        <input type="file" id="subjNotePhoto"
+              accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               style="width:100%;padding:12px;border:2px dashed #5eead4;border-radius:12px;
                 font-family:inherit;font-size:12px;background:#f0fdfa;cursor:pointer;box-sizing:border-box;">
             ${photoPreview}
@@ -379,22 +399,57 @@
       applyStyle();
     });
 
-    const photoInput = document.getElementById('subjNotePhoto');
+      const photoInput = document.getElementById('subjNotePhoto');
     if (photoInput) {
       photoInput.onchange = (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith('image/')) { alert('File harus gambar'); return; }
-        if (file.size > 5 * 1024 * 1024) { alert('Maks 5 MB'); return; }
+
+        const allowedTypes = [
+          'image/jpeg','image/png','image/webp','image/gif',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+        if (!allowedTypes.includes(file.type)) {
+          alert('❌ Format tidak didukung.\nGunakan: JPG, PNG, WEBP, PDF, DOC, atau DOCX.');
+          e.target.value = '';
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          alert('❌ File terlalu besar. Maksimal 10 MB.');
+          e.target.value = '';
+          return;
+        }
+
         const reader = new FileReader();
         reader.onload = (ev) => {
           state.notePhotoBase64 = ev.target.result;
+          state.noteFileMime = file.type;
+          state.noteFileName = file.name;
+          state.noteFileSize = file.size;
+
+          const isImg = file.type.startsWith('image/');
+          const icon = isImg ? '🖼️' : (file.type === 'application/pdf' ? '📄' : '📝');
+          const sizeKB = (file.size / 1024).toFixed(1);
+          const sizeStr = file.size > 1024 * 1024
+            ? (file.size / 1024 / 1024).toFixed(2) + ' MB'
+            : sizeKB + ' KB';
+
           const prev = document.getElementById('subjPhotoPreview');
-          if (prev) prev.innerHTML = `
-            <div style="padding:10px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;">
-              <div style="font-size:11px;font-weight:800;color:#0f766e;margin-bottom:6px;">✓ Foto baru dipilih (akan diupload saat submit):</div>
-              <img src="${ev.target.result}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #5eead4;">
-            </div>`;
+          if (prev) prev.innerHTML = isImg
+            ? `<div style="padding:10px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;">
+                <div style="font-size:11px;font-weight:800;color:#0f766e;margin-bottom:6px;">✓ Foto baru dipilih (upload saat submit):</div>
+                <img src="${ev.target.result}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #5eead4;">
+                <div style="font-size:10.5px;color:#64748b;margin-top:6px;">${esc(file.name)} · ${sizeStr}</div>
+              </div>`
+            : `<div style="padding:12px;background:#f0fdfa;border:1px solid #5eead4;border-radius:10px;display:flex;align-items:center;gap:10px;">
+                <div style="font-size:28px;">${icon}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:12px;font-weight:800;color:#0f766e;word-break:break-all;">${esc(file.name)}</div>
+                  <div style="font-size:10.5px;color:#64748b;margin-top:2px;">${sizeStr} · akan diupload saat submit</div>
+                </div>
+              </div>`;
         };
         reader.readAsDataURL(file);
       };
@@ -407,7 +462,7 @@
   /* ============================================================
      UPLOAD NOTE PHOTO TO GAS
      ============================================================ */
-  async function uploadNotePhoto() {
+   async function uploadNotePhoto() {
     if (!state.notePhotoBase64) return state.notePhotoUrl || '';
 
     const base64Only = state.notePhotoBase64.split(',')[1] || '';
@@ -430,15 +485,17 @@
           idToken: idToken,
           slug: slug,
           kode: state.kode,
-          base64: base64Only
+          base64: base64Only,
+          mimeType: state.noteFileMime || 'image/jpeg',
+          fileName: state.noteFileName || ''
         })
       });
       const data = await res.json();
       if (data && data.success && data.fileUrl) return data.fileUrl;
-      console.warn('[SUBJECT-KOREKTOR] Upload photo response:', data);
+      console.warn('[SUBJECT-KOREKTOR] Upload file response:', data);
       return state.notePhotoUrl || '';
     } catch (e) {
-      console.warn('[SUBJECT-KOREKTOR] Upload photo error:', e.message);
+      console.warn('[SUBJECT-KOREKTOR] Upload file error:', e.message);
       return state.notePhotoUrl || '';
     }
   }
@@ -472,10 +529,13 @@
 
       btn.textContent = '⏳ Menyimpan...';
 
-      const payload = {
+           const payload = {
         assessorName: state.assessorName || state.kode,
         notes: state.notes,
         notePhotoUrl: photoUrl || '',
+        noteFileMime: state.noteFileMime || '',
+        noteFileName: state.noteFileName || '',
+        noteFileSize: Number(state.noteFileSize) || 0,
         rating: Number(state.rating),
         ts: firebase.database.ServerValue.TIMESTAMP
       };
