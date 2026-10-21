@@ -321,10 +321,36 @@
         doc.text(line, M + 3, y); y += 3.5;
       });
       y += 3;
-      if (a.notePhotoUrl) {
+           if (a.notePhotoUrl) {
+        if (y > PH - 40) { doc.addPage(); y = M; }
         doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(13, 148, 136);
-        const urlLines = doc.splitTextToSize('Lampiran: ' + cleanText(a.notePhotoUrl), CW - 4);
-        urlLines.forEach(l => { if (y > PH - 15) { doc.addPage(); y = M; } doc.text(l, M + 2, y); y += 3.5; });
+        doc.text('Lampiran:', M + 2, y); y += 4;
+        const fileIdMatch = String(a.notePhotoUrl).match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const fileId = fileIdMatch ? fileIdMatch[1] : null;
+        const isImg = /^image\//i.test(a.noteFileMime || '') || /\.(jpg|jpeg|png|webp)$/i.test(a.notePhotoUrl);
+        if (fileId && isImg) {
+          try {
+            let blob;
+            if (typeof window.__fetchViaGASProxy === 'function') {
+              blob = await window.__fetchViaGASProxy(fileId);
+            } else {
+              const res = await fetch('https://drive.google.com/uc?export=download&id=' + fileId);
+              blob = await res.blob();
+            }
+            const base64Img = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); });
+            const props = doc.getImageProperties(base64Img);
+            const imgW = CW - 4;
+            const imgH = (props.height * imgW) / props.width;
+            if (y + imgH > PH - 15) { doc.addPage(); y = M; }
+            doc.addImage(base64Img, 'JPEG', M + 2, y, imgW, imgH);
+            y += imgH + 5;
+          } catch (err) {
+            doc.text('(Gagal memuat gambar)', M + 4, y); y += 4;
+          }
+        } else {
+          const urlLines = doc.splitTextToSize('Lampiran (Klik link): ' + cleanText(a.notePhotoUrl), CW - 4);
+          urlLines.forEach(l => { if (y > PH - 15) { doc.addPage(); y = M; } doc.text(l, M + 4, y); y += 3.5; });
+        }
       }
       if (a.ts) {
         doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(120);
@@ -392,8 +418,9 @@
       return;
     }
 
-    const refAssess = firebase.database().ref('sgs_subject_assessments/' + slug);
-    const refImages = firebase.database().ref('sgs_subject_images/' + slug);
+        const safeSlug = slugifyDashed(slug);
+    const refAssess = firebase.database().ref('sgs_subject_assessments/' + safeSlug);
+    const refImages = firebase.database().ref('sgs_subject_images/' + safeSlug);
     let assessData = null, imgData = null;
 
     const render = () => {
