@@ -1454,8 +1454,7 @@ function renderResultFilesHTML(files) {
   }
 
   const groups = new Map();
-  files.forEach(f => {
-    const info = __extractCandidateInfo(f);
+  files.forEach(f => {`r`n    const n = String(f.name || '');`r`n    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;`r`n    const info = __extractCandidateInfo(f);
     const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
     if (!groups.has(key)) {
       groups.set(key, { name: info.name, position: info.position, password: info.password, files: [] });
@@ -2234,8 +2233,7 @@ function __renderResultPageContent() {
   window.__lastRenderedSignature = signature;
 
   const groups = new Map();
-  files.forEach(f => {
-    const info = __extractCandidateInfo(f);
+  files.forEach(f => {`r`n    const n = String(f.name || '');`r`n    if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;`r`n    const info = __extractCandidateInfo(f);
     const key = (info.name || 'tanpa-nama').toLowerCase().trim() || 'tanpa-nama';
     if (!groups.has(key)) groups.set(key, { name: info.name, position: info.position, files: [] });
     const g = groups.get(key);
