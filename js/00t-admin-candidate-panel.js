@@ -1305,7 +1305,7 @@ async function __generateSignedRetakeToken(params) {
           });
         });
 
-        const doneEl = document.getElementById('retakeDoneInfo');
+               const doneEl = document.getElementById('retakeDoneInfo');
         if (doneEl) {
           if (done.length > 0) {
             doneEl.style.display = 'block';
@@ -1315,6 +1315,12 @@ async function __generateSignedRetakeToken(params) {
             doneEl.style.display = 'none';
           }
         }
+
+        /* 🆕 Auto-update chip di header saat user ganti sesi manual */
+        const doneChip = document.getElementById('retakeHeaderDone');
+        const availChip = document.getElementById('retakeHeaderAvail');
+        if (doneChip) doneChip.textContent = '✅ ' + done.length + ' selesai';
+        if (availChip) availChip.textContent = '📋 ' + avail.length + ' tersedia';
       }
 
       const checkboxHTML = available.length > 0
@@ -1435,7 +1441,17 @@ async function __generateSignedRetakeToken(params) {
               '👤 ' + esc(name) + (position ? ' · 💼 ' + esc(position) : '') +
             '</div>' +
             '<div style="font-size:10.5px;opacity:.75;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);line-height:1.5;">' +
-              sessionLine +
+                            sessionLine +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">' +
+              '<span id="retakeHeaderDone" style="padding:4px 11px;background:rgba(34,197,94,.25);' +
+                'border:1px solid rgba(34,197,94,.55);border-radius:999px;' +
+                'font-size:10.5px;font-weight:900;color:#bbf7d0;letter-spacing:.3px;">' +
+                '✅ ' + alreadyDone.length + ' selesai</span>' +
+              '<span id="retakeHeaderAvail" style="padding:4px 11px;background:rgba(59,130,246,.25);' +
+                'border:1px solid rgba(59,130,246,.55);border-radius:999px;' +
+                'font-size:10.5px;font-weight:900;color:#bfdbfe;letter-spacing:.3px;">' +
+                '📋 ' + available.length + ' tersedia</span>' +
             '</div>' +
           '</div>' +
           '<div style="padding: 22px 24px 24px;">' +
