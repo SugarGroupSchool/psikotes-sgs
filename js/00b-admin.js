@@ -2661,6 +2661,8 @@ window.__openCandidateFolder = function(candidateKey) {
       <div class="js-iv-stats-section" data-slug="${__adminEscape(slug)}"></div>
       ${__renderWawancaraBox(wawancara)}
     ` : ''}
+    <div class="rf-typing-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    <div class="rf-excel-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
     ${others.map(f => fileRow(f, 'other')).join('')}
     <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2993,6 +2995,29 @@ window.__openCandidateFolder = function(candidateKey) {
       const html = await window.renderPsikogramBox(slug, name, position);
       section.innerHTML = html || '';
     } catch (e) { console.warn('[PSIKOGRAM-SECTION] render gagal:', e.message); }
+  })();
+
+  /* 🆕 Typing section render */
+  (async () => {
+    const section = overlay.querySelector('.rf-typing-section');
+    if (!section) return;
+    try {
+      if (typeof window.__fetchTYPINGData !== 'function' || typeof window.renderTYPINGSectionHTML !== 'function') return;
+      const typingData = await window.__fetchTYPINGData(slug);
+      section.innerHTML = window.renderTYPINGSectionHTML(typingData, slug, name, position);
+    } catch (e) { console.warn('[TYPING-SECTION] render gagal:', e.message); }
+  })();
+
+  /* 🆕 Excel section render */
+  (async () => {
+    const section = overlay.querySelector('.rf-excel-section');
+    if (!section) return;
+    try {
+      if (typeof window.__fetchEXCELData !== 'function' || typeof window.renderEXCELSectionHTML !== 'function') return;
+      const excelData = await window.__fetchEXCELData(slug);
+      const excelFile = files.filter(f => __detectFileKind(f) === 'excel')[0] || null;
+      section.innerHTML = window.renderEXCELSectionHTML(excelData, slug, name, position, excelFile);
+    } catch (e) { console.warn('[EXCEL-SECTION] render gagal:', e.message); }
   })();
 
   /* Archive button */

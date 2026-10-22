@@ -768,6 +768,46 @@ async function pushScoresToFirebase() {
     console.warn('[AUTO-SCORE] BigFive error:', e.message);
   }
 
+  /* ---------- 🆕 4) TYPING ---------- */
+  try {
+    if (appState.completed && appState.completed.TYPING === true
+        && appState.answers && appState.answers.TYPING) {
+      const t = appState.answers.TYPING;
+      payload.TYPING = {
+        wpm:       Number(t.wpm) || 0,
+        accuracy:  Number(t.accuracy) || 0,
+        benar:     Number(t.benar) || 0,
+        salah:     Number(t.salah) || 0,
+        belum:     Number(t.belum) || 0,
+        total:     Number(t.total) || 0,
+        waktu:     Number(t.waktu) || 0,
+        waktuSisa: Number(t.waktuSisa) || 0,
+        status:    t.status || 'Selesai',
+        text:      String(t.text || '').slice(0, 5000)
+      };
+      payload.TYPING_completed = true;
+      console.log('[AUTO-SCORE] ✓ TYPING:', payload.TYPING.wpm, 'WPM');
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE] TYPING error:', e.message);
+  }
+
+  /* ---------- 🆕 5) EXCEL (metadata) ---------- */
+  try {
+    if (appState.completed && appState.completed.EXCEL === true) {
+      const excelMeta = appState.excelMeta || null;
+      if (excelMeta) {
+        payload.EXCEL_completed = true;
+        payload.EXCEL_filename  = String(excelMeta.filename || '').slice(0, 200);
+        payload.EXCEL_size      = Number(excelMeta.size) || 0;
+        payload.EXCEL_uploadedAt = firebase.database.ServerValue.TIMESTAMP;
+        console.log('[AUTO-SCORE] ✓ EXCEL meta:', excelMeta.filename);
+      }
+    }
+  } catch (e) {
+    console.warn('[AUTO-SCORE] EXCEL error:', e.message);
+  }
+
   /* ---------- Push ke Firebase ---------- */
   if (Object.keys(payload).length <= 4) {
     console.log('[AUTO-SCORE] Tidak ada skor untuk di-push (IST/PAPI/BigFive kosong)');
@@ -916,6 +956,90 @@ async function pushISTScoresToFirebase() {
     return false;
   }
 }
+
+/* ============================================================
+   🆕 AUTO-PUSH SKOR TYPING → Firebase
+   ============================================================ */
+async function pushTYPINGScoresToFirebase() {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) return false;
+
+  const typing = appState.answers && appState.answers.TYPING;
+  if (!typing) {
+    console.warn('[AUTO-SCORE-TYPING] Tidak ada data TYPING di appState');
+    return false;
+  }
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  const payload = {
+    TYPING: {
+      wpm:        Number(typing.wpm) || 0,
+      accuracy:   Number(typing.accuracy) || 0,
+      benar:      Number(typing.benar) || 0,
+      salah:      Number(typing.salah) || 0,
+      belum:      Number(typing.belum) || 0,
+      total:      Number(typing.total) || 0,
+      waktu:      Number(typing.waktu) || 0,
+      waktuSisa:  Number(typing.waktuSisa) || 0,
+      status:     typing.status || 'Selesai',
+      text:       String(typing.text || '').slice(0, 5000)
+    },
+    TYPING_completed: true,
+    candidateName:     identity.name,
+    candidatePosition: identity.position || '',
+    updatedAt:         firebase.database.ServerValue.TIMESTAMP
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-SCORE-TYPING] ✅ Pushed ke sgs_scores/' + slug);
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-SCORE-TYPING] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushTYPINGScoresToFirebase = pushTYPINGScoresToFirebase;
+
+/* ============================================================
+   🆕 PUSH METADATA EXCEL → Firebase (bukan skor, hanya metadata)
+   ============================================================ */
+async function pushEXCELMetaToFirebase(filename, sizeBytes) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return false;
+
+  const identity = (typeof appState !== 'undefined' && appState.identity) ? appState.identity : {};
+  if (!identity.name) return false;
+
+  const slug = String(identity.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+  if (!slug) return false;
+
+  const payload = {
+    EXCEL_completed: true,
+    EXCEL_filename:  String(filename || '').slice(0, 200),
+    EXCEL_size:      Number(sizeBytes) || 0,
+    EXCEL_uploadedAt: firebase.database.ServerValue.TIMESTAMP,
+    candidateName:     identity.name,
+    candidatePosition: identity.position || '',
+    updatedAt:         firebase.database.ServerValue.TIMESTAMP
+  };
+
+  try {
+    await firebase.database().ref('sgs_scores/' + slug).update(payload);
+    console.log('[AUTO-META-EXCEL] ✅ Pushed ke sgs_scores/' + slug);
+    return true;
+  } catch (e) {
+    console.warn('[AUTO-META-EXCEL] Push gagal:', e.message);
+    return false;
+  }
+}
+window.pushEXCELMetaToFirebase = pushEXCELMetaToFirebase;
+
 window.pushISTScoresToFirebase = pushISTScoresToFirebase;
 
 window.pushScoresToFirebase = pushScoresToFirebase;

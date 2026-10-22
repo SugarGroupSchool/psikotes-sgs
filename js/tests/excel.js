@@ -1065,6 +1065,20 @@ async function finishExcelTest(timeUp) {
     } catch (e) {}
 
     appState.completed = appState.completed || {};
+    /* 🆕 Simpan metadata Excel di appState + push ke Firebase */
+    appState.excelMeta = {
+      filename: filename,
+      size: xlsxBlob.size,
+      uploadedAt: Date.now()
+    };
+    if (typeof window.pushEXCELMetaToFirebase === 'function') {
+      try {
+        await window.pushEXCELMetaToFirebase(filename, xlsxBlob.size);
+      } catch (e) {
+        console.warn('[EXCEL] Push metadata gagal:', e.message);
+      }
+    }
+
     appState.completed.EXCEL = true;
 
     if (typeof window.markTestCompleted === 'function') {

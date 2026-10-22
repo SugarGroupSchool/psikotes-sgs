@@ -434,6 +434,15 @@ function endTypingTest(timeIsUp = false) {
     saved.TYPING = true;
     localStorage.setItem('completed', JSON.stringify(saved));
   } catch {}
+  /* 🆕 Push skor ke Firebase → admin bisa lihat hasil real-time */
+  if (typeof window.pushTYPINGScoresToFirebase === 'function') {
+    setTimeout(() => {
+      try { window.pushTYPINGScoresToFirebase(); } catch (e) {
+        console.warn('[TYPING] Push Firebase gagal:', e.message);
+      }
+    }, 100);
+  }
+
   if (typeof window.updateDownloadButtonState === 'function') {
     window.updateDownloadButtonState();
   }
