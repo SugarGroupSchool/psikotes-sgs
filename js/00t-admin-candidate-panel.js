@@ -1139,9 +1139,31 @@ async function __generateSignedRetakeToken(params) {
           return (b.lastSeen || 0) - (a.lastSeen || 0);
         });
 
-        if (matches.length > 0) {
+               if (matches.length > 0) {
           const active = matches[0];
           completed = active.completed || {};
+
+          /* 🆕 ROBUSTNESS: kalau session.completed kosong tapi ada
+             retake_history, build completed dari history.
+             Edge case: reset sebagian, race sync, data lama. */
+          if (Object.keys(completed).length === 0 && active.retake_history) {
+            Object.keys(active.retake_history).forEach(function(tahapKey) {
+              const h = active.retake_history[tahapKey] || {};
+              if (Array.isArray(h.tests)) {
+                h.tests.forEach(function(t) {
+                  if (h.status === 'completed' || h.completed === true) {
+                    completed[t] = true;
+                  }
+                });
+              }
+            });
+            if (active.retake_history['2']) {
+              completed.IST = true;
+              completed.GRAFIS = true;
+            }
+            console.log('[RETAKE] Built completed dari retake_history:',
+              JSON.stringify(completed));
+          }
                    sessionInfo = {
             deviceId: String(active.deviceId || ''),
             lastSeen: active.lastSeen,
