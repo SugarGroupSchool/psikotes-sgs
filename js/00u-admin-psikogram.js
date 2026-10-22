@@ -80,7 +80,8 @@ function detectCategory(p) {
   }
   return null;
 }
- /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
+ 
+
   function scoreToKet(s) {
     const v = Number(s) || 0;
     if (v >= 3.5) return { label: 'BAIK', color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)',  pdfColor: [22, 101, 52] };
