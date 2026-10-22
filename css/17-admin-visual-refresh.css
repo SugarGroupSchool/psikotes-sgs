@@ -1,85 +1,97 @@
 /* ============================================================
-   css/17-admin-visual-refresh.css
-   Admin Panel — Visual Polish & Responsiveness
+   css/17-admin-visual-refresh.css — LIGHT THEME
    ============================================================ */
 
-/* ===== 1. DESIGN TOKENS ===== */
 :root {
   --ad-ease-out: cubic-bezier(.2, .8, .2, 1);
-  --ad-ease-in-out: cubic-bezier(.4, 0, .2, 1);
-  --ad-shadow-sm: 0 2px 8px rgba(0, 0, 0, .18);
-  --ad-shadow-md: 0 8px 24px rgba(0, 0, 0, .28);
-  --ad-shadow-lg: 0 20px 50px rgba(0, 0, 0, .42);
-  --ad-shadow-xl: 0 32px 80px rgba(0, 0, 0, .55);
-  --ad-border-soft: rgba(148, 163, 184, .10);
-  --ad-border-mid: rgba(148, 163, 184, .20);
-  --ad-border-strong: rgba(148, 163, 184, .32);
+  --ad-shadow-sm: 0 1px 3px rgba(15, 23, 42, .06);
+  --ad-shadow-md: 0 4px 14px rgba(15, 23, 42, .08);
+  --ad-shadow-lg: 0 14px 40px rgba(15, 23, 42, .12);
+  --ad-shadow-xl: 0 30px 80px rgba(15, 23, 42, .18);
+  --ad-border: #e5e7eb;
+  --ad-border-mid: #cbd5e1;
   --ad-accent: #6366f1;
   --ad-accent-2: #8b5cf6;
-  --ad-accent-glow: rgba(99, 102, 241, .35);
-  --ad-radius-sm: 8px;
   --ad-radius-md: 12px;
   --ad-radius-lg: 16px;
   --ad-radius-xl: 20px;
 }
 
-/* ===== 2. UNIFIED SCROLLBAR ===== */
+/* ===== 1. SCROLLBAR (light theme) ===== */
 #adminPanelOverlay ::-webkit-scrollbar,
+#adminSidebar ::-webkit-scrollbar,
 #adminMainContent ::-webkit-scrollbar,
-#rfFolderOverlay ::-webkit-scrollbar,
 #resultFilesPageOverlay ::-webkit-scrollbar,
 #activeCandidatesPageOverlay ::-webkit-scrollbar,
 #assessorSettingsPageOverlay ::-webkit-scrollbar,
 #psikogramConfigOverlay ::-webkit-scrollbar,
-[class*="Modal"] ::-webkit-scrollbar {
+#rfFolderOverlay ::-webkit-scrollbar,
+[id$="Modal"] ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 #adminPanelOverlay ::-webkit-scrollbar-track,
+#adminSidebar ::-webkit-scrollbar-track,
 #adminMainContent ::-webkit-scrollbar-track,
-#rfFolderOverlay ::-webkit-scrollbar-track,
 #resultFilesPageOverlay ::-webkit-scrollbar-track,
 #activeCandidatesPageOverlay ::-webkit-scrollbar-track,
 #assessorSettingsPageOverlay ::-webkit-scrollbar-track,
 #psikogramConfigOverlay ::-webkit-scrollbar-track,
-[class*="Modal"] ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, .03);
+#rfFolderOverlay ::-webkit-scrollbar-track,
+[id$="Modal"] ::-webkit-scrollbar-track {
+  background: rgba(100, 116, 139, .08);
   border-radius: 4px;
 }
 #adminPanelOverlay ::-webkit-scrollbar-thumb,
+#adminSidebar ::-webkit-scrollbar-thumb,
 #adminMainContent ::-webkit-scrollbar-thumb,
-#rfFolderOverlay ::-webkit-scrollbar-thumb,
 #resultFilesPageOverlay ::-webkit-scrollbar-thumb,
 #activeCandidatesPageOverlay ::-webkit-scrollbar-thumb,
 #assessorSettingsPageOverlay ::-webkit-scrollbar-thumb,
 #psikogramConfigOverlay ::-webkit-scrollbar-thumb,
-[class*="Modal"] ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(99, 102, 241, .45), rgba(139, 92, 246, .35));
+#rfFolderOverlay ::-webkit-scrollbar-thumb,
+[id$="Modal"] ::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, .35);
   border-radius: 4px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 #adminPanelOverlay ::-webkit-scrollbar-thumb:hover,
 #adminMainContent ::-webkit-scrollbar-thumb:hover,
-#rfFolderOverlay ::-webkit-scrollbar-thumb:hover,
 #resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover,
 #activeCandidatesPageOverlay ::-webkit-scrollbar-thumb:hover,
 #assessorSettingsPageOverlay ::-webkit-scrollbar-thumb:hover,
 #psikogramConfigOverlay ::-webkit-scrollbar-thumb:hover,
-[class*="Modal"] ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(99, 102, 241, .8), rgba(139, 92, 246, .7));
+#rfFolderOverlay ::-webkit-scrollbar-thumb:hover,
+[id$="Modal"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, .65);
   background-clip: padding-box;
 }
 
-/* ===== 3. SIDEBAR POLISH ===== */
+/* ===== 2. PARENT OVERLAY ===== */
+#adminPanelOverlay {
+  background: #f8fafc !important;
+}
+
+/* ===== 3. SIDEBAR — LIGHT ===== */
 #adminSidebar {
-  background: linear-gradient(180deg, #0f1a35 0%, #0a1124 100%) !important;
-  border-right: 1px solid rgba(148, 163, 184, .08);
+  background: #ffffff !important;
+  border-right: 1px solid #e5e7eb !important;
+  box-shadow: 2px 0 12px rgba(15, 23, 42, .04) !important;
+  color: #111827 !important;
+}
+.asb-header { border-bottom: 1px solid #e5e7eb !important; }
+.asb-title { color: #111827 !important; }
+.asb-subtitle { color: #6b7280 !important; }
+.asb-logo {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06) !important;
 }
 .asb-menu {
-  transition: all .2s var(--ad-ease-out);
+  color: #4b5563 !important;
+  transition: all .2s var(--ad-ease-out) !important;
   position: relative;
-  overflow: hidden;
 }
 .asb-menu::before {
   content: "";
@@ -93,359 +105,328 @@
   border-radius: 0 3px 3px 0;
   transition: height .25s var(--ad-ease-out);
 }
-.asb-menu:hover::before { height: 60%; }
 .asb-menu:hover {
-  background: rgba(99, 102, 241, .12) !important;
-  color: #fff !important;
+  background: #f3f4f6 !important;
+  color: #4f46e5 !important;
 }
+.asb-menu:hover::before { height: 60%; }
 .asb-menu.active {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, .38), inset 0 1px 0 rgba(255, 255, 255, .15) !important;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, .35) !important;
 }
-.asb-menu.active::before {
-  height: 60%;
-  background: #fff;
-}
-.asb-logo {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
-  transition: transform .3s var(--ad-ease-out);
-}
-.asb-header:hover .asb-logo {
-  transform: scale(1.05) rotate(-3deg);
-}
+.asb-menu.active::before { display: none; }
+.asb-footer { border-top: 1px solid #e5e7eb !important; }
+.asb-device-name { color: #6b7280 !important; }
 .asb-logout {
-  transition: all .2s var(--ad-ease-out);
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+  font-weight: 800 !important;
+}
+.asb-logout:hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
 }
 
-/* ===== 4. MAIN CONTENT AREA ===== */
+/* ===== 4. MAIN CONTENT — LIGHT GRADIENT ===== */
 #adminMainContent {
   background:
-    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, .07), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(99, 102, 241, .08), transparent 45%),
     radial-gradient(circle at 0% 100%, rgba(139, 92, 246, .05), transparent 40%),
-    linear-gradient(135deg, #0a0f1e 0%, #0f172a 100%) !important;
+    linear-gradient(135deg, #f9fafb 0%, #eff6ff 100%) !important;
+  color: #111827 !important;
 }
 
-/* ===== 5. CARDS — unified elevation ===== */
+/* ===== 5. CARDS — WHITE ===== */
 .asb-card {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: var(--ad-radius-lg) !important;
+  box-shadow: var(--ad-shadow-sm);
+  color: #111827 !important;
   transition: all .22s var(--ad-ease-out);
-  border-radius: var(--ad-radius-lg);
-  position: relative;
-  overflow: hidden;
 }
 .asb-card:hover {
-  border-color: var(--ad-border-mid) !important;
   box-shadow: var(--ad-shadow-md);
   transform: translateY(-1px);
+  border-color: #c7d2fe !important;
 }
-.asb-card.success { box-shadow: inset 3px 0 0 #22c55e; }
-.asb-card.danger  { box-shadow: inset 3px 0 0 #ef4444; }
-.asb-card.warning { box-shadow: inset 3px 0 0 #f59e0b; }
-.asb-card.info    { box-shadow: inset 3px 0 0 #3b82f6; }
+.asb-card.success { background: #f0fdf4 !important; border-color: #bbf7d0 !important; }
+.asb-card.danger  { background: #fef2f2 !important; border-color: #fecaca !important; }
+.asb-card.warning { background: #fffbeb !important; border-color: #fde68a !important; }
+.asb-card.info    { background: #eff6ff !important; border-color: #bfdbfe !important; }
 
-/* ===== 6. FOLDER GRID ===== */
-.rf-folder {
-  transition: all .28s var(--ad-ease-out) !important;
-  position: relative;
-  overflow: hidden;
-  animation: adCardEnter .4s var(--ad-ease-out) both;
+/* ===== 6. FOLDER GRID OVERLAY — LIGHT ===== */
+#resultFilesPageOverlay {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  color: #111827 !important;
 }
-.rf-folder:nth-child(1)  { animation-delay: 0s; }
-.rf-folder:nth-child(2)  { animation-delay: .03s; }
-.rf-folder:nth-child(3)  { animation-delay: .06s; }
-.rf-folder:nth-child(4)  { animation-delay: .09s; }
-.rf-folder:nth-child(5)  { animation-delay: .12s; }
-.rf-folder:nth-child(6)  { animation-delay: .15s; }
-.rf-folder:nth-child(7)  { animation-delay: .18s; }
-.rf-folder:nth-child(8)  { animation-delay: .21s; }
-.rf-folder:nth-child(9)  { animation-delay: .24s; }
-.rf-folder:nth-child(10) { animation-delay: .27s; }
-.rf-folder:nth-child(n+11) { animation-delay: .30s; }
-
-.rf-folder::after {
+#resultFilesPageOverlay > div:first-child {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#resultFilesPageOverlay > div:nth-child(2) {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#resultFilesPageOverlay h2,
+#resultFilesPageOverlay > div:first-child > div:nth-child(2) > div:nth-child(2) {
+  color: #111827 !important;
+}
+#resultFilesPageOverlay > div:first-child > div:nth-child(2) > div:first-child {
+  color: #6366f1 !important;
+}
+#resultFilesPageOverlay input[type="text"] {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+#resultFilesPageOverlay input[type="text"]::placeholder {
+  color: #9ca3af !important;
+}
+#resultFilesPageOverlay .rf-chip {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #4b5563 !important;
+}
+#resultFilesPageOverlay .rf-chip:hover {
+  background: #f3f4f6 !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+#resultFilesPageOverlay .rf-chip.active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, .3) !important;
+}
+#resultFilesPageOverlay .rf-folder {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: var(--ad-shadow-sm) !important;
+  color: #111827 !important;
+}
+#resultFilesPageOverlay .rf-folder:hover {
+  transform: translateY(-4px) !important;
+  border-color: #c7d2fe !important;
+  box-shadow: var(--ad-shadow-lg) !important;
+}
+#resultFilesPageOverlay .rf-folder::after {
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, .7), transparent);
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
   opacity: 0;
-  transition: opacity .28s var(--ad-ease-out);
+  transition: opacity .25s var(--ad-ease-out);
+  border-radius: 14px 14px 0 0;
 }
-.rf-folder:hover::after { opacity: 1; }
-.rf-folder:hover {
-  transform: translateY(-4px) !important;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, .35),
-    0 0 0 1px rgba(99, 102, 241, .15) !important;
+#resultFilesPageOverlay .rf-folder:hover::after { opacity: 1; }
+#resultFilesPageOverlay .rf-folder-name {
+  color: #111827 !important;
+  font-weight: 900 !important;
 }
-.rf-folder:active {
-  transform: translateY(-1px) !important;
+#resultFilesPageOverlay .rf-folder-meta {
+  color: #6b7280 !important;
 }
-
-/* ===== 7. FOLDER OVERLAY ===== */
-.rf-folder-overlay-card {
-  box-shadow: var(--ad-shadow-xl);
+#resultFilesPageOverlay .rf-folder-position {
+  color: #4f46e5 !important;
 }
-.rf-folder-overlay-card > div:first-child {
-  background: linear-gradient(135deg, #1e3a8a 0%, #4f46e5 50%, #7c3aed 100%);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .1);
-  position: relative;
-  overflow: hidden;
+#resultFilesPageOverlay .rf-folder-chevron {
+  color: #9ca3af !important;
 }
-.rf-folder-overlay-card > div:first-child::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 80% -50%, rgba(139, 92, 246, .35), transparent 60%);
-  pointer-events: none;
+#resultFilesPageOverlay .rf-folder:hover .rf-folder-chevron {
+  color: #4f46e5 !important;
 }
-
-/* ===== 8. STAGGERED ENTRANCE — section cards di folder overlay ===== */
-@keyframes adCardEnter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+#resultFilesPageOverlay .rf-folder-icon {
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff) !important;
+  border-color: #c7d2fe !important;
 }
-.rf-folder-overlay-scroll > div {
-  animation: adCardEnter .35s var(--ad-ease-out) both;
-}
-.rf-folder-overlay-scroll > div:nth-child(1) { animation-delay: 0s; }
-.rf-folder-overlay-scroll > div:nth-child(2) { animation-delay: .04s; }
-.rf-folder-overlay-scroll > div:nth-child(3) { animation-delay: .08s; }
-.rf-folder-overlay-scroll > div:nth-child(4) { animation-delay: .12s; }
-.rf-folder-overlay-scroll > div:nth-child(5) { animation-delay: .16s; }
-.rf-folder-overlay-scroll > div:nth-child(6) { animation-delay: .20s; }
-.rf-folder-overlay-scroll > div:nth-child(7) { animation-delay: .24s; }
-.rf-folder-overlay-scroll > div:nth-child(n+8) { animation-delay: .28s; }
-
-/* ===== 9. SECTION CARDS — subtle hover ===== */
-.rf-ist-section > div,
-.rf-disc-section > div,
-.rf-kraeplin-section > div,
-.rf-papi-section > div,
-.rf-bigfive-section > div,
-.rf-grafis-result-section > div,
-.rf-subject-result-section > div,
-.rf-typing-section > div,
-.rf-excel-section > div,
-.rf-psikogram-section > div {
-  transition: transform .2s var(--ad-ease-out), box-shadow .2s var(--ad-ease-out);
-}
-.rf-ist-section > div:hover,
-.rf-disc-section > div:hover,
-.rf-kraeplin-section > div:hover,
-.rf-papi-section > div:hover,
-.rf-bigfive-section > div:hover,
-.rf-grafis-result-section > div:hover,
-.rf-subject-result-section > div:hover,
-.rf-typing-section > div:hover,
-.rf-excel-section > div:hover,
-.rf-psikogram-section > div:hover {
-  transform: translateY(-1px);
+/* Stats chips */
+#resultFilesPageOverlay #rfStats > div {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #4b5563 !important;
 }
 
-/* ===== 10. BUTTONS ===== */
-.rf-btn {
-  transition: all .18s var(--ad-ease-out);
+/* ===== 7. KANDIDAT AKTIF OVERLAY — LIGHT ===== */
+#activeCandidatesPageOverlay {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  color: #111827 !important;
 }
-.rf-btn:active {
-  transform: translateY(0) scale(.97);
+#activeCandidatesPageOverlay > div:first-child {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
 }
-
-.rf-folder-actions button {
-  transition: all .2s var(--ad-ease-out);
+#activeCandidatesPageOverlay .ac-candidate-card {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  box-shadow: var(--ad-shadow-sm) !important;
 }
-.rf-folder-actions button:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.12);
-}
-.rf-folder-actions button:active {
-  transform: translateY(0) scale(.97);
-}
-
-#adminPanelOverlay button {
-  transition: all .2s var(--ad-ease-out);
+#activeCandidatesPageOverlay .ac-candidate-card:hover {
+  border-color: #c7d2fe !important;
+  box-shadow: var(--ad-shadow-md) !important;
 }
 
-/* ===== 11. MODALS — unified backdrop ===== */
-#psikoModal,
-#istModal,
-#discModal,
-#papiModal,
-#bigfiveAdminModal,
-#kraeplinAdminModal,
-#typingModal,
-#grafisResultModal,
-#subjectResultModal,
-#excelScoringModal,
-#subjectDetailModal,
-#subjImagesModal,
-#psikoWeightModal,
-#psikoEditModal,
-#psikoRawModal,
-#retakeModalOverlay,
-#ivLinkModal,
-#subjLinkModal,
-#fgdLinkModal,
-#subjectLinkModal {
+/* ===== 8. ASSESSOR SETTINGS OVERLAY — LIGHT ===== */
+#assessorSettingsPageOverlay {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  color: #111827 !important;
+}
+#assessorSettingsPageOverlay > div:first-child {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#assessorSettingsPageOverlay > div:nth-child(2) {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#assessorSettingsPageOverlay .as-tab {
+  color: #6b7280 !important;
+}
+#assessorSettingsPageOverlay .as-tab.active {
+  color: #4f46e5 !important;
+  border-bottom-color: #4f46e5 !important;
+}
+#assessorSettingsPageOverlay #asInfoBox {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+#assessorSettingsPageOverlay #asNewInput {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+#assessorSettingsPageOverlay #asList > div {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+}
+
+/* ===== 9. PSIKOGRAM CONFIG OVERLAY — LIGHT ===== */
+#psikogramConfigOverlay {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  color: #111827 !important;
+}
+#psikogramConfigOverlay > div:first-child {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#psikogramConfigOverlay .pgcfg-tabs-bar {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+#psikogramConfigOverlay .pgcfg-tab {
+  color: #6b7280 !important;
+}
+#psikogramConfigOverlay .pgcfg-tab.active {
+  color: #4f46e5 !important;
+  border-bottom-color: #4f46e5 !important;
+}
+#psikogramConfigOverlay .pgcfg-aspect {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+}
+#psikogramConfigOverlay .pgcfg-aspect-label {
+  color: #111827 !important;
+}
+#psikogramConfigOverlay .pgcfg-idx {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+#psikogramConfigOverlay .pgcfg-btn-edit {
+  background: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4f46e5 !important;
+}
+
+/* ===== 10. FOLDER DETAIL OVERLAY — TETAP DARK ===== */
+/* (focused view — tidak diubah) */
+
+/* ===== 11. MODAL BACKDROP — tetap blur ===== */
+#psikoModal, #istModal, #discModal, #papiModal,
+#bigfiveAdminModal, #kraeplinAdminModal, #typingModal,
+#grafisResultModal, #subjectResultModal, #excelScoringModal,
+#subjectDetailModal, #subjImagesModal, #psikoWeightModal,
+#psikoEditModal, #psikoRawModal, #retakeModalOverlay {
   background: rgba(8, 12, 24, .85) !important;
   backdrop-filter: blur(12px) saturate(1.2) !important;
   -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
 }
 
-/* ===== 12. FORM INPUTS — focus ring ===== */
-#adminPanelOverlay input:focus,
-#adminPanelOverlay select:focus,
-#adminPanelOverlay textarea:focus,
-[class*="Modal"] input:focus,
-[class*="Modal"] select:focus,
-[class*="Modal"] textarea:focus,
-.rf-folder-overlay-card input:focus,
-.rf-folder-overlay-card select:focus,
-.rf-folder-overlay-card textarea:focus {
-  outline: none;
-  border-color: rgba(99, 102, 241, .6) !important;
+/* ===== 12. FORM FOCUS ===== */
+#adminMainContent input:focus,
+#adminMainContent select:focus,
+#adminMainContent textarea:focus,
+#assessorSettingsPageOverlay input:focus,
+#psikogramConfigOverlay input:focus {
+  outline: none !important;
+  border-color: #6366f1 !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, .15) !important;
 }
 
-/* ===== 13. ACCESSIBILITY — focus rings ===== */
+/* ===== 13. FOCUS RINGS ===== */
 #adminPanelOverlay button:focus-visible,
-#adminPanelOverlay a:focus-visible,
 #adminSidebar button:focus-visible,
 #adminMainContent button:focus-visible,
-.rf-folder-overlay-card button:focus-visible,
-.rf-folder-overlay-card a:focus-visible,
-[class*="Modal"] button:focus-visible,
-[class*="Modal"] a:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, .8);
-  outline-offset: 2px;
-  border-radius: var(--ad-radius-md);
+#adminMainContent a:focus-visible,
+#resultFilesPageOverlay button:focus-visible,
+#activeCandidatesPageOverlay button:focus-visible,
+#assessorSettingsPageOverlay button:focus-visible,
+#psikogramConfigOverlay button:focus-visible {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: 2px !important;
+  border-radius: 8px;
 }
 
-/* ===== 14. RESPONSIVE — Tablet ===== */
+/* ===== 14. BUTTON HOVER POLISH ===== */
+.rf-folder-actions button { transition: all .2s var(--ad-ease-out) !important; }
+.rf-folder-actions button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+}
+#adminMainContent button { transition: all .2s var(--ad-ease-out); }
+
+/* ===== 15. RESPONSIVE ===== */
 @media (max-width: 1024px) {
-  #adminMainContent {
-    padding: 24px 20px !important;
-  }
-  .asb-page-header h1 {
-    font-size: 20px !important;
-  }
+  #adminMainContent { padding: 24px 20px !important; }
 }
-
-/* ===== 15. RESPONSIVE — Small tablet / phone landscape ===== */
 @media (max-width: 768px) {
-  #adminMainContent {
-    padding: 16px 14px !important;
-  }
-  .asb-card {
-    padding: 16px 18px !important;
-    border-radius: var(--ad-radius-md) !important;
-  }
-  .asb-page-header {
-    margin-bottom: 16px !important;
-  }
-  .asb-page-header h1 {
-    font-size: 18px !important;
-  }
-  .asb-page-header p {
-    font-size: 12px !important;
-  }
-  .rf-folder-grid {
+  #adminMainContent { padding: 16px 14px !important; }
+  .asb-card { padding: 16px 18px !important; border-radius: var(--ad-radius-md) !important; }
+  #resultFilesPageOverlay .rf-folder-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
     gap: 10px !important;
   }
-  /* touch targets */
-  .asb-menu,
-  .asb-actions button,
-  .asb-full-btn {
-    min-height: 44px;
-  }
-  .rf-folder-actions {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px !important;
-  }
-  .rf-folder-actions button {
-    padding: 10px 6px !important;
-    font-size: 10.5px !important;
-  }
-  .rf-folder-actions button span:first-child {
-    font-size: 18px !important;
-  }
+  .asb-menu, .asb-actions button, .asb-full-btn { min-height: 44px; }
+  .rf-folder-actions { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+  .rf-folder-actions button { padding: 10px 6px !important; font-size: 10.5px !important; }
 }
-
-/* ===== 16. RESPONSIVE — Phone ===== */
 @media (max-width: 480px) {
-  #adminMainContent {
-    padding: 12px 10px !important;
-  }
-  .asb-card {
-    padding: 14px 14px !important;
-  }
-  .rf-folder-grid {
+  #adminMainContent { padding: 12px 10px !important; }
+  .asb-card { padding: 14px 14px !important; }
+  #resultFilesPageOverlay .rf-folder-grid {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
   }
-  .rf-folder-overlay-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 12px !important;
-    max-height: calc(100vh - 16px) !important;
-  }
-  /* Modals nearly full-screen */
-  #psikoModal > div,
-  #istModal > div,
-  #discModal > div,
-  #papiModal > div,
-  #bigfiveAdminModal > div,
-  #kraeplinAdminModal > div,
-  #typingModal > div,
-  #grafisResultModal > div,
-  #subjectResultModal > div,
-  #excelScoringModal > div {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-radius: 14px !important;
-    max-height: calc(100vh - 16px) !important;
-  }
-  #adminPanelOverlay button,
-  .rf-folder-overlay-card button {
-    min-height: 42px;
-  }
-  .rf-ist-section > div,
-  .rf-disc-section > div,
-  .rf-kraeplin-section > div,
-  .rf-papi-section > div,
-  .rf-bigfive-section > div,
-  .rf-grafis-result-section > div,
-  .rf-subject-result-section > div,
-  .rf-typing-section > div,
-  .rf-excel-section > div {
-    padding: 12px 12px !important;
-  }
 }
 
-/* ===== 17. REDUCED MOTION ===== */
+/* ===== 16. REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
-  #adminPanelOverlay *,
-  #adminSidebar *,
-  #adminMainContent *,
-  [class*="Modal"] *,
-  .rf-folder *,
-  .rf-folder-overlay-card * {
+  #adminPanelOverlay *, #adminSidebar *, #adminMainContent *,
+  #resultFilesPageOverlay *, #activeCandidatesPageOverlay *,
+  #assessorSettingsPageOverlay *, #psikogramConfigOverlay * {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
   }
-  .rf-folder:hover,
-  .asb-card:hover,
-  .rf-folder-actions button:hover {
+  .rf-folder:hover, .asb-card:hover, .rf-folder-actions button:hover {
     transform: none !important;
   }
 }
 
-/* ===== 18. PRINT — hide chrome ===== */
+/* ===== 17. PRINT ===== */
 @media print {
-  #adminSidebar,
-  #adminPanelOverlay > div > div:first-child,
-  .rf-folder-actions,
-  button {
-    display: none !important;
-  }
+  #adminSidebar, .rf-folder-actions, button { display: none !important; }
 }
