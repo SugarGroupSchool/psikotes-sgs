@@ -2739,6 +2739,20 @@ window.__openCandidateFolder = function(candidateKey) {
       <span style="font-size: 20px;">📚</span>
       <span class="rf-folder-overlay-btn-label">SUBJEK</span>
     </button>
+    <button class="js-excel-score"
+      data-slug="${__adminEscape(slug)}"
+      data-name="${__adminEscape(name)}"
+      data-position="${__adminEscape(position)}"
+      style="padding: 12px 8px; border-radius: 10px;
+        background: rgba(34,197,94,.15);
+        border: 1px solid rgba(34,197,94,.5);
+        color: #86efac; font-family: inherit;
+        font-size: 11.5px; font-weight: 800;
+        cursor: pointer; white-space: nowrap;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">📊</span>
+      <span class="rf-folder-overlay-btn-label">NILAI EXCEL</span>
+    </button>
   `;
 
   const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';

@@ -229,8 +229,9 @@ function detectCategory(p) {
     }).join('');
   }
 
-    await __ensurePsikogramConfigLoaded();
+    
   async function openPsikogramModal(slug, candidateName, position) {
+    await __ensurePsikogramConfigLoaded();
     const old = document.getElementById('psikoModal'); if (old) old.remove();
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
     const __cat = detectCategory(position) || 'guru';
@@ -428,8 +429,8 @@ function detectCategory(p) {
     return doc;
   }
 
+async function downloadPsikogramPDF(slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
-  async function downloadPsikogramPDF(slug, candidateName, position) {
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
     const __cat = detectCategory(position) || 'guru';
     const computed = computeAll(raw, overrides, customWeights, __cat);
@@ -437,8 +438,8 @@ function detectCategory(p) {
     doc.save('Psikogram-' + String(candidateName || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
   }
 
+window.renderPsikogramBox = async function (slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
- window.renderPsikogramBox = async function (slug, candidateName, position) {
     const category = detectCategory(position);
     if (!category) return '';
     const aspects = getAspectConfig(category);
