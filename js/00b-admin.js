@@ -1017,6 +1017,104 @@ function __extractAssessorGrafis(file) {
 }
 
 /* ============================================================
+   🆕 Wawancara Stats — rata-rata & kesimpulan per pewawancara
+   ============================================================ */
+async function __fetchInterviewStats(slug) {
+  if (typeof firebase === 'undefined' || !firebase.apps.length) return null;
+  try {
+    const snap = await firebase.database().ref('sgs_interviews/' + slug).once('value');
+    const data = snap.val();
+    if (!data || typeof data !== 'object') return null;
+
+    const interviewers = Object.keys(data).filter(k => {
+      const d = data[k];
+      return d && typeof d.average === 'number';
+    });
+    if (interviewers.length === 0) return null;
+
+    let sum = 0;
+    const perInterviewer = [];
+    interviewers.forEach(iv => {
+      const d = data[iv] || {};
+      const avg = Number(d.average) || 0;
+      sum += avg;
+      perInterviewer.push({
+        name: iv,
+        average: avg,
+        conclusion: d.conclusion || '-'
+      });
+    });
+
+    return {
+      count: interviewers.length,
+      overallAverage: sum / interviewers.length,
+      perInterviewer: perInterviewer.sort((a, b) => (b.average || 0) - (a.average || 0))
+    };
+  } catch (e) {
+    console.warn('[INTERVIEW-STATS] Fetch gagal:', e.message);
+    return null;
+  }
+}
+
+function __conclusionChipStyle(conclusion) {
+  const c = String(conclusion || '').toUpperCase();
+  if (c.includes('HIGHLY')) return { bg: 'rgba(34,197,94,.2)',   br: 'rgba(34,197,94,.55)',  tx: '#86efac', short: '🌟 Highly' };
+  if (c.includes('NOT'))    return { bg: 'rgba(239,68,68,.18)',  br: 'rgba(239,68,68,.5)',   tx: '#fca5a5', short: '❌ Not Rec' };
+  if (c.includes('FAIRLY')) return { bg: 'rgba(245,158,11,.18)', br: 'rgba(245,158,11,.5)',  tx: '#fcd34d', short: '⚠️ Fairly' };
+  return                          { bg: 'rgba(34,197,94,.15)',  br: 'rgba(34,197,94,.45)',  tx: '#86efac', short: '✅ Rec' };
+}
+
+function __renderInterviewStatsHTML(stats) {
+  if (!stats) return '';
+
+  const rowsHTML = stats.perInterviewer.map(p => {
+    const chip = __conclusionChipStyle(p.conclusion);
+    return `
+      <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+        background: rgba(250,204,21,.05); border: 1px solid rgba(250,204,21,.2);
+        border-radius: 7px; margin-top: 4px;">
+        <div style="width: 26px; height: 26px; flex: 0 0 26px; display: grid; place-items: center;
+          background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
+          border-radius: 6px; font-size: 9px; font-weight: 900;">
+          ${__adminEscape(String(p.name).slice(0, 3).toUpperCase())}
+        </div>
+        <div style="flex: 1; min-width: 0; font-size: 11px; font-weight: 800; color: #fde047;">
+          ${__adminEscape(p.name)}
+        </div>
+        <div style="font-size: 12px; font-weight: 900; color: #fbbf24; font-variant-numeric: tabular-nums;">
+          ${p.average.toFixed(2)}
+        </div>
+        <span style="padding: 2px 8px; border-radius: 999px; font-size: 9.5px;
+          font-weight: 800; background: ${chip.bg}; border: 1px solid ${chip.br}; color: ${chip.tx};
+          white-space: nowrap;">
+          ${chip.short}
+        </span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="margin-top: 10px; padding: 10px 12px;
+      background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.3);
+      border-radius: 10px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+        <div style="font-size: 10.5px; font-weight: 900; color: #fde047; letter-spacing: .5px;">
+          ⭐ RATA-RATA KESELURUHAN
+        </div>
+        <div style="padding: 3px 10px; background: rgba(34,197,94,.15);
+          border: 1px solid rgba(34,197,94,.45); border-radius: 999px;
+          font-size: 13px; font-weight: 900; color: #86efac; font-variant-numeric: tabular-nums;">
+          ${stats.overallAverage.toFixed(2)} / 5.00
+        </div>
+      </div>
+      <div style="font-size: 10px; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">
+        Dari ${stats.count} pewawancara:
+      </div>
+      ${rowsHTML}
+    </div>`;
+}
+
+
+/* ============================================================
    Render box Wawancara
    ============================================================ */
 function __renderWawancaraBox(files) {
@@ -2559,7 +2657,10 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
     
-    ${wawancara.length > 0 ? __renderWawancaraBox(wawancara) : ''}
+    ${wawancara.length > 0 ? `
+      <div class="js-iv-stats-section" data-slug="${__adminEscape(slug)}"></div>
+      ${__renderWawancaraBox(wawancara)}
+    ` : ''}
     ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
     ${others.map(f => fileRow(f, 'other')).join('')}
     <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2868,6 +2969,21 @@ window.__openCandidateFolder = function(candidateKey) {
       }
     } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
   })();
+
+  /* 🆕 Wawancara stats — overall + per interviewer */
+  (async () => {
+    const section = overlay.querySelector('.js-iv-stats-section');
+    if (!section) return;
+    try {
+      const stats = await __fetchInterviewStats(slug);
+      if (stats) {
+        section.innerHTML = __renderInterviewStatsHTML(stats);
+      }
+    } catch (e) {
+      console.warn('[IV-STATS] Render gagal:', e.message);
+    }
+  })();
+
 
   (async () => {
     const section = overlay.querySelector('.rf-psikogram-section');

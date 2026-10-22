@@ -269,7 +269,8 @@
     let overallSum = 0, overallCount = 0;
     interviewers.forEach((iv, idx) => {
       const item = data[iv] || {};
-      const avg = Number(item.average) || 0;
+      const avgRaw = item.average;
+      const avg = (typeof avgRaw === 'number' && !isNaN(avgRaw)) ? avgRaw : null;
       const concl = stripEmoji(item.conclusion || '-');
       if (idx % 2 === 0) {
         doc.setFillColor(248, 250, 252);
@@ -278,13 +279,13 @@
       doc.setFontSize(8.5);
       doc.text(String(idx + 1), cols.no, y);
       doc.text(iv, cols.name, y);
-      doc.text(fmtScore(avg), cols.avg, y);
+      doc.text(avg !== null ? fmtScore(avg) : '-', cols.avg, y);
       const cC = conclusionColor(item.conclusion);
       doc.setTextColor(cC[0], cC[1], cC[2]);
       doc.text(concl, cols.concl, y);
       doc.setTextColor(30, 41, 59);
       y += 5;
-      if (avg > 0) { overallSum += avg; overallCount++; }
+      if (avg !== null) { overallSum += avg; overallCount++; }
     });
 
     const overallAvg = overallCount > 0 ? overallSum / overallCount : 0;
@@ -375,7 +376,8 @@
 
     interviewers.forEach(iv => {
       const item = data[iv] || {};
-      const avg = Number(item.average) || 0;
+      const avgRaw = item.average;
+      const avg = (typeof avgRaw === 'number' && !isNaN(avgRaw)) ? avgRaw : null;
       const concl = stripEmoji(item.conclusion || '-');
       const notes = String(item.notes || '').trim() || '(Tidak ada catatan)';
       if (y + 40 > PH - 20) { doc.addPage(); y = M + 5; }
@@ -387,7 +389,7 @@
       doc.setTextColor(30, 58, 138);
       doc.text('Asesor: ' + iv, M + 3, y);
       doc.setFontSize(9);
-      doc.text('Rata-rata: ' + fmtScore(avg), PW - M - 60, y);
+      doc.text('Rata-rata: ' + (avg !== null ? fmtScore(avg) : '-'), PW - M - 60, y);
       const cC = conclusionColor(item.conclusion);
       doc.setTextColor(cC[0], cC[1], cC[2]);
       doc.text(concl, PW - M - 3, y, { align: 'right' });
@@ -472,6 +474,52 @@
     }
   }
 
+  /* 🆕 Cleanup PDF combined lama sebelum upload baru — cegah duplikat */
+  async function __cleanupStaleInterviewCombined(candidateName) {
+    try {
+      if (typeof window.fetchResultFiles !== 'function') return 0;
+      const files = await window.fetchResultFiles(true);
+      const nameSlug = String(candidateName || '').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      if (!nameSlug) return 0;
+
+      const targets = files.filter(f => {
+        const n = String(f.name || '');
+        if (!/-Wawancara-COMBINED\.pdf$/i.test(n)) return false;
+        return n.toLowerCase().includes(nameSlug);
+      });
+      if (targets.length === 0) return 0;
+
+      let idToken = '';
+      try {
+        const u = firebase.auth().currentUser;
+        if (u) idToken = await u.getIdToken();
+      } catch (e) {}
+
+      let deleted = 0;
+      for (const t of targets) {
+        try {
+          await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete', fileId: t.id, idToken })
+          });
+          if (window.__recentlyDeletedFileIds) window.__recentlyDeletedFileIds.add(t.id);
+          if (typeof window.__removeFileFromCache === 'function') window.__removeFileFromCache(t.id);
+          console.log('[INTERVIEW-COMBINED] 🧹 Hapus lama:', t.name);
+          deleted++;
+          await new Promise(r => setTimeout(r, 300));
+        } catch (e) {
+          console.warn('[INTERVIEW-COMBINED] Gagal hapus:', t.name, '—', e.message);
+        }
+      }
+      return deleted;
+    } catch (e) {
+      console.warn('[INTERVIEW-COMBINED] Cleanup error:', e.message);
+      return 0;
+    }
+  }
+
+
   /* ============================================================
      PUBLIC: dipanggil dari 00m-interview.js
      ============================================================ */
@@ -485,6 +533,8 @@
       const doc = await buildCombinedPDF(candidateName, candidatePosition, data, interviewers);
       const blob = doc.output('blob');
       const filename = candidateName.replace(/[^a-zA-Z0-9]/g, '-') + '-Wawancara-COMBINED.pdf';
+      /* 🆕 Cleanup PDF lama dulu — mencegah duplikat saat assessor submit ulang */
+      try { await __cleanupStaleInterviewCombined(candidateName); } catch (e) {}
 
       await uploadCombinedToGAS(blob, filename, candidateName, candidatePosition);
       console.log('[INTERVIEW-COMBINED] ✓ Uploaded:', filename);
