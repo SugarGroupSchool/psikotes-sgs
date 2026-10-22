@@ -4,29 +4,22 @@
 (function () {
   'use strict';
 
-  const GRAFIS_CAT = {
-    cognitive:   'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
-    empathy:     'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
-    emotional:   'STABILITAS EMOSI & KONTROL IMPULS',
-    motivation:  'MOTIVATION & ACHIEVEMENT DRIVE',
-    flexibility: 'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
-    integrity:   'INTEGRITY & RULE COMPLIANCE',
-    creativity:  'TEACHING CREATIVITY'
-  };
+/* ============================================================
+   Config aspects — diambil dari js/data/psikogram-config.js
+   Edit file itu kalau mau ubah aspek/bobot per posisi.
+   ============================================================ */
+function getAspectConfig(category) {
+  const cfg = window.PSIKOGRAM_CONFIG || {};
+  const pos = cfg[category];
+  return (pos && Array.isArray(pos.aspects)) ? pos.aspects : [];
+}
 
-  const DEFAULT_ASPECTS = [
-    { id: 'cognitive_ability', label: 'Cognitive Ability & Problem Solving', weights: { IST: 40, Wawancara: 30, FGD: 20, Grafis: 10 }, ist: ['AN','RA','ZR','FA','WU'], papi: [], bigfive: [], grafisCat: GRAFIS_CAT.cognitive },
-    { id: 'verbal_communication', label: 'Verbal Communication & Material Explanation', weights: { IST: 25, BigFive: 15, Wawancara: 35, FGD: 25 }, ist: ['WA','GE','AN'], papi: [], bigfive: ['E','A'] },
-    { id: 'classroom_management', label: 'Classroom Management & Instructional Leadership', weights: { IST: 5, PAPI: 20, BigFive: 10, Wawancara: 35, FGD: 30 }, ist: ['SE','GE','AN','WA'], papi: ['L','P','I'], bigfive: ['C','N_rev'] },
-    { id: 'empathy_interpersonal', label: 'Empathy & Interpersonal Skills', weights: { IST: 5, PAPI: 10, BigFive: 30, Wawancara: 30, Grafis: 5, FGD: 20 }, ist: ['WA'], papi: ['O','S','B','X'], bigfive: ['A','E'], grafisCat: GRAFIS_CAT.empathy },
-    { id: 'emotional_stability', label: 'Emotional Stability & Impulse Control', weights: { PAPI: 20, BigFive: 35, Grafis: 30, Wawancara: 15 }, ist: [], papi: ['E','K'], bigfive: ['N_rev'], grafisCat: GRAFIS_CAT.emotional },
-    { id: 'motivation_drive', label: 'Motivation & Achievement Drive', weights: { PAPI: 40, Wawancara: 30, BigFive: 20, Grafis: 10 }, ist: [], papi: ['A','N','G','T','V'], bigfive: ['C'], grafisCat: GRAFIS_CAT.motivation },
-    { id: 'work_discipline', label: 'Work Discipline & Reliability', weights: { PAPI: 35, BigFive: 45, Wawancara: 20 }, ist: [], papi: ['G','W','F','C'], bigfive: ['C'] },
-    { id: 'flexibility_adaptability', label: 'Flexibility, Adaptability & Learning Agility', weights: { IST: 5, PAPI: 20, BigFive: 25, Grafis: 10, FGD: 15, Wawancara: 25 }, ist: ['AN'], papi: ['Z','V'], bigfive: ['O','N_rev'], grafisCat: GRAFIS_CAT.flexibility },
-    { id: 'integrity_compliance', label: 'Integrity & Rule Compliance', weights: { PAPI: 40, Grafis: 20, Wawancara: 40 }, ist: [], papi: ['W','F','C','G'], bigfive: [], grafisCat: GRAFIS_CAT.integrity },
-    { id: 'teaching_creativity', label: 'Teaching Creativity', weights: { IST: 10, BigFive: 35, Wawancara: 35, Grafis: 20 }, ist: ['FA','WU','AN'], papi: [], bigfive: ['O'], grafisCat: GRAFIS_CAT.creativity },
-    { id: 'teaching_practice', label: 'Teaching Practice Skills', weights: { Wawancara: 40, SubjectTest: 60 }, ist: [], papi: [], bigfive: [], subjectTest: true }
-  ];
+function getCategoryLabel(category) {
+  const cfg = window.PSIKOGRAM_CONFIG || {};
+  return (cfg[category] && cfg[category].label) ? cfg[category].label : category;
+}
+
+const DEFAULT_ASPECTS = getAspectConfig('guru');
 
   const PAPI_CONFIG = { A:{inv:false}, N:{inv:false}, G:{inv:false}, T:{inv:false}, V:{inv:false}, W:{inv:false}, F:{inv:false}, C:{inv:false}, L:{inv:false}, P:{inv:false}, I:{inv:false}, E:{inv:false}, K:{inv:true},  O:{inv:false}, S:{inv:false}, B:{inv:false}, X:{inv:false}, Z:{inv:false}, D:{inv:false}, R:{inv:false} };
 
@@ -39,7 +32,20 @@
   function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?100-s:s)/100)*5); }
   function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
 
-  function detectCategory(p) { if (!p) return null; return /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
+function detectCategory(p) {
+  if (!p) return null;
+  const s = String(p).toLowerCase();
+  const cfg = window.PSIKOGRAM_CONFIG || {};
+  for (const key in cfg) {
+    const pos = cfg[key];
+    if (!pos || !Array.isArray(pos.matchKeywords)) continue;
+    if (!Array.isArray(pos.aspects) || pos.aspects.length === 0) continue;
+    for (const kw of pos.matchKeywords) {
+      if (s.includes(String(kw).toLowerCase())) return key;
+    }
+  }
+  return null;
+} /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
   function scoreToKet(s) {
     const v = Number(s) || 0;
     if (v >= 3.5) return { label: 'BAIK', color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)',  pdfColor: [22, 101, 52] };
@@ -122,7 +128,7 @@
   }
   
   async function loadOverrides(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram/' + slug + '/overrides').once('value'); return snap.val() || {}; } catch (e) { return {}; } }
-  async function saveOverrides(slug, overrides) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram/' + slug).update({ category: 'guru', overrides, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
+  async function saveOverrides(slug, overrides, category) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram/' + slug).update({ category: category || 'guru', overrides, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
   async function saveRaw(slug, raw) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_raw/' + slug).update({ IST: raw.IST || {}, PAPI: raw.PAPI || {}, BigFive: raw.BigFive || {}, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
 
   function getEffectiveWeights(aspect, customWeights) { const w = customWeights && customWeights[aspect.id]; if (w && typeof w === 'object') return w; return aspect.weights || {}; }
@@ -145,10 +151,11 @@
     return { score: parts.reduce((a,p)=>a+p.val*p.w, 0) / totalW, parts, totalW };
   }
 
-  function computeAll(raw, overrides, customWeights) {
+ function computeAll(raw, overrides, customWeights, category) {
     overrides = overrides || {};
     customWeights = customWeights || {};
-    return DEFAULT_ASPECTS.map(a => {
+    const aspects = getAspectConfig(category) || DEFAULT_ASPECTS;
+  return aspects.map(a => {
       const effW = getEffectiveWeights(a, customWeights);
       const c = computeAspect(a, raw, effW);
       const autoScore = c.score !== null ? Math.round(c.score * 100) / 100 : null;
@@ -189,7 +196,8 @@
   async function openPsikogramModal(slug, candidateName, position) {
     const old = document.getElementById('psikoModal'); if (old) old.remove();
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
-    const computed = computeAll(raw, overrides, customWeights);
+    const __cat = detectCategory(position) || 'guru';
+    const computed = computeAll(raw, overrides, customWeights, __cat);
     const valid = computed.map(c => c.finalScore).filter(s => s !== null);
     const avg = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0;
     const avgPct = (avg/5)*100;
@@ -385,14 +393,19 @@
 
   async function downloadPsikogramPDF(slug, candidateName, position) {
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
-    const computed = computeAll(raw, overrides, customWeights);
+    const __cat = detectCategory(position) || 'guru';
+    const computed = computeAll(raw, overrides, customWeights, __cat);
     const doc = await generatePsikogramPDF(candidateName, position, computed);
     doc.save('Psikogram-' + String(candidateName || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
   }
 
-  window.renderPsikogramBox = async function (slug, candidateName, position) {
-    const category = detectCategory(position); if (!category) return '';
-    return `<button class="js-psikogram-open" data-slug="${escHtml(slug)}" data-name="${escHtml(candidateName)}" data-position="${escHtml(position||'')}" style="width:100%;padding:11px 14px;margin-top:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);display:flex;align-items:center;justify-content:center;gap:8px;">📊 Lihat Psikogram (11 Aspek)</button>`;
+ window.renderPsikogramBox = async function (slug, candidateName, position) {
+    const category = detectCategory(position);
+    if (!category) return '';
+    const aspects = getAspectConfig(category);
+    if (aspects.length === 0) return '';
+    const countLabel = aspects.length + ' Aspek';
+    return `<button class="js-psikogram-open" data-slug="${escHtml(slug)}" data-name="${escHtml(candidateName)}" data-position="${escHtml(position||'')}" style="width:100%;padding:11px 14px;margin-top:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);display:flex;align-items:center;justify-content:center;gap:8px;">📊 Lihat Psikogram (${countLabel})</button>`;
   };
 
   if (!window.__psikoDelegationAttached) {
@@ -421,7 +434,7 @@
         const row = editBtn.closest('.psiko-row'); const autoScore = row.dataset.auto ? Number(row.dataset.auto) : null;
         const currentScore = parseFloat(row.querySelector('.psiko-score').textContent) || 0;
         openEditModal(aspectId, asp.label, currentScore, autoScore, async (v) => {
-          try { const overrides = await loadOverrides(slug); if (v === null) delete overrides[aspectId]; else overrides[aspectId] = v; await saveOverrides(slug, overrides); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
+          try { const overrides = await loadOverrides(slug); if (v === null) delete overrides[aspectId]; else overrides[aspectId] = v; await saveOverrides(slug, overrides, __cat); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
         });
         return;
       }
@@ -442,7 +455,7 @@
         const modal = resetBtn.closest('#psikoModal'); if (!modal) return;
         if (!confirm('Hapus semua override skor?')) return;
         const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        try { await saveOverrides(slug, {}); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
+        try { await saveOverrides(slug, {}, __cat); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
         return;
       }
       const resetWBtn = e.target.closest('.js-psiko-reset-weights');
