@@ -1,0 +1,219 @@
+/* ============================================================
+   css/15-admin-polish.css — Visual Polish for Admin Panel
+   ------------------------------------------------------------
+   Purely additive. Enhances transitions, hover feedback,
+   scrollbars, and entrance animations WITHOUT overriding
+   existing per-test themes.
+   ============================================================ */
+
+/* ----- Global: smooth taps & disable blue highlight on mobile ----- */
+#rfFolderOverlay *,
+#resultFilesPageOverlay *,
+#activeCandidatesPageOverlay *,
+#adminPanelOverlay * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ----- Custom scrollbar: gradient indigo/violet ----- */
+#rfFolderOverlay ::-webkit-scrollbar,
+#resultFilesPageOverlay ::-webkit-scrollbar,
+#activeCandidatesPageOverlay ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+#rfFolderOverlay ::-webkit-scrollbar-track,
+#resultFilesPageOverlay ::-webkit-scrollbar-track,
+#activeCandidatesPageOverlay ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, .2);
+  border-radius: 5px;
+}
+#rfFolderOverlay ::-webkit-scrollbar-thumb,
+#resultFilesPageOverlay ::-webkit-scrollbar-thumb,
+#activeCandidatesPageOverlay ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(99,102,241,.65), rgba(59,130,246,.45));
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+#rfFolderOverlay ::-webkit-scrollbar-thumb:hover,
+#resultFilesPageOverlay ::-webkit-scrollbar-thumb:hover,
+#activeCandidatesPageOverlay ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(99,102,241,.95), rgba(59,130,246,.75));
+  background-clip: padding-box;
+}
+
+/* ----- Entrance animation for the folder overlay ----- */
+@keyframes sgsAdminPolishedEnter {
+  from { opacity: 0; transform: translateY(16px) scale(.965); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.rf-folder-overlay-card {
+  animation: sgsAdminPolishedEnter .34s cubic-bezier(.2,.8,.2,1) both !important;
+}
+
+/* ----- Entrance animation for each test card (staggered) ----- */
+@keyframes sgsCardSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rf-ist-section > div,
+.rf-disc-section > div,
+.rf-kraeplin-section > div,
+.rf-papi-section > div,
+.rf-bigfive-section > div,
+.rf-grafis-result-section > div,
+.rf-subject-result-section > div {
+  animation: sgsCardSlideIn .38s cubic-bezier(.2,.8,.2,1) both;
+  transition: transform .22s cubic-bezier(.2,.8,.2,1),
+              box-shadow .22s ease !important;
+}
+.rf-disc-section > div         { animation-delay: .03s; }
+.rf-kraeplin-section > div     { animation-delay: .06s; }
+.rf-papi-section > div         { animation-delay: .09s; }
+.rf-bigfive-section > div      { animation-delay: .12s; }
+.rf-grafis-result-section > div{ animation-delay: .15s; }
+.rf-subject-result-section > div { animation-delay: .18s; }
+
+/* ----- Test card hover: subtle lift + glow ----- */
+.rf-ist-section > div:hover,
+.rf-disc-section > div:hover,
+.rf-kraeplin-section > div:hover,
+.rf-papi-section > div:hover,
+.rf-bigfive-section > div:hover,
+.rf-grafis-result-section > div:hover,
+.rf-subject-result-section > div:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .32), 0 0 0 1px rgba(255, 255, 255, .06) !important;
+}
+
+/* ----- Action bar buttons (top & bottom) — lift on hover ----- */
+.rf-folder-actions button,
+#rfFolderOverlay div[style*="grid-template-columns: repeat(4, 1fr)"] button {
+  transition: transform .18s cubic-bezier(.2,.8,.2,1),
+              filter .18s ease,
+              box-shadow .18s ease !important;
+}
+.rf-folder-actions button:hover,
+#rfFolderOverlay div[style*="grid-template-columns: repeat(4, 1fr)"] button:hover {
+  transform: translateY(-2px) !important;
+  filter: brightness(1.15);
+}
+.rf-folder-actions button:active,
+#rfFolderOverlay div[style*="grid-template-columns: repeat(4, 1fr)"] button:active {
+  transform: translateY(0) scale(.97) !important;
+}
+
+/* ----- Primary action buttons in test cards (Lihat Detail / PDF) ----- */
+button[class*="js-"][style*="linear-gradient"] {
+  transition: transform .16s ease,
+              filter .16s ease,
+              box-shadow .16s ease !important;
+}
+button[class*="js-"][style*="linear-gradient"]:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.1);
+}
+button[class*="js-"][style*="linear-gradient"]:active {
+  transform: translateY(0) scale(.98) !important;
+}
+
+/* ----- File rows (PDF Buka / Hapus) — subtle background shift ----- */
+.rf-folder-overlay-scroll > div[style*="rgba(255,255,255,.04)"] {
+  transition: background .16s ease, border-color .16s ease !important;
+}
+.rf-folder-overlay-scroll > div[style*="rgba(255,255,255,.04)"]:hover {
+  background: rgba(255, 255, 255, .06) !important;
+  border-color: rgba(255, 255, 255, .15) !important;
+}
+
+/* ----- Grafis & Wawancara boxes — polish hover ----- */
+.rf-grafis-box {
+  transition: transform .22s ease, box-shadow .22s ease !important;
+}
+.rf-grafis-box:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* ----- Filter chips (folder page) — subtle lift ----- */
+.rf-chip {
+  transition: all .15s ease !important;
+}
+.rf-chip:hover {
+  transform: translateY(-1px) !important;
+}
+
+/* ----- Folder cards (folder grid) — cubic-bezier hover ----- */
+.rf-folder {
+  transition: all .28s cubic-bezier(.2,.8,.2,1) !important;
+}
+
+/* ----- Candidate cards (monitoring page) ----- */
+.ac-candidate-card {
+  transition: all .2s cubic-bezier(.2,.8,.2,1) !important;
+}
+
+/* ----- Admin main panel — menu buttons lift on hover ----- */
+#adminPanelOverlay button[onclick*="openActiveCandidatesPage"],
+#adminPanelOverlay button[onclick*="openResultFilesPage"],
+#adminPanelOverlay button[onclick*="openAssessorSettingsPage"] {
+  transition: transform .18s cubic-bezier(.2,.8,.2,1),
+              box-shadow .18s ease,
+              filter .18s ease !important;
+}
+#adminPanelOverlay button[onclick*="openActiveCandidatesPage"]:hover,
+#adminPanelOverlay button[onclick*="openResultFilesPage"]:hover,
+#adminPanelOverlay button[onclick*="openAssessorSettingsPage"]:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .18), 0 0 0 1px rgba(59, 130, 246, .2) !important;
+  filter: brightness(1.03);
+}
+#adminPanelOverlay button[onclick*="openActiveCandidatesPage"]:active,
+#adminPanelOverlay button[onclick*="openResultFilesPage"]:active,
+#adminPanelOverlay button[onclick*="openAssessorSettingsPage"]:active {
+  transform: translateY(0) scale(.985) !important;
+}
+
+/* ----- Admin main panel — action buttons (Reset, Unlock, Cleanup) ----- */
+#adminPanelOverlay button[onclick*="adminResetThisDevice"],
+#adminPanelOverlay button[onclick*="adminUnlockDevice"],
+#adminPanelOverlay button[onclick*="adminCleanupInactive"] {
+  transition: transform .15s ease, filter .15s ease !important;
+}
+#adminPanelOverlay button[onclick*="adminResetThisDevice"]:hover,
+#adminPanelOverlay button[onclick*="adminUnlockDevice"]:hover,
+#adminPanelOverlay button[onclick*="adminCleanupInactive"]:hover {
+  transform: translateY(-1px) !important;
+  filter: brightness(1.06);
+}
+
+/* ----- Focus rings — accessible & on-brand ----- */
+.rf-folder-overlay-card button:focus-visible,
+#adminPanelOverlay button:focus-visible,
+#resultFilesPageOverlay button:focus-visible,
+#activeCandidatesPageOverlay button:focus-visible,
+#rfFolderOverlay a:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, .85);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ----- Header name — subtle text shadow for depth ----- */
+.rf-folder-overlay-card > div:first-child > div:nth-child(2) > div:nth-child(2) {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .28);
+}
+
+/* ----- Toast notification (jika ada) — smoother ----- */
+#sgsResultToastContainer > div {
+  animation-timing-function: cubic-bezier(.2,.8,.2,1) !important;
+}
+
+/* ----- Reduced motion — matikan animasi untuk aksesibilitas ----- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
