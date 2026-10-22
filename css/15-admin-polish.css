@@ -207,11 +207,20 @@ button[class*="js-"][style*="linear-gradient"]:active {
   animation-timing-function: cubic-bezier(.2,.8,.2,1) !important;
 }
 
-/* ----- Reduced motion — matikan animasi untuk aksesibilitas ----- */
+/* ----- Reduced motion — scope ke area admin saja (jangan global!) ----- */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  #adminPanelOverlay *,
+  #adminPanelOverlay *::before,
+  #adminPanelOverlay *::after,
+  #rfFolderOverlay *,
+  #rfFolderOverlay *::before,
+  #rfFolderOverlay *::after,
+  #resultFilesPageOverlay *,
+  #resultFilesPageOverlay *::before,
+  #resultFilesPageOverlay *::after,
+  #activeCandidatesPageOverlay *,
+  #activeCandidatesPageOverlay *::before,
+  #activeCandidatesPageOverlay *::after {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
