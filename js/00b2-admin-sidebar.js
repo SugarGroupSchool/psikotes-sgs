@@ -119,18 +119,70 @@
   /* ============================================================
      MENU DISPATCHER
      ============================================================ */
-  function __renderMenuContent(menu, ctx) {
+    function __renderMenuContent(menu, ctx) {
     const main = document.getElementById('adminMainContent');
     if (!main) return;
 
-    if (menu === 'login')   __renderLoginControl(main, ctx);
+    /* ⚡ SELALU tutup overlay lama DULU — kalau tidak, menu baru
+       (terutama Login Control & Device Info) render di BELAKANG
+       overlay dan user pikir tidak berubah. */
+    __closeAdminOverlayPages();
+
+    if (menu === 'login')         __renderLoginControl(main, ctx);
     else if (menu === 'device')   __renderDeviceInfo(main, ctx);
-    else if (menu === 'kandidat') __openOverlayMenu(main, 'openActiveCandidatesPage', '📊 Kandidat Aktif');
-    else if (menu === 'hasil')    __openOverlayMenu(main, 'openResultFilesPage', '📄 Hasil Tes Terkirim');
-    else if (menu === 'asesor')   __openOverlayMenu(main, 'openAssessorSettingsPage', '👥 Kelola Asesor');
+    else if (menu === 'kandidat') __openOverlayMenu(main, 'openActiveCandidatesPage', '📊 Kandidat Aktif', 'kandidat');
+    else if (menu === 'hasil')    __openOverlayMenu(main, 'openResultFilesPage', '📄 Hasil Tes Terkirim', 'hasil');
+    else if (menu === 'asesor')   __openOverlayMenu(main, 'openAssessorSettingsPage', '👥 Kelola Asesor', 'asesor');
   }
 
-  function __openOverlayMenu(main, fnName, label) {
+  /* ============================================================
+     🆕 CLOSE ALL ADMIN OVERLAY PAGES
+     ------------------------------------------------------------
+     Overlay pages (Kandidat Aktif, Hasil Tes, Kelola Asesor)
+     dirender DI ATAS #adminMainContent dengan z-index tinggi.
+     Kalau user pindah menu tanpa menutup overlay, konten menu
+     baru render di BELAKANG overlay → user pikir tidak berubah.
+
+     Fungsi ini MEMASTIKAN overlay lama ditutup dulu sebelum
+     render menu baru (local page maupun overlay page).
+     ============================================================ */
+  function __closeAdminOverlayPages() {
+    /* 1. Kandidat Aktif — pakai close handler agar listener cleanup */
+    var cand = document.getElementById('activeCandidatesPageOverlay');
+    if (cand) {
+      if (typeof window.closeActiveCandidatesPage === 'function') {
+        try { window.closeActiveCandidatesPage(); } catch (e) {}
+      }
+      var candLeft = document.getElementById('activeCandidatesPageOverlay');
+      if (candLeft) candLeft.remove();
+    }
+
+    /* 2. Hasil Tes — pakai close handler */
+    var res = document.getElementById('resultFilesPageOverlay');
+    if (res) {
+      if (typeof window.closeResultFilesPage === 'function') {
+        try { window.closeResultFilesPage(); } catch (e) {}
+      }
+      var resLeft = document.getElementById('resultFilesPageOverlay');
+      if (resLeft) resLeft.remove();
+    }
+
+    /* 3. Kelola Asesor — tidak ada close handler global, force remove */
+    var ass = document.getElementById('assessorSettingsPageOverlay');
+    if (ass) ass.remove();
+
+    /* 4. Nested overlays (folder kandidat, detail kandidat) */
+    ['rfFolderOverlay', 'candidateDetailOverlay'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.remove();
+    });
+
+    /* 5. Kosongkan area utama biar konten baru tidak bertumpuk */
+    var main = document.getElementById('adminMainContent');
+    if (main) main.innerHTML = '';
+  }
+
+    function __openOverlayMenu(main, fnName, label, expectedMenu) {
     main.innerHTML = `
       <div class="asb-page">
         <div class="asb-page-header"><h1>${label}</h1></div>
@@ -143,6 +195,9 @@
         </div>
       </div>`;
     setTimeout(() => {
+      /* 🆕 GUARD: kalau user sudah pindah menu lain dalam 60ms,
+         jangan buka overlay basi */
+      if (expectedMenu && __currentAdminMenu !== expectedMenu) return;
       if (typeof window[fnName] === 'function') window[fnName]();
     }, 60);
   }
