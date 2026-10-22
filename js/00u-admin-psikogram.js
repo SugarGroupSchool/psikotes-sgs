@@ -8,15 +8,43 @@
    Config aspects — diambil dari js/data/psikogram-config.js
    Edit file itu kalau mau ubah aspek/bobot per posisi.
    ============================================================ */
+let __psikoConfigCache = null;
+
+async function __ensurePsikogramConfigLoaded() {
+  if (__psikoConfigCache !== null) return __psikoConfigCache;
+  if (typeof firebase === 'undefined' || !firebase.apps.length) {
+    __psikoConfigCache = {};
+    return __psikoConfigCache;
+  }
+  try {
+    const snap = await firebase.database().ref('sgs_config/psikogram_config').once('value');
+    __psikoConfigCache = snap.val() || {};
+  } catch (e) {
+    __psikoConfigCache = {};
+  }
+  return __psikoConfigCache;
+}
+
+window.__invalidatePsikogramConfigCache = function () {
+  __psikoConfigCache = null;
+};
+
 function getAspectConfig(category) {
-  const cfg = window.PSIKOGRAM_CONFIG || {};
-  const pos = cfg[category];
+  if (__psikoConfigCache && __psikoConfigCache[category]) {
+    const fbAspects = __psikoConfigCache[category].aspects;
+    if (Array.isArray(fbAspects) && fbAspects.length > 0) return fbAspects;
+  }
+  const jsCfg = window.PSIKOGRAM_CONFIG || {};
+  const pos = jsCfg[category];
   return (pos && Array.isArray(pos.aspects)) ? pos.aspects : [];
 }
 
 function getCategoryLabel(category) {
-  const cfg = window.PSIKOGRAM_CONFIG || {};
-  return (cfg[category] && cfg[category].label) ? cfg[category].label : category;
+  if (__psikoConfigCache && __psikoConfigCache[category] && __psikoConfigCache[category].label) {
+    return __psikoConfigCache[category].label;
+  }
+  const jsCfg = window.PSIKOGRAM_CONFIG || {};
+  return (jsCfg[category] && jsCfg[category].label) ? jsCfg[category].label : category;
 }
 
 const DEFAULT_ASPECTS = getAspectConfig('guru');
@@ -35,17 +63,24 @@ const DEFAULT_ASPECTS = getAspectConfig('guru');
 function detectCategory(p) {
   if (!p) return null;
   const s = String(p).toLowerCase();
-  const cfg = window.PSIKOGRAM_CONFIG || {};
-  for (const key in cfg) {
-    const pos = cfg[key];
-    if (!pos || !Array.isArray(pos.matchKeywords)) continue;
-    if (!Array.isArray(pos.aspects) || pos.aspects.length === 0) continue;
-    for (const kw of pos.matchKeywords) {
+  const jsCfg = window.PSIKOGRAM_CONFIG || {};
+  const fbCfg = __psikoConfigCache || {};
+  const allKeys = new Set([...Object.keys(jsCfg), ...Object.keys(fbCfg)]);
+  for (const key of allKeys) {
+    const jsPos = jsCfg[key] || {};
+    const fbPos = fbCfg[key] || {};
+    const fbAspects = Array.isArray(fbPos.aspects) ? fbPos.aspects : [];
+    const jsAspects = Array.isArray(jsPos.aspects) ? jsPos.aspects : [];
+    const effectiveAspects = fbAspects.length > 0 ? fbAspects : jsAspects;
+    if (effectiveAspects.length === 0) continue;
+    const kws = Array.isArray(jsPos.matchKeywords) ? jsPos.matchKeywords : [];
+    for (const kw of kws) {
       if (s.includes(String(kw).toLowerCase())) return key;
     }
   }
   return null;
-} /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
+}
+ /guru|dosen|teacher|pengajar|kindergarten|primary|math|biology|english/i.test(String(p)) ? 'guru' : null; }
   function scoreToKet(s) {
     const v = Number(s) || 0;
     if (v >= 3.5) return { label: 'BAIK', color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)',  pdfColor: [22, 101, 52] };
@@ -193,6 +228,7 @@ function detectCategory(p) {
     }).join('');
   }
 
+    await __ensurePsikogramConfigLoaded();
   async function openPsikogramModal(slug, candidateName, position) {
     const old = document.getElementById('psikoModal'); if (old) old.remove();
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
@@ -391,6 +427,7 @@ function detectCategory(p) {
     return doc;
   }
 
+    await __ensurePsikogramConfigLoaded();
   async function downloadPsikogramPDF(slug, candidateName, position) {
     const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
     const __cat = detectCategory(position) || 'guru';
@@ -399,6 +436,7 @@ function detectCategory(p) {
     doc.save('Psikogram-' + String(candidateName || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
   }
 
+    await __ensurePsikogramConfigLoaded();
  window.renderPsikogramBox = async function (slug, candidateName, position) {
     const category = detectCategory(position);
     if (!category) return '';

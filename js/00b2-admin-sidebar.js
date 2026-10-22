@@ -77,6 +77,9 @@
           <button class="asb-menu" data-menu="asesor">
             <span class="asb-icon">👥</span><span>Kelola Asesor</span>
           </button>
+          <button class="asb-menu" data-menu="psikogram-config">
+            <span class="asb-icon">📊</span><span>Psikogram Config</span>
+          </button>
           <button class="asb-menu" data-menu="device">
             <span class="asb-icon">📱</span><span>Device Info</span>
           </button>
@@ -132,6 +135,7 @@
     else if (menu === 'device')   __renderDeviceInfo(main, ctx);
     else if (menu === 'kandidat') __openOverlayMenu(main, 'openActiveCandidatesPage', '📊 Kandidat Aktif', 'kandidat');
     else if (menu === 'hasil')    __openOverlayMenu(main, 'openResultFilesPage', '📄 Hasil Tes Terkirim', 'hasil');
+    else if (menu === 'psikogram-config') __openOverlayMenu(main, 'openPsikogramConfigPage', '📊 Psikogram Config', 'psikogram-config');
     else if (menu === 'asesor')   __openOverlayMenu(main, 'openAssessorSettingsPage', '👥 Kelola Asesor', 'asesor');
   }
 
