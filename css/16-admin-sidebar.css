@@ -229,7 +229,8 @@
 /* Overlay lain: jangan menutupi sidebar */
 #activeCandidatesPageOverlay,
 #resultFilesPageOverlay,
-#assessorSettingsPageOverlay {
+#assessorSettingsPageOverlay,
+#psikogramConfigOverlay {
   left: 260px !important;
 }
 
@@ -238,7 +239,8 @@
   #adminMainContent { margin-left: 220px; padding: 20px; }
   #activeCandidatesPageOverlay,
   #resultFilesPageOverlay,
-  #assessorSettingsPageOverlay { left: 220px !important; }
+  #assessorSettingsPageOverlay,
+  #psikogramConfigOverlay { left: 220px !important; }
 }
 @media (max-width: 640px) {
   #adminSidebar { width: 70px; }
@@ -253,5 +255,6 @@
   #adminMainContent { margin-left: 70px; padding: 14px; }
   #activeCandidatesPageOverlay,
   #resultFilesPageOverlay,
-  #assessorSettingsPageOverlay { left: 70px !important; }
+  #assessorSettingsPageOverlay,
+  #psikogramConfigOverlay { left: 70px !important; }
 }
