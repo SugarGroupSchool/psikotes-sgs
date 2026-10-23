@@ -175,6 +175,10 @@
     var ass = document.getElementById('assessorSettingsPageOverlay');
     if (ass) ass.remove();
 
+    /* 3b. Psikogram Config — tutup overlay */
+    var pgcfg = document.getElementById('psikogramConfigOverlay');
+    if (pgcfg) pgcfg.remove();
+
     /* 4. Nested overlays (folder kandidat, detail kandidat) */
     ['rfFolderOverlay', 'candidateDetailOverlay'].forEach(function (id) {
       var el = document.getElementById(id);
