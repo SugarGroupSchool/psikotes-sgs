@@ -3,6 +3,8 @@
    ------------------------------------------------------------
    Override renderAdminPanel() dengan layout sidebar + content.
    Load SETELAH 00b-admin.js.
+
+   🆕 [2026-10-23] — Menu "🎨 Grafis Config" di bawah "📊 Psikogram Config"
    ============================================================ */
 (function () {
   'use strict';
@@ -80,6 +82,10 @@
           <button class="asb-menu" data-menu="psikogram-config">
             <span class="asb-icon">📊</span><span>Psikogram Config</span>
           </button>
+          <!-- 🆕 Menu Grafis Config -->
+          <button class="asb-menu" data-menu="grafis-config">
+            <span class="asb-icon">🎨</span><span>Grafis Config</span>
+          </button>
           <button class="asb-menu" data-menu="device">
             <span class="asb-icon">📱</span><span>Device Info</span>
           </button>
@@ -122,13 +128,10 @@
   /* ============================================================
      MENU DISPATCHER
      ============================================================ */
-    function __renderMenuContent(menu, ctx) {
+  function __renderMenuContent(menu, ctx) {
     const main = document.getElementById('adminMainContent');
     if (!main) return;
 
-    /* ⚡ SELALU tutup overlay lama DULU — kalau tidak, menu baru
-       (terutama Login Control & Device Info) render di BELAKANG
-       overlay dan user pikir tidak berubah. */
     __closeAdminOverlayPages();
 
     if (menu === 'login')         __renderLoginControl(main, ctx);
@@ -136,19 +139,13 @@
     else if (menu === 'kandidat') __openOverlayMenu(main, 'openActiveCandidatesPage', '📊 Kandidat Aktif', 'kandidat');
     else if (menu === 'hasil')    __openOverlayMenu(main, 'openResultFilesPage', '📄 Hasil Tes Terkirim', 'hasil');
     else if (menu === 'psikogram-config') __openOverlayMenu(main, 'openPsikogramConfigPage', '📊 Psikogram Config', 'psikogram-config');
+    /* 🆕 Dispatch Grafis Config */
+    else if (menu === 'grafis-config') __openOverlayMenu(main, 'openGrafisConfigPage', '🎨 Grafis Config', 'grafis-config');
     else if (menu === 'asesor')   __openOverlayMenu(main, 'openAssessorSettingsPage', '👥 Kelola Asesor', 'asesor');
   }
 
   /* ============================================================
-     🆕 CLOSE ALL ADMIN OVERLAY PAGES
-     ------------------------------------------------------------
-     Overlay pages (Kandidat Aktif, Hasil Tes, Kelola Asesor)
-     dirender DI ATAS #adminMainContent dengan z-index tinggi.
-     Kalau user pindah menu tanpa menutup overlay, konten menu
-     baru render di BELAKANG overlay → user pikir tidak berubah.
-
-     Fungsi ini MEMASTIKAN overlay lama ditutup dulu sebelum
-     render menu baru (local page maupun overlay page).
+     CLOSE ALL ADMIN OVERLAY PAGES
      ============================================================ */
   function __closeAdminOverlayPages() {
     /* 1. Kandidat Aktif — pakai close handler agar listener cleanup */
@@ -179,6 +176,10 @@
     var pgcfg = document.getElementById('psikogramConfigOverlay');
     if (pgcfg) pgcfg.remove();
 
+    /* 🆕 3c. Grafis Config — tutup overlay */
+    var grcfg = document.getElementById('grafisConfigOverlay');
+    if (grcfg) grcfg.remove();
+
     /* 4. Nested overlays (folder kandidat, detail kandidat) */
     ['rfFolderOverlay', 'candidateDetailOverlay'].forEach(function (id) {
       var el = document.getElementById(id);
@@ -190,7 +191,7 @@
     if (main) main.innerHTML = '';
   }
 
-    function __openOverlayMenu(main, fnName, label, expectedMenu) {
+  function __openOverlayMenu(main, fnName, label, expectedMenu) {
     main.innerHTML = `
       <div class="asb-page">
         <div class="asb-page-header"><h1>${label}</h1></div>
@@ -203,8 +204,6 @@
         </div>
       </div>`;
     setTimeout(() => {
-      /* 🆕 GUARD: kalau user sudah pindah menu lain dalam 60ms,
-         jangan buka overlay basi */
       if (expectedMenu && __currentAdminMenu !== expectedMenu) return;
       if (typeof window[fnName] === 'function') window[fnName]();
     }, 60);
@@ -309,7 +308,7 @@
   }
 
   /* ============================================================
-     EVENT DELEGATION untuk .js-test-chat (di dalam sidebar)
+     EVENT DELEGATION untuk .js-test-chat
      ============================================================ */
   if (!window.__adminSidebarDelegationAttached) {
     window.__adminSidebarDelegationAttached = true;
