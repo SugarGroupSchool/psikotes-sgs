@@ -1,55 +1,18 @@
 /* ============================================================
-   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v9.0
+   js/00n-grafis-interpretasi.js — Form Interpretasi Grafis v9.1
    ------------------------------------------------------------
-   v9.0 [2026-10-02]
-   ♻️ REFACTOR: Scoring engine dipindah ke js/data/grafis-scoring.js
-   ✅ Single source of truth — dipakai juga oleh tests/grafis.js
-   ✅ Trace logging via GRAFIS_SCORING.enableTrace()
-   ✅ Hapus ~700 baris duplikasi engine
-   ✅ KATEGORI & DEVELOPMENT_KAMUS dari shared engine
-   
-   v8.3 [2026-10-02]
-   🎯 Position-aware scoring — interpretasi menyesuaikan posisi
-   🤖 Auto-scoring engine + conclusion generator presisi
-   🎨 Gambar referensi per item & sub-item — selalu tampil di kiri
+   v9.1 [2026-10-23]
+   🔥 REMOVE auto-scoring: fitScore, rataRata, perKategori.need/gap,
+      overallConfidence, posisiLabel — semua DIHAPUS.
+   ✨ NEW: Kategori dinamis per posisi (load dari Firebase
+      sgs_config/grafis_config/{position} atau GRAFIS_CONFIG)
+   ✅ Assessor isi SEMUA field secara manual: skor, narrative,
+      recommendation, conclusion, reasons, development.
+   ♻️ Legacy fallback: window.GRAFIS_SCORING.CONFIG.KATEGORI
    ============================================================ */
 
 (function () {
   'use strict';
-
-  /* ============================================================
-     🛡️ GUARD — Pastikan GRAFIS_SCORING sudah dimuat
-     ------------------------------------------------------------
-     Kalau belum siap, tunggu max 10 detik lalu tampilkan error
-     ============================================================ */
-  let __scoringReady = false;
-  let __scoringWaitCount = 0;
-
-  function __waitForScoring() {
-    return new Promise((resolve) => {
-      function check() {
-        if (window.GRAFIS_SCORING && window.GRAFIS_SCORING.hitungSkorKategori) {
-          __scoringReady = true;
-          console.log(
-            '[GRAFIS-INTERP] ✅ GRAFIS_SCORING v' + window.GRAFIS_SCORING.VERSION + ' terdeteksi'
-          );
-          resolve(true);
-          return;
-        }
-        __scoringWaitCount++;
-        if (__scoringWaitCount >= 20) {
-          console.error(
-            '[GRAFIS-INTERP] ❌ GRAFIS_SCORING tidak tersedia setelah 10s. ' +
-            'Pastikan js/data/grafis-scoring.js dimuat di index.html'
-          );
-          resolve(false);
-          return;
-        }
-        setTimeout(check, 500);
-      }
-      check();
-    });
-  }
 
   /* ============================================================
      HELPERS
@@ -91,7 +54,7 @@
   window.openGrafisInterpLink = function (candidateName, candidatePosition) {
     const base = window.location.origin + window.location.pathname;
     const iv = prompt('Masukkan Nama Assessor', 'DENI PRAGAS') || 'ADMIN';
-  const url = base + '?grafindo=1&iv=' + encodeURIComponent(iv)
+    const url = base + '?grafindo=1&iv=' + encodeURIComponent(iv)
       + '&n=' + encodeURIComponent(candidateName)
       + '&p=' + encodeURIComponent(candidatePosition || '');
 
@@ -193,26 +156,8 @@
   if (isGrafisMode) window.__GRAFIS_MODE_ACTIVE = true;
   if (!isGrafisMode) return;
 
-  /* ============================================================
-     KONFIGURASI LOKAL (UI only)
-     ============================================================ */
   const ADMIN_ASSESSOR = 'ADMIN';
 
-  /* ✅ KATEGORI diambil dari shared engine (GRAFIS_SCORING.CONFIG.KATEGORI)
-     Fallback lokal kalau engine belum load — tetap bisa render UI */
-  const KATEGORI = (window.GRAFIS_SCORING && window.GRAFIS_SCORING.CONFIG)
-    ? window.GRAFIS_SCORING.CONFIG.KATEGORI
-    : [
-        'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
-        'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
-        'STABILITAS EMOSI & KONTROL IMPULS',
-        'MOTIVATION & ACHIEVEMENT DRIVE',
-        'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
-        'INTEGRITY & RULE COMPLIANCE',
-        'TEACHING CREATIVITY'
-      ];
-
-  /* RECOMMENDATION_OPTIONS — UI only (label + warna untuk PDF & badge) */
   const RECOMMENDATION_OPTIONS = [
     { value: 'HIGHLY_RECOMMENDED', label: '🌟 HIGHLY RECOMMENDED',                                  color: [22, 101, 52] },
     { value: 'RECOMMENDED',        label: '✅ RECOMMENDED',                                          color: [22, 163, 74] },
@@ -220,24 +165,10 @@
     { value: 'NOT_RECOMMENDED',    label: '❌ NOT RECOMMENDED',                                      color: [220, 38, 38]  }
   ];
 
-  /* ============================================================
-     ⚠️ SEMUA KODE SCORING (POSITION_PROFILES, SCORING_*,
-     hitungSkorKategori, generateKesimpulan, computePositionFit,
-     detectPositionProfile, SCORING_INTERPRETATION) DIPINDAH KE:
-     
-     ➡️  js/data/grafis-scoring.js  (GRAFIS_SCORING v9.0)
-     
-     Akses via:
-       window.GRAFIS_SCORING.hitungSkorKategori(selectedItems)
-       window.GRAFIS_SCORING.generateKesimpulan(scoring, identity)
-       window.GRAFIS_SCORING.DEVELOPMENT_KAMUS
-       window.GRAFIS_SCORING.CONFIG.KATEGORI
-     ============================================================ */
-
   const candidateName     = urlObj.searchParams.get('n') || '(tanpa nama)';
   const candidatePosition = urlObj.searchParams.get('p') || '';
 
-  console.log('[GRAFIS-INTERP] v9.0 —', { candidateName, candidatePosition });
+  console.log('[GRAFIS-INTERP] v9.1 —', { candidateName, candidatePosition });
 
   /* ============================================================
      TOAST SYSTEM
@@ -361,23 +292,26 @@
       htp:  defaultImageState()
     },
     currentStep: { dap: 0, baum: 0, htp: 0 },
-    categories: KATEGORI.map(name => ({ name, score: '', narrative: '' })),
+    categories: [],
     conclusion: '',
     recommendation: '',
     reasons: '',
     development: '',
     compactMode: false,
     gridOverlay: false,
-    searchQuery: '',
-    autoScoring: null,
-    autoKesimpulan: null
+    searchQuery: ''
   };
+
+  let __draftCategories = null;
 
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
-      ['selectedItems','candidateImages','currentStep','categories',
+
+      if (Array.isArray(draft.categories)) __draftCategories = draft.categories;
+
+      ['selectedItems','candidateImages','currentStep',
        'conclusion','recommendation','reasons','development'].forEach(k => {
         if (draft[k] !== undefined) state[k] = Object.assign(state[k], draft[k]);
       });
@@ -950,8 +884,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       style="max-width: 100%; max-height: 100%;
         transform: rotate(${imgState.rotate}deg)
                    scale(${imgState.flipH ? -1 : 1}, ${imgState.flipV ? -1 : 1});
-        filter: ${filters.join(' ')};
-        border-radius: 8px;
+        filter: ${filters.join(' ')}; border-radius: 8px;
         box-shadow: 0 30px 90px rgba(0,0,0,.7);">`;
     lb.onclick = () => lb.remove();
     document.body.appendChild(lb);
@@ -1013,7 +946,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               line-height: 1.5; flex: 0 0 auto;">
               <div style="font-weight: 800; color: #6d28d9; letter-spacing: 1px;">CONFIDENTIAL</div>
               <div>Sangat Rahasia</div>
-              <div style="margin-top: 4px; font-size: 9px; color: #c4b5fd;">v9.0</div>
+              <div style="margin-top: 4px; font-size: 9px; color: #c4b5fd;">v9.1</div>
             </div>
           </div>
         </div>
@@ -1111,7 +1044,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               📊 KESIMPULAN PER KATEGORI
             </div>
             <div style="font-size: 12px; color: #64748b; margin-bottom: 18px; line-height: 1.6;">
-              Klik <b>🤖 Hitung Skor Otomatis</b> di bawah untuk mengisi skor & narasi otomatis, atau isi manual.
+              Isi skor <b>1–4</b> dan narasi/keterangan untuk setiap kategori di bawah ini.
             </div>
             <div id="category-list"></div>
           </div>
@@ -1122,7 +1055,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               📝 KESIMPULAN KESELURUHAN
             </div>
             <textarea id="giConclusion" rows="6"
-              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
+              placeholder="Tulis kesimpulan keseluruhan berdasarkan analisis manual..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fcd34d;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
@@ -1151,7 +1084,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               📌 ALASAN REKOMENDASI
             </div>
             <textarea id="giReasons" rows="5"
-              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
+              placeholder="Tulis alasan rekomendasi..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #fca5a5;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
@@ -1164,22 +1097,12 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
               🚀 REKOMENDASI PENGEMBANGAN
             </div>
             <textarea id="giDevelopment" rows="5"
-              placeholder="Klik 'Hitung Skor Otomatis' untuk generate, atau tulis manual..."
+              placeholder="Tulis saran pengembangan..."
               style="width: 100%; padding: 14px 16px; border: 2px solid #c4b5fd;
                 border-radius: 12px; font-size: 14.5px; font-family: inherit;
                 resize: vertical; outline: none; box-sizing: border-box;
                 line-height: 1.6; min-height: 110px;">${escapeHtml(state.development)}</textarea>
           </div>
-
-          <button type="button" id="giAutoScoreBtn"
-            style="width: 100%; padding: 15px; margin-bottom: 12px;
-              border: 2px solid #10b981; border-radius: 14px;
-              background: linear-gradient(135deg, #d1fae5, #ecfdf5);
-              color: #065f46; font-size: 15px; font-weight: 900; font-family: inherit;
-              cursor: pointer; box-shadow: 0 4px 14px rgba(16,185,129,.18);
-              display: flex; align-items: center; justify-content: center; gap: 8px;">
-            🤖 Hitung Skor Otomatis
-          </button>
 
           <button type="button" id="giSubmitBtn"
             style="width: 100%; padding: 16px; border: 0; border-radius: 14px;
@@ -1219,313 +1142,10 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (rec) rec.addEventListener('change', (e) => {
       state.recommendation = e.target.value;
       saveDraft();
-      if (state.autoKesimpulan) {
-        const autoValue = (() => {
-          const fs = state.autoKesimpulan.fitScore;
-          const hasPri = state.autoKesimpulan.fitData?.priorityIssues?.length > 0;
-          const lowCnt = state.autoKesimpulan.fitData?.notFitCount || 0;
-          if (fs >= 85 && !hasPri && lowCnt <= 1) return 'HIGHLY_RECOMMENDED';
-          if (fs >= 70 && !hasPri) return 'RECOMMENDED';
-          if (fs >= 50) return 'FAIRLY_RECOMMENDED';
-          return 'NOT_RECOMMENDED';
-        })();
-        state.recommendationOverridden = (e.target.value !== autoValue);
-      }
     });
 
     const submit = document.getElementById('giSubmitBtn');
     if (submit) submit.addEventListener('click', handleSubmit);
-
-    const autoBtn = document.getElementById('giAutoScoreBtn');
-    if (autoBtn) autoBtn.addEventListener('click', () => __runAutoScoring(true, true));
-  }
-
-  /* ============================================================
-     🔥 RUN AUTO SCORING (v9.0 — pakai shared engine)
-     ------------------------------------------------------------
-     @param {boolean} showToastMsg - tampilkan toast feedback
-     @param {boolean} forceOverride - paksa overwrite semua field
-       • true  → klik manual tombol 🤖 (overwrite semua)
-       • false → auto-run dari handleSubmit (hanya isi kosong)
-     ============================================================ */
-  function __runAutoScoring(showToastMsg, forceOverride) {
-    /* ============================================================
-       🛡️ GUARD — Pastikan shared engine tersedia
-       ============================================================ */
-    if (!window.GRAFIS_SCORING || !window.GRAFIS_SCORING.hitungSkorKategori) {
-      if (showToastMsg) {
-        toast('⚠️ Scoring engine belum siap. Refresh halaman.', 'error');
-      }
-      console.error('[GRAFIS-INTERP] GRAFIS_SCORING tidak tersedia');
-      return null;
-    }
-
-    const totalItems = countSelectedItems('dap') + countSelectedItems('baum') + countSelectedItems('htp');
-    if (totalItems === 0) {
-      if (showToastMsg) toast('Pilih minimal 1 item di DAP/BAUM/HTP terlebih dahulu', 'warn');
-      return null;
-    }
-
-    /* ============================================================
-       ♻️ GUNAKAN SHARED ENGINE — GRAFIS_SCORING v9.0
-       ============================================================ */
-    const tStart = performance.now();
-
-    /* Enable trace untuk audit */
-    try { window.GRAFIS_SCORING.enableTrace(); } catch (e) {}
-
-    const scoring = window.GRAFIS_SCORING.hitungSkorKategori(state.selectedItems);
-    const kesimpulan = window.GRAFIS_SCORING.generateKesimpulan(scoring, {
-      name: candidateName,
-      position: candidatePosition
-    });
-
-    const tElapsed = (performance.now() - tStart).toFixed(1);
-
-    state.autoScoring = scoring;
-    state.autoKesimpulan = kesimpulan;
-
-    /* ============================================================
-       📊 TRACE LOG (untuk debug & audit)
-       ============================================================ */
-    try {
-      const trace = window.GRAFIS_SCORING.dumpTrace();
-      console.group('[GRAFIS-INTERP] 🤖 Auto-Scoring v' + window.GRAFIS_SCORING.VERSION);
-      console.log('Elapsed:', tElapsed + 'ms');
-      console.log('Total trace entries:', trace.length);
-      console.log('Fit score:', kesimpulan.fitScore, '/ 100');
-      console.log('Overall label:', kesimpulan.overallLabel);
-      console.log('Kategori terukur:', kesimpulan.kategoriValidCount, 'dari', KATEGORI.length);
-      console.log('Total bobot:', kesimpulan.totalBobot);
-      if (trace.length > 0 && trace.length < 200) {
-        console.table(trace.map(t => ({
-          type: t.type,
-          item: t.payload?.itemId || '-',
-          kat: (t.payload?.kategori || []).join(',').slice(0, 30),
-          pol: t.payload?.polaritas || '-',
-          bobot: t.payload?.bobot || '-',
-          rf: t.payload?.redFlag ? '⚠️' : ''
-        })));
-      } else {
-        console.log('Trace entries:', trace);
-      }
-      console.groupEnd();
-      window.GRAFIS_SCORING.disableTrace();
-    } catch (e) {
-      console.warn('[GRAFIS-INTERP] Trace dump error:', e.message);
-    }
-
-    /* ============================================================
-       🎯 SKOR & NARASI DETAIL PER KATEGORI
-       ============================================================ */
-    const narasiMap = {};
-    (kesimpulan.perKategoriNarasi || []).forEach(pn => {
-      narasiMap[pn.kategori] = pn.narasi;
-    });
-
-    state.categories.forEach(cat => {
-      const k = scoring[cat.name];
-      if (!k || k.status === 'NO_DATA') return;
-
-      cat.score = Math.max(1, Math.min(4, Math.round(k.skor)));
-
-      const narasiKosong = !cat.narrative || cat.narrative.trim() === '';
-      if (forceOverride || narasiKosong) {
-        const detail = narasiMap[cat.name];
-        if (detail) {
-          cat.narrative = detail;
-        } else {
-          const parts = [];
-          parts.push(`Skor otomatis: ${k.skor.toFixed(2)} / 4.00 (${k.status}).`);
-          if (k.itemsPos.length > 0) {
-            parts.push(`Indikator positif (${k.itemsPos.length}): ${k.itemsPos.slice(0,3).map(x=>x.label).join('; ')}.`);
-          }
-          if (k.itemsNeg.length > 0) {
-            parts.push(`Indikator negatif (${k.itemsNeg.length}): ${k.itemsNeg.slice(0,3).map(x=>x.label).join('; ')}.`);
-          }
-          cat.narrative = parts.join(' ');
-        }
-      }
-    });
-
-    /* ============================================================
-       📝 KESIMPULAN KESELURUHAN
-       ============================================================ */
-    const concKosong = !state.conclusion || state.conclusion.trim() === '';
-    if (forceOverride || concKosong) {
-      state.conclusion = kesimpulan.text;
-    }
-
-    /* ============================================================
-       ⭐ TINGKAT REKOMENDASI — SELALU OTOMATIS
-       ============================================================ */
-    const autoRecValue = kesimpulan.overallLabel
-      .replace('HIGHLY RECOMMENDED', 'HIGHLY_RECOMMENDED')
-      .replace('RECOMMENDED', 'RECOMMENDED')
-      .replace('FAIRLY RECOMMENDED', 'FAIRLY_RECOMMENDED')
-      .replace('NOT RECOMMENDED', 'NOT_RECOMMENDED');
-
-    let autoRecShort;
-    if (autoRecValue === 'HIGHLY_RECOMMENDED')      autoRecShort = 'Highly Recommended';
-    else if (autoRecValue === 'RECOMMENDED')         autoRecShort = 'Recommended';
-    else if (autoRecValue === 'FAIRLY_RECOMMENDED')  autoRecShort = 'Fairly Recommended';
-    else                                             autoRecShort = 'Not Recommended';
-
-    state.recommendation = autoRecValue;
-
-    /* ============================================================
-       📌 ALASAN REKOMENDASI (POSITION-AWARE)
-       ============================================================ */
-    const reasonsKosong = !state.reasons || state.reasons.trim() === '';
-    if (forceOverride || reasonsKosong) {
-      const f = kesimpulan.fitData;
-      const profile = f.profile;
-      const parts = [];
-
-      parts.push(
-        `Berdasarkan analisis checklist indikator visual DAP/BAUM/HTP, kandidat untuk posisi ` +
-        `"${candidatePosition || '-'}" (kategori: ${profile.label}) memperoleh skor rata-rata ` +
-        `${kesimpulan.rataRata.toFixed(2)} / 4.00 dengan skor kecocokan posisi ${kesimpulan.fitScore}/100 ` +
-        `dan tingkat keyakinan data ${kesimpulan.overallConfidence} ` +
-        `(total bobot ${kesimpulan.totalBobot}, ${kesimpulan.kategoriValidCount} dari ${KATEGORI.length} kategori terukur).`
-      );
-
-      parts.push(
-        `Dari ${KATEGORI.length} kategori yang dinilai: ${f.fitCount} MEMENUHI kebutuhan posisi, ` +
-        `${f.partialCount} HAMPIR memenuhi, dan ${f.notFitCount} KURANG memenuhi.`
-      );
-
-      const strengths = kesimpulan.strengths.map(s => s.kategori).slice(0, 3);
-      if (strengths.length > 0) {
-        parts.push(
-          `Kekuatan utama kandidat teridentifikasi pada: ${strengths.join(', ')}. ` +
-          `Area ini menjadi modal utama kandidat dalam menjalankan tugas posisi.`
-        );
-      } else {
-        parts.push('Belum ada kekuatan dominan yang muncul dari checklist (butuh minimal 2 indikator positif per kategori).');
-      }
-
-      const weaknesses = kesimpulan.weaknesses.map(w => w.kategori).slice(0, 3);
-      if (weaknesses.length > 0) {
-        parts.push(
-          `Area yang perlu perhatian: ${weaknesses.join(', ')}. ` +
-          `Disarankan pendampingan atau pelatihan pada area-area tersebut.`
-        );
-      }
-
-      if (f.priorityIssues.length > 0) {
-        parts.push(
-          `⚡ KATEGORI PRIORITAS yang belum memenuhi: ${f.priorityIssues.join(', ')}. ` +
-          `Kategori prioritas adalah aspek yang paling kritis untuk posisi ini — ` +
-          `diperlukan penelaahan lebih dalam sebelum keputusan final.`
-        );
-      }
-
-      if (kesimpulan.allRedFlags.length > 0) {
-        const flagCount = kesimpulan.allRedFlags.reduce((s, rf) => s + rf.items.length, 0);
-        parts.push(
-          `⚠️ Terdapat ${flagCount} indikator kritis (red flag) pada ` +
-          `${kesimpulan.allRedFlags.length} kategori, memerlukan wawancara klinis ` +
-          `dan/atau asesmen tambahan oleh psikolog sebelum keputusan final.`
-        );
-      }
-
-      parts.push(
-        `Dengan demikian, tingkat rekomendasi untuk posisi ini adalah: ${autoRecShort}. ` +
-        `Skor kecocokan posisi ${kesimpulan.fitScore}/100 mencerminkan seberapa besar ` +
-        `profil grafis kandidat selaras dengan kebutuhan spesifik posisi ${profile.label}.`
-      );
-
-      state.reasons = parts.join(' ');
-    }
-
-    /* ============================================================
-       🚀 REKOMENDASI PENGEMBANGAN (POSITION-AWARE)
-       ============================================================ */
-    const devKosong = !state.development || state.development.trim() === '';
-    if (forceOverride || devKosong) {
-      const f = kesimpulan.fitData;
-
-      const devKategori = f.perKategori
-        .filter(x => x.status === 'KURANG' || x.status === 'HAMPIR')
-        .sort((a, b) => {
-          if (a.isPriority !== b.isPriority) return a.isPriority ? -1 : 1;
-          return a.gap - b.gap;
-        });
-
-      const devList = [];
-
-      /* ✅ DEVELOPMENT_KAMUS dari shared engine */
-      const DEV_KAMUS = (window.GRAFIS_SCORING && window.GRAFIS_SCORING.DEVELOPMENT_KAMUS) || {};
-
-      devKategori.forEach(x => {
-        const dev = DEV_KAMUS[x.kategori];
-        if (!dev) return;
-        const priorityTag = x.isPriority ? '⚡ PRIORITAS POSISI — ' : '';
-        devList.push(
-          `▶ ${x.kategori}\n` +
-          `   Skor ${x.skor.toFixed(2)} vs kebutuhan ${x.need.toFixed(2)} (gap ${x.gap.toFixed(2)}).\n` +
-          `   ${priorityTag}${dev}`
-        );
-      });
-
-      if (devList.length > 0) {
-        state.development =
-          `REKOMENDASI PENGEMBANGAN UNTUK POSISI: ${f.profile.label}\n\n` +
-          devList.join('\n\n');
-      } else if (kesimpulan.fitScore >= 85) {
-        state.development =
-          `Kandidat menunjukkan profil grafis yang sangat selaras dengan kebutuhan posisi ${f.profile.label}.\n\n` +
-          `Rekomendasi:\n` +
-          `1. Pertahankan konsistensi perilaku & kompetensi yang sudah baik.\n` +
-          `2. Berikan tanggung jawab yang menantang untuk memperkuat area kekuatan.\n` +
-          `3. Dorong untuk menjadi mentor / role model bagi rekan sejawat.\n` +
-          `4. Lakukan evaluasi berkala (3-6 bulan) untuk memantau konsistensi.`;
-      } else {
-        state.development =
-          `Tidak ada area pengembangan spesifik yang teridentifikasi dari checklist untuk posisi ${f.profile.label}.\n\n` +
-          `Rekomendasi umum:\n` +
-          `1. Perkuat kompetensi umum sesuai kebutuhan posisi.\n` +
-          `2. Lakukan evaluasi berkala.\n` +
-          `3. Sesuaikan pengembangan dengan kebutuhan spesifik tim/divisi.`;
-      }
-    }
-
-    saveDraft();
-    renderCategories();
-
-    /* ============================================================
-       🎨 UPDATE UI
-       ============================================================ */
-    const concEl = document.getElementById('giConclusion');
-    if (concEl) concEl.value = state.conclusion;
-
-    const recEl = document.getElementById('giRecommendation');
-    if (recEl) {
-      recEl.value = state.recommendation;
-      recEl.style.transition = 'background .35s ease, border-color .35s ease';
-      recEl.style.background = '#ecfdf5';
-      recEl.style.borderColor = '#10b981';
-      setTimeout(() => {
-        recEl.style.background = '#fff';
-        recEl.style.borderColor = '#7dd3fc';
-      }, 1200);
-    }
-
-    const reasonsEl = document.getElementById('giReasons');
-    if (reasonsEl) reasonsEl.value = state.reasons;
-
-    const devEl = document.getElementById('giDevelopment');
-    if (devEl) devEl.value = state.development;
-
-    if (showToastMsg) {
-      toast(
-        `Skor ${kesimpulan.rataRata.toFixed(2)}/4 · Fit ${kesimpulan.fitScore}/100 → ${autoRecShort}`,
-        'success'
-      );
-    }
-
-    return kesimpulan;
   }
 
   /* ============================================================
@@ -1727,11 +1347,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
 
     root.innerHTML = `
       <style>
-        @keyframes pulse-red {
-          0%, 100% { opacity: 1; }
-          50%      { opacity: .65; }
-        }
-
         .gi-page { display: flex; flex-direction: column;
           height: calc(100vh - 40px); max-width: 1600px; margin: 0 auto; gap: 8px; }
 
@@ -1788,52 +1403,31 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           background: rgba(239,68,68,.75); transform: translateX(-1px); }
 
         .gi-img-hint {
-          position: absolute;
-          left: 50%;
-          bottom: 8px;
+          position: absolute; left: 50%; bottom: 8px;
           transform: translateX(-50%);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          flex-wrap: wrap;
-          justify-content: center;
+          display: flex; align-items: center; gap: 6px;
+          flex-wrap: wrap; justify-content: center;
           padding: 6px 12px;
           background: rgba(15,23,42,.72);
           border-radius: 999px;
           font-family: Inter, system-ui, sans-serif;
-          font-size: 10.5px;
-          font-weight: 700;
-          color: #e2e8f0;
-          pointer-events: none;
-          z-index: 4;
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
+          font-size: 10.5px; font-weight: 700;
+          color: #e2e8f0; pointer-events: none; z-index: 4;
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
           box-shadow: 0 6px 18px rgba(0,0,0,.35);
-          max-width: calc(100% - 20px);
-          white-space: nowrap;
+          max-width: calc(100% - 20px); white-space: nowrap;
         }
         .gi-img-hint .gi-kbd {
-          display: inline-block;
-          padding: 1px 6px;
-          font-family: monospace;
-          font-size: 10px;
+          display: inline-block; padding: 1px 6px;
+          font-family: monospace; font-size: 10px;
           background: rgba(255,255,255,.14);
           border: 1px solid rgba(255,255,255,.22);
-          border-radius: 4px;
-          color: #fff;
-          font-weight: 800;
+          border-radius: 4px; color: #fff; font-weight: 800;
         }
-        .gi-img-hint .gi-hint-dot {
-          opacity: .45;
-          font-weight: 900;
-        }
+        .gi-img-hint .gi-hint-dot { opacity: .45; font-weight: 900; }
 
         @media (max-width: 600px) {
-          .gi-img-hint {
-            font-size: 9.5px;
-            padding: 5px 10px;
-            gap: 4px;
-          }
+          .gi-img-hint { font-size: 9.5px; padding: 5px 10px; gap: 4px; }
         }
 
         .gi-toolbar { flex-shrink: 0; display: flex; flex-direction: column;
@@ -1939,7 +1533,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 9.5px; font-weight: 800; letter-spacing: 1.5px;
               color: ${theme.primary}; margin-bottom: 2px;">
-              INTERPRETASI OTOMATIS · v9.0
+              INTERPRETASI OTOMATIS · v9.1
             </div>
             <div style="font-size: 15px; font-weight: 900; color: #1e293b;">
               ${escapeHtml(data.title)}
@@ -1947,7 +1541,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           </div>
           <div style="font-size: 10px; color: #94a3b8; font-weight: 700;
             text-align: right; line-height: 1.4;">
-            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v9.0</div>
+            <div style="font-weight: 800; color: ${theme.primary}; letter-spacing: 1px;">v9.1</div>
           </div>
         </div>
 
@@ -2196,14 +1790,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
           const oldVal = state.selectedItems[testKey][sectionId];
           if (oldVal && oldVal !== itemId) clearSubItems(oldVal);
           state.selectedItems[testKey][sectionId] = itemId;
-               } else {
+        } else {
           let arr = state.selectedItems[testKey][sectionId];
           if (!Array.isArray(arr)) arr = [];
           const idx = arr.indexOf(itemId);
           if (idx >= 0) { arr.splice(idx, 1); clearSubItems(itemId); }
           else arr.push(itemId);
 
-          /* 🔥 FIX: pakai delete, jangan set undefined */
           if (arr.length > 0) {
             state.selectedItems[testKey][sectionId] = arr;
           } else {
@@ -2356,77 +1949,17 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     KATEGORI
+     KATEGORI — v9.1: manual only, NO auto-scoring badges
      ============================================================ */
   function renderCategories() {
     const container = document.getElementById('category-list');
     if (!container) return;
 
-    const auto = state.autoScoring || null;
-    const fit = state.autoKesimpulan?.fitData || null;
-
     container.innerHTML = state.categories.map((cat, idx) => {
-      const autoData = auto ? auto[cat.name] : null;
-      const fitData = fit ? fit.perKategori.find(f => f.kategori === cat.name) : null;
-      const hasAuto = autoData && autoData.status !== 'NO_DATA';
-
-      let badgeHTML = '';
-      if (hasAuto) {
-        const statusColors = {
-          'SANGAT_BAIK': { bg: '#dcfce7', br: '#86efac', txt: '#166534', label: 'Sangat Baik' },
-          'BAIK':        { bg: '#dbeafe', br: '#93c5fd', txt: '#1e40af', label: 'Baik' },
-          'CUKUP':       { bg: '#fef3c7', br: '#fde68a', txt: '#92400e', label: 'Cukup' },
-          'PERHATIAN':   { bg: '#fee2e2', br: '#fca5a5', txt: '#991b1b', label: 'Perlu Perhatian' }
-        };
-        const sc = statusColors[autoData.status] || statusColors['CUKUP'];
-
-        let fitBadge = '';
-        if (fitData && fitData.status !== 'NO_DATA') {
-          const fitColors = {
-            'MEMENUHI': { bg: '#dcfce7', br: '#86efac', txt: '#166534', label: '✓ Memenuhi' },
-            'HAMPIR':   { bg: '#fef3c7', br: '#fde68a', txt: '#92400e', label: '≈ Hampir' },
-            'KURANG':   { bg: '#fee2e2', br: '#fca5a5', txt: '#991b1b', label: '✗ Kurang' }
-          };
-          const fc = fitColors[fitData.status];
-          const prioTag = fitData.isPriority ? ' ⚡' : '';
-          fitBadge = `
-            <span style="padding: 4px 10px; border-radius: 999px;
-              background: ${fc.bg}; border: 1px solid ${fc.br}; color: ${fc.txt};
-              font-size: 10.5px; font-weight: 800; white-space: nowrap;">
-              ${fc.label}${prioTag} (need ${fitData.need.toFixed(2)}, gap ${fitData.gap >= 0 ? '+' : ''}${fitData.gap.toFixed(2)})
-            </span>
-          `;
-        }
-
-        badgeHTML = `
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span style="padding: 4px 10px; border-radius: 999px;
-              background: ${sc.bg}; border: 1px solid ${sc.br}; color: ${sc.txt};
-              font-size: 10.5px; font-weight: 800; white-space: nowrap;">
-              🤖 ${autoData.skor.toFixed(2)} / 4.00 · ${sc.label}
-            </span>
-            <span style="padding: 4px 10px; border-radius: 999px;
-              background: #f1f5f9; border: 1px solid #cbd5e1; color: #475569;
-              font-size: 10px; font-weight: 700; white-space: nowrap;">
-              +${autoData.nPos} / −${autoData.nNeg}
-            </span>
-            ${fitBadge}
-            ${autoData.redFlags.length > 0 ? `
-              <span style="padding: 4px 10px; border-radius: 999px;
-                background: #7f1d1d; color: #fff;
-                font-size: 10px; font-weight: 800; white-space: nowrap;
-                animation: pulse-red 1.4s ease-in-out infinite;">
-                ⚠️ ${autoData.redFlags.length} red flag
-              </span>
-            ` : ''}
-          </div>
-        `;
-      }
-
       return `
         <div class="gi-category" data-idx="${idx}"
           style="margin-bottom: 14px; padding: 16px 18px; background: #fff;
-            border: 1.5px solid ${hasAuto ? '#c7d2fe' : '#e2e8f0'}; border-radius: 12px;">
+            border: 1.5px solid #e2e8f0; border-radius: 12px;">
           <div style="display: flex; align-items: center; gap: 12px;
             margin-bottom: 10px; flex-wrap: wrap;">
             <div style="width: 34px; height: 34px; flex: 0 0 34px;
@@ -2438,6 +1971,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             <div style="flex: 1; min-width: 200px; font-size: 13px;
               font-weight: 900; color: #1e293b; line-height: 1.4;">
               ${escapeHtml(cat.name)}
+              ${cat.description ? `<div style="font-size: 11px; font-weight: 500; color: #64748b; margin-top: 2px;">${escapeHtml(cat.description)}</div>` : ''}
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
               <span style="font-size: 11px; font-weight: 800; color: #64748b;">SKOR:</span>
@@ -2454,15 +1988,13 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
             </div>
           </div>
 
-          ${hasAuto ? `<div style="margin-bottom: 10px;">${badgeHTML}</div>` : ''}
-
           <textarea class="gi-cat-narrative" data-idx="${idx}" rows="4"
             placeholder="Tulis narasi analisis untuk kategori ini..."
             style="width: 100%; padding: 12px 14px;
-              border: 2px solid ${hasAuto ? '#c7d2fe' : '#e2e8f0'}; border-radius: 10px;
+              border: 2px solid #e2e8f0; border-radius: 10px;
               font-family: inherit; font-size: 13.5px; line-height: 1.6;
               outline: none; resize: vertical; box-sizing: border-box;
-              background: ${hasAuto ? '#f5f3ff' : '#fff'};"
+              background: #fff;"
           >${escapeHtml(cat.narrative)}</textarea>
         </div>
       `;
@@ -2496,8 +2028,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (dapCount + baumCount + htpCount === 0) {
       toast('Pilih minimal 1 item di DAP/BAUM/HTP', 'error'); return;
     }
-
-    __runAutoScoring(false);
 
     const concEl = document.getElementById('giConclusion');
     if (concEl) state.conclusion = (concEl.value || '').trim();
@@ -2544,8 +2074,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     🔥 SANITIZE — hapus semua undefined/null dari object
-     Firebase Realtime DB tidak menerima undefined sebagai value
+     SANITIZE — hapus semua undefined/null dari object
      ============================================================ */
   function __sanitizeForFirebase(obj) {
     if (obj === null || obj === undefined) return null;
@@ -2575,11 +2104,17 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const slug = candidateSlug(candidateName);
     const recLabel = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation)?.label || '-';
 
-    const autoScoring = state.autoScoring || null;
-    const autoKesimpulan = state.autoKesimpulan || null;
-
-    /* 🔥 FIX: sanitize selectedItems sebelum kirim */
     const cleanSelectedItems = __sanitizeForFirebase(state.selectedItems) || { dap: {}, baum: {}, htp: {} };
+
+    const dapText  = generateAutoText('dap');
+    const baumText = generateAutoText('baum');
+    const htpText  = generateAutoText('htp');
+
+    const cleanCategories = state.categories.map(c => ({
+      name: String(c.name || '').trim(),
+      score: c.score !== '' && c.score != null ? Number(c.score) : null,
+      narrative: String(c.narrative || '').trim()
+    }));
 
     await firebase.database()
       .ref('sgs_grafis_interp/' + slug + '/' + ADMIN_ASSESSOR)
@@ -2588,43 +2123,22 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
         candidatePosition,
         assessor: ADMIN_ASSESSOR,
         selectedItems: cleanSelectedItems,
-        dapText: generateAutoText('dap'),
-        baumText: generateAutoText('baum'),
-        htpText: generateAutoText('htp'),
-        categories: state.categories,
+        dapText,
+        baumText,
+        htpText,
+        categories: cleanCategories,
         conclusion: state.conclusion,
         recommendation: state.recommendation,
         recommendationLabel: recLabel,
         reasons: state.reasons,
         development: state.development,
-
-        /* ✅ Sertakan versi engine untuk audit */
-        scoringEngineVersion: (window.GRAFIS_SCORING && window.GRAFIS_SCORING.VERSION) || 'unknown',
-
-        autoScoring: autoScoring ? {
-          rataRata: autoKesimpulan?.rataRata || 0,
-          overallLabel: autoKesimpulan?.overallLabel || '-',
-          overallConfidence: autoKesimpulan?.overallConfidence || '-',
-          totalBobot: autoKesimpulan?.totalBobot || 0,
-          posisiLabel: autoKesimpulan?.posisiLabel || '-',
-          fitScore: autoKesimpulan?.fitScore || 0,
-          perKategori: autoKesimpulan?.fitData?.perKategori?.map(f => ({
-            kategori: f.kategori,
-            skor: f.skor !== null ? Number(f.skor.toFixed(2)) : null,
-            need: f.need,
-            gap: f.gap !== null ? Number(f.gap.toFixed(2)) : null,
-            status: f.status,
-            isPriority: f.isPriority
-          })) || []
-        } : null,
-
         ts: firebase.database.ServerValue.TIMESTAMP
       });
-    console.log('[GRAFIS-INTERP] ✅ Saved (v9.0 — shared engine)');
+    console.log('[GRAFIS-INTERP] ✅ Saved (v9.1 — manual assessment, no auto-scoring)');
   }
 
   /* ============================================================
-     PDF HELPERS — Justify manual (jsPDF tidak reliable)
+     PDF HELPERS — Justify manual
      ============================================================ */
   function __pdfJustifyLine(doc, line, x, y, maxWidth, fontSize) {
     const words = line.trim().split(/\s+/);
@@ -2644,7 +2158,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
-     GENERATE PDF — Compact & Justified
+     GENERATE PDF — v9.1: no engine, no auto suffix
      ============================================================ */
   async function generatePDF() {
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF belum siap');
@@ -2702,7 +2216,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const infoRows = [
       ['Nama Kandidat', cleanForPDF(candidateName)],
       ['Posisi Dilamar', cleanForPDF(candidatePosition) || '-'],
-      ['Kategori Posisi', cleanForPDF(state.autoKesimpulan?.posisiLabel || '-')],
       ['Assessor', ADMIN_ASSESSOR],
       ['Tanggal', cleanForPDF(tanggal)]
     ];
@@ -2760,11 +2273,7 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       if (y > pageH - 25) { doc.addPage(); y = 15; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
 
-      const autoData = state.autoScoring ? state.autoScoring[cat.name] : null;
-      const autoSuffix = (autoData && autoData.status !== 'NO_DATA')
-        ? ` [auto: ${autoData.skor.toFixed(2)}/4, +${autoData.nPos}/-${autoData.nNeg}]`
-        : '';
-      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} - SKOR: ${cat.score}/4${autoSuffix}`;
+      const titleLine = `${idx + 1}. ${cleanForPDF(cat.name)} - SKOR: ${cat.score}/4`;
       const titleWrap = doc.splitTextToSize(titleLine, CONTENT_W);
       titleWrap.forEach(t => {
         if (y > pageH - 15) { doc.addPage(); y = 15; }
@@ -2816,13 +2325,11 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
     doc.text('(Admin)', pageW - 55, y + 3.5);
 
-    /* Footer: engine version */
     try {
       doc.setFontSize(6);
       doc.setTextColor(150);
-      const engineVer = (window.GRAFIS_SCORING && window.GRAFIS_SCORING.VERSION) || 'unknown';
       doc.text(
-        `Generated by GRAFIS_SCORING v${engineVer} — ${new Date().toLocaleString('id-ID')}`,
+        `Generated: ${new Date().toLocaleString('id-ID')}`,
         MARGIN, pageH - 6
       );
       doc.setTextColor(0);
@@ -2898,7 +2405,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     const recOpt = RECOMMENDATION_OPTIONS.find(o => o.value === state.recommendation);
     const recLabel = recOpt ? recOpt.label : '-';
     const recColor = recOpt ? recOpt.color : [0, 0, 0];
-    const engineVer = (window.GRAFIS_SCORING && window.GRAFIS_SCORING.VERSION) || '-';
 
     document.body.innerHTML = `
       <div style="position: fixed; inset: 0; z-index: 2147483647;
@@ -2930,9 +2436,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
                 ${escapeHtml(recLabel)}
               </div>
             </div>
-            <div style="margin-top: 8px; font-size: 10.5px; color: #4b7a5a;">
-              Engine: GRAFIS_SCORING v${engineVer}
-            </div>
           </div>
           <button onclick="window.close()" style="margin-top: 22px; width: 100%; padding: 14px;
             background: linear-gradient(135deg, #6d28d9, #a855f7);
@@ -2946,6 +2449,79 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
   }
 
   /* ============================================================
+     LOAD GRAFIS CATEGORIES — 5-level fallback
+     ============================================================ */
+  async function __loadGrafisCategories(position) {
+    const posKey = (typeof window.__resolveGrafisPosition === 'function')
+      ? window.__resolveGrafisPosition(position)
+      : 'default';
+
+    /* Level 1: Firebase */
+    try {
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+        const snap = await firebase.database()
+          .ref('sgs_config/grafis_config/' + posKey).once('value');
+        const data = snap.val();
+        if (data && Array.isArray(data.aspects) && data.aspects.length > 0) {
+          console.log('[GRAFIS-INTERP] ✅ Config loaded from Firebase (' + posKey + ')');
+          return data.aspects
+            .map(a => ({
+              name: String(a.label || a.id || '').trim(),
+              description: String(a.description || '')
+            }))
+            .filter(a => a.name);
+        }
+      }
+    } catch (e) {
+      console.warn('[GRAFIS-INTERP] Firebase config load gagal:', e.message);
+    }
+
+    /* Level 2: GRAFIS_CONFIG[posKey] */
+    if (window.GRAFIS_CONFIG && window.GRAFIS_CONFIG[posKey]
+        && Array.isArray(window.GRAFIS_CONFIG[posKey].aspects)) {
+      console.log('[GRAFIS-INTERP] Config loaded from GRAFIS_CONFIG.' + posKey);
+      return window.GRAFIS_CONFIG[posKey].aspects
+        .map(a => ({
+          name: String(a.label || a.id || '').trim(),
+          description: String(a.description || '')
+        }))
+        .filter(a => a.name);
+    }
+
+    /* Level 3: GRAFIS_CONFIG.default */
+    if (window.GRAFIS_CONFIG && window.GRAFIS_CONFIG.default
+        && Array.isArray(window.GRAFIS_CONFIG.default.aspects)) {
+      console.log('[GRAFIS-INTERP] Config loaded from GRAFIS_CONFIG.default');
+      return window.GRAFIS_CONFIG.default.aspects
+        .map(a => ({
+          name: String(a.label || a.id || '').trim(),
+          description: String(a.description || '')
+        }))
+        .filter(a => a.name);
+    }
+
+    /* Level 4: GRAFIS_SCORING.CONFIG.KATEGORI */
+    if (window.GRAFIS_SCORING && window.GRAFIS_SCORING.CONFIG
+        && Array.isArray(window.GRAFIS_SCORING.CONFIG.KATEGORI)) {
+      console.log('[GRAFIS-INTERP] Config loaded from GRAFIS_SCORING (legacy)');
+      return window.GRAFIS_SCORING.CONFIG.KATEGORI
+        .map(name => ({ name: String(name), description: '' }));
+    }
+
+    /* Level 5: Hardcoded safety net */
+    console.warn('[GRAFIS-INTERP] Semua config source gagal — pakai hardcoded fallback');
+    return [
+      'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
+      'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
+      'STABILITAS EMOSI & KONTROL IMPULS',
+      'MOTIVATION & ACHIEVEMENT DRIVE',
+      'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
+      'INTEGRITY & RULE COMPLIANCE',
+      'TEACHING CREATIVITY'
+    ].map(name => ({ name, description: '' }));
+  }
+
+  /* ============================================================
      RUN
      ============================================================ */
   let __uiBuilt = false;
@@ -2954,13 +2530,6 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
     if (__uiBuilt) return;
     __uiBuilt = true;
 
-    /* ✅ Tunggu GRAFIS_SCORING siap (max 10s) */
-    const scoringReady = await __waitForScoring();
-    if (!scoringReady) {
-      toast('⚠️ Scoring engine tidak tersedia. Refresh halaman.', 'error');
-    }
-
-    // 🆕 Fase 4: Load DAP/BAUM/HTP data on-demand
     if (typeof window.loadGrafisAutoData === 'function') {
       try {
         await window.loadGrafisAutoData();
@@ -2969,7 +2538,26 @@ ${t.items.map(i => `<span style="color: #0369a1; font-weight: 800;">• ${escape
       }
     }
 
-        const existing = document.getElementById('grafindoRoot');
+    const configCategories = await __loadGrafisCategories(candidatePosition);
+
+    const draftMap = {};
+    if (Array.isArray(__draftCategories)) {
+      __draftCategories.forEach(d => {
+        if (d && d.name) draftMap[d.name] = d;
+      });
+    }
+
+    state.categories = configCategories.map(c => {
+      const saved = draftMap[c.name];
+      return {
+        name: c.name,
+        description: c.description || '',
+        score: saved && saved.score !== undefined ? saved.score : '',
+        narrative: saved && saved.narrative ? saved.narrative : ''
+      };
+    });
+
+    const existing = document.getElementById('grafindoRoot');
     if (existing) existing.remove();
 
     hideDefaultUI();
