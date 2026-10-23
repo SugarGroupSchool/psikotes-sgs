@@ -96,7 +96,7 @@
     } catch (e) { return []; }
   }
 
-   function renderGrafisSectionHTML(data, slug, name, position) {
+  function renderGrafisSectionHTML(data, slug, name, position) {
     const hasData = data && Object.keys(data).length > 0;
     const driveFiles = __getGrafisDriveFiles(slug);
     const hasFiles = driveFiles.length > 0;
@@ -118,40 +118,21 @@
     let actionsHTML = '';
     if (hasData) {
       actionsHTML += `<button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail${total > 1 ? ' (' + total + ')' : ''}</button>`;
+      actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Download PDF</button>`;
     }
 
-    /* Logika PDF Terpadu */
-    if (hasFiles && total === 1) {
-      /* Single assessor & file ada → Langsung Buka PDF Drive (Hemat) */
-      const primaryFile = driveFiles[0];
-      const safeUrl = (typeof window.__safeUrl === 'function') ? window.__safeUrl(primaryFile.url) : String(primaryFile.url || '#').replace(/"/g, '&quot;');
-      actionsHTML += `<a href="${safeUrl}" target="_blank" rel="noopener" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">📄 Buka PDF</a>`;
-      actionsHTML += `<button class="js-delete-file" data-file-id="${escHtml(primaryFile.id)}" data-file-name="${escHtml(primaryFile.name)}" style="padding: 9px 14px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.35); border-radius: 9px; color: #fca5a5; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;">🗑</button>`;
-    } else if (hasData) {
-      /* Multi-assessor ATAU belum ada file → Generate PDF */
-      actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Generate PDF</button>`;
-    }
-
-    /* Tampilkan list file terpisah HANYA jika multi-assessor (untuk keperluan hapus) */
+    /* Tampilkan list file Drive HANYA sebagai arsip kecil di bawah */
     let filesHTML = '';
-    if (hasFiles && total > 1) {
+    if (hasFiles) {
       filesHTML = `
-        <div style="margin-top: 12px; padding: 10px 12px; background: rgba(0,0,0,.18); border: 1px solid rgba(16,185,129,.2); border-radius: 10px;">
-          <div style="font-size: 10px; font-weight: 900; color: #6ee7b7; letter-spacing: .5px; margin-bottom: 6px;">📎 FILE PDF PER ASSESSOR (${driveFiles.length})</div>
+        <div style="margin-top: 10px; padding: 8px 12px; background: rgba(0,0,0,.15); border: 1px dashed rgba(16,185,129,.25); border-radius: 8px;">
+          <div style="font-size: 9.5px; font-weight: 800; color: #64748b; margin-bottom: 4px;">📎 Arsip File Terkirim (${driveFiles.length})</div>
           ${driveFiles.map(f => {
-            const nameStr = String(f.name || '');
-            const m = nameStr.match(/-Grafis-([A-Z0-9]+)\.pdf$/i);
-            const assessor = m ? m[1].toUpperCase() : '?';
-            const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
             const safeUrl = (typeof window.__safeUrl === 'function') ? window.__safeUrl(f.url) : String(f.url || '#').replace(/"/g, '&quot;');
-            return `
-              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;margin-bottom:4px;">
-                <div style="flex:1;min-width:0;font-size:10.5px;color:#94a3b8;word-break:break-all;">
-                  <b style="color:#6ee7b7;">${escHtml(assessor)}</b> · ${escHtml(nameStr.slice(0,40))}${nameStr.length > 40 ? '...' : ''} · ${sizeMB}
-                </div>
-                <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#93c5fd;font-size:11px;text-decoration:none;margin-right:8px;" title="Buka">↗</a>
-                <button class="js-delete-file" data-file-id="${escHtml(f.id)}" data-file-name="${escHtml(f.name)}" style="background:none;border:none;color:#fca5a5;font-size:12px;cursor:pointer;padding:0;" title="Hapus">🗑</button>
-              </div>`;
+            return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:2px;">
+              <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#93c5fd;text-decoration:none;">${escHtml(f.name.slice(0, 40))}...</a>
+              <button class="js-delete-file" data-file-id="${escHtml(f.id)}" data-file-name="${escHtml(f.name)}" style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:0;margin-left:8px;" title="Hapus">🗑</button>
+            </div>`;
           }).join('')}
         </div>`;
     }
