@@ -1,5 +1,5 @@
 /* ============================================================
-   js/00w2-admin-grafis-result.js — v4 (Merged PDF & UI Cleanup)
+   js/00w2-admin-grafis-result.js — v5 (Clean Single PDF Layout)
    ============================================================ */
 (function () {
   'use strict';
@@ -84,11 +84,9 @@
      ============================================================ */
   function renderGrafisSectionHTML(data, slug, name, position) {
     const hasData = data && Object.keys(data).length > 0;
-    const driveFiles = __getGrafisDriveFiles(slug);
-    const hasFiles = driveFiles.length > 0;
-    if (!hasData && !hasFiles) return '';
+    if (!hasData) return '';
 
-    const assessors = hasData ? sortAssessors(Object.keys(data)) : [];
+    const assessors = sortAssessors(Object.keys(data));
     const total = assessors.length;
     const safeSlug = escHtml(slug);
     const safeName = escHtml(name);
@@ -101,35 +99,28 @@
       return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:900;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.45);color:#67e8f9;white-space:nowrap;"><b style="font-family:'Courier New',monospace;">${escHtml(code)}</b><span>${emoji}</span></span>`;
     }).join('');
 
-    let actionsHTML = '';
-    if (hasData) {
-      actionsHTML += `<button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail${total > 1 ? ' (' + total + ')' : ''}</button>`;
-    }
-    
-    actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Download PDF Lengkap</button>`;
-
     return `
       <div style="margin-bottom: 12px; padding: 14px 16px; background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(14,165,233,.08)); border: 1.5px solid rgba(6,182,212,.4); border-radius: 12px; box-shadow: 0 0 0 1px rgba(6,182,212,.1), 0 0 20px rgba(6,182,212,.12);">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
           <div style="width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border-radius: 10px; font-size: 20px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">🎨</div>
           <div style="flex: 1; min-width: 0;">
             <div style="font-size: 12.5px; font-weight: 900; color: #a5f3fc; letter-spacing: .3px;">Hasil Tes Grafis (DAP · BAUM · HTP)</div>
-            <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">
-              ${hasData ? total + ' assessor' + (total > 1 ? ' (multi)' : '') + ' · penilaian manual' : 'belum ada interpretasi'}
-            </div>
+            <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">${total} assessor · penilaian manual</div>
           </div>
         </div>
 
-        ${hasData ? `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">${chips}</div>` : ''}
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">${chips}</div>
 
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-          ${actionsHTML}
+          <button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail</button>
+          
+          <button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Download PDF Lengkap</button>
         </div>
       </div>`;
   }
 
   /* ============================================================
-     RENDER: Detail & Combined (Sama seperti sebelumnya)
+     RENDER: Detail
      ============================================================ */
   function renderAssessorDetailHTML(assessorData, assessorCode) {
     if (!assessorData) return '<div style="padding:20px;text-align:center;color:#94a3b8;">Data tidak tersedia.</div>';
@@ -151,10 +142,6 @@
           <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
             <div style="font-size:9px;font-weight:900;color:#64748b;letter-spacing:1px;">RATA-RATA (MANUAL)</div>
             <div style="font-size:15px;font-weight:900;color:#67e8f9;margin-top:2px;font-variant-numeric:tabular-nums;">${avgManual !== null ? avgManual.toFixed(2) : '-'} / 4.00</div>
-          </div>
-          <div style="padding: 6px 10px; background: rgba(0,0,0,.28); border-radius: 8px;">
-            <div style="font-size:9px;font-weight:900;color:#64748b;letter-spacing:1px;">KATEGORI TERISI</div>
-            <div style="font-size:15px;font-weight:900;color:#a5f3fc;margin-top:2px;font-variant-numeric:tabular-nums;">${categories.filter(c => c.score != null && c.score !== '').length} / ${categories.length}</div>
           </div>
         </div>
       </div>`;
@@ -216,17 +203,9 @@
         return `<td style="padding: 6px 8px; text-align: center;"><span style="display: inline-block; padding: 2px 8px; border-radius: 999px; background: ${st.bg}; border: 1px solid ${st.br}; color: ${st.tx}; font-weight: 900; font-variant-numeric: tabular-nums;">${s}</span></td>`;
       }).join('');
       return `<tr style="border-top: 1px solid rgba(255,255,255,.05);"><td style="padding: 8px; color: #cbd5e1; font-weight: 700;">${escHtml(katName)}</td>${cells}</tr>`;
-    }).join('')}<tr style="border-top: 1px solid rgba(255,255,255,.1); background: rgba(6,182,212,.05);"><td style="padding: 8px; color: #67e8f9; font-weight: 900;">RATA-RATA MANUAL</td>${assessors.map(c => { const avg = __getManualAvg(__extractCategories(allData[c])); return `<td style="padding: 8px; text-align: center; color: #a5f3fc; font-weight: 900; font-variant-numeric: tabular-nums;">${avg !== null ? avg.toFixed(2) : '-'}</td>`; }).join('')}</tr></tbody></table></div>`;
+    }).join('')}</tbody></table></div>`;
 
     return `
-      <div style="padding: 14px; background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(14,165,233,.08)); border: 1px solid rgba(6,182,212,.4); border-radius: 11px; margin-bottom: 14px;">
-        <div style="font-size: 11px; font-weight: 900; color: #a5f3fc; margin-bottom: 10px;">📊 RINGKASAN MULTI-ASSESSOR</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px;">
-          <div style="padding: 10px; background: rgba(0,0,0,.28); border-radius: 9px;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">ASSESSOR</div><div style="font-size: 18px; font-weight: 900; color: #cbd5e1; margin-top: 3px; font-variant-numeric: tabular-nums;">${assessors.length}</div></div>
-          <div style="padding: 10px; background: rgba(0,0,0,.28); border-radius: 9px;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">KATEGORI</div><div style="font-size: 18px; font-weight: 900; color: #67e8f9; margin-top: 3px; font-variant-numeric: tabular-nums;">${allCatNames.length}</div></div>
-        </div>
-        <div style="font-size: 11px; font-weight: 900; color: #a5f3fc; margin-bottom: 6px;">Daftar Rekomendasi (Manual):</div>${recListHTML}
-      </div>
       <div style="padding: 14px; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 11px;">
         <div style="font-size: 11px; font-weight: 900; color: #a5f3fc; margin-bottom: 10px;">📋 PERBANDINGAN SKOR PER KATEGORI</div>${comparisonHTML}
       </div>`;
@@ -278,9 +257,9 @@
         <div id="grafisTabBar" style="padding:12px 20px;background:rgba(0,0,0,.3);border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:6px;flex-wrap:wrap;overflow-x:auto;">${renderTabsHTML()}</div>
         <div id="grafisTabContent" style="flex:1;overflow-y:auto;padding:16px 20px 20px;">${renderTabContent(currentTab, data, finalName, finalPos)}</div>
         <div style="padding:12px 20px;background:rgba(0,0,0,.32);border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="color:#94a3b8;font-size:10.5px;font-weight:600;">ℹ️ Data dari Firebase (sgs_grafis_interp) · ${assessors.length} assessor · penilaian manual</div>
+          <div style="color:#94a3b8;font-size:10.5px;font-weight:600;">ℹ️ Data dari Firebase (sgs_grafis_interp) · ${assessors.length} assessor</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="js-grafis-result-pdf" id="grafisPdfBtn" data-slug="${escHtml(slug)}" data-name="${escHtml(finalName)}" data-position="${escHtml(finalPos)}" data-tab="${currentTab}" style="padding:8px 16px;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:9px;color:#fff;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.35);">📄 PDF ${currentTab === 'combined' ? 'Combined' : ''}</button>
+            <button class="js-grafis-result-pdf" id="grafisPdfBtn" data-slug="${escHtml(slug)}" data-name="${escHtml(finalName)}" data-position="${escHtml(finalPos)}" data-tab="${currentTab}" style="padding:8px 16px;background:linear-gradient(135deg,#10b981,#059669);border:0;border-radius:9px;color:#fff;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(16,185,129,.35);">📄 Download PDF</button>
           </div>
         </div>
       </div>`;
@@ -295,7 +274,7 @@
           overlay.querySelector('#grafisTabBar').innerHTML = renderTabsHTML(); bindTabs();
           overlay.querySelector('#grafisTabContent').innerHTML = renderTabContent(tab, data, finalName, finalPos);
           const pdfBtn = overlay.querySelector('#grafisPdfBtn');
-          if (pdfBtn) { pdfBtn.setAttribute('data-tab', tab); pdfBtn.textContent = tab === 'combined' ? '📄 PDF Combined' : `📄 PDF ${tab}`; }
+          if (pdfBtn) { pdfBtn.setAttribute('data-tab', tab); }
         };
       });
     }
@@ -305,7 +284,7 @@
   }
 
   /* ============================================================
-     PDF HELPERS
+     PDF HELPERS & GENERATOR (SINGLE CLEAN LAYOUT)
      ============================================================ */
   function __pdfJustify(doc, line, x, y, maxW, fontSize) {
     const words = line.trim().split(/\s+/); if (words.length < 2) { doc.text(line, x, y); return; }
@@ -328,182 +307,141 @@
     } catch (e) { return null; }
   }
 
-  /* ============================================================
-     PDF: Generator Sistem (jsPDF)
-     ============================================================ */
   async function generateGrafisCombinedPDF(slug, name, position, allData) {
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
     const assessors = sortAssessors(Object.keys(allData));
+    
+    // Ambil data assessor pertama (karena kita fokus 1 dokumen)
+    const firstCode = assessors[0];
+    const d = allData[firstCode];
+    const rec = getRecMeta(d.recommendation);
+    const categories = __extractCategories(d);
+
     const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
-    const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 12; let y = 20;
+    const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 15; let y = 20;
 
+    /* 1. KOP SURAT */
     try { const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png'; const resp = await fetch(logoUrl, { cache: 'no-cache' }); if (resp.ok) { const blob = await resp.blob(); const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); }); doc.addImage(dataUrl, 'PNG', PW / 2 - 8, 8, 16, 13); } } catch (e) {}
-
+    
     y = 26;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('LAPORAN GABUNGAN INTERPRETASI GRAFIS', PW / 2, y, { align: 'center' }); y += 4.5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text('SUGAR GROUP SCHOOLS', PW / 2, y, { align: 'center' }); y += 3.5; doc.setFontSize(7); doc.text(`${assessors.length} Assessor · DAP · BAUM · HTP · Penilaian Manual`, PW / 2, y, { align: 'center' }); y += 4;
-    doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('LAPORAN INTERPRETASI GRAFIS', PW / 2, y, { align: 'center' }); y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('SUGAR GROUP SCHOOLS', PW / 2, y, { align: 'center' }); y += 3.5;
+    doc.setFontSize(7.5); doc.text(`DAP · BAUM · HTP — Penilaian Manual`, PW / 2, y, { align: 'center' }); y += 4;
+    doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 6;
 
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text('INFORMASI KANDIDAT', M, y); y += 4;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    /* 2. INFORMASI KANDIDAT */
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('INFORMASI KANDIDAT', M, y); y += 5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
     const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    [['Nama Kandidat', cleanText(name)], ['Posisi', cleanText(position) || '-'], ['Tanggal', tanggal], ['Jumlah Assessor', String(assessors.length)]].forEach(([k, v]) => { doc.text(k + ' :', M + 2, y); doc.text(String(v), M + 45, y); y += 3.8; });
-    y += 2; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
+    [['Nama Kandidat', cleanText(name)], ['Posisi', cleanText(position) || '-'], ['Tanggal', tanggal], ['Jumlah Assessor', String(assessors.length)]].forEach(([k, v]) => { doc.text(k + ' :', M + 2, y); doc.text(String(v), M + 45, y); y += 4; });
+    y += 3; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
 
+    /* 3. GAMBAR KANDIDAT (DI HALAMAN AWAL) */
     const cImgs = await fetchCandidateImages(slug);
     if (cImgs) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('GAMBAR KANDIDAT', M, y); y += 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('GAMBAR KANDIDAT', M, y); y += 5;
       for (const key of ['dap', 'baum', 'htp']) {
         if (cImgs[key] && cImgs[key].dataUrl) {
           try {
-            const p = doc.getImageProperties(cImgs[key].dataUrl); const w = (PW - 2 * M - 4) / 2; const h = (p.height * w) / p.width;
-            if (y + h > PH - 15) { doc.addPage(); y = 15; }
-            doc.addImage(cImgs[key].dataUrl, 'JPEG', M, y, w, h); doc.setFontSize(7); doc.text(key.toUpperCase(), M, y - 2); y += h + 6;
+            const p = doc.getImageProperties(cImgs[key].dataUrl);
+            const w = (PW - 2 * M - 4) / 2; // Setengah lebar kertas
+            const h = (p.height * w) / p.width;
+            if (y + h > PH - 20) { doc.addPage(); y = 15; }
+            
+            // Label Gambar
+            const labelMap = { dap: 'DAP - Draw A Person', baum: 'BAUM - Tree Test', htp: 'HTP - House Tree Person' };
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(labelMap[key], M, y); y += 4;
+            
+            doc.addImage(cImgs[key].dataUrl, 'JPEG', M, y, w, h);
+            y += h + 6;
           } catch (e) {}
         }
       }
-      y += 4; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
     }
 
-    y = ensurePage(doc, y, 25, PH);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('RINGKASAN PER ASSESSOR', M, y); y += 5;
-    assessors.forEach(code => {
-      const d = allData[code];
-      const rec = getRecMeta(d.recommendation);
-      const avg = __getManualAvg(__extractCategories(d));
-      y = ensurePage(doc, y, 12, PH);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(`${code}`, M + 2, y);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(cleanText(rec.label), M + 22, y);
-      if (avg !== null) doc.text(`Avg manual: ${avg.toFixed(2)}/4`, M + 120, y);
-      y += 3.5;
-    });
-
-    y += 4; y = ensurePage(doc, y, 30, PH); doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
+    /* 4. SKOR PER KATEGORI (TABEL) */
+    y = ensurePage(doc, y, 30, PH);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('PERBANDINGAN SKOR PER KATEGORI', M, y); y += 5;
-
-    const allCatNames = [];
-    const seenCat = new Set();
-    assessors.forEach(code => {
-      __extractCategories(allData[code]).forEach(c => {
-        if (c && c.name && !seenCat.has(c.name)) { seenCat.add(c.name); allCatNames.push(c.name); }
-      });
-    });
-
-    const colW = (PW - 2 * M) / (assessors.length + 1);
-    doc.setFontSize(7); doc.setTextColor(255, 255, 255); doc.setFillColor(6, 182, 212); doc.rect(M, y - 3, PW - 2 * M, 6, 'F');
-    doc.text('KATEGORI', M + 1, y + 1); assessors.forEach((c, i) => { doc.text(c, M + colW * (i + 1) + 2, y + 1); }); doc.setTextColor(0); y += 6;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-    allCatNames.forEach((katName, idxRow) => {
+    
+    // Tabel Skor (Kategori & Skor)
+    doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.setFillColor(6, 182, 212); doc.rect(M, y - 3, PW - 2 * M, 6, 'F');
+    doc.text('KATEGORI', M + 2, y + 1); doc.text('SKOR', PW - M - 15, y + 1); doc.setTextColor(0); y += 6;
+    
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    categories.forEach((cat, idx) => {
       y = ensurePage(doc, y, 8, PH);
-      if (idxRow % 2 === 0) { doc.setFillColor(248, 250, 252); doc.rect(M, y - 3, PW - 2 * M, 6, 'F'); }
-      doc.text(cleanText(katName).slice(0, 40), M + 1, y + 1);
-      assessors.forEach((c, i) => {
-        const cats = __extractCategories(allData[c]);
-        const cat = cats.find(x => x.name === katName);
-        const score = cat && cat.score != null && cat.score !== '' ? String(cat.score) : '-';
-        doc.text(score, M + colW * (i + 1) + 2, y + 1);
-      });
+      if (idx % 2 === 0) { doc.setFillColor(248, 250, 252); doc.rect(M, y - 3, PW - 2 * M, 6, 'F'); }
+      doc.text(cleanText(cat.name || '').slice(0, 50), M + 2, y + 1);
+      doc.text(String(cat.score || '-'), PW - M - 15, y + 1);
       y += 6;
     });
+    y += 4;
 
-    y = ensurePage(doc, y, 8, PH);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
-    doc.setFillColor(230, 245, 250); doc.rect(M, y - 3, PW - 2 * M, 6, 'F');
-    doc.text('RATA-RATA MANUAL', M + 1, y + 1);
-    assessors.forEach((c, i) => {
-      const avg = __getManualAvg(__extractCategories(allData[c]));
-      doc.text(avg !== null ? avg.toFixed(2) : '-', M + colW * (i + 1) + 2, y + 1);
+    /* 5. KESIMPULAN PER KATEGORI */
+    y = ensurePage(doc, y, 25, PH);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN PER KATEGORI', M, y); y += 5;
+    categories.forEach((cat, idx) => {
+      if (!cat.narrative) return;
+      y = ensurePage(doc, y, 15, PH);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      doc.text(`${idx + 1}. ${cleanText(cat.name || '')} - SKOR: ${cat.score}/4`, M + 1, y); y += 4;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+      y = printParagraph(doc, cat.narrative, M + 4, 7.5, 3.5, PW, PH, y);
+      y += 2;
     });
-    y += 8;
+    y += 2;
 
-    if (y > PH - 15) { doc.addPage(); y = M; } y += 4; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4; doc.setFontSize(6); doc.setTextColor(150); doc.text(`Generated: ${new Date().toLocaleString('id-ID')}`, M, PH - 6); doc.setTextColor(0);
+    /* 6. KESIMPULAN KESELURUHAN */
+    if (d.conclusion) {
+      y = ensurePage(doc, y, 25, PH); doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN KESELURUHAN', M, y); y += 5;
+      y = printParagraph(doc, d.conclusion, M, 8, 3.5, PW, PH, y);
+      y += 4;
+    }
+
+    /* 7. TINGKAT REKOMENDASI */
+    if (d.recommendation) {
+      y = ensurePage(doc, y, 15, PH);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('TINGKAT REKOMENDASI', M, y); y += 5;
+      doc.setFontSize(10);
+      doc.setTextColor(rec.color === '#86efac' ? 22 : rec.color === '#fcd34d' ? 161 : 185, rec.color === '#86efac' ? 101 : rec.color === '#fcd34d' ? 98 : 28, rec.color === '#86efac' ? 52 : rec.color === '#fcd34d' ? 7 : 28);
+      doc.text(cleanText(rec.label), M, y); doc.setTextColor(0); y += 6;
+    }
+
+    /* 8. ALASAN REKOMENDASI */
+    if (d.reasons) {
+      y = ensurePage(doc, y, 25, PH);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ALASAN REKOMENDASI', M, y); y += 5;
+      y = printParagraph(doc, d.reasons, M, 8, 3.5, PW, PH, y);
+      y += 4;
+    }
+
+    /* 9. REKOMENDASI PENGEMBANGAN */
+    if (d.development) {
+      y = ensurePage(doc, y, 25, PH);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('REKOMENDASI PENGEMBANGAN', M, y); y += 5;
+      y = printParagraph(doc, d.development, M, 8, 3.5, PW, PH, y);
+      y += 8;
+    }
+
+    /* 10. TANDA TANGAN (TTD) */
+    y = ensurePage(doc, y, 40, PH);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('ttd', PW - 65, y); y += 12; // Spasi untuk ttd
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Deni Pragas Septian Pratama', PW - 65, y); y += 4;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('(Grafis Interpreter)', PW - 65, y);
+
     return doc;
   }
 
-  /* ============================================================
-     DOWNLOAD PDF GABUNGAN (Merge Drive + Generate)
-     ============================================================ */
   async function downloadGrafisPDF(slug, name, position, tab) {
     const data = await fetchGrafisData(slug);
-    let newPdfDoc = null;
-    if (data && Object.keys(data).length > 0) {
-      newPdfDoc = await generateGrafisCombinedPDF(slug, name, position, data);
-    }
-
-    const driveFiles = __getGrafisDriveFiles(slug);
-    if (!newPdfDoc && driveFiles.length === 0) {
-      throw new Error('Data Grafis tidak tersedia');
-    }
-
-    // Jika tidak ada file Drive, langsung download PDF hasil generate sistem
-    if (driveFiles.length === 0 && newPdfDoc) {
-      newPdfDoc.save('Hasil-Grafis-' + safeFileName(name) + '-Generated.pdf');
-      return;
-    }
-
-    // Jika ada file Drive, kita MERGE
-    if (driveFiles.length > 0) {
-      // Muat pdf-lib dari CDN
-      if (!window.PDFLib) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Gagal memuat library PDF merge'));
-          document.head.appendChild(script);
-        });
-      }
-
-      const { PDFDocument } = window.PDFLib;
-      const mergedPdf = await PDFDocument.create();
-
-      // 1. Ambil PDF yang di-upload Assessor ke Drive
-      for (const f of driveFiles) {
-        try {
-          let blob = null;
-          if (typeof window.__fetchViaGASProxy === 'function') {
-            blob = await window.__fetchViaGASProxy(f.id);
-          } else {
-            const res = await fetch(f.url);
-            if (res.ok) blob = await res.blob();
-          }
-          
-          if (blob) {
-            const bytes = await blob.arrayBuffer();
-            const drivePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
-            const pages = await mergedPdf.copyPages(drivePdf, drivePdf.getPageIndices());
-            pages.forEach(p => mergedPdf.addPage(p));
-          }
-        } catch (e) {
-          console.warn('[GRAFIS-PDF] Gagal load Drive PDF:', f.name, e.message);
-        }
-      }
-
-      // 2. Tambahkan PDF yang di-generate Sistem (jsPDF)
-      if (newPdfDoc) {
-        try {
-          const newBlob = newPdfDoc.output('blob');
-          const bytes = await newBlob.arrayBuffer();
-          const sysPdf = await PDFDocument.load(bytes);
-          const pages = await mergedPdf.copyPages(sysPdf, sysPdf.getPageIndices());
-          pages.forEach(p => mergedPdf.addPage(p));
-        } catch (e) {
-          console.warn('[GRAFIS-PDF] Gagal append system PDF:', e.message);
-        }
-      }
-
-      // 3. Save Hasil Merge
-      const mergedBytes = await mergedPdf.save();
-      const finalBlob = new Blob([mergedBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(finalBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Hasil-Grafis-' + safeFileName(name) + '-Gabungan.pdf';
-      a.click();
-      URL.revokeObjectURL(url);
-      return;
-    }
+    if (!data) throw new Error('Data Grafis tidak tersedia');
+    
+    // Panggil generator system murni (tanpa merge Drive)
+    const doc = await generateGrafisCombinedPDF(slug, name, position, data);
+    doc.save('Hasil-Grafis-' + safeFileName(name) + '-Lengkap.pdf');
   }
 
   window.__attachGrafisRealtime = function (slug, name, position, sectionEl, overlayEl) {
@@ -527,7 +465,7 @@
         e.preventDefault(); e.stopPropagation();
         const slug = pdfBtn.getAttribute('data-slug'); const name = pdfBtn.getAttribute('data-name'); const position = pdfBtn.getAttribute('data-position'); const tab = pdfBtn.getAttribute('data-tab') || 'combined';
         if (!slug) return;
-        const prev = pdfBtn.innerHTML; pdfBtn.innerHTML = '⏳ Proses Merge PDF...'; pdfBtn.disabled = true;
+        const prev = pdfBtn.innerHTML; pdfBtn.innerHTML = '⏳ Memproses PDF...'; pdfBtn.disabled = true;
         try { await downloadGrafisPDF(slug, name, position, tab); pdfBtn.innerHTML = '✓ Terunduh'; setTimeout(() => { pdfBtn.innerHTML = prev; pdfBtn.disabled = false; }, 1800); } catch (err) { alert('Gagal PDF: ' + err.message); pdfBtn.innerHTML = prev; pdfBtn.disabled = false; }
         return;
       }
@@ -539,5 +477,5 @@
   window.renderGrafisSectionHTML = renderGrafisSectionHTML;
   window.__fetchGrafisData = fetchGrafisData;
 
-  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v4 — Merged PDF (Drive + System)');
+  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v5 — Clean Single PDF Layout');
 })();
