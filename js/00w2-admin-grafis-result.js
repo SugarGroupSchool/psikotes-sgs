@@ -1,15 +1,5 @@
 /* ============================================================
-   js/00w2-admin-grafis-result.js — v3 (Manual Assessment)
-   ------------------------------------------------------------
-   v3 [2026-10-23]
-   🔥 REMOVE semua display autoScoring:
-      - fitScore, rataRata, overallConfidence, posisiLabel
-      - perKategori[].need / gap / isPriority
-      - Blob autoScoring dibaca? TIDAK — diabaikan.
-   ✨ NEW: Rata-rata manual dari categories[].score (client-side,
-      bukan dari engine). Comparison table dynamic dari union
-      categories[].name.
-   ✅ PDF simplified: no fit, no need/gap, no engine version.
+   js/00w2-admin-grafis-result.js — v4 (Merged PDF & UI Cleanup)
    ============================================================ */
 (function () {
   'use strict';
@@ -28,7 +18,6 @@
   };
   function getRecMeta(code) { return GRF_REC_MAP[code] || { label: '📋 ' + (code || '-'), short: '-', color: '#cbd5e1', bg: 'rgba(148,163,184,.15)', br: 'rgba(148,163,184,.4)' }; }
 
-  /* Fallback kalau record lama tidak punya categories */
   const LEGACY_KATEGORI = [
     'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
     'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
@@ -47,7 +36,6 @@
     return { bg:'rgba(239,68,68,.18)', br:'rgba(239,68,68,.5)', tx:'#fca5a5', label: 'Perhatian' };
   }
 
-  /* 🆕 Manual average — derived client-side dari categories[].score */
   function __getManualAvg(categories) {
     if (!Array.isArray(categories)) return null;
     const scores = categories
@@ -57,7 +45,6 @@
     return scores.reduce((a, b) => a + b, 0) / scores.length;
   }
 
-  /* 🆕 Extract list kategori dari satu assessor (fallback LEGACY) */
   function __extractCategories(assessorData) {
     const cats = Array.isArray(assessorData && assessorData.categories) ? assessorData.categories : [];
     if (cats.length === 0) return LEGACY_KATEGORI.map(name => ({ name, score: null, narrative: '' }));
@@ -84,10 +71,6 @@
     return assessors.slice().sort((a, b) => { if (a === 'ADMIN') return -1; if (b === 'ADMIN') return 1; return a.localeCompare(b); });
   }
 
-  /* ============================================================
-     RENDER: Section header di folder kandidat
-     ============================================================ */
-  /* Helper: ambil PDF Drive kandidat dari map global 00b-admin */
   function __getGrafisDriveFiles(slug) {
     try {
       const map = window.__candidateFilesMap || {};
@@ -96,6 +79,9 @@
     } catch (e) { return []; }
   }
 
+  /* ============================================================
+     RENDER: Section header
+     ============================================================ */
   function renderGrafisSectionHTML(data, slug, name, position) {
     const hasData = data && Object.keys(data).length > 0;
     const driveFiles = __getGrafisDriveFiles(slug);
@@ -118,24 +104,9 @@
     let actionsHTML = '';
     if (hasData) {
       actionsHTML += `<button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail${total > 1 ? ' (' + total + ')' : ''}</button>`;
-      actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Download PDF</button>`;
     }
-
-    /* Tampilkan list file Drive HANYA sebagai arsip kecil di bawah */
-    let filesHTML = '';
-    if (hasFiles) {
-      filesHTML = `
-        <div style="margin-top: 10px; padding: 8px 12px; background: rgba(0,0,0,.15); border: 1px dashed rgba(16,185,129,.25); border-radius: 8px;">
-          <div style="font-size: 9.5px; font-weight: 800; color: #64748b; margin-bottom: 4px;">📎 Arsip File Terkirim (${driveFiles.length})</div>
-          ${driveFiles.map(f => {
-            const safeUrl = (typeof window.__safeUrl === 'function') ? window.__safeUrl(f.url) : String(f.url || '#').replace(/"/g, '&quot;');
-            return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:2px;">
-              <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#93c5fd;text-decoration:none;">${escHtml(f.name.slice(0, 40))}...</a>
-              <button class="js-delete-file" data-file-id="${escHtml(f.id)}" data-file-name="${escHtml(f.name)}" style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:0;margin-left:8px;" title="Hapus">🗑</button>
-            </div>`;
-          }).join('')}
-        </div>`;
-    }
+    
+    actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Download PDF Lengkap</button>`;
 
     return `
       <div style="margin-bottom: 12px; padding: 14px 16px; background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(14,165,233,.08)); border: 1.5px solid rgba(6,182,212,.4); border-radius: 12px; box-shadow: 0 0 0 1px rgba(6,182,212,.1), 0 0 20px rgba(6,182,212,.12);">
@@ -154,13 +125,11 @@
         <div style="display: flex; gap: 6px; flex-wrap: wrap;">
           ${actionsHTML}
         </div>
-
-        ${filesHTML}
       </div>`;
   }
 
   /* ============================================================
-     RENDER: Detail per assessor
+     RENDER: Detail & Combined (Sama seperti sebelumnya)
      ============================================================ */
   function renderAssessorDetailHTML(assessorData, assessorCode) {
     if (!assessorData) return '<div style="padding:20px;text-align:center;color:#94a3b8;">Data tidak tersedia.</div>';
@@ -215,14 +184,10 @@
     return headerHTML + categoriesHTML + summaryHTML;
   }
 
-  /* ============================================================
-     RENDER: Combined multi-assessor
-     ============================================================ */
   function renderCombinedHTML(allData) {
     const assessors = sortAssessors(Object.keys(allData));
     if (assessors.length === 0) return '<div style="padding:20px;text-align:center;color:#94a3b8;">Tidak ada assessor.</div>';
 
-    /* Union kategori — preserve order */
     const allCatNames = [];
     const seenCat = new Set();
     assessors.forEach(code => {
@@ -241,7 +206,6 @@
       return `<div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: rgba(0,0,0,.22); border-radius: 9px; border: 1px solid rgba(255,255,255,.08); margin-bottom: 6px;"><span style="width: 60px; font-family: 'Courier New', monospace; font-size: 11px; font-weight: 900; color: #67e8f9;">${escHtml(code)}</span><span style="flex: 1; min-width: 0;"><span style="display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 900; background: ${rec.bg}; border: 1px solid ${rec.br}; color: ${rec.color};">${escHtml(rec.label)}</span></span>${avg !== null ? `<span style="font-size: 13px; font-weight: 900; color: #a5f3fc; font-variant-numeric: tabular-nums;">${avg.toFixed(2)}<span style="font-size:9px;color:#64748b;">/4</span></span>` : ''}</div>`;
     }).join('');
 
-    /* Comparison table: header dinamis, cell skor per kategori, row avg manual */
     const comparisonHTML = `<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 10.5px;"><thead><tr style="background: rgba(0,0,0,.3);"><th style="padding: 8px; text-align: left; color: #94a3b8; font-size: 9.5px; font-weight: 900; letter-spacing: 1px;">KATEGORI</th>${assessors.map(c => `<th style="padding: 8px; text-align: center; color: #67e8f9; font-size: 10px; font-weight: 900;">${escHtml(c)}</th>`).join('')}</tr></thead><tbody>${allCatNames.map(katName => {
       const cells = assessors.map(c => {
         const cats = __extractCategories(allData[c]);
@@ -262,7 +226,6 @@
           <div style="padding: 10px; background: rgba(0,0,0,.28); border-radius: 9px;"><div style="font-size: 9px; font-weight: 900; letter-spacing: 1px; color: #64748b;">KATEGORI</div><div style="font-size: 18px; font-weight: 900; color: #67e8f9; margin-top: 3px; font-variant-numeric: tabular-nums;">${allCatNames.length}</div></div>
         </div>
         <div style="font-size: 11px; font-weight: 900; color: #a5f3fc; margin-bottom: 6px;">Daftar Rekomendasi (Manual):</div>${recListHTML}
-        <div style="margin-top: 10px; font-size: 10px; color: #94a3b8; line-height: 1.5;">ℹ️ Semua skor & rata-rata dihitung dari penilaian manual assessor — bukan dari engine.</div>
       </div>
       <div style="padding: 14px; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.08); border-radius: 11px;">
         <div style="font-size: 11px; font-weight: 900; color: #a5f3fc; margin-bottom: 10px;">📋 PERBANDINGAN SKOR PER KATEGORI</div>${comparisonHTML}
@@ -366,92 +329,7 @@
   }
 
   /* ============================================================
-     PDF: per assessor — v3 simplified
-     ============================================================ */
-  async function generateGrafisPDF(slug, name, position, data, assessorCode) {
-    if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
-    if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
-    const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
-    const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 12, CW = PW - 2 * M; let y = 20;
-
-    try {
-      const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png';
-      const resp = await fetch(logoUrl, { cache: 'no-cache' }); if (resp.ok) { const blob = await resp.blob(); const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); }); doc.addImage(dataUrl, 'PNG', PW / 2 - 8, 8, 16, 13); }
-    } catch (e) {}
-
-    y = 26;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('LAPORAN INTERPRETASI GRAFIS', PW / 2, y, { align: 'center' }); y += 4.5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text('SUGAR GROUP SCHOOLS', PW / 2, y, { align: 'center' }); y += 3.5;
-    doc.setFontSize(7); doc.text(`DAP · BAUM · HTP — Assessor: ${assessorCode}`, PW / 2, y, { align: 'center' }); y += 4;
-    doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 5;
-
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text('INFORMASI KANDIDAT', M, y); y += 4;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    const rec = getRecMeta(data.recommendation);
-    const rows = [['Nama Kandidat', cleanText(name)], ['Posisi', cleanText(position) || '-'], ['Assessor', assessorCode], ['Tanggal', tanggal], ['Rekomendasi', (rec.label || '-')]];
-    rows.forEach(([k, v]) => { doc.text(k + ' :', M + 2, y); doc.text(String(v), M + 45, y); y += 3.8; });
-    y += 2; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
-
-    const cImgs = await fetchCandidateImages(slug);
-    if (cImgs) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('GAMBAR KANDIDAT', M, y); y += 4;
-      for (const key of ['dap', 'baum', 'htp']) {
-        if (cImgs[key] && cImgs[key].dataUrl) {
-          try {
-            const p = doc.getImageProperties(cImgs[key].dataUrl);
-            const w = CW - 4; const h = (p.height * w) / p.width;
-            if (y + h > PH - 15) { doc.addPage(); y = 15; }
-            doc.addImage(cImgs[key].dataUrl, 'JPEG', M, y, w, h);
-            doc.setFontSize(7); doc.text(key.toUpperCase(), M, y - 2);
-            y += h + 6;
-          } catch (e) {}
-        }
-      }
-      y += 4; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
-    }
-
-    const categories = __extractCategories(data);
-    const avgManual = __getManualAvg(categories);
-
-    y = ensurePage(doc, y, 25, PH);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN PER KATEGORI', M, y); y += 5;
-
-    if (avgManual !== null) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-      doc.setTextColor(80);
-      doc.text(`Rata-rata manual: ${avgManual.toFixed(2)} / 4.00 (dari ${categories.filter(c => c.score != null && c.score !== '').length} kategori terisi)`, M + 1, y);
-      doc.setTextColor(0); y += 4.5;
-    }
-
-    categories.forEach((cat, idx) => {
-      const score = cat.score != null && cat.score !== '' ? Number(cat.score) : null;
-      if (score === null && !cat.narrative) return;
-      y = ensurePage(doc, y, 15, PH);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-      const scoreStr = score !== null ? `SKOR: ${score}/4` : 'SKOR: -';
-      doc.text(`${idx + 1}. ${cleanText(cat.name || '')} — ${scoreStr}`, M + 1, y); y += 3.5;
-      if (cat.narrative) { y = printParagraph(doc, cat.narrative, M + 4, 7, 3.2, PW, PH, y); }
-      y += 3;
-    });
-
-    if (data.conclusion) { y = ensurePage(doc, y, 25, PH); doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN KESELURUHAN', M, y); y += 4.5; y = printParagraph(doc, data.conclusion, M + 2, 7.5, 3.4, PW, PH, y); y += 4; }
-    if (data.recommendation) {
-      y = ensurePage(doc, y, 15, PH); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('TINGKAT REKOMENDASI', M, y); y += 4.5; doc.setFontSize(10);
-      doc.setTextColor(rec.color === '#86efac' ? 22 : rec.color === '#fcd34d' ? 161 : 185, rec.color === '#86efac' ? 101 : rec.color === '#fcd34d' ? 98 : 28, rec.color === '#86efac' ? 52 : rec.color === '#fcd34d' ? 7 : 28);
-      doc.text(cleanText(rec.label), M + 2, y); doc.setTextColor(0); y += 5;
-    }
-    if (data.reasons) { y = ensurePage(doc, y, 25, PH); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ALASAN REKOMENDASI', M, y); y += 4.5; y = printParagraph(doc, data.reasons, M + 2, 7.5, 3.4, PW, PH, y); y += 4; }
-    if (data.development) { y = ensurePage(doc, y, 25, PH); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('REKOMENDASI PENGEMBANGAN', M, y); y += 4.5; y = printParagraph(doc, data.development, M + 2, 7.5, 3.4, PW, PH, y); y += 6; }
-
-    y = ensurePage(doc, y, 35, PH); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('Assessor,', PW - 55, y); y += 15; doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text(assessorCode, PW - 55, y); y += 3.5; doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text('(Grafis Interpreter)', PW - 55, y);
-
-    doc.setFontSize(6); doc.setTextColor(150); doc.text(`Generated: ${new Date().toLocaleString('id-ID')}`, M, PH - 6); doc.setTextColor(0);
-    return doc;
-  }
-
-  /* ============================================================
-     PDF: combined — v3 simplified
+     PDF: Generator Sistem (jsPDF)
      ============================================================ */
   async function generateGrafisCombinedPDF(slug, name, position, allData) {
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
@@ -501,7 +379,6 @@
       y += 3.5;
     });
 
-    /* Comparison table — dynamic categories */
     y += 4; y = ensurePage(doc, y, 30, PH); doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('PERBANDINGAN SKOR PER KATEGORI', M, y); y += 5;
 
@@ -530,7 +407,6 @@
       y += 6;
     });
 
-    /* Avg manual row */
     y = ensurePage(doc, y, 8, PH);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5);
     doc.setFillColor(230, 245, 250); doc.rect(M, y - 3, PW - 2 * M, 6, 'F');
@@ -545,18 +421,88 @@
     return doc;
   }
 
+  /* ============================================================
+     DOWNLOAD PDF GABUNGAN (Merge Drive + Generate)
+     ============================================================ */
   async function downloadGrafisPDF(slug, name, position, tab) {
     const data = await fetchGrafisData(slug);
-    if (!data) throw new Error('Data Grafis tidak tersedia');
-    if (tab === 'combined' || Object.keys(data).length === 1) {
-      const doc = await generateGrafisCombinedPDF(slug, name, position, data);
-      const suffix = Object.keys(data).length > 1 ? '-Combined' : '-' + Object.keys(data)[0];
-      doc.save('Hasil-Grafis-' + safeFileName(name) + suffix + '.pdf');
-    } else {
-      const assessorData = data[tab];
-      if (!assessorData) throw new Error('Data assessor "' + tab + '" tidak ada');
-      const doc = await generateGrafisPDF(slug, name, position, assessorData, tab);
-      doc.save('Hasil-Grafis-' + safeFileName(name) + '-' + tab + '.pdf');
+    let newPdfDoc = null;
+    if (data && Object.keys(data).length > 0) {
+      newPdfDoc = await generateGrafisCombinedPDF(slug, name, position, data);
+    }
+
+    const driveFiles = __getGrafisDriveFiles(slug);
+    if (!newPdfDoc && driveFiles.length === 0) {
+      throw new Error('Data Grafis tidak tersedia');
+    }
+
+    // Jika tidak ada file Drive, langsung download PDF hasil generate sistem
+    if (driveFiles.length === 0 && newPdfDoc) {
+      newPdfDoc.save('Hasil-Grafis-' + safeFileName(name) + '-Generated.pdf');
+      return;
+    }
+
+    // Jika ada file Drive, kita MERGE
+    if (driveFiles.length > 0) {
+      // Muat pdf-lib dari CDN
+      if (!window.PDFLib) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Gagal memuat library PDF merge'));
+          document.head.appendChild(script);
+        });
+      }
+
+      const { PDFDocument } = window.PDFLib;
+      const mergedPdf = await PDFDocument.create();
+
+      // 1. Ambil PDF yang di-upload Assessor ke Drive
+      for (const f of driveFiles) {
+        try {
+          let blob = null;
+          if (typeof window.__fetchViaGASProxy === 'function') {
+            blob = await window.__fetchViaGASProxy(f.id);
+          } else {
+            const res = await fetch(f.url);
+            if (res.ok) blob = await res.blob();
+          }
+          
+          if (blob) {
+            const bytes = await blob.arrayBuffer();
+            const drivePdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+            const pages = await mergedPdf.copyPages(drivePdf, drivePdf.getPageIndices());
+            pages.forEach(p => mergedPdf.addPage(p));
+          }
+        } catch (e) {
+          console.warn('[GRAFIS-PDF] Gagal load Drive PDF:', f.name, e.message);
+        }
+      }
+
+      // 2. Tambahkan PDF yang di-generate Sistem (jsPDF)
+      if (newPdfDoc) {
+        try {
+          const newBlob = newPdfDoc.output('blob');
+          const bytes = await newBlob.arrayBuffer();
+          const sysPdf = await PDFDocument.load(bytes);
+          const pages = await mergedPdf.copyPages(sysPdf, sysPdf.getPageIndices());
+          pages.forEach(p => mergedPdf.addPage(p));
+        } catch (e) {
+          console.warn('[GRAFIS-PDF] Gagal append system PDF:', e.message);
+        }
+      }
+
+      // 3. Save Hasil Merge
+      const mergedBytes = await mergedPdf.save();
+      const finalBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(finalBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Hasil-Grafis-' + safeFileName(name) + '-Gabungan.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
     }
   }
 
@@ -581,7 +527,7 @@
         e.preventDefault(); e.stopPropagation();
         const slug = pdfBtn.getAttribute('data-slug'); const name = pdfBtn.getAttribute('data-name'); const position = pdfBtn.getAttribute('data-position'); const tab = pdfBtn.getAttribute('data-tab') || 'combined';
         if (!slug) return;
-        const prev = pdfBtn.innerHTML; pdfBtn.innerHTML = '⏳ PDF...'; pdfBtn.disabled = true;
+        const prev = pdfBtn.innerHTML; pdfBtn.innerHTML = '⏳ Proses Merge PDF...'; pdfBtn.disabled = true;
         try { await downloadGrafisPDF(slug, name, position, tab); pdfBtn.innerHTML = '✓ Terunduh'; setTimeout(() => { pdfBtn.innerHTML = prev; pdfBtn.disabled = false; }, 1800); } catch (err) { alert('Gagal PDF: ' + err.message); pdfBtn.innerHTML = prev; pdfBtn.disabled = false; }
         return;
       }
@@ -593,5 +539,5 @@
   window.renderGrafisSectionHTML = renderGrafisSectionHTML;
   window.__fetchGrafisData = fetchGrafisData;
 
-  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v3 — manual assessment, no auto-scoring display');
+  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v4 — Merged PDF (Drive + System)');
 })();
