@@ -2662,13 +2662,12 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
     
-    ${wawancara.length > 0 ? `
+        ${wawancara.length > 0 ? `
       <div class="js-iv-stats-section" data-slug="${__adminEscape(slug)}"></div>
       ${__renderWawancaraBox(wawancara)}
     ` : ''}
     <div class="rf-typing-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-excel-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
-    ${grafis.length > 0 ? __renderGrafisBox(grafis) : ''}
     ${others.map(f => fileRow(f, 'other')).join('')}
     <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
   `;
