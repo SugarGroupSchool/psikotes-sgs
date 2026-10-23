@@ -96,7 +96,7 @@
     } catch (e) { return []; }
   }
 
-  function renderGrafisSectionHTML(data, slug, name, position) {
+   function renderGrafisSectionHTML(data, slug, name, position) {
     const hasData = data && Object.keys(data).length > 0;
     const driveFiles = __getGrafisDriveFiles(slug);
     const hasFiles = driveFiles.length > 0;
@@ -115,25 +115,46 @@
       return `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:900;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.45);color:#67e8f9;white-space:nowrap;"><b style="font-family:'Courier New',monospace;">${escHtml(code)}</b><span>${emoji}</span></span>`;
     }).join('');
 
-    const filesHTML = driveFiles.map(f => {
-      const nameStr = String(f.name || '');
-      const m = nameStr.match(/-Grafis-([A-Z0-9]+)\.pdf$/i);
-      const assessor = m ? m[1].toUpperCase() : '?';
-      const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
-      const safeUrl = (typeof window.__safeUrl === 'function')
-        ? window.__safeUrl(f.url)
-        : String(f.url || '#').replace(/"/g, '&quot;');
-      return `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,0,0,.25);border:1px solid rgba(16,185,129,.25);border-radius:8px;margin-top:6px;">
-          <div style="width:28px;height:28px;flex:0 0 28px;display:grid;place-items:center;background:linear-gradient(135deg,#10b981,#059669);border-radius:7px;font-size:10px;font-weight:900;color:#fff;">${escHtml(assessor.slice(0,3))}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:800;color:#6ee7b7;">📄 ${escHtml(assessor)}</div>
-            <div style="font-size:9.5px;color:#64748b;word-break:break-all;line-height:1.3;">${escHtml(nameStr.slice(0,50))}${nameStr.length > 50 ? '...' : ''} · ${sizeMB}</div>
-          </div>
-          <a href="${safeUrl}" target="_blank" rel="noopener" style="padding:5px 10px;background:linear-gradient(135deg,#10b981,#059669);border-radius:6px;color:#fff;font-size:10px;font-weight:800;text-decoration:none;white-space:nowrap;">⬇ Buka</a>
-          <button class="js-delete-file" data-file-id="${escHtml(f.id)}" data-file-name="${escHtml(f.name)}" style="padding:5px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);border-radius:6px;color:#fca5a5;font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;">🗑</button>
+    let actionsHTML = '';
+    if (hasData) {
+      actionsHTML += `<button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail${total > 1 ? ' (' + total + ')' : ''}</button>`;
+    }
+
+    /* Logika PDF Terpadu */
+    if (hasFiles && total === 1) {
+      /* Single assessor & file ada → Langsung Buka PDF Drive (Hemat) */
+      const primaryFile = driveFiles[0];
+      const safeUrl = (typeof window.__safeUrl === 'function') ? window.__safeUrl(primaryFile.url) : String(primaryFile.url || '#').replace(/"/g, '&quot;');
+      actionsHTML += `<a href="${safeUrl}" target="_blank" rel="noopener" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;">📄 Buka PDF</a>`;
+      actionsHTML += `<button class="js-delete-file" data-file-id="${escHtml(primaryFile.id)}" data-file-name="${escHtml(primaryFile.name)}" style="padding: 9px 14px; background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.35); border-radius: 9px; color: #fca5a5; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer;">🗑</button>`;
+    } else if (hasData) {
+      /* Multi-assessor ATAU belum ada file → Generate PDF */
+      actionsHTML += `<button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="flex: 1; min-width: 130px; padding: 9px 14px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 Generate PDF</button>`;
+    }
+
+    /* Tampilkan list file terpisah HANYA jika multi-assessor (untuk keperluan hapus) */
+    let filesHTML = '';
+    if (hasFiles && total > 1) {
+      filesHTML = `
+        <div style="margin-top: 12px; padding: 10px 12px; background: rgba(0,0,0,.18); border: 1px solid rgba(16,185,129,.2); border-radius: 10px;">
+          <div style="font-size: 10px; font-weight: 900; color: #6ee7b7; letter-spacing: .5px; margin-bottom: 6px;">📎 FILE PDF PER ASSESSOR (${driveFiles.length})</div>
+          ${driveFiles.map(f => {
+            const nameStr = String(f.name || '');
+            const m = nameStr.match(/-Grafis-([A-Z0-9]+)\.pdf$/i);
+            const assessor = m ? m[1].toUpperCase() : '?';
+            const sizeMB = f.size ? (f.size / 1024 / 1024).toFixed(2) + ' MB' : '-';
+            const safeUrl = (typeof window.__safeUrl === 'function') ? window.__safeUrl(f.url) : String(f.url || '#').replace(/"/g, '&quot;');
+            return `
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;margin-bottom:4px;">
+                <div style="flex:1;min-width:0;font-size:10.5px;color:#94a3b8;word-break:break-all;">
+                  <b style="color:#6ee7b7;">${escHtml(assessor)}</b> · ${escHtml(nameStr.slice(0,40))}${nameStr.length > 40 ? '...' : ''} · ${sizeMB}
+                </div>
+                <a href="${safeUrl}" target="_blank" rel="noopener" style="color:#93c5fd;font-size:11px;text-decoration:none;margin-right:8px;" title="Buka">↗</a>
+                <button class="js-delete-file" data-file-id="${escHtml(f.id)}" data-file-name="${escHtml(f.name)}" style="background:none;border:none;color:#fca5a5;font-size:12px;cursor:pointer;padding:0;" title="Hapus">🗑</button>
+              </div>`;
+          }).join('')}
         </div>`;
-    }).join('');
+    }
 
     return `
       <div style="margin-bottom: 12px; padding: 14px 16px; background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(14,165,233,.08)); border: 1.5px solid rgba(6,182,212,.4); border-radius: 12px; box-shadow: 0 0 0 1px rgba(6,182,212,.1), 0 0 20px rgba(6,182,212,.12);">
@@ -143,24 +164,17 @@
             <div style="font-size: 12.5px; font-weight: 900; color: #a5f3fc; letter-spacing: .3px;">Hasil Tes Grafis (DAP · BAUM · HTP)</div>
             <div style="font-size: 10.5px; color: #94a3b8; margin-top: 2px;">
               ${hasData ? total + ' assessor' + (total > 1 ? ' (multi)' : '') + ' · penilaian manual' : 'belum ada interpretasi'}
-              ${hasFiles ? ' · ' + driveFiles.length + ' PDF terkirim' : ''}
             </div>
           </div>
         </div>
 
         ${hasData ? `<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;">${chips}</div>` : ''}
 
-        ${hasData ? `
-        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: ${hasFiles ? '12px' : '0'};">
-          <button class="js-grafis-result-open" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" style="flex: 1; min-width: 130px; padding: 9px 14px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); border: 0; border-radius: 9px; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(6,182,212,.35);">👁 Lihat Detail${total > 1 ? ' (' + total + ' Assessor)' : ''}</button>
-          <button class="js-grafis-result-pdf" data-slug="${safeSlug}" data-name="${safeName}" data-position="${safePosition}" data-tab="combined" style="padding: 9px 16px; background: rgba(16,185,129,.18); border: 1px solid rgba(16,185,129,.5); border-radius: 9px; color: #6ee7b7; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">📄 PDF ${total > 1 ? 'Combined' : ''}</button>
-        </div>` : ''}
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${actionsHTML}
+        </div>
 
-        ${hasFiles ? `
-        <div style="padding: 10px 12px; background: rgba(0,0,0,.18); border: 1px solid rgba(16,185,129,.2); border-radius: 10px;">
-          <div style="font-size: 10px; font-weight: 900; color: #6ee7b7; letter-spacing: .5px; margin-bottom: 2px;">📎 FILE PDF TERKIRIM (${driveFiles.length})</div>
-          ${filesHTML}
-        </div>` : ''}
+        ${filesHTML}
       </div>`;
   }
 
