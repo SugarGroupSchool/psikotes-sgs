@@ -57,9 +57,26 @@
     return map[ket] || { bg:'rgba(148,163,184,.15)', br:'rgba(148,163,184,.4)', tx:'#cbd5e1' };
   }
 
-  /* ============================================================
-     FETCH
-     ============================================================ */
+  /* 🆕 Normalize Firebase object→array conversion.
+     Firebase Realtime DB converts sparse arrays (with null/gap) into
+     objects like { 0:[...], 1:[...], 3:[...] } — index 2 missing.
+     This helper reconstructs a proper array with nulls at missing indices. */
+  function __normalizeFbArray(v) {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') {
+      const keys = Object.keys(v)
+        .filter(k => /^\d+$/.test(k))
+        .map(Number)
+        .sort((a, b) => a - b);
+      if (keys.length === 0) return null;
+      const maxIdx = keys[keys.length - 1];
+      const out = new Array(maxIdx + 1).fill(null);
+      keys.forEach(k => { out[k] = v[k]; });
+      return out;
+    }
+    return null;
+  }
+
   async function fetchKRAEPLINData(slug) {
     if (!fbReady()) return null;
     const dashed = slugifyDashed(slug);
@@ -69,18 +86,31 @@
       try {
         const snap = await firebase.database().ref('sgs_scores/' + s).once('value');
         const d = snap.val();
-        if (d && Array.isArray(d.KRAEPLIN_answers) && d.KRAEPLIN_answers.length > 0
-            && Array.isArray(d.KRAEPLIN_key) && d.KRAEPLIN_key.length > 0) {
-          return {
-            answers:           d.KRAEPLIN_answers,
-            key:               d.KRAEPLIN_key,
-            expectedPerCol:    Array.isArray(d.KRAEPLIN_expectedPerCol) ? d.KRAEPLIN_expectedPerCol : null,
-            completed:         d.KRAEPLIN_completed === true,
-            candidateName:     d.candidateName || '',
-            candidatePosition: d.candidatePosition || '',
-            _slug:             s
-          };
+        if (!d) continue;
+
+        const answers = __normalizeFbArray(d.KRAEPLIN_answers);
+        const key     = __normalizeFbArray(d.KRAEPLIN_key);
+
+        /* Diagnostic — bantu debug kalau masih gagal */
+        if (!answers || answers.length === 0) {
+          console.warn('[KRAEPLIN] ' + s + ': KRAEPLIN_answers kosong/invalid (type=' + typeof d.KRAEPLIN_answers + ')');
+          continue;
         }
+        if (!key || key.length === 0) {
+          console.warn('[KRAEPLIN] ' + s + ': KRAEPLIN_key kosong/invalid (type=' + typeof d.KRAEPLIN_key + ')');
+          continue;
+        }
+
+        console.log('[KRAEPLIN] ' + s + ': normalized answers=' + answers.length + ' cols, key=' + key.length + ' cols');
+        return {
+          answers:           answers,
+          key:               key,
+          expectedPerCol:    __normalizeFbArray(d.KRAEPLIN_expectedPerCol),
+          completed:         d.KRAEPLIN_completed === true,
+          candidateName:     d.candidateName || '',
+          candidatePosition: d.candidatePosition || '',
+          _slug:             s
+        };
       } catch (e) { /* silent */ }
     }
     return null;
