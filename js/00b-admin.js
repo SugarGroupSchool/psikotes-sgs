@@ -2036,8 +2036,12 @@ function openResultFilesPage() {
   const existing = document.getElementById('resultFilesPageOverlay');
   if (existing) existing.remove();
   window.__resultFilesPageOpen = false;
-  try {
+    try {
     window.__resultFilesPageOpen = true;
+    window.__lastRenderedSignature = null;
+    if (typeof startSignalListeners === 'function') {
+      try { startSignalListeners(); } catch (e) {}
+    }
     const overlay = document.createElement('div');
     overlay.id = 'resultFilesPageOverlay';
     overlay.style.cssText = `position: fixed; inset: 0; z-index: 100000;
@@ -2336,7 +2340,8 @@ function __renderResultPageContent() {
   const files = window.__resultFilesCache || [];
 
   const signature = JSON.stringify(files.map(f => f.id).sort()) + '|' + JSON.stringify(Object.keys(window.__candidateStatusMap || {}));
-  if (window.__lastRenderedSignature === signature) return;
+    const __stillLoading = !!content.querySelector('[style*="resultSpinner"]');
+  if (window.__lastRenderedSignature === signature && !__stillLoading) return;
   window.__lastRenderedSignature = signature;
 
    const groups = new Map();
