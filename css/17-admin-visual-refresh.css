@@ -459,27 +459,149 @@
   background: #f9fafb !important;
   border-color: #e5e7eb !important;
 }
-/* Editor modal */
+/* === Pgcfg Editor Modal — FULL LIGHT OVERRIDE === */
 #pgcfgEditorModal > div {
   background: #ffffff !important;
-  border-color: #e5e7eb !important;
-  color: #111827 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #1e293b !important;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, .35) !important;
 }
-#pgcfgEditorModal [style*="color:#fff"],
-#pgcfgEditorModal [style*="color: #fff"],
-#pgcfgEditorModal [style*="color:#e2e8f0"],
-#pgcfgEditorModal [style*="color: #e2e8f0"],
-#pgcfgEditorModal [style*="color:#cbd5e1"],
-#pgcfgEditorModal [style*="color: #cbd5e1"] {
+
+/* Header — tetap purple gradient (kontras bagus) */
+#pgcfgEditorModal > div > div:first-child {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+}
+#pgcfgEditorModal > div > div:first-child * {
+  color: #ffffff !important;
+}
+#pgcfgEditorModal > div > div:first-child button {
+  background: rgba(255, 255, 255, .2) !important;
+  border-color: rgba(255, 255, 255, .35) !important;
+}
+
+/* Body editor */
+#pgcfgEditorModal #pgcfgEdBody {
+  background: #ffffff !important;
   color: #1e293b !important;
 }
-#pgcfgEditorModal [style*="color:#94a3b8"],
-#pgcfgEditorModal [style*="color: #94a3b8"] {
-  color: #64748b !important;
+
+/* Labels di body → gelap */
+#pgcfgEditorModal #pgcfgEdBody > div > label {
+  color: #374151 !important;
 }
-#pgcfgEditorModal button[style*="linear-gradient"],
-#pgcfgEditorModal button[style*="linear-gradient"] * {
-  color: #fff !important;
+
+/* Body — paksa semua warna terang jadi gelap */
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#fff"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #fff"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#ffffff"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #ffffff"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#e2e8f0"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #e2e8f0"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#cbd5e1"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #cbd5e1"] {
+  color: #374151 !important;
+}
+
+/* Hint text → abu medium */
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#94a3b8"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #94a3b8"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color:#64748b"],
+#pgcfgEditorModal #pgcfgEdBody [style*="color: #64748b"] {
+  color: #6b7280 !important;
+}
+
+/* Strong/bold → hitam */
+#pgcfgEditorModal #pgcfgEdBody b,
+#pgcfgEditorModal #pgcfgEdBody strong {
+  color: #111827 !important;
+}
+
+/* Input fields — putih dengan border abu */
+#pgcfgEditorModal .pgcfg-input,
+#pgcfgEditorModal .pgcfg-weight {
+  background: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+#pgcfgEditorModal .pgcfg-input::placeholder {
+  color: #9ca3af !important;
+  font-weight: 400 !important;
+}
+#pgcfgEditorModal .pgcfg-input:focus,
+#pgcfgEditorModal .pgcfg-weight:focus {
+  border-color: #6366f1 !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, .15) !important;
+  outline: none !important;
+}
+#pgcfgEditorModal .pgcfg-input:read-only,
+#pgcfgEditorModal .pgcfg-input:disabled {
+  background: #f9fafb !important;
+  color: #6b7280 !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Checkbox labels */
+#pgcfgEditorModal .pgcfg-chk {
+  background: #f9fafb !important;
+  border: 1.5px solid #e5e7eb !important;
+  color: #4b5563 !important;
+  font-weight: 700 !important;
+}
+#pgcfgEditorModal .pgcfg-chk:hover {
+  background: #f3f4f6 !important;
+  border-color: #c7d2fe !important;
+}
+#pgcfgEditorModal .pgcfg-chk.checked {
+  background: #eef2ff !important;
+  border-color: #818cf8 !important;
+  color: #4338ca !important;
+}
+#pgcfgEditorModal .pgcfg-chk input[type="checkbox"] {
+  accent-color: #6366f1 !important;
+}
+
+/* Total weight indicator (hijau/merah) */
+#pgcfgEditorModal [id="pgcfgEdTotal"] {
+  font-weight: 900 !important;
+}
+#pgcfgEditorModal [id="pgcfgEdTotal"][style*="86efac"] {
+  color: #059669 !important;
+}
+#pgcfgEditorModal [id="pgcfgEdTotal"][style*="fca5a5"] {
+  color: #dc2626 !important;
+}
+
+/* Section background transparan putih → abu muda */
+#pgcfgEditorModal #pgcfgEdBody [style*="rgba(255,255,255,.04)"],
+#pgcfgEditorModal #pgcfgEdBody [style*="rgba(255,255,255,.05)"],
+#pgcfgEditorModal #pgcfgEdBody [style*="rgba(255,255,255,.06)"],
+#pgcfgEditorModal #pgcfgEdBody [style*="rgba(255,255,255,.08)"] {
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Footer */
+#pgcfgEditorModal > div > div:last-child {
+  background: #f8fafc !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
+/* Tombol Batal */
+#pgcfgEditorModal #pgcfgEdCancel {
+  background: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  color: #374151 !important;
+}
+#pgcfgEditorModal #pgcfgEdCancel:hover {
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+/* Tombol Simpan — tetap hijau gradient (text putih) */
+#pgcfgEditorModal #pgcfgEdSave {
+  color: #ffffff !important;
 }
 
 /* ===== 10. FOCUS RINGS ===== */
