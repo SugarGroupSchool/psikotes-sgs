@@ -31,7 +31,7 @@
    
    📌 SUBTES IST: SE, WA, AN, GE, ME, RA, ZR, FA, WU
    📌 DIMENSI PAPI: A, N, G, T, V, W, F, C, L, P, I, E, K, O, S, B, X, Z, D, R
-   📌 DIMENSI BIGFIVE: O, C, E, A, N (+ '_rev' untuk reverse scoring, contoh: 'N_rev')
+   📌 DIMENSI BIGFIVE: O, C, E, A, N (+ '_rev' untuk reverse scoring, contoh: 'N')
    📌 KATEGORI GRAFIS (harus persis):
       - 'KEMAMPUAN BERPIKIR & PROBLEM SOLVING'
       - 'EMPATHY, INTERPERSONAL SKILL & TEAMWORK'
@@ -79,7 +79,7 @@ window.PSIKOGRAM_CONFIG = {
         weights: { IST: 5, PAPI: 20, BigFive: 10, Wawancara: 35, FGD: 30 },
         ist: ['SE', 'GE', 'AN', 'WA'],
         papi: ['L', 'P', 'I'],
-        bigfive: ['C', 'N_rev']
+        bigfive: ['C', 'N']
       },
       {
         id: 'empathy_interpersonal',
@@ -96,7 +96,7 @@ window.PSIKOGRAM_CONFIG = {
         weights: { PAPI: 20, BigFive: 35, Grafis: 30, Wawancara: 15 },
         ist: [],
         papi: ['E', 'K'],
-        bigfive: ['N_rev'],
+        bigfive: ['N'],
         grafisCat: 'STABILITAS EMOSI & KONTROL IMPULS'
       },
       {
@@ -122,7 +122,7 @@ window.PSIKOGRAM_CONFIG = {
         weights: { IST: 5, PAPI: 20, BigFive: 25, Grafis: 10, FGD: 15, Wawancara: 25 },
         ist: ['AN'],
         papi: ['Z', 'V'],
-        bigfive: ['O', 'N_rev'],
+        bigfive: ['O', 'N'],
         grafisCat: 'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY'
       },
       {

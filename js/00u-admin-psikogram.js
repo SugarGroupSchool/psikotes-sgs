@@ -52,6 +52,34 @@ const DEFAULT_ASPECTS = getAspectConfig('guru');
   const PAPI_CONFIG = { A:{inv:false}, N:{inv:false}, G:{inv:false}, T:{inv:false}, V:{inv:false}, W:{inv:false}, F:{inv:false}, C:{inv:false}, L:{inv:false}, P:{inv:false}, I:{inv:false}, E:{inv:false}, K:{inv:true},  O:{inv:false}, S:{inv:false}, B:{inv:false}, X:{inv:false}, Z:{inv:false}, D:{inv:false}, R:{inv:false} };
 
   function clamp05(v){ return Math.max(0, Math.min(5, v)); }
+
+/* ============================================================
+   🆕 AUTO REVERSE SCORING
+   ------------------------------------------------------------
+   Sistem otomatis tahu dimensi mana yang perlu di-reverse
+   berdasarkan psikometri standar. Tidak perlu centang manual.
+   
+   Untuk override (edge case): tambahkan suffix `_rev` di config.
+   Contoh: 'N' → auto-reverse (karena N selalu reverse)
+           'N_rev' → tetap reverse (explicit, backward compat)
+           'O' → normal
+           'O_rev' → explicit reverse (override manual)
+   ============================================================ */
+const AUTO_REVERSE_DIMS = {
+  bigfive:  ['n'],                    // N selalu reverse
+  papi:     [],                       // PAPI normal semua
+  kraeplin: ['tianker', 'janker'],    // salah & deviasi = makin rendah makin bagus
+  typing:   ['salah', 'belum']        // makin banyak = makin buruk
+};
+
+function __shouldReverse(source, dim) {
+  const d = String(dim || '').toLowerCase();
+  // Explicit override: `_rev` suffix → force reverse
+  if (/_rev$/.test(d)) return true;
+  // Auto: cek di daftar reverse per sumber
+  const base = d.replace(/_rev$/, '');
+  return (AUTO_REVERSE_DIMS[source] || []).includes(base);
+}
   function normIST(sw){ return typeof sw==='number' ? clamp05((sw - 75) / 10) : null; }
   function normWawancara(s){ return typeof s==='number' ? clamp05(s) : null; }
   function normFGD(s){ return typeof s==='number' ? clamp05(s * 1.25) : null; }
@@ -174,7 +202,11 @@ function detectCategory(p) {
     const W = effectiveWeights || {};
     if (aspect.ist && aspect.ist.length && raw._sources.IST && W.IST) { const vals = aspect.ist.map(c => normIST(raw.IST[c])).filter(v => v !== null); if (vals.length) parts.push({ src:'IST', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.IST }); }
     if (aspect.papi && aspect.papi.length && raw._sources.PAPI && W.PAPI) { const vals = aspect.papi.map(c => normPAPI(raw.PAPI[c], (PAPI_CONFIG[c]||{}).inv)).filter(v => v !== null); if (vals.length) parts.push({ src:'PAPI', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.PAPI }); }
-    if (aspect.bigfive && aspect.bigfive.length && raw._sources.BigFive && W.BigFive) { const vals = aspect.bigfive.map(c => { const inv = /_rev$/i.test(c); return normBigFive(raw.BigFive[c.replace(/_rev$/i,'')], inv); }).filter(v => v !== null); if (vals.length) parts.push({ src:'BigFive', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.BigFive }); }
+    if (aspect.bigfive && aspect.bigfive.length && raw._sources.BigFive && W.BigFive) { const vals = aspect.bigfive.map(c => {
+  const base = c.replace(/_rev$/i, '');
+  const inv = __shouldReverse('bigfive', c);   // ← otomatis + backward compat
+  return normBigFive(raw.BigFive[base], inv);
+}).filter(v => v !== null); if (vals.length) parts.push({ src:'BigFive', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.BigFive }); }
     if (raw._sources.Wawancara && W.Wawancara) { let valToUse = raw.Wawancara; if (raw.WawancaraDetails) { const searchKey = aspect.label.toUpperCase().trim(); if (raw.WawancaraDetails[searchKey] !== undefined) { valToUse = raw.WawancaraDetails[searchKey]; } else { for (const key in raw.WawancaraDetails) { if (key.includes(searchKey) || searchKey.includes(key)) { valToUse = raw.WawancaraDetails[key]; break; } } } } const v = normWawancara(valToUse); if (v !== null) parts.push({ src:'Wawancara', val: v, w: W.Wawancara }); }
     if (raw._sources.FGD && W.FGD) { const v = normFGD(raw.FGD); if (v !== null) parts.push({ src:'FGD', val: v, w: W.FGD }); }
     if (aspect.grafisCat && raw._sources.Grafis && raw.Grafis[aspect.grafisCat] !== undefined && W.Grafis) { const v = normGrafis(raw.Grafis[aspect.grafisCat]); if (v !== null) parts.push({ src:'Grafis', val: v, w: W.Grafis }); }

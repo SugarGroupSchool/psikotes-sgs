@@ -478,20 +478,18 @@
           </div>
         </div>
         <div style="margin-bottom:16px;">
-          <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">DIMENSI BIG FIVE <span style="font-size:10px;color:#9ca3af;font-weight:600;">(⇄ = reverse scoring)</span></label>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">
-            ${BIGFIVE_DIMS.map(s => `
-              <div style="display:flex;gap:4px;">
-                <label class="pgcfg-chk ${a.bigfive.includes(s) ? 'checked' : ''}" data-group="bigfive" data-val="${s}" style="flex:1;">
-                  <input type="checkbox" ${a.bigfive.includes(s) ? 'checked' : ''}> ${s}
-                </label>
-                <label class="pgcfg-chk ${a.bigfive.includes(s + '_rev') ? 'checked' : ''}" data-group="bigfive" data-val="${s}_rev" title="Reverse">
-                  <input type="checkbox" ${a.bigfive.includes(s + '_rev') ? 'checked' : ''}> ⇄
-                </label>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+  <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">
+    DIMENSI BIG FIVE
+    <span style="font-size:10px;color:#9ca3af;font-weight:600;">— N (Neuroticism) otomatis di-reverse oleh sistem</span>
+  </label>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;">
+    ${BIGFIVE_DIMS.map(s => `
+      <label class="pgcfg-chk ${(a.bigfive.includes(s) || a.bigfive.includes(s + '_rev')) ? 'checked' : ''}" data-group="bigfive" data-val="${s}">
+        <input type="checkbox" ${(a.bigfive.includes(s) || a.bigfive.includes(s + '_rev')) ? 'checked' : ''}> ${s}
+      </label>
+    `).join('')}
+  </div>
+</div>
         <div style="margin-bottom:16px;">
           <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:6px;">KATEGORI GRAFIS <span style="font-size:10px;color:#9ca3af;font-weight:600;">(bebas / free-text)</span></label>
           <input type="text" id="pgcfgEdGrafis" class="pgcfg-input" value="${esc(a.grafisCat)}" list="pgcfgGrafisSuggestions" placeholder="Kosongkan jika tidak pakai Grafis">
@@ -529,25 +527,19 @@
         };
       });
 
-      body.querySelectorAll('.pgcfg-chk').forEach(chk => {
-        const inp = chk.querySelector('input');
-        if (!inp) return;
-        const group = chk.getAttribute('data-group');
-        const val = chk.getAttribute('data-val');
-        if (!group || !val) return;
-        inp.onchange = () => {
-          const arr = a[group] || [];
-          if (inp.checked) {
-            if (!arr.includes(val)) arr.push(val);
-            chk.classList.add('checked');
-          } else {
-            const ix = arr.indexOf(val);
-            if (ix >= 0) arr.splice(ix, 1);
-            chk.classList.remove('checked');
-          }
-          a[group] = arr;
-        };
-      });
+     body.querySelectorAll('.pgcfg-chk[data-group]').forEach(chk => {
+  const inp = chk.querySelector('input');
+  if (!inp) return;
+  const group = chk.getAttribute('data-group');
+  const val = chk.getAttribute('data-val');
+  if (!group || !val) return;
+  inp.onchange = () => {
+    let arr = (a[group] || []).filter(x => x !== val && x !== (val + '_rev'));
+    if (inp.checked) arr.push(val);   // selalu simpan tanpa suffix — auto-reverse handle
+    chk.classList.toggle('checked', inp.checked);
+    a[group] = arr;
+  };
+});
 
       const grafisInput = body.querySelector('#pgcfgEdGrafis');
       if (grafisInput) grafisInput.oninput = () => { a.grafisCat = grafisInput.value; };
