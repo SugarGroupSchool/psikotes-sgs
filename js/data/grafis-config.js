@@ -72,7 +72,50 @@
      ============================================================ */
   global.GRAFIS_CONFIG = {
     guru:         { aspects: clone(DEFAULT_7) },
-    admin:        { aspects: clone(DEFAULT_7) },
+       admin: {
+      aspects: [
+        {
+          id: 'integritas-kepatuhan',
+          label: 'Integritas & Kepatuhan terhadap Aturan',
+          description: 'Kejujuran, tanggung jawab, dan kepatuhan terhadap aturan & prosedur.'
+        },
+        {
+          id: 'manajemen-waktu-prioritas',
+          label: 'Manajemen Waktu & Prioritas',
+          description: 'Kemampuan mengatur waktu, memprioritaskan tugas, dan menyelesaikan tepat waktu.'
+        },
+        {
+          id: 'komunikasi-administratif',
+          label: 'Komunikasi Administratif',
+          description: 'Komunikasi tertulis & lisan yang efektif, terstruktur, dan jelas.'
+        },
+        {
+          id: 'service-orientation',
+          label: 'Service Orientation',
+          description: 'Orientasi pelayanan, keramahan, dan kepedulian terhadap kebutuhan pengguna.'
+        },
+        {
+          id: 'inisiatif-proaktivitas',
+          label: 'Inisiatif & Proaktivitas',
+          description: 'Inisiatif, kemandirian, dan proaktif dalam menyelesaikan pekerjaan.'
+        },
+        {
+          id: 'collaboration-interpersonal',
+          label: 'Collaboration & Interpersonal Skill',
+          description: 'Kemampuan kerja sama, empati, dan membangun relasi kerja yang sehat.'
+        },
+        {
+          id: 'fleksibilitas-adaptasi',
+          label: 'Fleksibilitas & Adaptasi',
+          description: 'Kemampuan menyesuaikan diri dengan perubahan & situasi baru.'
+        },
+        {
+          id: 'orientasi-hasil',
+          label: 'Orientasi Hasil',
+          description: 'Fokus pada hasil, ketekunan, dan pencapaian target kerja.'
+        }
+      ]
+    },
     it:           { aspects: clone(DEFAULT_7) },
     welder:       { aspects: clone(DEFAULT_7) },
     technical:    { aspects: clone(DEFAULT_7) },

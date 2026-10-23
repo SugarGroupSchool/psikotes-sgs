@@ -161,37 +161,89 @@ window.PSIKOGRAM_CONFIG = {
      Sementara kosong → psikogram TIDAK muncul untuk posisi ini.
      Isi aspek di bawah ini kalau siap.
      ========================================================== */
-  admin: {
+   admin: {
     label: 'Administrator / Staff',
-    matchKeywords: ['admin', 'staff', 'sekretariat', 'office'],
     aspects: [
-      // ====== CONTOH (hapus komentar kalau mau pakai) ======
-      // {
-      //   id: 'integritas',
-      //   label: 'Integritas & Kepatuhan',
-      //   weights: { PAPI: 40, Wawancara: 40, Grafis: 20 },
-      //   ist: [],
-      //   papi: ['W', 'F', 'C', 'G'],
-      //   bigfive: [],
-      //   grafisCat: 'INTEGRITY & RULE COMPLIANCE'
-      // },
-      // {
-      //   id: 'ketelitian',
-      //   label: 'Akurasi & Ketelitian Kerja',
-      //   weights: { IST: 30, PAPI: 40, BigFive: 30 },
-      //   ist: ['FA', 'WU'],
-      //   papi: ['D', 'C'],
-      //   bigfive: ['C']
-      // },
-      // {
-      //   id: 'penguasaan_apps',
-      //   label: 'Penguasaan Aplikasi Administrasi',
-      //   weights: { IST: 20, Wawancara: 50, SubjectTest: 30 },
-      //   ist: ['ME'],
-      //   papi: ['R'],
-      //   bigfive: ['O'],
-      //   subjectTest: true
-      // }
+      {
+        id: 'integritas_kepatuhan',
+        label: 'Integritas & Kepatuhan terhadap Aturan',
+        weights: { IST: 10, PAPI: 30, BigFive: 20, Wawancara: 20, FGD: 10, Grafis: 10, SubjectTest: 0 },
+        ist: ['SE', 'WU'],
+        papi: ['R', 'D', 'K'],
+        bigfive: ['C', 'A'],
+        grafisCat: 'Integritas & Kepatuhan terhadap Aturan',
+        subjectTest: false
+      },
+      {
+        id: 'manajemen_waktu_prioritas',
+        label: 'Manajemen Waktu & Prioritas',
+        weights: { IST: 15, PAPI: 25, BigFive: 20, Wawancara: 15, FGD: 10, Grafis: 15, SubjectTest: 0 },
+        ist: ['ME', 'RA'],
+        papi: ['C', 'F', 'D'],
+        bigfive: ['C', 'O'],
+        grafisCat: 'Manajemen Waktu & Prioritas',
+        subjectTest: false
+      },
+      {
+        id: 'komunikasi_administratif',
+        label: 'Komunikasi Administratif',
+        weights: { IST: 10, PAPI: 20, BigFive: 15, Wawancara: 25, FGD: 15, Grafis: 15, SubjectTest: 0 },
+        ist: ['SE', 'WA'],
+        papi: ['I', 'T', 'E'],
+        bigfive: ['E', 'A'],
+        grafisCat: 'Komunikasi Administratif',
+        subjectTest: false
+      },
+      {
+        id: 'service_orientation',
+        label: 'Service Orientation',
+        weights: { IST: 5, PAPI: 20, BigFive: 20, Wawancara: 25, FGD: 15, Grafis: 15, SubjectTest: 0 },
+        ist: ['SE', 'WA'],
+        papi: ['T', 'I', 'E'],
+        bigfive: ['A', 'E', 'N'],
+        grafisCat: 'Service Orientation',
+        subjectTest: false
+      },
+      {
+        id: 'inisiatif_proaktivitas',
+        label: 'Inisiatif & Proaktivitas',
+        weights: { IST: 10, PAPI: 20, BigFive: 15, Wawancara: 20, FGD: 15, Grafis: 20, SubjectTest: 0 },
+        ist: ['AN', 'GE'],
+        papi: ['A', 'V', 'P'],
+        bigfive: ['O', 'C'],
+        grafisCat: 'Inisiatif & Proaktivitas',
+        subjectTest: false
+      },
+      {
+        id: 'collaboration_interpersonal',
+        label: 'Collaboration & Interpersonal Skill',
+        weights: { IST: 5, PAPI: 20, BigFive: 20, Wawancara: 20, FGD: 20, Grafis: 15, SubjectTest: 0 },
+        ist: ['SE', 'WA'],
+        papi: ['T', 'I', 'B'],
+        bigfive: ['A', 'E'],
+        grafisCat: 'Collaboration & Interpersonal Skill',
+        subjectTest: false
+      },
+      {
+        id: 'fleksibilitas_adaptasi',
+        label: 'Fleksibilitas & Adaptasi',
+        weights: { IST: 10, PAPI: 20, BigFive: 20, Wawancara: 20, FGD: 15, Grafis: 15, SubjectTest: 0 },
+        ist: ['AN', 'ZR'],
+        papi: ['Z', 'X', 'P'],
+        bigfive: ['O', 'N'],
+        grafisCat: 'Fleksibilitas & Adaptasi',
+        subjectTest: false
+      },
+      {
+        id: 'orientasi_hasil',
+        label: 'Orientasi Hasil',
+        weights: { IST: 15, PAPI: 25, BigFive: 15, Wawancara: 20, FGD: 10, Grafis: 15, SubjectTest: 0 },
+        ist: ['RA', 'ZR', 'ME'],
+        papi: ['A', 'V', 'D'],
+        bigfive: ['C', 'N'],
+        grafisCat: 'Orientasi Hasil',
+        subjectTest: false
+      }
     ]
   },
 
