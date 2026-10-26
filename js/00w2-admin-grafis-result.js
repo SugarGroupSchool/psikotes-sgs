@@ -1,5 +1,9 @@
 /* ============================================================
-   js/00w2-admin-grafis-result.js — v6 (Final Layout)
+   js/00w2-admin-grafis-result.js — v6.1 (Final Layout)
+   ------------------------------------------------------------
+   🆕 v6.1 [2026-10-26]: opts.contentOnly untuk unified report
+   - contentOnly=true → skip Kop, Info, TTD (nama Deni di akhir)
+   - expose window.generateGrafisCombinedPDF
    ============================================================ */
 (function () {
   'use strict';
@@ -266,7 +270,7 @@
   }
 
   /* ============================================================
-     PDF HELPERS & GENERATOR (SINGLE CLEAN LAYOUT)
+     PDF HELPERS & GENERATOR
      ============================================================ */
   function __pdfJustify(doc, line, x, y, maxW, fontSize) {
     const words = line.trim().split(/\s+/); if (words.length < 2) { doc.text(line, x, y); return; }
@@ -289,11 +293,16 @@
     } catch (e) { return null; }
   }
 
-  async function generateGrafisCombinedPDF(slug, name, position, allData) {
+  /* ============================================================
+     GENERATE PDF
+     🆕 opts.contentOnly = true → skip Kop, Info, TTD
+     ============================================================ */
+  async function generateGrafisCombinedPDF(slug, name, position, allData, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
     const assessors = sortAssessors(Object.keys(allData));
-    
+
     const firstCode = assessors[0];
     const d = allData[firstCode];
     const rec = getRecMeta(d.recommendation);
@@ -302,29 +311,39 @@
     const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
     const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 15; const CW = PW - 2 * M; let y = 20;
 
-    /* 1. KOP SURAT */
-    try { const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png'; const resp = await fetch(logoUrl, { cache: 'no-cache' }); if (resp.ok) { const blob = await resp.blob(); const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); }); doc.addImage(dataUrl, 'PNG', PW / 2 - 8, 8, 16, 13); } } catch (e) {}
-    
-    y = 26;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('LAPORAN INTERPRETASI GRAFIS', PW / 2, y, { align: 'center' }); y += 4.5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('SUGAR GROUP SCHOOLS', PW / 2, y, { align: 'center' }); y += 3.5;
-    doc.setFontSize(7.5); doc.text(`DAP · BAUM · HTP — Penilaian Manual`, PW / 2, y, { align: 'center' }); y += 4;
-    doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 6;
+    /* 🆕 1. KOP SURAT / SECTION TITLE */
+    if (!opts.contentOnly) {
+      /* KOP penuh */
+      try { const logoUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.LOGO) || 'https://cdn.jsdelivr.net/gh/Pragas123/assets@main/nmqo6a.png'; const resp = await fetch(logoUrl, { cache: 'no-cache' }); if (resp.ok) { const blob = await resp.blob(); const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); }); doc.addImage(dataUrl, 'PNG', PW / 2 - 8, 8, 16, 13); } } catch (e) {}
 
-    /* 2. INFORMASI KANDIDAT */
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('INFORMASI KANDIDAT', M, y); y += 5;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-    const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    [['Nama Kandidat', cleanText(name)], ['Posisi', cleanText(position) || '-'], ['Tanggal', tanggal], ['Jumlah Assessor', String(assessors.length)]].forEach(([k, v]) => { doc.text(k + ' :', M + 2, y); doc.text(String(v), M + 45, y); y += 4; });
-    y += 3; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
+      y = 26;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('LAPORAN INTERPRETASI GRAFIS', PW / 2, y, { align: 'center' }); y += 4.5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('SUGAR GROUP SCHOOLS', PW / 2, y, { align: 'center' }); y += 3.5;
+      doc.setFontSize(7.5); doc.text(`DAP · BAUM · HTP — Penilaian Manual`, PW / 2, y, { align: 'center' }); y += 4;
+      doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.5); doc.line(M, y, PW - M, y); y += 6;
+
+      /* 2. INFORMASI KANDIDAT */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('INFORMASI KANDIDAT', M, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      [['Nama Kandidat', cleanText(name)], ['Posisi', cleanText(position) || '-'], ['Tanggal', tanggal], ['Jumlah Assessor', String(assessors.length)]].forEach(([k, v]) => { doc.text(k + ' :', M + 2, y); doc.text(String(v), M + 45, y); y += 4; });
+      y += 3; doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
+    } else {
+      /* Section Title mini */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(6, 182, 212);
+      doc.text('HASIL TES GRAFIS', M, y); y += 5;
+      doc.setDrawColor(6, 182, 212); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); doc.setTextColor(0); y += 6;
+    }
 
     /* 3. SKOR PER KATEGORI */
     y = ensurePage(doc, y, 30, PH);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('SKOR PER KATEGORI', M, y); y += 5;
-    
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+    doc.text('SKOR PER KATEGORI', M, y); doc.setTextColor(0); y += 5;
+
     doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.setFillColor(6, 182, 212); doc.rect(M, y - 3, CW, 6, 'F');
     doc.text('KATEGORI', M + 2, y + 1); doc.text('SKOR', PW - M - 15, y + 1); doc.setTextColor(0); y += 6;
-    
+
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     categories.forEach((cat, idx) => {
       y = ensurePage(doc, y, 8, PH);
@@ -337,7 +356,8 @@
 
     /* 4. KESIMPULAN PER KATEGORI */
     y = ensurePage(doc, y, 25, PH);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN PER KATEGORI', M, y); y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+    doc.text('KESIMPULAN PER KATEGORI', M, y); doc.setTextColor(0); y += 5;
     categories.forEach((cat, idx) => {
       if (!cat.narrative) return;
       y = ensurePage(doc, y, 15, PH);
@@ -352,7 +372,8 @@
     /* 5. KESIMPULAN KESELURUHAN */
     if (d.conclusion) {
       y = ensurePage(doc, y, 25, PH); doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('KESIMPULAN KESELURUHAN', M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+      doc.text('KESIMPULAN KESELURUHAN', M, y); doc.setTextColor(0); y += 5;
       y = printParagraph(doc, d.conclusion, M, 8, 3.5, PW, PH, y);
       y += 4;
     }
@@ -360,7 +381,8 @@
     /* 6. TINGKAT REKOMENDASI */
     if (d.recommendation) {
       y = ensurePage(doc, y, 15, PH);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('TINGKAT REKOMENDASI', M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+      doc.text('TINGKAT REKOMENDASI', M, y); doc.setTextColor(0); y += 5;
       doc.setFontSize(10);
       doc.setTextColor(rec.color === '#86efac' ? 22 : rec.color === '#fcd34d' ? 161 : 185, rec.color === '#86efac' ? 101 : rec.color === '#fcd34d' ? 98 : 28, rec.color === '#86efac' ? 52 : rec.color === '#fcd34d' ? 7 : 28);
       doc.text(cleanText(rec.label), M, y); doc.setTextColor(0); y += 6;
@@ -369,7 +391,8 @@
     /* 7. ALASAN REKOMENDASI */
     if (d.reasons) {
       y = ensurePage(doc, y, 25, PH);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ALASAN REKOMENDASI', M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+      doc.text('ALASAN REKOMENDASI', M, y); doc.setTextColor(0); y += 5;
       y = printParagraph(doc, d.reasons, M, 8, 3.5, PW, PH, y);
       y += 4;
     }
@@ -377,7 +400,8 @@
     /* 8. REKOMENDASI PENGEMBANGAN */
     if (d.development) {
       y = ensurePage(doc, y, 25, PH);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('REKOMENDASI PENGEMBANGAN', M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+      doc.text('REKOMENDASI PENGEMBANGAN', M, y); doc.setTextColor(0); y += 5;
       y = printParagraph(doc, d.development, M, 8, 3.5, PW, PH, y);
       y += 6;
     }
@@ -396,27 +420,24 @@
       y = ensurePage(doc, y, 30, PH);
       doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
 
-      // Title
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-      doc.text(`${titleMap[key]}`, M, y); y += 5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(6, 182, 212);
+      doc.text(`${titleMap[key]}`, M, y); doc.setTextColor(0); y += 5;
 
-      // Image
       if (imgData) {
         try {
           const p = doc.getImageProperties(imgData);
           let w = CW;
           let h = (p.height * w) / p.width;
-          
+
           if (h > PH - 60) { h = PH - 60; w = (p.width * h) / p.height; }
           if (y + h > PH - 15) { doc.addPage(); y = 15; }
-          
+
           const xOffset = M + (CW - w) / 2;
           doc.addImage(imgData, 'JPEG', xOffset, y, w, h);
           y += h + 5;
         } catch (e) {}
       }
 
-      // Text
       if (textData) {
         y = ensurePage(doc, y, 20, PH);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
@@ -425,11 +446,14 @@
       }
     }
 
-    /* 10. TANDA TANGAN (TTD) */
-    y = ensurePage(doc, y, 40, PH);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('ttd', PW - 65, y); y += 12;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Deni Pragas Septian Pratama', PW - 65, y); y += 4;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('(Grafis Interpreter)', PW - 65, y);
+    /* 🆕 10. TANDA TANGAN (TTD) — hanya standalone */
+    if (!opts.contentOnly) {
+      y = ensurePage(doc, y, 40, PH);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(0);
+      doc.text('ttd', PW - 65, y); y += 12;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('Deni Pragas Septian Pratama', PW - 65, y); y += 4;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('(Grafis Interpreter)', PW - 65, y);
+    }
 
     return doc;
   }
@@ -471,8 +495,9 @@
 
   window.openGrafisModal = openGrafisModal;
   window.downloadGrafisPDF = downloadGrafisPDF;
+  window.generateGrafisCombinedPDF = generateGrafisCombinedPDF;  /* 🆕 unified */
   window.renderGrafisSectionHTML = renderGrafisSectionHTML;
   window.__fetchGrafisData = fetchGrafisData;
 
-  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v6 — Final Layout with Image & Text');
+  console.log('[GRAFIS-RESULT-ADMIN] ✓ Loaded v6.1 — Final Layout + contentOnly');
 })();

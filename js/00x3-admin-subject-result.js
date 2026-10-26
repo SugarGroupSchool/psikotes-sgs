@@ -1,5 +1,7 @@
 /* ============================================================
-   js/00x3-admin-subject-result.js — Admin View Subject Test
+   js/00x3-admin-subject-result.js — Admin View Subject Test v2.1
+   ------------------------------------------------------------
+   🆕 v2.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 (function () {
   'use strict';
@@ -226,7 +228,12 @@
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
-  async function generateSubjectPDF(name, position, data) {
+  /* ============================================================
+     GENERATE PDF
+     🆕 opts.contentOnly = true → skip Kop, Info, Footer
+     ============================================================ */
+  async function generateSubjectPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -240,27 +247,38 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(13, 148, 136);
-    doc.text('HASIL KOREKSI SUBJECT TEST', PW / 2, y, { align: 'center' }); y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' }); y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(13, 148, 136);
+      doc.text('HASIL KOREKSI SUBJECT TEST', PW / 2, y, { align: 'center' }); y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' }); y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    [
-      ['Nama', cleanText(name) || '-'],
-      ['Posisi', cleanText(position) || '-'],
-      ['Tanggal Cetak', tanggal],
-      ['Total Korektor', String(assessors.length)],
-      ['Foto Jawaban', String(images.length) + ' halaman']
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 35, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      [
+        ['Nama', cleanText(name) || '-'],
+        ['Posisi', cleanText(position) || '-'],
+        ['Tanggal Cetak', tanggal],
+        ['Total Korektor', String(assessors.length)],
+        ['Foto Jawaban', String(images.length) + ' halaman']
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 35, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(13, 148, 136);
+      doc.text('HASIL KOREKSI SUBJECT TEST', M, y); y += 5;
+      doc.setDrawColor(13, 148, 136); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     if (assessors.length > 0) {
       const avg = assessors.reduce((s, a) => s + a.rating, 0) / assessors.length;
@@ -310,7 +328,7 @@
         doc.text(line, M + 3, y); y += 3.5;
       });
       y += 3;
-      
+
       if (a.notePhotoUrl) {
         if (y > PH - 40) { doc.addPage(); y = M; }
         doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(13, 148, 136);
@@ -342,7 +360,7 @@
           urlLines.forEach(l => { if (y > PH - 15) { doc.addPage(); y = M; } doc.text(l, M + 4, y); y += 3.5; });
         }
       }
-      
+
       if (a.ts) {
         doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(120);
         doc.text('Disubmit: ' + new Date(a.ts).toLocaleString('id-ID'), M + 2, y);
@@ -351,11 +369,14 @@
       y += 5;
     }
 
-    if (y > PH - 15) { doc.addPage(); y = M; }
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120);
-    doc.text('Dicetak: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 15) { doc.addPage(); y = M; }
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120);
+      doc.text('Dicetak: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
     return doc;
   }
 
@@ -487,11 +508,12 @@
     }, true);
   }
 
-  window.renderSubjectSectionHTML = renderSubjectSectionHTML;
-  window.openSubjectModal = openSubjectModal;
-  window.downloadSubjectPDF = downloadSubjectPDF;
-  window.__fetchSubjectData = fetchSubjectData;
-  window.__openSubjectImagesModal = openSubjectImagesOnlyModal;
+  window.renderSubjectSectionHTML     = renderSubjectSectionHTML;
+  window.openSubjectModal             = openSubjectModal;
+  window.downloadSubjectPDF           = downloadSubjectPDF;
+  window.generateSubjectPDF           = generateSubjectPDF;  /* 🆕 unified */
+  window.__fetchSubjectData           = fetchSubjectData;
+  window.__openSubjectImagesModal     = openSubjectImagesOnlyModal;
 
-  console.log('[SUBJECT-RESULT-ADMIN] ✓ Loaded v2 — section + modal + PDF + realtime + embed images');
+  console.log('[SUBJECT-RESULT-ADMIN] ✓ Loaded v2.1 — section + modal + PDF + contentOnly');
 })();
