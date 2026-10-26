@@ -370,11 +370,19 @@
   /* ============================================================
      ASPECT EDITOR MODAL — LIGHT THEME
      ============================================================ */
-  function __openAspectEditor(idx) {
+   function __openAspectEditor(idx) {
     const isNew = idx < 0;
     const a = isNew
       ? { id: '', label: '', weights: {}, ist: [], papi: [], bigfive: [], grafisCat: '', subjectTest: false }
       : JSON.parse(JSON.stringify(__state.aspects[idx]));
+
+    /* 🆕 Sanitasi: pastikan semua field array/object ada (fix 'includes' error) */
+    a.ist = Array.isArray(a.ist) ? a.ist : [];
+    a.papi = Array.isArray(a.papi) ? a.papi : [];
+    a.bigfive = Array.isArray(a.bigfive) ? a.bigfive : [];
+    a.weights = (a.weights && typeof a.weights === 'object') ? a.weights : {};
+    a.grafisCat = String(a.grafisCat || '');
+    a.subjectTest = !!a.subjectTest;
 
     const old = document.getElementById('pgcfgEditorModal');
     if (old) old.remove();
@@ -459,9 +467,15 @@
     `;
     document.body.appendChild(modal);
 
-    function renderBody() {
+       function renderBody() {
       const body = document.getElementById('pgcfgEdBody');
       if (!body) return;
+
+      /* 🆕 Defensive: pastikan array sebelum dipakai di template */
+      const __istArr = Array.isArray(a.ist) ? a.ist : (a.ist = []);
+      const __papiArr = Array.isArray(a.papi) ? a.papi : (a.papi = []);
+      const __bfArr = Array.isArray(a.bigfive) ? a.bigfive : (a.bigfive = []);
+
       const totalW = __totalWeight(a);
       const totalColor = totalW === 100 ? '#059669' : '#dc2626';
       const suggestions = __getGrafisSuggestions();
@@ -490,35 +504,35 @@
           </div>
           <div style="font-size:10.5px;color:#9ca3af;margin-top:4px;">Total sebaiknya 100. Kosong = 0 = tidak dipakai.</div>
         </div>
-        <div style="margin-bottom:16px;">
+                <div style="margin-bottom:16px;">
           <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">SUBTES IST</label>
           <div class="pgcfg-chk-grid">
             ${IST_SUBTES.map(s => `
-              <label class="pgcfg-chk ${a.ist.includes(s) ? 'checked' : ''}" data-group="ist" data-val="${s}">
-                <input type="checkbox" ${a.ist.includes(s) ? 'checked' : ''}> ${s}
+              <label class="pgcfg-chk ${__istArr.includes(s) ? 'checked' : ''}" data-group="ist" data-val="${s}">
+                <input type="checkbox" ${__istArr.includes(s) ? 'checked' : ''}> ${s}
               </label>
             `).join('')}
           </div>
         </div>
-        <div style="margin-bottom:16px;">
+               <div style="margin-bottom:16px;">
           <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">DIMENSI PAPI</label>
           <div class="pgcfg-chk-grid">
             ${PAPI_DIMS.map(s => `
-              <label class="pgcfg-chk ${a.papi.includes(s) ? 'checked' : ''}" data-group="papi" data-val="${s}">
-                <input type="checkbox" ${a.papi.includes(s) ? 'checked' : ''}> ${s}
+              <label class="pgcfg-chk ${__papiArr.includes(s) ? 'checked' : ''}" data-group="papi" data-val="${s}">
+                <input type="checkbox" ${__papiArr.includes(s) ? 'checked' : ''}> ${s}
               </label>
             `).join('')}
           </div>
         </div>
-        <div style="margin-bottom:16px;">
+                <div style="margin-bottom:16px;">
   <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">
     DIMENSI BIG FIVE
     <span style="font-size:10px;color:#9ca3af;font-weight:600;">— N (Neuroticism) otomatis di-reverse oleh sistem</span>
   </label>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;">
     ${BIGFIVE_DIMS.map(s => `
-      <label class="pgcfg-chk ${(a.bigfive.includes(s) || a.bigfive.includes(s + '_rev')) ? 'checked' : ''}" data-group="bigfive" data-val="${s}">
-        <input type="checkbox" ${(a.bigfive.includes(s) || a.bigfive.includes(s + '_rev')) ? 'checked' : ''}> ${s}
+      <label class="pgcfg-chk ${(__bfArr.includes(s) || __bfArr.includes(s + '_rev')) ? 'checked' : ''}" data-group="bigfive" data-val="${s}">
+        <input type="checkbox" ${(__bfArr.includes(s) || __bfArr.includes(s + '_rev')) ? 'checked' : ''}> ${s}
       </label>
     `).join('')}
   </div>
