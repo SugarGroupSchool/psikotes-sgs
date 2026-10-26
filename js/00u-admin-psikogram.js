@@ -562,6 +562,19 @@ window.renderPsikogramBox = async function (slug, candidateName, position) {
     }, true);
   }
 
+  /* 🆕 FASE 2: Helper untuk unified report */
+  window.__computePsikogram = async function(slug, position) {
+    await __ensurePsikogramConfigLoaded();
+    const [raw, overrides, weights] = await Promise.all([
+      fetchRawData(slug), loadOverrides(slug), loadWeights(slug)
+    ]);
+    const category = detectCategory(position) || 'guru';
+    return {
+      raw, overrides, weights, category,
+      computed: computeAll(raw, overrides, weights, category)
+    };
+  };
+
   /* 🆕 Expose generatePsikogramPDF untuk unified report */
   window.generatePsikogramPDF = generatePsikogramPDF;
   window.downloadPsikogramPDF = downloadPsikogramPDF;
