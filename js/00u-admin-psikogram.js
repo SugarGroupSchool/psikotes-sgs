@@ -416,7 +416,7 @@ function detectCategory(p) {
     };
   }
 
-   /* ============================================================
+     /* ============================================================
      PDF PSIKOGRAM — v4.2 (Layout Standar Laporan Asesmen)
      🆕 [2026-10-26]:
      - Kop: Photo + POSITION/AGE/NAME/DATE/EDUCATION (fix overlap)
