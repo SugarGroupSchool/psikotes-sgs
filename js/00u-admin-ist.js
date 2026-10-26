@@ -1,11 +1,12 @@
 /* ============================================================
-   js/00u-admin-ist.js — v2 (Section di Hasil Tes + Modal + PDF)
+   js/00u-admin-ist.js — v2.1 (Section di Hasil Tes + Modal + PDF)
    ------------------------------------------------------------
    - Baca data dari sgs_scores/{slug} (auto-push dari kandidat)
    - renderISTSectionHTML() → card di area "Hasil Tes" folder overlay
    - openISTModal()        → modal 9 subtes + analisis posisi
    - generateISTPDF()      → PDF ringkas on-demand (no chart)
    - fetchISTData()        → expose untuk async render di 00b
+   🆕 v2.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 
 (function () {
@@ -383,8 +384,10 @@
 
   /* ============================================================
      PDF RINGKAS (no chart)
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer (untuk unified report)
      ============================================================ */
-  async function generateISTPDF(name, position, data) {
+  async function generateISTPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -395,30 +398,39 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    /* Header */
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 58, 138);
-    doc.text('HASIL TES IST', PW / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 58, 138);
+      doc.text('HASIL TES IST', PW / 2, y, { align: 'center' });
+      y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
+      y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    /* Info */
-    const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-    [
-      ['Nama', name || '-'],
-      ['Posisi', position || '-'],
-      ['Tanggal', tanggal],
-      ['Usia', data.age ? data.age + ' tahun' : '-']
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 30, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+      [
+        ['Nama', name || '-'],
+        ['Posisi', position || '-'],
+        ['Tanggal', tanggal],
+        ['Usia', data.age ? data.age + ' tahun' : '-']
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 30, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30, 58, 138);
+      doc.text('HASIL TES IST', M, y); y += 5;
+      doc.setDrawColor(30, 58, 138); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     /* Ringkasan */
     const summary = buildSummary(data);
@@ -499,13 +511,15 @@
       } catch (e) {}
     }
 
-    /* Footer */
-    if (y > PH - 20) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 20) { doc.addPage(); y = M; }
+      y += 6;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
     return doc;
   }
 
@@ -565,8 +579,9 @@
      ============================================================ */
   window.openISTModal          = openISTModal;
   window.downloadISTPDF        = downloadISTPDF;
+  window.generateISTPDF        = generateISTPDF;   /* 🆕 untuk unified report */
   window.renderISTSectionHTML  = renderISTSectionHTML;
   window.__fetchISTData        = fetchISTData;
 
-  console.log('[IST-ADMIN] ✓ Loaded v2 — section + modal + on-demand PDF');
+  console.log('[IST-ADMIN] ✓ Loaded v2.1 — section + modal + on-demand PDF + contentOnly');
 })();
