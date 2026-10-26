@@ -34,7 +34,7 @@
     housekeeping: ['PHYSICAL ENDURANCE & STAMINA', 'CLEANLINESS DISCIPLINE', 'RESPONSIBILITY']
   };
 
-  const POSITIONS = [
+  const POSITIONS = window.MASTER_POSITIONS || [
     { key: 'guru',         label: 'Guru / Dosen',   icon: '📚' },
     { key: 'admin',        label: 'Administrator',  icon: '💼' },
     { key: 'it',           label: 'IT Staff',       icon: '💻' },
@@ -242,6 +242,8 @@
           <div style="font-size: 22px; font-weight: 900; color: #111827;">📊 Psikogram per Posisi</div>
         </div>
         <button id="pgcfgSaveBtn" style="padding: 11px 22px; background: linear-gradient(135deg,#16a34a,#059669); border: 0; border-radius: 11px; color: #fff; font-family: inherit; font-size: 13px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 14px rgba(22,163,74,.25); transition: all .15s ease;">💾 Simpan</button>
+        <button id="pgcfgMoveBtn" style="padding: 11px 18px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 11px; color: #0ea5e9; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s ease;">🔄 Pindah Posisi</button>
+        <button id="pgcfgResetBtn" style="...">↺ Reset Default</button>
         <button id="pgcfgResetBtn" style="padding: 11px 18px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 11px; color: #dc2626; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s ease;">↺ Reset Default</button>
       </div>
 
@@ -263,6 +265,7 @@
     };
     document.getElementById('pgcfgSaveBtn').onclick = __handleSave;
     document.getElementById('pgcfgResetBtn').onclick = __handleReset;
+    document.getElementById('pgcfgMoveBtn').onclick = __handleMovePosition;
     document.getElementById('pgcfgAddBtn').onclick = () => __openAspectEditor(-1);
 
     __renderTabs();
@@ -671,6 +674,39 @@
     } catch (e) {
       if (status) { status.style.color = '#dc2626'; status.textContent = '❌ ' + e.message; }
       alert('Gagal reset: ' + e.message);
+    }
+  }
+
+  async function __handleMovePosition() {
+    if (__state.aspects.length === 0) return alert('Tidak ada aspek untuk dipindah.');
+    
+    const otherPos = POSITIONS.filter(p => p.key !== __state.category).map(p => `${p.key} (${p.label})`).join('\n');
+    const target = prompt(`Pindahkan ${__state.aspects.length} aspek dari "${__state.category}" ke posisi mana?\n\nKetik key posisi tujuan:\n${otherPos}`);
+    
+    if (!target || target === __state.category) return;
+    const validKeys = POSITIONS.map(p => p.key);
+    if (!validKeys.includes(target)) return alert('Posisi tujuan tidak valid!');
+
+    if (!confirm(`Yakin pindahkan SEMUA aspek dari ${__state.category} ke ${target}?`)) return;
+
+    const btn = document.getElementById('pgcfgMoveBtn');
+    btn.textContent = '⏳ Memindahkan...'; btn.disabled = true;
+
+    try {
+      await firebase.database().ref('sgs_config/psikogram_config/' + target).update({
+        aspects: __state.aspects,
+        label: (window.PSIKOGRAM_CONFIG[target] && window.PSIKOGRAM_CONFIG[target].label) || target,
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+        updatedBy: 'admin'
+      });
+      
+      await firebase.database().ref('sgs_config/psikogram_config/' + __state.category).remove();
+      
+      alert(`Berhasil memindahkan aspek ke ${target}. Halaman akan dimuat ulang.`);
+      window.location.reload();
+    } catch (e) {
+      alert('Gagal memindahkan: ' + e.message);
+      btn.textContent = '🔄 Pindah Posisi'; btn.disabled = false;
     }
   }
 
