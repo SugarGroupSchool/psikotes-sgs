@@ -311,20 +311,8 @@
   /* ============================================================
      RENDER: Section Card
      ============================================================ */
-    function renderKRAEPLINSectionHTML(data, slug, name, position) {
-    if (!data) {
-      // 🆕 Tampilkan kotak kosong jika kandidat belum mengerjakan Kraeplin
-      return `
-        <div style="margin-bottom: 12px; padding: 14px 16px; background: rgba(99,102,241,.08); border: 1.5px dashed rgba(99,102,241,.4); border-radius: 12px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; background: rgba(99,102,241,.2); border-radius: 10px; font-size: 20px;">🧮</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-size: 12.5px; font-weight: 900; color: #c7d2fe; letter-spacing: .3px;">Hasil Tes Kraeplin</div>
-              <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Kandidat belum menyelesaikan tes ini (Data Kosong).</div>
-            </div>
-          </div>
-        </div>`;
-    }
+      function renderKRAEPLINSectionHTML(data, slug, name, position) {
+    if (!data) return '';
 
     const hasil = computeKraeplinResults(data.answers, data.key, data.expectedPerCol);
     if (!hasil) {
