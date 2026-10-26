@@ -243,7 +243,7 @@
         </div>
         <button id="pgcfgSaveBtn" style="padding: 11px 22px; background: linear-gradient(135deg,#16a34a,#059669); border: 0; border-radius: 11px; color: #fff; font-family: inherit; font-size: 13px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 14px rgba(22,163,74,.25); transition: all .15s ease;">💾 Simpan</button>
         <button id="pgcfgMoveBtn" style="padding: 11px 18px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 11px; color: #0ea5e9; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s ease;">🔄 Pindah Posisi</button>
-        <button id="pgcfgResetBtn" style="...">↺ Reset Default</button>
+        
         <button id="pgcfgResetBtn" style="padding: 11px 18px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 11px; color: #dc2626; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; transition: all .15s ease;">↺ Reset Default</button>
       </div>
 
