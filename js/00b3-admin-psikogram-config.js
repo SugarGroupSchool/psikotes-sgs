@@ -10,7 +10,7 @@
 (function () {
   'use strict';
 
-  const SOURCES = ['IST', 'PAPI', 'BigFive', 'Wawancara', 'FGD', 'Grafis', 'SubjectTest'];
+  const SOURCES = ['IST', 'PAPI', 'BigFive', 'Wawancara', 'FGD', 'Grafis', 'SubjectTest', 'Excel', 'Typing', 'TechnicalTest'];
   const IST_SUBTES = ['SE','WA','AN','GE','ME','RA','ZR','FA','WU'];
   const PAPI_DIMS = ['A','N','G','T','V','W','F','C','L','P','I','E','K','O','S','B','X','Z','D','R'];
   const BIGFIVE_DIMS = ['O','C','E','A','N'];
