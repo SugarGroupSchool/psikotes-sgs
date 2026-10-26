@@ -95,12 +95,13 @@ function detectCategory(p) {
   return null;
 }
 
-  function scoreToKet(s) {
+    function scoreToKet(s) {
     const v = Number(s) || 0;
-    if (v >= 3.5) return { label: 'BAIK', color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)',  pdfColor: [22, 101, 52] };
-    if (v >= 2.5) return { label: 'CUKUP', color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)', pdfColor: [161, 98, 7]  };
-    if (v >= 1.5) return { label: 'KURANG', color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)',  pdfColor: [185, 28, 28] };
-    return { label: 'SANGAT KURANG', color: '#fca5a5', bg: 'rgba(239,68,68,.22)',  border: 'rgba(239,68,68,.55)',  pdfColor: [153, 27, 27] };
+    if (v >= 4.5) return { label: 'SANGAT BAIK', color: '#6ee7b7', bg: 'rgba(16,185,129,.18)', border: 'rgba(16,185,129,.55)', pdfColor: [15, 118, 110] };
+    if (v >= 3.4) return { label: 'BAIK',        color: '#86efac', bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.45)',  pdfColor: [22, 101, 52] };
+    if (v >= 2.5) return { label: 'CUKUP',       color: '#fcd34d', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.45)', pdfColor: [161, 98, 7]  };
+    if (v >= 1.5) return { label: 'KURANG',      color: '#fca5a5', bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.45)',  pdfColor: [185, 28, 28] };
+    return { label: 'SANGAT KURANG', color: '#fca5a5', bg: 'rgba(239,68,68,.22)', border: 'rgba(239,68,68,.55)', pdfColor: [153, 27, 27] };
   }
   function barGradient(p) {
     if (p >= 87.5) return 'linear-gradient(90deg,#16a34a,#22c55e)';
@@ -415,169 +416,290 @@ function detectCategory(p) {
     };
   }
 
-  /* ============================================================
-     PDF PSIKOGRAM
-     🆕 opts.contentOnly = true → skip Kop/Info/Footer + ganti title
+   /* ============================================================
+     PDF PSIKOGRAM — v4.2 (Layout Standar Laporan Asesmen)
+     🆕 [2026-10-26]:
+     - Kop: Photo + POSITION/AGE/NAME/DATE/EDUCATION (fix overlap)
+     - Tabel: NO | ASPEK | SKOR | KATEGORI
+     - KESIMPULAN (auto atau override)
+     - AREA: Modal / Perlu Diperkuat / Risiko
+     - Signature: Asesor / Human Capital Recruitment Staff / Sugar Group Schools
      ============================================================ */
+  async function __fetchPsikogramExtras(slug, candidateName) {
+    const extras = { age: null, education: null, photoDataUrl: null, conclusion: null };
+    if (!fbReady()) return extras;
+    const dashed = String(slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+    const candidates = [slug, dashed].filter((v, i, a) => v && a.indexOf(v) === i);
+    async function _tryFetch(path, field) {
+      for (const s of candidates) {
+        try {
+          const snap = await firebase.database().ref(path + '/' + s + '/' + field).once('value');
+          const v = snap.val();
+          if (v) return v;
+        } catch (e) {}
+      }
+      return null;
+    }
+    try {
+      extras.age = await _tryFetch('sgs_psikogram', 'age');
+      if (!extras.age) extras.age = await _tryFetch('sgs_candidate_status', 'age');
+      if (!extras.age) extras.age = await _tryFetch('sgs_scores', 'IST_age');
+      extras.education = await _tryFetch('sgs_psikogram', 'education');
+      if (!extras.education) extras.education = await _tryFetch('sgs_candidate_status', 'education');
+      extras.photoDataUrl = await _tryFetch('sgs_psikogram', 'photoDataUrl');
+      if (!extras.photoDataUrl) extras.photoDataUrl = await _tryFetch('sgs_candidate_status', 'photoDataUrl');
+      if (!extras.photoDataUrl) extras.photoDataUrl = await _tryFetch('sgs_candidate_status', 'passPhotoDataUrl');
+      extras.conclusion = await _tryFetch('sgs_psikogram', 'conclusion');
+    } catch (e) {}
+    return extras;
+  }
+  window.__fetchPsikogramExtras = __fetchPsikogramExtras;
+
+  function __classifyAspects(computed) {
+    const valid = computed.filter(c => c.finalScore !== null);
+    return {
+      modal:     valid.filter(c => c.finalScore >= 3.4),
+      penguatan: valid.filter(c => c.finalScore >= 2.5 && c.finalScore < 3.4),
+      risiko:    valid.filter(c => c.finalScore < 2.5)
+    };
+  }
+
+  function __buildAutoConclusion(computed, position, avg, kat) {
+    const posLabel = (function() {
+      try { return getCategoryLabel(detectCategory(position) || 'guru') || position || 'posisi ini'; }
+      catch (e) { return position || 'posisi ini'; }
+    })();
+    const cls = __classifyAspects(computed);
+    const modalNames = cls.modal.map(c => c.aspect.label).slice(0, 5);
+    const penguatanNames = cls.penguatan.map(c => c.aspect.label).slice(0, 3);
+    const risikoNames = cls.risiko.map(c => c.aspect.label).slice(0, 3);
+
+    let text = `Berdasarkan hasil asesmen ${posLabel}, kandidat memperoleh skor rata-rata ${avg.toFixed(2)} dari 5 dengan kategori ${kat}. `;
+    if (avg >= 3.4) {
+      text += `Secara umum, kesiapan kandidat dalam menjalankan peran sebagai ${position || 'kandidat'} berada pada taraf baik. `;
+    } else if (avg >= 2.5) {
+      text += `Secara umum, kesiapan kandidat dalam menjalankan peran sebagai ${position || 'kandidat'} berada pada taraf cukup. `;
+    } else {
+      text += `Secara umum, kesiapan kandidat dalam menjalankan peran sebagai ${position || 'kandidat'} masih perlu ditingkatkan. `;
+    }
+    text += `Profil tersebut menggambarkan kapasitas kandidat dalam menjalankan tuntutan teknis, administratif, kognitif, interpersonal, dan perilaku kerja. `;
+    if (modalNames.length > 0) text += `Aspek yang menjadi modal kerja utama kandidat adalah ${modalNames.join(', ')}. `;
+    if (penguatanNames.length > 0) text += `Sedangkan aspek yang masih memerlukan penguatan adalah ${penguatanNames.join(', ')}. `;
+    if (risikoNames.length > 0) {
+      text += `Terdapat aspek yang termasuk area risiko, yaitu ${risikoNames.join(', ')}. `;
+    } else {
+      text += `Tidak terdapat aspek pada kategori Kurang atau Kurang Sekali. `;
+    }
+    text += `Distribusi skor pada setiap aspek perlu diperhatikan karena nilai rata-rata dapat menutupi variasi kompetensi yang cukup besar. `;
+    text += `Hasil asesmen ini perlu digunakan untuk memahami modal kerja, kebutuhan pengembangan, dan potensi risiko kandidat secara proporsional. `;
+    text += `Keputusan akhir tetap perlu mempertimbangkan kesesuaian profil kandidat dengan tuntutan jabatan, beban kerja, sistem kerja unit, dan standar kompetensi yang ditetapkan lembaga.`;
+    return text;
+  }
+
   async function generatePsikogramPDF(candidateName, position, computed, opts) {
     opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
-    const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 15, CW = PW - 2 * M; let y = M;
+    const PW = doc.internal.pageSize.getWidth();
+    const PH = doc.internal.pageSize.getHeight();
+    const M = 15;
+    const CW = PW - 2 * M;
+    let y = M;
 
-    /* 🆕 Header */
+    const valid = computed.filter(c => c.finalScore !== null);
+    const avg = valid.length ? valid.reduce((a, b) => a + (b.finalScore || 0), 0) / valid.length : 0;
+    const avgKet = scoreToKet(avg);
+    const classes = __classifyAspects(computed);
+
+    const __ensurePage = (need) => {
+      if (y + need > PH - 20) { doc.addPage(); y = M; return true; }
+      return false;
+    };
+
+    /* ---- HEADER (skip if contentOnly) ---- */
     if (!opts.contentOnly) {
-      /* Header (Kop penuh) */
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 58, 138); doc.text('PSIKOGRAM - POSISI GURU/DOSEN', PW / 2, y, { align: 'center' }); y += 7;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' }); y += 5;
-      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
-      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-      [['Nama', candidateName || '-'], ['Posisi', position || '-'], ['Tanggal', tanggal]].forEach(([k, v]) => { doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10); doc.text(k + ' :', M, y); doc.setFont('helvetica', 'normal'); doc.text(String(v), M + 30, y); y += 5.5; }); y += 3;
+      const age = opts.age;
+      const education = opts.education;
+      const photoDataUrl = opts.photoDataUrl;
+
+      const hasPhoto = !!(photoDataUrl && photoDataUrl.length > 50);
+      const photoW = 42, photoH = 56;
+      const photoX = PW - M - photoW;
+      const photoY = y;
+      const textRightEdge = hasPhoto ? (photoX - 5) : (PW - M);
+      const textWidth = textRightEdge - M;
+
+      if (hasPhoto) {
+        try {
+          const imgType = /^data:image\/png/i.test(photoDataUrl) ? 'PNG' : 'JPEG';
+          doc.addImage(photoDataUrl, imgType, photoX, photoY, photoW, photoH);
+          doc.setDrawColor(200); doc.setLineWidth(0.3);
+          doc.rect(photoX, photoY, photoW, photoH, 'S');
+        } catch (e) { console.warn('[PSIKO] Photo add failed:', e.message); }
+      }
+
+      /* Row 1: POSITION + AGE */
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+      doc.text('POSITION', M, y);
+      doc.text('AGE', M + textWidth * 0.55, y);
+      y += 4;
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
+      doc.text(String(position || '-'), M, y);
+      doc.text(age ? String(age) : '-', M + textWidth * 0.55, y);
+      y += 8;
+
+      /* Row 2: NAME */
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+      doc.text('NAME', M, y); y += 5;
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(30, 41, 59);
+      const nameLines = doc.splitTextToSize(String(candidateName || '-'), textWidth);
+      nameLines.forEach(line => { doc.text(line, M, y); y += 7; });
+      y += 2;
+
+      /* Row 3: DATE + EDUCATION */
+      const tanggal = opts.dateOverride || new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+      doc.text('DATE', M, y);
+      doc.text('EDUCATION', M + textWidth * 0.55, y);
+      y += 4;
+
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
+      doc.text(String(tanggal), M, y);
+      const eduLines = doc.splitTextToSize(String(education || '-'), textWidth * 0.45);
+      let eduY = y;
+      eduLines.forEach(line => { doc.text(line, M + textWidth * 0.55, eduY); eduY += 4.5; });
+
+      y = Math.max(y, eduY, hasPhoto ? (photoY + photoH) : y);
+      y += 6;
+
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
     } else {
-      /* Section Title mini (untuk unified report) */
       doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30, 58, 138);
       doc.text('HASIL PSIKOGRAM', M, y); y += 5;
       doc.setDrawColor(30, 58, 138); doc.setLineWidth(0.6);
       doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
     }
 
-    /* Summary box */
-    const valid = computed.map(c => c.finalScore).filter(s => s !== null); const avg = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0; const avgPct = (avg / 4) * 100; const avgKet = scoreToKet(avg);
-    doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241); doc.rect(M, y, CW, 16, 'FD'); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(67, 56, 202);
-    doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 5.00  (' + avgPct.toFixed(1) + '%)', M + 4, y + 6); doc.setFontSize(10); doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 12); y += 20;
+    /* ---- SUMMARY BOX ---- */
+    doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241);
+    doc.rect(M, y, CW, 14, 'FD');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(67, 56, 202);
+    doc.text(`RATA-RATA: ${avg.toFixed(2)} / 5.00`, M + 4, y + 5);
+    doc.setFontSize(9.5);
+    doc.text(`KATEGORI: ${avgKet.label}`, M + 4, y + 11);
+    y += 18;
 
-    /* Table header */
-    doc.setFillColor(59, 130, 246); doc.rect(M, y, CW, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-    doc.text('#', M + 2, y + 5); doc.text('ASPEK', M + 12, y + 5); doc.text('PERSEN', M + 130, y + 5, { align: 'right' }); doc.text('SKOR', M + 155, y + 5, { align: 'center' }); doc.text('KATEGORI', M + CW - 4, y + 5, { align: 'right' }); y += 7;
+    /* ---- TABLE ---- */
+    const colNO = 15, colASPEK = 85, colSKOR = 25, colKATEGORI = 55;
+    const xNO = M, xASPEK = M + colNO, xSKOR = xASPEK + colASPEK, xKATEGORI = xSKOR + colSKOR;
 
-    /* Table body */
+    doc.setFillColor(59, 130, 246); doc.rect(M, y, CW, 7, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('NO', xNO + colNO / 2, y + 5, { align: 'center' });
+    doc.text('ASPEK', xASPEK + 3, y + 5);
+    doc.text('SKOR', xSKOR + colSKOR / 2, y + 5, { align: 'center' });
+    doc.text('KATEGORI', xKATEGORI + colKATEGORI - 3, y + 5, { align: 'right' });
+    y += 7;
+
     computed.forEach((item, i) => {
-      if (y > PH - 25) { doc.addPage(); y = M; }
-      const { aspect, finalScore } = item; const score = finalScore !== null ? finalScore : 0; const pct = (score / 4) * 100; const ket = scoreToKet(score);
-      if (i % 2 === 0) { doc.setFillColor(248, 250, 252); doc.rect(M, y, CW, 7, 'F'); }
-      doc.setTextColor(30, 41, 59); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.text(String(i + 1).padStart(2, '0'), M + 2, y + 5);
-      const wrapped = doc.splitTextToSize(aspect.label, 115); doc.text(wrapped[0] + (wrapped.length > 1 ? '…' : ''), M + 12, y + 5);
-      doc.text(pct.toFixed(1) + '%', M + 130, y + 5, { align: 'right' }); doc.text(score.toFixed(2) + ' / 4', M + 155, y + 5, { align: 'center' });
-      const k = ket.pdfColor; doc.setTextColor(k[0], k[1], k[2]); doc.setFont('helvetica', 'bold'); doc.text(ket.label, M + CW - 4, y + 5, { align: 'right' }); y += 7;
+      const score = item.finalScore !== null ? item.finalScore : 0;
+      const ket = scoreToKet(score);
+      const wrappedName = doc.splitTextToSize(String(item.aspect.label || '-'), colASPEK - 6);
+      const rowH = Math.max(7, 3 + wrappedName.length * 4);
+      if (y + rowH > PH - 25) { doc.addPage(); y = M; }
+      if (i % 2 === 0) { doc.setFillColor(248, 250, 252); doc.rect(M, y, CW, rowH, 'F'); }
+      doc.setTextColor(30, 41, 59); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      doc.text(String(i + 1).padStart(2, '0'), xNO + colNO / 2, y + 4.5, { align: 'center' });
+      wrappedName.forEach((line, li) => { doc.text(line, xASPEK + 3, y + 4.5 + li * 4); });
+      doc.setFont('helvetica', 'bold');
+      doc.text(score.toFixed(2), xSKOR + colSKOR / 2, y + 4.5, { align: 'center' });
+      const k = ket.pdfColor;
+      doc.setTextColor(k[0], k[1], k[2]);
+      doc.text(ket.label, xKATEGORI + colKATEGORI - 3, y + 4.5, { align: 'right' });
+      y += rowH;
     });
+    y += 8;
 
-    /* 🆕 Footer */
+    /* ---- KESIMPULAN ---- */
+    __ensurePage(30);
+    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 58, 138);
+    doc.text('KESIMPULAN', M, y); y += 6;
+    const conclusionText = opts.conclusion || __buildAutoConclusion(computed, position, avg, avgKet.label);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+    doc.splitTextToSize(conclusionText, CW).forEach(line => {
+      if (y + 5 > PH - 20) { doc.addPage(); y = M; }
+      doc.text(line, M, y); y += 4.5;
+    });
+    y += 6;
+
+    /* ---- AREA SECTIONS ---- */
+    const __renderArea = (title, items, color) => {
+      if (items.length === 0 && title !== 'KEKURANGAN/AREA RISIKO') return;
+      __ensurePage(20);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(title, M, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
+      if (items.length === 0) {
+        doc.text('• Tidak terdapat aspek pada kategori ini.', M + 2, y); y += 5; return;
+      }
+      items.forEach(item => {
+        if (y + 5 > PH - 20) { doc.addPage(); y = M; }
+        const scoreText = item.finalScore !== null ? ` (${Number(item.finalScore).toFixed(2)})` : '';
+        const line = `• ${item.aspect.label || '-'}${scoreText}`;
+        doc.splitTextToSize(line, CW - 4).forEach(w => {
+          if (y + 5 > PH - 20) { doc.addPage(); y = M; }
+          doc.text(w, M + 2, y); y += 4.5;
+        });
+      });
+      y += 3;
+    };
+    __renderArea('AREA YANG MASIH PERLU DIPERKUAT', classes.penguatan, [161, 98, 7]);
+    __renderArea('AREA YANG MENJADI MODAL KANDIDAT', classes.modal, [22, 101, 52]);
+    __renderArea('KEKURANGAN/AREA RISIKO', classes.risiko, [185, 28, 28]);
+
+    /* ---- SIGNATURE (skip if contentOnly) ---- */
     if (!opts.contentOnly) {
-      y += 12; if (y > PH - 25) { doc.addPage(); y = M; }
-      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5; doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y); doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+      __ensurePage(45);
+      y = Math.max(y, PH - 60);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
+      doc.text('Asesor,', PW - M - 70, y); y += 22;
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(148, 163, 184);
+      doc.text('ttd', PW - M - 70, y); y += 12;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
+      doc.text('Human Capital Recruitment Staff', PW - M - 70, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW - M - 70, y);
+    }
+
+    /* ---- FOOTER (skip if contentOnly) ---- */
+    if (!opts.contentOnly) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, PH - 10);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, PH - 10, { align: 'right' });
     }
 
     return doc;
   }
 
-async function downloadPsikogramPDF(slug, candidateName, position) {
+  async function downloadPsikogramPDF(slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
-    const [raw, overrides, customWeights] = await Promise.all([fetchRawData(slug), loadOverrides(slug), loadWeights(slug)]);
+    const [raw, overrides, customWeights, extras] = await Promise.all([
+      fetchRawData(slug), loadOverrides(slug), loadWeights(slug),
+      __fetchPsikogramExtras(slug, candidateName)
+    ]);
     const __cat = detectCategory(position) || 'guru';
     const computed = computeAll(raw, overrides, customWeights, __cat);
-    const doc = await generatePsikogramPDF(candidateName, position, computed);
+    const doc = await generatePsikogramPDF(candidateName, position, computed, {
+      age: extras.age,
+      education: extras.education,
+      photoDataUrl: extras.photoDataUrl,
+      conclusion: extras.conclusion
+    });
     doc.save('Psikogram-' + String(candidateName || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
   }
-
-window.renderPsikogramBox = async function (slug, candidateName, position) {
-    await __ensurePsikogramConfigLoaded();
-    const category = detectCategory(position);
-    if (!category) return '';
-    const aspects = getAspectConfig(category);
-    if (aspects.length === 0) return '';
-    const countLabel = aspects.length + ' Aspek';
-    return `<button class="js-psikogram-open" data-slug="${escHtml(slug)}" data-name="${escHtml(candidateName)}" data-position="${escHtml(position||'')}" style="width:100%;padding:11px 14px;margin-top:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);display:flex;align-items:center;justify-content:center;gap:8px;">📊 Lihat Psikogram (${countLabel})</button>`;
-  };
-
-  if (!window.__psikoDelegationAttached) {
-    window.__psikoDelegationAttached = true;
-    document.addEventListener('click', async function (e) {
-      const openBtn = e.target.closest('.js-psikogram-open');
-      if (openBtn) { e.preventDefault(); e.stopPropagation(); openPsikogramModal(openBtn.getAttribute('data-slug'), openBtn.getAttribute('data-name'), openBtn.getAttribute('data-position')); return; }
-      const wBtn = e.target.closest('.psiko-weight-btn');
-      if (wBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = wBtn.closest('#psikoModal'); if (!modal) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        const aspectId = wBtn.getAttribute('data-aspect-id'); const aspect = DEFAULT_ASPECTS.find(a => a.id === aspectId); if (!aspect) return;
-        const customWeights = await loadWeights(slug); const currentW = customWeights[aspectId] || null;
-        openWeightModal(aspect, currentW, async (newW) => {
-          try { const w = await loadWeights(slug); w[aspectId] = newW; await saveWeights(slug, w); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal simpan bobot: ' + err.message); }
-        });
-        return;
-      }
-      const editBtn = e.target.closest('.psiko-edit-btn');
-      if (editBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = editBtn.closest('#psikoModal'); if (!modal) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        const aspectId = editBtn.getAttribute('data-aspect-id'); const asp = DEFAULT_ASPECTS.find(a => a.id === aspectId); if (!asp) return;
-        const row = editBtn.closest('.psiko-row'); const autoScore = row.dataset.auto ? Number(row.dataset.auto) : null;
-        const currentScore = parseFloat(row.querySelector('.psiko-score').textContent) || 0;
-        openEditModal(aspectId, asp.label, currentScore, autoScore, async (v) => {
-          try { const overrides = await loadOverrides(slug); if (v === null) delete overrides[aspectId]; else overrides[aspectId] = v; await saveOverrides(slug, overrides, __cat); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
-        });
-        return;
-      }
-      const rawBtn = e.target.closest('.js-psiko-input-raw');
-      if (rawBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = rawBtn.closest('#psikoModal'); if (!modal) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        const raw = await fetchRawData(slug);
-        openRawModal(slug, raw, async (newRaw) => {
-          try { await saveRaw(slug, newRaw); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
-        });
-        return;
-      }
-      const resetBtn = e.target.closest('.js-psiko-reset');
-      if (resetBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = resetBtn.closest('#psikoModal'); if (!modal) return;
-        if (!confirm('Hapus semua override skor?')) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        try { await saveOverrides(slug, {}, __cat); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
-        return;
-      }
-      const resetWBtn = e.target.closest('.js-psiko-reset-weights');
-      if (resetWBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = resetWBtn.closest('#psikoModal'); if (!modal) return;
-        if (!confirm('Kembalikan semua bobot ke default?')) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        try { await saveWeights(slug, {}); modal.remove(); openPsikogramModal(slug, name, position); } catch (err) { alert('Gagal: ' + err.message); }
-        return;
-      }
-      const pdfBtn = e.target.closest('.js-psiko-pdf');
-      if (pdfBtn) {
-        e.preventDefault(); e.stopPropagation();
-        const modal = pdfBtn.closest('#psikoModal'); if (!modal) return;
-        const slug = modal.getAttribute('data-slug'); const name = modal.getAttribute('data-name'); const position = modal.getAttribute('data-position');
-        const prev = pdfBtn.textContent; pdfBtn.textContent = '⏳ PDF...'; pdfBtn.disabled = true;
-        try { await downloadPsikogramPDF(slug, name, position); pdfBtn.textContent = '✓ Terunduh'; setTimeout(() => { pdfBtn.textContent = prev; pdfBtn.disabled = false; }, 1800); } catch (err) { alert('Gagal PDF: ' + err.message); pdfBtn.textContent = prev; pdfBtn.disabled = false; }
-        return;
-      }
-    }, true);
-  }
-
-  /* 🆕 FASE 2: Helper untuk unified report */
-  window.__computePsikogram = async function(slug, position) {
-    await __ensurePsikogramConfigLoaded();
-    const [raw, overrides, weights] = await Promise.all([
-      fetchRawData(slug), loadOverrides(slug), loadWeights(slug)
-    ]);
-    const category = detectCategory(position) || 'guru';
-    return {
-      raw, overrides, weights, category,
-      computed: computeAll(raw, overrides, weights, category)
-    };
-  };
-
-  /* 🆕 Expose generatePsikogramPDF untuk unified report */
-  window.generatePsikogramPDF = generatePsikogramPDF;
-  window.downloadPsikogramPDF = downloadPsikogramPDF;
-
-  console.log('[PSIKOGRAM] ✓ Loaded v4.1 — editable bobot + contentOnly');
-})();
