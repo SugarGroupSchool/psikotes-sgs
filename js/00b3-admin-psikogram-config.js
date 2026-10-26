@@ -94,7 +94,7 @@
     return (pos && Array.isArray(pos.aspects)) ? JSON.parse(JSON.stringify(pos.aspects)) : [];
   }
 
-  function __loadCategory(category) {
+    async function __loadCategory(category) {
     const fbCat = __state.fbConfig && __state.fbConfig[category];
     const fbAspects = fbCat && Array.isArray(fbCat.aspects) ? fbCat.aspects : null;
     if (fbAspects && fbAspects.length > 0) {
@@ -104,6 +104,29 @@
       __state.aspects = __getDefaultAspects(category);
       __state.isOverride = false;
     }
+    
+    // 🆕 AUTO-SYNC DARI GRAFIS CONFIG
+    try {
+      if (fbReady()) {
+        const snap = await firebase.database().ref('sgs_config/grafis_config/' + category).once('value');
+        const gData = snap.val();
+        if (gData && Array.isArray(gData.aspects)) {
+          gData.aspects.forEach(gAsp => {
+            if (!__state.aspects.find(a => a.label === gAsp.label)) {
+              __state.aspects.push({
+                id: gAsp.id || _slugFromLabel(gAsp.label),
+                label: gAsp.label,
+                weights: {},
+                ist: [], papi: [], bigfive: [],
+                grafisCat: gAsp.label, // Auto-set
+                subjectTest: false
+              });
+            }
+          });
+        }
+      }
+    } catch(e) { console.warn('Sync Grafis Error', e); }
+
     __state.category = category;
     __state.dirty = false;
   }
@@ -127,7 +150,7 @@
       ist: Array.isArray(a.ist) ? a.ist : [],
       papi: Array.isArray(a.papi) ? a.papi : [],
       bigfive: Array.isArray(a.bigfive) ? a.bigfive : [],
-      grafisCat: String(a.grafisCat || '').trim(),
+       grafisCat: String(a.label || '').trim(),
       subjectTest: !!a.subjectTest
     }));
     await firebase.database().ref('sgs_config/psikogram_config/' + __state.category).update({
@@ -490,13 +513,26 @@
     `).join('')}
   </div>
 </div>
-        <div style="margin-bottom:16px;">
-          <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:6px;">KATEGORI GRAFIS <span style="font-size:10px;color:#9ca3af;font-weight:600;">(bebas / free-text)</span></label>
-          <input type="text" id="pgcfgEdGrafis" class="pgcfg-input" value="${esc(a.grafisCat)}" list="pgcfgGrafisSuggestions" placeholder="Kosongkan jika tidak pakai Grafis">
-          <datalist id="pgcfgGrafisSuggestions">
-            ${suggestions.map(c => `<option value="${esc(c)}"></option>`).join('')}
-          </datalist>
-          <div style="font-size:10.5px;color:#9ca3af;margin-top:4px;">Ketik manual atau pilih dari saran. Kategori bisa berbeda per posisi.</div>
+                <!-- 🆕 Checkbox Khusus -->
+        <div style="margin-bottom:16px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px;">
+          <div style="font-size:11px;font-weight:800;color:#4b5563;margin-bottom:10px;">SUMBER NILAI TAMBAHAN (KHUSUS POSISI INI)</div>
+          ${(() => {
+            const POS_EXTRA = {
+              'admin': [{ key: 'Excel', label: 'Pakai nilai Excel untuk aspek ini' }, { key: 'Typing', label: 'Pakai nilai Ketik untuk aspek ini' }],
+              'guru': [{ key: 'FGD', label: 'Pakai nilai FGD untuk aspek ini' }, { key: 'SubjectTest', label: 'Pakai nilai Subjek untuk aspek ini' }],
+              'welder': [{ key: 'TechnicalTest', label: 'Pakai Kemampuan Teknis untuk aspek ini' }],
+              'technical': [{ key: 'TechnicalTest', label: 'Pakai Kemampuan Teknis untuk aspek ini' }],
+              'housekeeping': [{ key: 'TechnicalTest', label: 'Pakai Kemampuan Teknis untuk aspek ini' }]
+            };
+            const extras = POS_EXTRA[__state.category] || [];
+            if (extras.length === 0) return '<div style="font-size:12px;color:#94a3b8;font-style:italic;">Tidak ada sumber tambahan untuk posisi ini.</div>';
+            return extras.map(ex => `
+              <label class="pgcfg-chk ${a.weights[ex.key] > 0 ? 'checked' : ''}" data-src="${ex.key}" style="display:flex;margin-bottom:6px;padding:10px 14px;">
+                <input type="checkbox" ${a.weights[ex.key] > 0 ? 'checked' : ''}>
+                ${ex.label}
+              </label>
+            `).join('');
+          })()}
         </div>
         <div style="margin-bottom:16px;">
           <label class="pgcfg-chk ${a.subjectTest ? 'checked' : ''}" style="display:inline-flex;padding:10px 14px;">
@@ -541,8 +577,22 @@
   };
 });
 
-      const grafisInput = body.querySelector('#pgcfgEdGrafis');
-      if (grafisInput) grafisInput.oninput = () => { a.grafisCat = grafisInput.value; };
+            // 🆕 Event Listener Checkbox Ekstra
+      body.querySelectorAll('.pgcfg-chk[data-src]').forEach(chk => {
+        const inp = chk.querySelector('input');
+        const src = chk.getAttribute('data-src');
+        inp.onchange = () => {
+          chk.classList.toggle('checked', inp.checked);
+          if (inp.checked) a.weights[src] = 10; // Default bobot 10 jika dicentang
+          else delete a.weights[src];
+          const totalEl = document.getElementById('pgcfgEdTotal');
+          if (totalEl) {
+            const t = __totalWeight(a);
+            totalEl.textContent = 'Total: ' + t + '%';
+            totalEl.style.color = t === 100 ? '#059669' : '#dc2626';
+          }
+        };
+      });
 
       const subjChk = body.querySelector('#pgcfgEdSubj');
       if (subjChk) {

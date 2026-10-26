@@ -2980,12 +2980,20 @@ window.__openCandidateFolder = function(candidateKey) {
     } catch (e) { console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message); }
   })();
 
-  (async () => {
+    (async () => {
     const section = overlay.querySelector('.rf-subject-result-section');
     if (!section) return;
+    const isGuru = /guru|dosen|teacher|pengajar/i.test(position || '');
+    if (!isGuru) return; // Hanya muncul untuk Guru
+
     try {
       if (typeof window.__attachSubjectRealtime === 'function') {
         window.__attachSubjectRealtime(slug, section, name, position);
+        setTimeout(() => {
+          if (section.innerHTML.trim() === '') {
+             section.innerHTML = `<div style="padding:12px;background:rgba(13,148,136,.08);border:1px dashed rgba(13,148,136,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#5eead4;">📚 Belum ada penilaian Subjek. <br><span style="font-size:10px;color:#94a3b8;">Klik "SUBJEK" di atas untuk mengisi.</span></div>`;
+          }
+        }, 800);
       }
     } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
   })();
@@ -3016,24 +3024,36 @@ window.__openCandidateFolder = function(candidateKey) {
   })();
 
   /* 🆕 Typing section render */
-  (async () => {
+    (async () => {
     const section = overlay.querySelector('.rf-typing-section');
     if (!section) return;
+    const isAdmin = /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+    if (!isAdmin) return; // Hanya muncul untuk Admin
+
     try {
-      if (typeof window.__fetchTYPINGData !== 'function' || typeof window.renderTYPINGSectionHTML !== 'function') return;
       const typingData = await window.__fetchTYPINGData(slug);
+      if (!typingData) {
+        section.innerHTML = `<div style="padding:12px;background:rgba(14,165,233,.08);border:1px dashed rgba(14,165,233,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#7dd3fc;">⌨️ Belum ada penilaian Mengetik. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengerjakan tes mengetik.</span></div>`;
+        return;
+      }
       section.innerHTML = window.renderTYPINGSectionHTML(typingData, slug, name, position);
     } catch (e) { console.warn('[TYPING-SECTION] render gagal:', e.message); }
   })();
 
   /* 🆕 Excel section render */
-  (async () => {
+    (async () => {
     const section = overlay.querySelector('.rf-excel-section');
     if (!section) return;
+    const isAdmin = /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+    if (!isAdmin) return; // Hanya muncul untuk Admin
+
     try {
-      if (typeof window.__fetchEXCELData !== 'function' || typeof window.renderEXCELSectionHTML !== 'function') return;
       const excelData = await window.__fetchEXCELData(slug);
       const excelFile = files.filter(f => __detectFileKind(f) === 'excel')[0] || null;
+      if (!excelData && !excelFile) {
+        section.innerHTML = `<div style="padding:12px;background:rgba(34,197,94,.08);border:1px dashed rgba(34,197,94,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#86efac;">📊 Belum ada penilaian Excel. <br><span style="font-size:10px;color:#94a3b8;">Klik "NILAI EXCEL" di atas untuk mengisi.</span></div>`;
+        return;
+      }
       section.innerHTML = window.renderEXCELSectionHTML(excelData, slug, name, position, excelFile);
     } catch (e) { console.warn('[EXCEL-SECTION] render gagal:', e.message); }
   })();

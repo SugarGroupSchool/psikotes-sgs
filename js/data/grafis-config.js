@@ -1,131 +1,28 @@
 /* ============================================================
-   js/data/grafis-config.js — Grafis Config (Default per Posisi)
-   ------------------------------------------------------------
-   v1.0.0 [2026-10-23]
-   - Default config GRAFIS per posisi (6 + fallback default)
-   - Priority runtime: Firebase > JS default
-   - Konsumsi: 00n-grafis-interpretasi.js, 00b4-admin-grafis-config.js
+   js/data/grafis-config.js — Default Kosong (Diisi via Admin UI)
    ============================================================ */
 (function (global) {
   'use strict';
 
-  /* ============================================================
-     POSITION MATCHERS — map posisi string → key
-     Order matters: specific first, generic last
-     ============================================================ */
   global.GRAFIS_POSITION_MATCHERS = {
     guru:         /guru|dosen|teacher|pengajar|biologi|kimia|fisika|matematika|math|bahasa|inggris|indonesia|lampung|sejarah|sosial|\bipa\b|islam|kristen|katholik|katolik|hindu|\btik\b|visual|\bart\b|olahraga|olah\s*raga/i,
     it:           /\bit\b|programmer|developer|software|network/i,
     welder:       /welder|welding|\blas\b/i,
     technical:    /technical|teknisi|operator|maintenance|engineering|produksi|baker|wood/i,
     housekeeping: /housekeeping|cleaning|kebersihan|kebun|gardener/i,
-    admin:        /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha/i
+    admin:        /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i
   };
 
-  /* ============================================================
-     7 KATEGORI DEFAULT — basis untuk semua posisi
-     (setiap posisi boleh punya kategori berbeda via Firebase)
-     ============================================================ */
-  const DEFAULT_7 = [
-    {
-      id: 'kemampuan-berpikir',
-      label: 'KEMAMPUAN BERPIKIR & PROBLEM SOLVING',
-      description: 'Kapasitas kognitif, analisis, dan pemecahan masalah.'
-    },
-    {
-      id: 'empathy-interpersonal',
-      label: 'EMPATHY, INTERPERSONAL SKILL & TEAMWORK',
-      description: 'Empati, komunikasi, dan kerja sama tim.'
-    },
-    {
-      id: 'stabilitas-emosi',
-      label: 'STABILITAS EMOSI & KONTROL IMPULS',
-      description: 'Kestabilan emosi dan pengendalian impuls.'
-    },
-    {
-      id: 'motivation-drive',
-      label: 'MOTIVATION & ACHIEVEMENT DRIVE',
-      description: 'Dorongan berprestasi, ketekunan, dan inisiatif.'
-    },
-    {
-      id: 'fleksibilitas-adaptasi',
-      label: 'FLEKSIBILITAS, ADAPTASI & LEARNING AGILITY',
-      description: 'Kemampuan menyesuaikan diri dan cepat belajar.'
-    },
-    {
-      id: 'integrity-compliance',
-      label: 'INTEGRITY & RULE COMPLIANCE',
-      description: 'Integritas, kejujuran, dan kepatuhan aturan.'
-    },
-    {
-      id: 'teaching-creativity',
-      label: 'TEACHING CREATIVITY',
-      description: 'Kreativitas dan inovasi dalam pengajaran/kerja.'
-    }
-  ];
-
-  const clone = (arr) => arr.map((x) => ({ ...x }));
-
-  /* ============================================================
-     GRAFIS_CONFIG — default per posisi
-     (semua posisi start dari 7 default — admin bisa edit via UI)
-     ============================================================ */
   global.GRAFIS_CONFIG = {
-    guru:         { aspects: clone(DEFAULT_7) },
-       admin: {
-      aspects: [
-        {
-          id: 'integritas-kepatuhan',
-          label: 'Integritas & Kepatuhan terhadap Aturan',
-          description: 'Kejujuran, tanggung jawab, dan kepatuhan terhadap aturan & prosedur.'
-        },
-        {
-          id: 'manajemen-waktu-prioritas',
-          label: 'Manajemen Waktu & Prioritas',
-          description: 'Kemampuan mengatur waktu, memprioritaskan tugas, dan menyelesaikan tepat waktu.'
-        },
-        {
-          id: 'komunikasi-administratif',
-          label: 'Komunikasi Administratif',
-          description: 'Komunikasi tertulis & lisan yang efektif, terstruktur, dan jelas.'
-        },
-        {
-          id: 'service-orientation',
-          label: 'Service Orientation',
-          description: 'Orientasi pelayanan, keramahan, dan kepedulian terhadap kebutuhan pengguna.'
-        },
-        {
-          id: 'inisiatif-proaktivitas',
-          label: 'Inisiatif & Proaktivitas',
-          description: 'Inisiatif, kemandirian, dan proaktif dalam menyelesaikan pekerjaan.'
-        },
-        {
-          id: 'collaboration-interpersonal',
-          label: 'Collaboration & Interpersonal Skill',
-          description: 'Kemampuan kerja sama, empati, dan membangun relasi kerja yang sehat.'
-        },
-        {
-          id: 'fleksibilitas-adaptasi',
-          label: 'Fleksibilitas & Adaptasi',
-          description: 'Kemampuan menyesuaikan diri dengan perubahan & situasi baru.'
-        },
-        {
-          id: 'orientasi-hasil',
-          label: 'Orientasi Hasil',
-          description: 'Fokus pada hasil, ketekunan, dan pencapaian target kerja.'
-        }
-      ]
-    },
-    it:           { aspects: clone(DEFAULT_7) },
-    welder:       { aspects: clone(DEFAULT_7) },
-    technical:    { aspects: clone(DEFAULT_7) },
-    housekeeping: { aspects: clone(DEFAULT_7) },
-    default:      { aspects: clone(DEFAULT_7) }
+    guru:         { aspects: [] },
+    admin:        { aspects: [] },
+    it:           { aspects: [] },
+    welder:       { aspects: [] },
+    technical:    { aspects: [] },
+    housekeeping: { aspects: [] },
+    default:      { aspects: [] }
   };
 
-  /* ============================================================
-     RESOLVE POSITION — string posisi → key matcher
-     ============================================================ */
   global.__resolveGrafisPosition = function (position) {
     const pos = String(position || '').toLowerCase().trim();
     if (!pos) return 'default';
@@ -138,5 +35,5 @@
     return 'default';
   };
 
-  console.log('[GRAFIS-CONFIG] Loaded v1.0.0 — 7 posisi');
+  console.log('[GRAFIS-CONFIG] Loaded v2.0.0 — Empty Defaults (Editable via UI)');
 })(window);
