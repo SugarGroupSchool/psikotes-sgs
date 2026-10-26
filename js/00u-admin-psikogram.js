@@ -736,19 +736,85 @@
     doc.save('Psikogram-' + String(candidateName || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
   }
 
-  window.renderPsikogramBox = async function (slug, candidateName, position) {
+    window.renderPsikogramBox = async function (slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
     const category = detectCategory(position);
-    if (!category) return '';
     const aspects = getAspectConfig(category);
-    if (aspects.length === 0) return '';
+
+    /* 🆕 WARNING BOX — config kosong atau posisi tidak dikenali */
+    if (aspects.length === 0) {
+      const posLabel = position || '(tidak diisi)';
+      const catLabel = category ? (getCategoryLabel(category) || category) : null;
+      const hint = catLabel
+        ? `Posisi <b style="color:#fcd34d;">${escHtml(catLabel)}</b> belum punya aspek config.`
+        : `Posisi <b style="color:#fca5a5;">${escHtml(posLabel)}</b> tidak dikenali atau belum punya config.`;
+
+      return `
+        <div style="margin-top:10px; padding:12px 14px;
+          background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(217,119,6,.05));
+          border:1.5px dashed rgba(245,158,11,.45);
+          border-radius:12px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+            <div style="width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;
+              background:rgba(245,158,11,.2);border-radius:9px;font-size:17px;">⚙️</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:900;color:#fcd34d;margin-bottom:3px;">
+                Config Psikogram Kosong
+              </div>
+              <div style="font-size:10.5px;color:#cbd5e1;line-height:1.5;">
+                ${hint} Tambahkan aspek via <b>Psikogram Config</b> untuk mengaktifkan psikogram.
+              </div>
+            </div>
+          </div>
+          <button class="js-open-psiko-config"
+            data-position="${escHtml(posLabel)}"
+            data-category="${escHtml(category || '')}"
+            style="width:100%;padding:9px 14px;border-radius:9px;
+              background:linear-gradient(135deg,#f59e0b,#d97706);
+              border:0;color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;
+              cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+              box-shadow:0 4px 12px rgba(245,158,11,.35);">
+            ➕ Buka Psikogram Config
+          </button>
+        </div>`;
+    }
+
+    /* Normal — button "Lihat Psikogram" */
     const countLabel = aspects.length + ' Aspek';
-    return '<button class="js-psikogram-open" data-slug="' + escHtml(slug) + '" data-name="' + escHtml(candidateName) + '" data-position="' + escHtml(position||'') + '" style="width:100%;padding:11px 14px;margin-top:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);display:flex;align-items:center;justify-content:center;gap:8px;">📊 Lihat Psikogram (' + countLabel + ')</button>';
+    return `<button class="js-psikogram-open" data-slug="${escHtml(slug)}" data-name="${escHtml(candidateName)}" data-position="${escHtml(position||'')}" style="width:100%;padding:11px 14px;margin-top:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:0;border-radius:10px;color:#fff;font-family:inherit;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.35);display:flex;align-items:center;justify-content:center;gap:8px;">📊 Lihat Psikogram (${countLabel})</button>`;
   };
 
   if (!window.__psikoDelegationAttached) {
     window.__psikoDelegationAttached = true;
     document.addEventListener('click', async function (e) {
+
+            /* 🆕 Button: Buka Psikogram Config */
+      const cfgBtn = e.target.closest('.js-open-psiko-config');
+      if (cfgBtn) {
+        e.preventDefault(); e.stopPropagation();
+        const targetCategory = cfgBtn.getAttribute('data-category') || '';
+
+        if (typeof window.openPsikogramConfigPage === 'function') {
+          window.openPsikogramConfigPage();
+          /* Auto-select tab sesuai category kalau diketahui */
+          if (targetCategory) {
+            setTimeout(() => {
+              const tab = document.querySelector(
+                '#psikogramConfigOverlay .pgcfg-tab[data-cat="' + targetCategory + '"]'
+              );
+              if (tab) tab.click();
+            }, 600);
+          }
+        } else {
+          alert(
+            'Admin panel Psikogram Config belum siap.\n\n' +
+            'Buka via sidebar → 📊 Psikogram Config,\n' +
+            'atau refresh halaman.'
+          );
+        }
+        return;
+      }
+
       const openBtn = e.target.closest('.js-psikogram-open');
       if (openBtn) { e.preventDefault(); e.stopPropagation(); openPsikogramModal(openBtn.getAttribute('data-slug'), openBtn.getAttribute('data-name'), openBtn.getAttribute('data-position')); return; }
       const wBtn = e.target.closest('.psiko-weight-btn');
