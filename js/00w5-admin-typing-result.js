@@ -1,5 +1,6 @@
 /* ============================================================
-   js/00w5-admin-typing-result.js — Typing Test Admin Result
+   js/00w5-admin-typing-result.js — Typing Test Admin v1.1
+   🆕 v1.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 (function () {
   'use strict';
@@ -19,7 +20,6 @@
   function __getTier(wpm, accuracy) {
     const w = Number(wpm) || 0;
     const a = parseFloat(accuracy) || 0;
-    // Simple tier: WPM >= 40 & akurasi >= 95 = excellent
     if (w >= 50 && a >= 97) return { label: 'SANGAT BAIK', color: '#5eead4', bg: 'rgba(13,148,136,.18)', br: 'rgba(13,148,136,.55)', pdf: [15,118,110] };
     if (w >= 40 && a >= 95) return { label: 'BAIK',        color: '#86efac', bg: 'rgba(34,197,94,.15)',  br: 'rgba(34,197,94,.45)',  pdf: [22,101,52] };
     if (w >= 25 && a >= 90) return { label: 'CUKUP',       color: '#fcd34d', bg: 'rgba(245,158,11,.15)', br: 'rgba(245,158,11,.45)', pdf: [161,98,7] };
@@ -201,7 +201,12 @@
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
 
-  async function generateTYPINGPDF(name, position, data) {
+  /* ============================================================
+     PDF
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer
+     ============================================================ */
+  async function generateTYPINGPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -214,32 +219,42 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(99, 102, 241);
-    doc.text('HASIL TES MENGETIK', PW / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(99, 102, 241);
+      doc.text('HASIL TES MENGETIK', PW / 2, y, { align: 'center' });
+      y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
+      y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-    [
-      ['Nama', name || '-'],
-      ['Posisi', position || '-'],
-      ['Tanggal', tanggal],
-      ['Durasi', (t.waktu || 0) + ' detik'],
-      ['Status', t.status || 'Selesai']
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 35, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      [
+        ['Nama', name || '-'],
+        ['Posisi', position || '-'],
+        ['Tanggal', tanggal],
+        ['Durasi', (t.waktu || 0) + ' detik'],
+        ['Status', t.status || 'Selesai']
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 35, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(99, 102, 241);
+      doc.text('HASIL TES MENGETIK', M, y); y += 5;
+      doc.setDrawColor(99, 102, 241); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     // Tier box
-    doc.setFillColor(tier.bg.match(/\d+/g)[0] ? [99, 102, 241] : [99, 102, 241]);
     doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241);
     doc.rect(M, y, CW, 14, 'FD');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
@@ -295,13 +310,15 @@
       });
     }
 
-    // Footer
-    if (y > PH - 15) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 15) { doc.addPage(); y = M; }
+      y += 6;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
 
     return doc;
   }
@@ -314,7 +331,6 @@
     doc.save('Hasil-Typing-' + safeName + '.pdf');
   }
 
-  /* Event delegation */
   if (!window.__typingDelegationAttached) {
     window.__typingDelegationAttached = true;
     document.addEventListener('click', async function (e) {
@@ -353,8 +369,9 @@
 
   window.openTYPINGModal          = openTYPINGModal;
   window.downloadTYPINGPDF        = downloadTYPINGPDF;
+  window.generateTYPINGPDF        = generateTYPINGPDF;  /* 🆕 unified */
   window.renderTYPINGSectionHTML  = renderTYPINGSectionHTML;
   window.__fetchTYPINGData        = fetchTYPINGData;
 
-  console.log('[TYPING-ADMIN] ✓ Loaded — section + modal + PDF');
+  console.log('[TYPING-ADMIN] ✓ Loaded v1.1 — section + modal + PDF + contentOnly');
 })();

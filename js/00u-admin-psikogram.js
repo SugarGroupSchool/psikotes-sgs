@@ -1,12 +1,12 @@
 /* ============================================================
-   js/00u-admin-psikogram.js — v4 (Editable Bobot Per Aspek)
+   js/00u-admin-psikogram.js — v4.1 (Editable Bobot Per Aspek)
+   🆕 v4.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 (function () {
   'use strict';
 
 /* ============================================================
    Config aspects — diambil dari js/data/psikogram-config.js
-   Edit file itu kalau mau ubah aspek/bobot per posisi.
    ============================================================ */
 let __psikoConfigCache = null;
 
@@ -53,30 +53,16 @@ const DEFAULT_ASPECTS = getAspectConfig('guru');
 
   function clamp05(v){ return Math.max(0, Math.min(5, v)); }
 
-/* ============================================================
-   🆕 AUTO REVERSE SCORING
-   ------------------------------------------------------------
-   Sistem otomatis tahu dimensi mana yang perlu di-reverse
-   berdasarkan psikometri standar. Tidak perlu centang manual.
-   
-   Untuk override (edge case): tambahkan suffix `_rev` di config.
-   Contoh: 'N' → auto-reverse (karena N selalu reverse)
-           'N_rev' → tetap reverse (explicit, backward compat)
-           'O' → normal
-           'O_rev' → explicit reverse (override manual)
-   ============================================================ */
 const AUTO_REVERSE_DIMS = {
-  bigfive:  ['n'],                    // N selalu reverse
-  papi:     [],                       // PAPI normal semua
-  kraeplin: ['tianker', 'janker'],    // salah & deviasi = makin rendah makin bagus
-  typing:   ['salah', 'belum']        // makin banyak = makin buruk
+  bigfive:  ['n'],
+  papi:     [],
+  kraeplin: ['tianker', 'janker'],
+  typing:   ['salah', 'belum']
 };
 
 function __shouldReverse(source, dim) {
   const d = String(dim || '').toLowerCase();
-  // Explicit override: `_rev` suffix → force reverse
   if (/_rev$/.test(d)) return true;
-  // Auto: cek di daftar reverse per sumber
   const base = d.replace(/_rev$/, '');
   return (AUTO_REVERSE_DIMS[source] || []).includes(base);
 }
@@ -108,7 +94,6 @@ function detectCategory(p) {
   }
   return null;
 }
- 
 
   function scoreToKet(s) {
     const v = Number(s) || 0;
@@ -177,20 +162,20 @@ function detectCategory(p) {
     return raw;
   }
 
-  async function loadWeights(slug) { 
-    if (!fbReady()) return {}; 
-    try { 
-      const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value'); 
-      const val = snap.val(); 
-      return (val && val.weights) ? val.weights : {}; 
-    } catch (e) { return {}; } 
+  async function loadWeights(slug) {
+    if (!fbReady()) return {};
+    try {
+      const snap = await firebase.database().ref('sgs_psikogram_weights/' + slug).once('value');
+      const val = snap.val();
+      return (val && val.weights) ? val.weights : {};
+    } catch (e) { return {}; }
   }
-  
-  async function saveWeights(slug, weights) { 
-    if (!fbReady()) throw new Error('Firebase belum siap'); 
-    await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights, updatedAt: firebase.database.ServerValue.TIMESTAMP }); 
+
+  async function saveWeights(slug, weights) {
+    if (!fbReady()) throw new Error('Firebase belum siap');
+    await firebase.database().ref('sgs_psikogram_weights/' + slug).update({ weights, updatedAt: firebase.database.ServerValue.TIMESTAMP });
   }
-  
+
   async function loadOverrides(slug) { if (!fbReady()) return {}; try { const snap = await firebase.database().ref('sgs_psikogram/' + slug + '/overrides').once('value'); return snap.val() || {}; } catch (e) { return {}; } }
   async function saveOverrides(slug, overrides, category) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram/' + slug).update({ category: category || 'guru', overrides, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
   async function saveRaw(slug, raw) { if (!fbReady()) throw new Error('Firebase belum siap'); await firebase.database().ref('sgs_psikogram_raw/' + slug).update({ IST: raw.IST || {}, PAPI: raw.PAPI || {}, BigFive: raw.BigFive || {}, updatedAt: firebase.database.ServerValue.TIMESTAMP }); }
@@ -204,7 +189,7 @@ function detectCategory(p) {
     if (aspect.papi && aspect.papi.length && raw._sources.PAPI && W.PAPI) { const vals = aspect.papi.map(c => normPAPI(raw.PAPI[c], (PAPI_CONFIG[c]||{}).inv)).filter(v => v !== null); if (vals.length) parts.push({ src:'PAPI', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.PAPI }); }
     if (aspect.bigfive && aspect.bigfive.length && raw._sources.BigFive && W.BigFive) { const vals = aspect.bigfive.map(c => {
   const base = c.replace(/_rev$/i, '');
-  const inv = __shouldReverse('bigfive', c);   // ← otomatis + backward compat
+  const inv = __shouldReverse('bigfive', c);
   return normBigFive(raw.BigFive[base], inv);
 }).filter(v => v !== null); if (vals.length) parts.push({ src:'BigFive', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.BigFive }); }
     if (raw._sources.Wawancara && W.Wawancara) { let valToUse = raw.Wawancara; if (raw.WawancaraDetails) { const searchKey = aspect.label.toUpperCase().trim(); if (raw.WawancaraDetails[searchKey] !== undefined) { valToUse = raw.WawancaraDetails[searchKey]; } else { for (const key in raw.WawancaraDetails) { if (key.includes(searchKey) || searchKey.includes(key)) { valToUse = raw.WawancaraDetails[key]; break; } } } } const v = normWawancara(valToUse); if (v !== null) parts.push({ src:'Wawancara', val: v, w: W.Wawancara }); }
@@ -261,7 +246,6 @@ function detectCategory(p) {
     }).join('');
   }
 
-    
   async function openPsikogramModal(slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
     const old = document.getElementById('psikoModal'); if (old) old.remove();
@@ -357,10 +341,10 @@ function detectCategory(p) {
     updateTotal();
     ov.querySelector('#psikoWeightCancel').onclick = () => ov.remove();
     ov.querySelector('#psikoWeightSave').onclick = () => {
-      const newW = {}; 
-      inputs.forEach(i => { 
-        const v = parseFloat(i.value) || 0; 
-        newW[i.dataset.src] = v; 
+      const newW = {};
+      inputs.forEach(i => {
+        const v = parseFloat(i.value) || 0;
+        newW[i.dataset.src] = v;
       });
       const total = Object.values(newW).reduce((a,b)=>a+b,0);
       if (total !== 100) { if (!confirm('Total bobot ' + total + '% (bukan 100%). Tetap simpan?')) return; }
@@ -431,22 +415,44 @@ function detectCategory(p) {
     };
   }
 
-  async function generatePsikogramPDF(candidateName, position, computed) {
+  /* ============================================================
+     PDF PSIKOGRAM
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer + ganti title
+     ============================================================ */
+  async function generatePsikogramPDF(candidateName, position, computed, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
     const PW = doc.internal.pageSize.getWidth(); const PH = doc.internal.pageSize.getHeight(); const M = 15, CW = PW - 2 * M; let y = M;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 58, 138); doc.text('PSIKOGRAM - POSISI GURU/DOSEN', PW / 2, y, { align: 'center' }); y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' }); y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
-    const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-    [['Nama', candidateName || '-'], ['Posisi', position || '-'], ['Tanggal', tanggal]].forEach(([k, v]) => { doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10); doc.text(k + ' :', M, y); doc.setFont('helvetica', 'normal'); doc.text(String(v), M + 30, y); y += 5.5; }); y += 3;
+
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 58, 138); doc.text('PSIKOGRAM - POSISI GURU/DOSEN', PW / 2, y, { align: 'center' }); y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' }); y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+      [['Nama', candidateName || '-'], ['Posisi', position || '-'], ['Tanggal', tanggal]].forEach(([k, v]) => { doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10); doc.text(k + ' :', M, y); doc.setFont('helvetica', 'normal'); doc.text(String(v), M + 30, y); y += 5.5; }); y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30, 58, 138);
+      doc.text('HASIL PSIKOGRAM', M, y); y += 5;
+      doc.setDrawColor(30, 58, 138); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
+
+    /* Summary box */
     const valid = computed.map(c => c.finalScore).filter(s => s !== null); const avg = valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : 0; const avgPct = (avg / 4) * 100; const avgKet = scoreToKet(avg);
     doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241); doc.rect(M, y, CW, 16, 'FD'); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(67, 56, 202);
     doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 5.00  (' + avgPct.toFixed(1) + '%)', M + 4, y + 6); doc.setFontSize(10); doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 12); y += 20;
+
+    /* Table header */
     doc.setFillColor(59, 130, 246); doc.rect(M, y, CW, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
     doc.text('#', M + 2, y + 5); doc.text('ASPEK', M + 12, y + 5); doc.text('PERSEN', M + 130, y + 5, { align: 'right' }); doc.text('SKOR', M + 155, y + 5, { align: 'center' }); doc.text('KATEGORI', M + CW - 4, y + 5, { align: 'right' }); y += 7;
+
+    /* Table body */
     computed.forEach((item, i) => {
       if (y > PH - 25) { doc.addPage(); y = M; }
       const { aspect, finalScore } = item; const score = finalScore !== null ? finalScore : 0; const pct = (score / 4) * 100; const ket = scoreToKet(score);
@@ -456,8 +462,13 @@ function detectCategory(p) {
       doc.text(pct.toFixed(1) + '%', M + 130, y + 5, { align: 'right' }); doc.text(score.toFixed(2) + ' / 4', M + 155, y + 5, { align: 'center' });
       const k = ket.pdfColor; doc.setTextColor(k[0], k[1], k[2]); doc.setFont('helvetica', 'bold'); doc.text(ket.label, M + CW - 4, y + 5, { align: 'right' }); y += 7;
     });
-    y += 12; if (y > PH - 25) { doc.addPage(); y = M; }
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5; doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y); doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      y += 12; if (y > PH - 25) { doc.addPage(); y = M; }
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5; doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y); doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
+
     return doc;
   }
 
@@ -550,5 +561,10 @@ window.renderPsikogramBox = async function (slug, candidateName, position) {
       }
     }, true);
   }
-  console.log('[PSIKOGRAM] ✓ Loaded v4 — editable bobot');
+
+  /* 🆕 Expose generatePsikogramPDF untuk unified report */
+  window.generatePsikogramPDF = generatePsikogramPDF;
+  window.downloadPsikogramPDF = downloadPsikogramPDF;
+
+  console.log('[PSIKOGRAM] ✓ Loaded v4.1 — editable bobot + contentOnly');
 })();
