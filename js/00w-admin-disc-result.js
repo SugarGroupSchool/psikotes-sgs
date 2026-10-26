@@ -1,26 +1,22 @@
 /* ============================================================
-   js/00w-admin-disc-result.js — v1 (Admin Web View Hasil DISC)
+   js/00w-admin-disc-result.js — v1.1 (Admin Web View Hasil DISC)
    ------------------------------------------------------------
    - Baca data dari sgs_scores/{slug} (auto-push dari kandidat)
    - renderDISCSectionHTML() → card di area "Hasil Tes"
    - openDISCModal()        → modal 3 grafik + interpretasi + rekomendasi
    - generateDISCPDF()      → PDF ringkas on-demand (3 chart PNG)
-   - Reuse global dari disc.js: countDISC, analisa2DominanDISC,
-     getPixelY, drawDISCClassic
-   - Reuse data: DISC_DATA, DISC_ROLES_MAP, DISC_IMPLICATIONS
+   - Reuse global: countDISC, analisa2DominanDISC, getPixelY, drawDISCClassic
+   🆕 v1.1 [2026-10-26]: opts.contentOnly untuk unified report
+   🆕 FIX: hapus double doc.save() pada kasus invalid
    ============================================================ */
 
 (function () {
   'use strict';
 
-  /* ============================================================
-     HELPERS
-     ============================================================ */
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
-  // Escape tapi izinkan <br> dan <b> dari output analisa2DominanDISC
   function escapeDISCResult(str) {
     let s = String(str || '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -37,10 +33,8 @@
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
   }
 
-  /* Threshold invalid — konsisten dengan js/core/pdf/04-disc.js */
   const DISC_INVALID_THRESHOLD = 13;
 
-  /* Persyaratan posisi (copy dari 04-disc.js) */
   const DISC_POSITION_REQ = {
     'Administrator':   { sangat: ['SC','DC'],           cocok: ['CS','CD'],           cukup: ['SD','IS'] },
     'Dosen/Guru':      { sangat: ['IS','IC','SI','SC'], cocok: ['ID','SD'],           cukup: ['CS','CI'] },
@@ -50,9 +44,6 @@
     'Housekeeping':    { sangat: ['SC','CS'],           cocok: ['SI','IC'],           cukup: ['SD','DS'] }
   };
 
-  /* ============================================================
-     FETCH: coba spaced-slug & dashed-slug
-     ============================================================ */
   async function fetchDISCData(slug) {
     if (!fbReady()) return null;
     const dashed = slugifyDashed(slug);
@@ -76,9 +67,6 @@
     return null;
   }
 
-  /* ============================================================
-     COMPUTE
-     ============================================================ */
   function computeDISCResults(answers) {
     if (typeof countDISC !== 'function') return null;
     const questions = (typeof DISC_DATA !== 'undefined' && DISC_DATA?.questions) || [];
@@ -93,8 +81,6 @@
     return { isValid: totalStar < DISC_INVALID_THRESHOLD, totalStar, starMost, starLeast };
   }
 
-  /* Panggil analisa2DominanDISC dengan nickname sementara (kandidat).
-     Karena fungsi global baca dari appState.identity.nickname. */
   function computeAnalisaWithNickname(hasil, nickname) {
     if (typeof analisa2DominanDISC !== 'function' || typeof getPixelY !== 'function') return null;
     const originalIdentity = appState.identity;
@@ -152,14 +138,9 @@
     return { simbol, label: labelMap[simbol], color: colorMap[simbol], dominan };
   }
 
-  /* ============================================================
-     RENDER: Section Card (di area Hasil Tes)
-     ============================================================ */
   function renderDISCSectionHTML(data, slug, name, position) {
-    /* Kandidat belum kerjakan DISC → tidak tampil sama sekali */
     if (!data) return '';
 
-    /* -------- DATA STATE -------- */
     const hasil = computeDISCResults(data.answers);
     if (!hasil) {
       return `
@@ -226,9 +207,6 @@
       </div>`;
   }
 
-  /* ============================================================
-     RENDER: Tabel D/I/S/C
-     ============================================================ */
   function renderStatsTableHTML(hasil) {
     const rows = [
       { label: 'Most (P)', data: hasil.most,   color: '#2176C7', sign: false },
@@ -258,9 +236,6 @@
       </div>`;
   }
 
-  /* ============================================================
-     RENDER: Chart Block (Most / Least / Change)
-     ============================================================ */
   function renderChartBlockHTML(canvasId, title, color, subtitle) {
     return `
       <div style="flex: 0 1 140px; max-width: 140px; padding: 8px; background: rgba(0,0,0,.28); border-radius: 11px; border: 1px solid rgba(255,255,255,.08);">
@@ -279,9 +254,6 @@
     } catch (e) { console.warn('[DISC-MODAL] drawCharts error:', e.message); }
   }
 
-  /* ============================================================
-     RENDER: Interpretasi (Most / Least / Change)
-     ============================================================ */
   function renderInterpretationBlockHTML(analisa, title, color, roles) {
     if (!analisa) return '';
     const dominan = analisa.dominan || [];
@@ -311,9 +283,6 @@
       </div>`;
   }
 
-  /* ============================================================
-     MODAL
-     ============================================================ */
   async function openDISCModal(slug, name, position) {
     const old = document.getElementById('discModal'); if (old) old.remove();
     const data = await fetchDISCData(slug);
@@ -325,7 +294,6 @@
     overlay.setAttribute('data-position', position || '');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.92);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
-    /* -------- EMPTY STATE -------- */
     if (!data) {
       overlay.innerHTML = `
         <div style="width:min(440px,100%);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(217,70,239,.4);border-radius:18px;padding:32px;text-align:center;color:#e2e8f0;box-shadow:0 30px 90px rgba(0,0,0,.65);">
@@ -361,7 +329,6 @@
     const finalName = name || data.candidateName || 'Kandidat';
     const finalPos  = position || data.candidatePosition || '-';
 
-    /* -------- INVALID STATE -------- */
     if (!validity.isValid) {
       overlay.innerHTML = `
         <div style="width:min(520px,100%);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(239,68,68,.5);border-radius:18px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.65);color:#e2e8f0;">
@@ -392,7 +359,6 @@
       return;
     }
 
-    /* -------- DATA STATE -------- */
     const analisa = computeAnalisaWithNickname(hasil, finalName);
     const rolesMost   = pickRolesFromDominan(analisa?.most?.dominan   || []);
     const rolesLeast  = pickRolesFromDominan(analisa?.least?.dominan  || []);
@@ -418,7 +384,7 @@
             ${renderStatsTableHTML(hasil)}
           </div>
 
-                    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:16px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:flex-start;margin-bottom:16px;">
             ${renderChartBlockHTML('discModalMost',   'MOST (P)',   '#2176C7', 'Perilaku alami saat nyaman')}
             ${renderChartBlockHTML('discModalLeast',  'LEAST (K)',  '#DE9000', 'Respons di bawah tekanan')}
             ${renderChartBlockHTML('discModalChange', 'CHANGE (P-K)', '#18B172', 'Adaptasi diri')}
@@ -458,14 +424,16 @@
     overlay.querySelector('#discCloseBtn').onclick = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-    /* Draw charts setelah DOM siap */
     requestAnimationFrame(() => drawChartsToModal(hasil, 'discModal'));
   }
 
   /* ============================================================
-     PDF RINGKAS
+     PDF
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer
+     🆕 FIX: invalid branch TIDAK doc.save() (biar downloadDISCPDF yang save)
      ============================================================ */
-  async function generateDISCPDF(name, position, data) {
+  async function generateDISCPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -474,7 +442,6 @@
 
     const validity = checkValidity(hasil);
 
-    /* Draw ke canvas hidden dari index.html, lalu capture */
     if (typeof drawDISCClassic === 'function') {
       drawDISCClassic('discMost',   'most',   hasil.most.D,   hasil.most.I,   hasil.most.S,   hasil.most.C,   '#2176C7');
       drawDISCClassic('discLeast',  'least',  hasil.least.D,  hasil.least.I,  hasil.least.S,  hasil.least.C,  '#DE9000');
@@ -491,32 +458,41 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    /* Header */
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(139, 44, 175);
-    doc.text('HASIL TES DISC', PW / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(139, 44, 175);
+      doc.text('HASIL TES DISC', PW / 2, y, { align: 'center' });
+      y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
+      y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    /* Info */
-    const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-    [
-      ['Nama', name || '-'],
-      ['Posisi', position || '-'],
-      ['Tanggal', tanggal],
-      ['Total *', String(validity.totalStar) + ' (ambang ' + DISC_INVALID_THRESHOLD + ')']
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 30, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+      [
+        ['Nama', name || '-'],
+        ['Posisi', position || '-'],
+        ['Tanggal', tanggal],
+        ['Total *', String(validity.totalStar) + ' (ambang ' + DISC_INVALID_THRESHOLD + ')']
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 30, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(139, 44, 175);
+      doc.text('HASIL TES DISC', M, y); y += 5;
+      doc.setDrawColor(139, 44, 175); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
-    /* Invalid handling */
+    /* Invalid handling — 🆕 TIDAK doc.save() di sini (dihandle caller) */
     if (!validity.isValid) {
       doc.setFillColor(254, 226, 226); doc.setDrawColor(220, 38, 38);
       doc.rect(M, y, CW, 20, 'FD');
@@ -524,7 +500,6 @@
       doc.text('HASIL INVALID', M + 4, y + 8);
       doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 53, 15);
       doc.text('Pola jawaban tidak wajar. Kandidat disarankan mengulang tes.', M + 4, y + 15);
-      doc.save('Hasil-DISC-' + String(name || 'Kandidat').replace(/[^a-zA-Z0-9]/g, '-') + '.pdf');
       return doc;
     }
 
@@ -619,13 +594,15 @@
       }
     }
 
-    /* Footer */
-    if (y > PH - 15) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 15) { doc.addPage(); y = M; }
+      y += 6;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
 
     return doc;
   }
@@ -638,9 +615,6 @@
     doc.save('Hasil-DISC-' + safeName + '.pdf');
   }
 
-  /* ============================================================
-     EVENT DELEGATION
-     ============================================================ */
   if (!window.__discDelegationAttached) {
     window.__discDelegationAttached = true;
     document.addEventListener('click', async function (e) {
@@ -678,13 +652,11 @@
     }, true);
   }
 
-  /* ============================================================
-     EXPORT
-     ============================================================ */
   window.openDISCModal          = openDISCModal;
   window.downloadDISCPDF        = downloadDISCPDF;
+  window.generateDISCPDF        = generateDISCPDF;  /* 🆕 unified */
   window.renderDISCSectionHTML  = renderDISCSectionHTML;
   window.__fetchDISCData        = fetchDISCData;
 
-  console.log('[DISC-ADMIN] ✓ Loaded v1 — section + modal + PDF');
+  console.log('[DISC-ADMIN] ✓ Loaded v1.1 — section + modal + PDF + contentOnly');
 })();

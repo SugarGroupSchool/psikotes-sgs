@@ -1,11 +1,12 @@
 /* ============================================================
-   js/00x-admin-kraeplin-result.js — v1 (Admin Web View Kraeplin)
+   js/00x-admin-kraeplin-result.js — v1.1 (Admin Web View Kraeplin)
    ------------------------------------------------------------
    - Baca data dari sgs_scores/{slug} (auto-push dari kandidat)
    - renderKRAEPLINSectionHTML() → card di area "Hasil Tes"
    - openKRAEPLINModal()        → modal grafik + analisis fase
    - generateKRAEPLINPDF()      → PDF ringkas on-demand
    - UGM norms + slope + deltaEL
+   🆕 v1.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 
 (function () {
@@ -57,10 +58,7 @@
     return map[ket] || { bg:'rgba(148,163,184,.15)', br:'rgba(148,163,184,.4)', tx:'#cbd5e1' };
   }
 
-  /* 🆕 Normalize Firebase object→array conversion.
-     Firebase Realtime DB converts sparse arrays (with null/gap) into
-     objects like { 0:[...], 1:[...], 3:[...] } — index 2 missing.
-     This helper reconstructs a proper array with nulls at missing indices. */
+  /* Normalize Firebase object→array conversion (sparse array fix) */
   function __normalizeFbArray(v) {
     if (Array.isArray(v)) return v;
     if (v && typeof v === 'object') {
@@ -91,13 +89,8 @@
         const answers = __normalizeFbArray(d.KRAEPLIN_answers);
         const key     = __normalizeFbArray(d.KRAEPLIN_key);
 
-        /* Diagnostic — bantu debug kalau masih gagal */
-               if (!answers || answers.length === 0) {
-          continue;
-        }
-        if (!key || key.length === 0) {
-          continue;
-        }
+        if (!answers || answers.length === 0) continue;
+        if (!key || key.length === 0) continue;
 
         console.log('[KRAEPLIN] ' + s + ': normalized answers=' + answers.length + ' cols, key=' + key.length + ' cols');
         return {
@@ -157,7 +150,6 @@
     const tianker_abs = totalSalah;
     const tianker_pct = totalIsi > 0 ? (totalSalah / totalIsi * 100) : 0;
 
-    /* JANKER — rata-rata deviasi antar kolom */
     const jDif = [];
     for (let i = 1; i < isiPerKolom.length; i++) {
       if (isiPerKolom[i] > 0 || isiPerKolom[i - 1] > 0) {
@@ -169,14 +161,12 @@
       ? (Math.max(...isiPerKolom) - Math.min(...isiPerKolom))
       : 0;
 
-    /* HANKER — selisih kolom terakhir vs pertama (max 50) */
     const lastIdx  = Math.min(50, isiPerKolom.length) - 1;
     const firstIdx = 0;
     const hanker = (lastIdx >= 0 && isiPerKolom.length > 0)
       ? (isiPerKolom[lastIdx] - isiPerKolom[firstIdx])
       : 0;
 
-    /* Early vs Late */
     const takeAvg = (arr, from, to) => {
       const seg = arr.slice(from, to);
       const valid = seg.filter(x => x > 0);
@@ -188,7 +178,6 @@
     const lateAvg  = takeAvg(isiPerKolom, Math.max(0, Math.min(50, n) - blk), Math.min(50, n));
     const deltaEL  = lateAvg - earlyAvg;
 
-    /* Linear regression slope */
     const linRegSlope = (yFix) => {
       const x = yFix.map((_, i) => i + 1);
       const m = x.length;
@@ -247,7 +236,6 @@
 
     ctx.clearRect(0, 0, W, H);
 
-    /* Title */
     if (opts.title) {
       ctx.fillStyle = '#c7d2fe';
       ctx.font = 'bold 12px Inter, system-ui, sans-serif';
@@ -255,11 +243,9 @@
       ctx.fillText(opts.title, W / 2, 14);
     }
 
-    /* Plot area background */
     ctx.fillStyle = 'rgba(0,0,0,.18)';
     ctx.fillRect(padL, padT, pw, ph);
 
-    /* Y gridlines */
     const yTicks = 5;
     ctx.strokeStyle = 'rgba(255,255,255,.08)';
     ctx.lineWidth = 1;
@@ -276,7 +262,6 @@
       ctx.fillText(String(Math.round(v)), padL - 4, y + 3);
     }
 
-    /* X-axis labels */
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'center';
     const stepX = data.length > 1 ? pw / (data.length - 1) : pw;
@@ -286,7 +271,6 @@
       ctx.fillText(String(i + 1), x, padT + ph + 14);
     }
 
-    /* Line */
     ctx.strokeStyle = opts.lineColor || '#a78bfa';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -297,7 +281,6 @@
     }
     ctx.stroke();
 
-    /* Points */
     ctx.fillStyle = opts.pointColor || '#c4b5fd';
     for (let i = 0; i < data.length; i++) {
       const x = padL + i * stepX;
@@ -311,7 +294,7 @@
   /* ============================================================
      RENDER: Section Card
      ============================================================ */
-      function renderKRAEPLINSectionHTML(data, slug, name, position) {
+  function renderKRAEPLINSectionHTML(data, slug, name, position) {
     if (!data) return '';
 
     const hasil = computeKraeplinResults(data.answers, data.key, data.expectedPerCol);
@@ -447,7 +430,6 @@
 
         <div style="flex:1;overflow-y:auto;padding:16px 20px 20px;">
 
-          <!-- Skor utama -->
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:14px;">
             ${(() => {
               const card = (label, value, ket) => {
@@ -465,12 +447,10 @@
             })()}
           </div>
 
-          <!-- Totals table -->
           <div style="margin-bottom:14px;">
             ${renderTotalsTableHTML(h)}
           </div>
 
-          <!-- Tren & Fase -->
           <div style="padding:14px;background:linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08));border:1px solid rgba(99,102,241,.4);border-radius:12px;margin-bottom:14px;">
             <div style="font-size:11px;font-weight:900;letter-spacing:1px;color:#a5b4fc;margin-bottom:10px;">📈 ANALISIS TREN & FASE</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
@@ -497,7 +477,6 @@
             </div>
           </div>
 
-          <!-- Charts -->
           <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px;">
             <div style="padding:10px;background:rgba(0,0,0,.28);border-radius:11px;border:1px solid rgba(255,255,255,.08);">
               <div style="font-size:11px;font-weight:900;color:#93c5fd;letter-spacing:.5px;margin-bottom:6px;text-align:center;">ISI PER KOLOM</div>
@@ -523,7 +502,6 @@
     overlay.querySelector('#kraeplinCloseBtn').onclick = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 
-    /* Draw charts after DOM ready */
     requestAnimationFrame(() => {
       const cIsi = document.getElementById('kraeplinChartIsi');
       const cAkr = document.getElementById('kraeplinChartAkurasi');
@@ -547,8 +525,10 @@
 
   /* ============================================================
      PDF RINGKAS
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer (untuk unified report)
      ============================================================ */
-  async function generateKRAEPLINPDF(name, position, data) {
+  async function generateKRAEPLINPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -562,30 +542,39 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    /* Header */
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(79, 70, 229);
-    doc.text('HASIL TES KRAEPLIN', PW / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(79, 70, 229);
+      doc.text('HASIL TES KRAEPLIN', PW / 2, y, { align: 'center' });
+      y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
+      y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    /* Info */
-    const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-    [
-      ['Nama', name || '-'],
-      ['Posisi', position || '-'],
-      ['Tanggal', tanggal],
-      ['Kolom Dikerjakan', String(h.kolomDikerjakan)]
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 40, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+      [
+        ['Nama', name || '-'],
+        ['Posisi', position || '-'],
+        ['Tanggal', tanggal],
+        ['Kolom Dikerjakan', String(h.kolomDikerjakan)]
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 40, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(79, 70, 229);
+      doc.text('HASIL TES KRAEPLIN', M, y); y += 5;
+      doc.setDrawColor(79, 70, 229); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     /* Ringkasan skor utama */
     doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241);
@@ -664,13 +653,15 @@
       doc.splitTextToSize(line, CW).forEach(l => { doc.text(l, M, y); y += 4.5; });
     });
 
-    /* Footer */
-    if (y > PH - 15) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 15) { doc.addPage(); y = M; }
+      y += 6;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
 
     return doc;
   }
@@ -728,8 +719,9 @@
      ============================================================ */
   window.openKRAEPLINModal          = openKRAEPLINModal;
   window.downloadKRAEPLINPDF        = downloadKRAEPLINPDF;
+  window.generateKRAEPLINPDF        = generateKRAEPLINPDF;  /* 🆕 unified */
   window.renderKRAEPLINSectionHTML  = renderKRAEPLINSectionHTML;
   window.__fetchKRAEPLINData        = fetchKRAEPLINData;
 
-  console.log('[KRAEPLIN-ADMIN] ✓ Loaded v1 — section + modal + PDF');
+  console.log('[KRAEPLIN-ADMIN] ✓ Loaded v1.1 — section + modal + PDF + contentOnly');
 })();
