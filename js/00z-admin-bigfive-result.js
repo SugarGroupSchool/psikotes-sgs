@@ -1,5 +1,5 @@
 /* ============================================================
-   js/00z-admin-bigfive-result.js — v1 (Admin Web View BigFive)
+   js/00z-admin-bigfive-result.js — v1.1 (Admin Web View BigFive)
    ------------------------------------------------------------
    - Baca data dari sgs_scores/{slug} (auto-push dari kandidat)
    - renderBIGFIVESectionHTML() → card di area "Hasil Tes"
@@ -7,14 +7,12 @@
    - generateBIGFIVEPDF()      → PDF ringkas on-demand
    - Reuse global: koreksiBigFive, bigFivePositionAnalysis,
                    analisaBigFiveSuitability, getBigFiveSuitabilityLabel
+   🆕 v1.1 [2026-10-26]: opts.contentOnly untuk unified report
    ============================================================ */
 
 (function () {
   'use strict';
 
-  /* ============================================================
-     HELPERS
-     ============================================================ */
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -27,9 +25,6 @@
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
   }
 
-  /* ============================================================
-     LABELS & COLOR
-     ============================================================ */
   const DIM_LABELS = {
     O: 'Openness',
     C: 'Conscientiousness',
@@ -41,7 +36,6 @@
 
   function levelLabel(percent, dim) {
     const v = Number(percent) || 0;
-    // N: rendah = bagus (stabil emosi). O/C/E/A: tinggi = bagus
     if (dim === 'N') {
       if (v < 40) return { label: 'Rendah',  tone: 'good' };
       if (v < 70) return { label: 'Sedang',  tone: 'mid' };
@@ -61,9 +55,6 @@
     return toneColor(lv.tone).grad;
   }
 
-  /* ============================================================
-     FETCH
-     ============================================================ */
   async function fetchBIGFIVEData(slug) {
     if (!fbReady()) return null;
     const dashed = slugifyDashed(slug);
@@ -93,13 +84,9 @@
     return null;
   }
 
-  /* ============================================================
-     COMPUTE — pakai answers kalau ada, fallback ke result
-     ============================================================ */
   function computeBIGFIVEResult(data) {
     if (!data) return null;
 
-    /* Prioritas: hitung ulang dari answers */
     if (Array.isArray(data.answers) && data.answers.length > 0
         && typeof koreksiBigFive === 'function'
         && typeof BIGFIVE_DATA !== 'undefined' && BIGFIVE_DATA?.questions) {
@@ -108,7 +95,6 @@
       } catch (e) { /* fallback ke result */ }
     }
 
-    /* Fallback: pakai percent dari result */
     if (data.result && Object.keys(data.result).length > 0) {
       const fake = {};
       DIM_ORDER.forEach(dim => {
@@ -122,11 +108,7 @@
     return null;
   }
 
-  /* ============================================================
-     RENDER: Section Card
-     ============================================================ */
   function renderBIGFIVESectionHTML(data, slug, name, position) {
-    /* Kandidat belum kerjakan BIGFIVE → tidak tampil */
     if (!data) return '';
 
     const result = computeBIGFIVEResult(data);
@@ -141,7 +123,6 @@
     const safeName     = escHtml(name || data.candidateName || '');
     const safePosition = escHtml(position || data.candidatePosition || '');
 
-    // Chip per dimensi
     const chipsHTML = DIM_ORDER.map(dim => {
       const r = result[dim];
       if (!r || typeof r.percent !== 'number') return '';
@@ -186,11 +167,7 @@
       </div>`;
   }
 
-  /* ============================================================
-     RENDER: Modal Body
-     ============================================================ */
   function renderModalBody(result, position) {
-    /* 5 dimensi OCEAN */
     const dimBlocksHTML = DIM_ORDER.map(dim => {
       const r = result[dim];
       if (!r) return '';
@@ -213,7 +190,6 @@
         </div>`;
     }).join('');
 
-    /* Analisis posisi (long text) */
     let posAnalysisHTML = '';
     if (position && typeof bigFivePositionAnalysis !== 'undefined' && bigFivePositionAnalysis[position]) {
       const arr = bigFivePositionAnalysis[position];
@@ -226,7 +202,6 @@
       }
     }
 
-    /* Tabel kecocokan (kalau ada fungsi) */
     let suitabilityHTML = '';
     if (position && typeof analisaBigFiveSuitability === 'function') {
       try {
@@ -249,9 +224,6 @@
     return dimBlocksHTML + posAnalysisHTML + suitabilityHTML;
   }
 
-  /* ============================================================
-     MODAL
-     ============================================================ */
   async function openBIGFIVEModal(slug, name, position) {
     const old = document.getElementById('bigfiveAdminModal'); if (old) old.remove();
     const data = await fetchBIGFIVEData(slug);
@@ -263,7 +235,6 @@
     overlay.setAttribute('data-position', position || '');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.92);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
-    /* EMPTY STATE */
     if (!data) {
       overlay.innerHTML = `
         <div style="width:min(440px,100%);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(139,92,246,.4);border-radius:18px;padding:32px;text-align:center;color:#e2e8f0;box-shadow:0 30px 90px rgba(0,0,0,.65);">
@@ -329,9 +300,11 @@
   }
 
   /* ============================================================
-     PDF RINGKAS
+     PDF
+     🆕 opts.contentOnly = true → skip Kop/Info/Footer
      ============================================================ */
-  async function generateBIGFIVEPDF(name, position, data) {
+  async function generateBIGFIVEPDF(name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
 
@@ -345,29 +318,38 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
-    /* Header */
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(139, 92, 246);
-    doc.text('HASIL TES BIG FIVE', PW / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
-    doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
-    y += 5;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
+    /* 🆕 Header */
+    if (!opts.contentOnly) {
+      /* Header (Kop penuh) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(139, 92, 246);
+      doc.text('HASIL TES BIG FIVE', PW / 2, y, { align: 'center' });
+      y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW / 2, y, { align: 'center' });
+      y += 5;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 8;
 
-    /* Info */
-    const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
-    [
-      ['Nama', name || '-'],
-      ['Posisi', position || '-'],
-      ['Tanggal', tanggal]
-    ].forEach(([k, v]) => {
-      doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
-      doc.text(k + ' :', M, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(v), M + 30, y);
-      y += 5.5;
-    });
-    y += 3;
+      /* Info */
+      const tanggal = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' });
+      [
+        ['Nama', name || '-'],
+        ['Posisi', position || '-'],
+        ['Tanggal', tanggal]
+      ].forEach(([k, v]) => {
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
+        doc.text(k + ' :', M, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(v), M + 30, y);
+        y += 5.5;
+      });
+      y += 3;
+    } else {
+      /* Section Title mini (untuk unified report) */
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(139, 92, 246);
+      doc.text('HASIL TES BIG FIVE', M, y); y += 5;
+      doc.setDrawColor(139, 92, 246); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     /* Summary box */
     doc.setFillColor(237, 233, 254); doc.setDrawColor(139, 92, 246);
@@ -392,7 +374,6 @@
       doc.text(pct + '%  ·  ' + lv.label, M + CW - 4, y, { align: 'right' });
       y += 5;
 
-      // Bar (visual)
       doc.setFillColor(230, 230, 230);
       doc.rect(M, y, CW, 3, 'F');
       const fillW = Math.max(1, (pct / 100) * CW);
@@ -401,7 +382,6 @@
       doc.rect(M, y, fillW, 3, 'F');
       y += 6;
 
-      // Desc
       const desc = r.desc || 'Deskripsi tidak tersedia.';
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(71, 85, 105);
       doc.splitTextToSize(desc, CW).forEach(l => {
@@ -462,13 +442,15 @@
       } catch (e) { /* silent */ }
     }
 
-    /* Footer */
-    if (y > PH - 15) { doc.addPage(); y = M; }
-    y += 6;
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
-    doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    /* 🆕 Footer */
+    if (!opts.contentOnly) {
+      if (y > PH - 15) { doc.addPage(); y = M; }
+      y += 6;
+      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+      doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, y);
+      doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
 
     return doc;
   }
@@ -481,9 +463,6 @@
     doc.save('Hasil-BigFive-' + safeName + '.pdf');
   }
 
-  /* ============================================================
-     EVENT DELEGATION
-     ============================================================ */
   if (!window.__bigfiveDelegationAttached) {
     window.__bigfiveDelegationAttached = true;
     document.addEventListener('click', async function (e) {
@@ -521,13 +500,11 @@
     }, true);
   }
 
-  /* ============================================================
-     EXPORT
-     ============================================================ */
   window.openBIGFIVEModal          = openBIGFIVEModal;
   window.downloadBIGFIVEPDF        = downloadBIGFIVEPDF;
+  window.generateBIGFIVEPDF        = generateBIGFIVEPDF;  /* 🆕 unified */
   window.renderBIGFIVESectionHTML  = renderBIGFIVESectionHTML;
   window.__fetchBIGFIVEData        = fetchBIGFIVEData;
 
-  console.log('[BIGFIVE-ADMIN] ✓ Loaded v1 — section + modal + PDF');
+  console.log('[BIGFIVE-ADMIN] ✓ Loaded v1.1 — section + modal + PDF + contentOnly');
 })();
