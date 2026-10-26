@@ -327,8 +327,16 @@
         if (progressFn) progressFn('Memuat Psikogram...');
         const psiko = await window.__computePsikogram(slug, position);
         const hasData = psiko.category && psiko.computed.some(c => c.finalScore !== null);
-        if (hasData) {
-          const doc = await window.generatePsikogramPDF(name, position, psiko.computed, { contentOnly: true });
+                if (hasData) {
+          const psikoExtras = await (window.__fetchPsikogramExtras ? window.__fetchPsikogramExtras(slug) : Promise.resolve({}));
+          const doc = await window.generatePsikogramPDF(name, position, psiko.computed, {
+            contentOnly: true,
+            showSignature: true,
+            age: psikoExtras.age,
+            address: psikoExtras.address,
+            photoDataUrl: psikoExtras.photoDataUrl,
+            conclusion: psikoExtras.conclusion
+          });
           sections.push({ key: 'psikogram', title: 'Hasil Psikogram', doc });
           console.log('[UNIFIED] ✓ psikogram');
         }
@@ -445,7 +453,7 @@
   /* ============================================================
      MAIN ORCHESTRATOR
      ============================================================ */
-  async function generateUnifiedReportPDF(slug, name, position, opts) {
+   async function generateUnifiedReportPDF(slug, name, position, opts) {
     opts = opts || {};
     const progressFn = opts.onProgress || null;
 
@@ -463,75 +471,22 @@
       throw new Error('Tidak ada data tes yang bisa disertakan dalam laporan.');
     }
 
-    /* 3. Load each section + count pages */
-    if (progressFn) progressFn('Menghitung halaman...');
-    const loaded = [];
-    let cursor = 2; /* cover = page 1, section 1 mulai halaman 2 */
-    for (const sec of sections) {
-      const bytes = sec.doc.output('arraybuffer');
-      const pdf = await PDFLib.PDFDocument.load(bytes);
-      const pageCount = pdf.getPageCount();
-      loaded.push({ ...sec, pdfLibDoc: pdf, pageCount, startPage: cursor });
-      cursor += pageCount;
-    }
-
-    /* 4. Build cover with TOC (startPage sudah terisi) */
-    if (progressFn) progressFn('Membangun cover & TOC...');
-    const coverDoc = await __buildCover(name, position, loaded);
-    const coverBytes = coverDoc.output('arraybuffer');
-    const coverPdf = await PDFLib.PDFDocument.load(coverBytes);
-    const coverPageCount = coverPdf.getPageCount();
-
-    /* Kalau cover > 1 page → sesuaikan nomor halaman & rebuild TOC */
-    if (coverPageCount > 1) {
-      let c2 = coverPageCount + 1;
-      for (const l of loaded) {
-        l.startPage = c2;
-        c2 += l.pageCount;
-      }
-      const coverDoc2 = await __buildCover(name, position, loaded);
-      const coverBytes2 = coverDoc2.output('arraybuffer');
-      const coverPdf2 = await PDFLib.PDFDocument.load(coverBytes2);
-      /* Replace cover */
-      Object.assign({}, { cover: coverPdf2 }); /* no-op, just use coverPdf2 below */
-      return await __mergeAndSave(coverPdf2, loaded, name, position, progressFn);
-    }
-
-    return await __mergeAndSave(coverPdf, loaded, name, position, progressFn);
-  }
-
-  async function __mergeAndSave(coverPdf, loadedSections, name, position, progressFn) {
-    const PDFLib = window.PDFLib;
-
-    /* 5. Build signature page */
-    if (progressFn) progressFn('Membangun halaman pengesahan...');
-    const sigDoc = await __buildSignaturePage(name, position);
-    const sigBytes = sigDoc.output('arraybuffer');
-    const sigPdf = await PDFLib.PDFDocument.load(sigBytes);
-
-    /* 6. Merge all */
+    /* 3. Merge ALL sections (NO cover, NO signature page — 🆕) */
     if (progressFn) progressFn('Menggabungkan semua section...');
     const master = await PDFLib.PDFDocument.create();
 
-    /* 6a. Copy cover */
-    const coverPagesCopied = await master.copyPages(coverPdf, coverPdf.getPageIndices());
-    coverPagesCopied.forEach(p => master.addPage(p));
-
-    /* 6b. Copy each section */
-    for (const sec of loadedSections) {
-      const pages = await master.copyPages(sec.pdfLibDoc, sec.pdfLibDoc.getPageIndices());
+    for (const sec of sections) {
+      const bytes = sec.doc.output('arraybuffer');
+      const pdf = await PDFLib.PDFDocument.load(bytes);
+      const pages = await master.copyPages(pdf, pdf.getPageIndices());
       pages.forEach(p => master.addPage(p));
     }
 
-    /* 6c. Copy signature page */
-    const sigPagesCopied = await master.copyPages(sigPdf, sigPdf.getPageIndices());
-    sigPagesCopied.forEach(p => master.addPage(p));
-
-    /* 7. Apply footer */
+    /* 4. Apply footer "Halaman X / Y" */
     if (progressFn) progressFn('Menambahkan footer...');
     await __applyFooter(master, name);
 
-    /* 8. Save */
+    /* 5. Save */
     if (progressFn) progressFn('Menyimpan PDF...');
     const finalBytes = await master.save();
     return new Blob([finalBytes], { type: 'application/pdf' });

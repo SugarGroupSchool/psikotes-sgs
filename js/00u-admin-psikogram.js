@@ -78,12 +78,25 @@
   function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?100-s:s)/100)*5); }
   function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
 
-  function detectCategory(p) {
+    function detectCategory(p) {
     if (!p) return null;
-    const s = String(p).toLowerCase();
+    const s = String(p).toLowerCase().trim();
     const jsCfg = window.PSIKOGRAM_CONFIG || {};
     const fbCfg = __psikoConfigCache || {};
     const allKeys = new Set([...Object.keys(jsCfg), ...Object.keys(fbCfg)]);
+
+    /* 🆕 Fallback keywords (dipakai kalau matchKeywords tidak di-set di JS config) */
+    const FALLBACK_KW = {
+      guru:         ['guru', 'dosen', 'teacher', 'pengajar', 'lecturer', 'pendidik'],
+      admin:        ['admin', 'administrator', 'staff', 'sekretaris', 'tata usaha', 'office', 'klerk', 'administrasi'],
+      it:           ['it staff', 'it support', 'programmer', 'developer', 'software', 'network', 'staff it'],
+      welder:       ['welder', 'welding', ' las '],
+      technical:    ['technical', 'teknis', 'teknisi', 'operator', 'maintenance', 'baker', 'wood'],
+      housekeeping: ['housekeeping', 'cleaning', 'kebersihan', 'gardener', 'kebun'],
+      security:     ['security', 'satpam', 'keamanan'],
+      driver:       ['driver', 'pengemudi', 'sopir']
+    };
+
     for (const key of allKeys) {
       const jsPos = jsCfg[key] || {};
       const fbPos = fbCfg[key] || {};
@@ -91,10 +104,21 @@
       const jsAspects = Array.isArray(jsPos.aspects) ? jsPos.aspects : [];
       const effectiveAspects = fbAspects.length > 0 ? fbAspects : jsAspects;
       if (effectiveAspects.length === 0) continue;
+
+      /* Priority 1: explicit matchKeywords */
       const kws = Array.isArray(jsPos.matchKeywords) ? jsPos.matchKeywords : [];
       for (const kw of kws) {
         if (s.includes(String(kw).toLowerCase())) return key;
       }
+
+      /* Priority 2: fallback keywords per category */
+      const fkws = FALLBACK_KW[key] || [];
+      for (const kw of fkws) {
+        if (s.includes(kw)) return key;
+      }
+
+      /* Priority 3: exact key name in position */
+      if (s.includes(key.toLowerCase())) return key;
     }
     return null;
   }
@@ -425,32 +449,36 @@
   /* ============================================================
      PDF HELPERS (v4.2)
      ============================================================ */
-  async function __fetchPsikogramExtras(slug) {
-    const extras = { age: null, education: null, photoDataUrl: null, conclusion: null };
+    async function __fetchPsikogramExtras(slug) {
+    const extras = { age: null, address: null, education: null, photoDataUrl: null, conclusion: null };
     if (!fbReady()) return extras;
     const dashed = String(slug || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
     const candidates = [slug, dashed].filter((v, i, a) => v && a.indexOf(v) === i);
-    async function _tryFetch(path, field) {
+
+    for (const s of candidates) {
+      try {
+        const snap = await firebase.database().ref('sgs_candidate_status/' + s).once('value');
+        const d = snap.val();
+        if (d) {
+          extras.age = d.age || extras.age;
+          extras.address = d.addressCurrent || d.addressKTP || extras.address;
+          extras.education = d.education || extras.education;
+          extras.photoDataUrl = d.photoDataUrl || d.passPhotoDataUrl || extras.photoDataUrl;
+          extras.conclusion = d.conclusion || extras.conclusion;
+        }
+      } catch (e) {}
+    }
+
+    /* Fallback: age dari IST_age kalau belum ada */
+    if (!extras.age) {
       for (const s of candidates) {
         try {
-          const snap = await firebase.database().ref(path + '/' + s + '/' + field).once('value');
+          const snap = await firebase.database().ref('sgs_scores/' + s + '/IST_age').once('value');
           const v = snap.val();
-          if (v) return v;
+          if (v) { extras.age = v; break; }
         } catch (e) {}
       }
-      return null;
     }
-    try {
-      extras.age = await _tryFetch('sgs_psikogram', 'age');
-      if (!extras.age) extras.age = await _tryFetch('sgs_candidate_status', 'age');
-      if (!extras.age) extras.age = await _tryFetch('sgs_scores', 'IST_age');
-      extras.education = await _tryFetch('sgs_psikogram', 'education');
-      if (!extras.education) extras.education = await _tryFetch('sgs_candidate_status', 'education');
-      extras.photoDataUrl = await _tryFetch('sgs_psikogram', 'photoDataUrl');
-      if (!extras.photoDataUrl) extras.photoDataUrl = await _tryFetch('sgs_candidate_status', 'photoDataUrl');
-      if (!extras.photoDataUrl) extras.photoDataUrl = await _tryFetch('sgs_candidate_status', 'passPhotoDataUrl');
-      extras.conclusion = await _tryFetch('sgs_psikogram', 'conclusion');
-    } catch (e) {}
     return extras;
   }
   window.__fetchPsikogramExtras = __fetchPsikogramExtras;
@@ -496,7 +524,7 @@
     return text;
   }
 
-  async function generatePsikogramPDF(candidateName, position, computed, opts) {
+    async function generatePsikogramPDF(candidateName, position, computed, opts) {
     opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
@@ -518,56 +546,12 @@
       return false;
     }
 
+    /* ---- SECTION TITLE ---- */
     if (!opts.contentOnly) {
-      const age = opts.age;
-      const education = opts.education;
-      const photoDataUrl = opts.photoDataUrl;
-      const hasPhoto = !!(photoDataUrl && photoDataUrl.length > 50);
-      const photoW = 42, photoH = 56;
-      const photoX = PW - M - photoW;
-      const photoY = y;
-      const textRightEdge = hasPhoto ? (photoX - 5) : (PW - M);
-      const textWidth = textRightEdge - M;
-
-      if (hasPhoto) {
-        try {
-          const imgType = /^data:image\/png/i.test(photoDataUrl) ? 'PNG' : 'JPEG';
-          doc.addImage(photoDataUrl, imgType, photoX, photoY, photoW, photoH);
-          doc.setDrawColor(200); doc.setLineWidth(0.3);
-          doc.rect(photoX, photoY, photoW, photoH, 'S');
-        } catch (e) { console.warn('[PSIKO] Photo add failed:', e.message); }
-      }
-
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-      doc.text('POSITION', M, y);
-      doc.text('AGE', M + textWidth * 0.55, y);
-      y += 4;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
-      doc.text(String(position || '-'), M, y);
-      doc.text(age ? String(age) : '-', M + textWidth * 0.55, y);
-      y += 8;
-
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-      doc.text('NAME', M, y); y += 5;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(30, 41, 59);
-      const nameLines = doc.splitTextToSize(String(candidateName || '-'), textWidth);
-      nameLines.forEach(line => { doc.text(line, M, y); y += 7; });
-      y += 2;
-
-      const tanggal = opts.dateOverride || new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
-      doc.text('DATE', M, y);
-      doc.text('EDUCATION', M + textWidth * 0.55, y);
-      y += 4;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
-      doc.text(String(tanggal), M, y);
-      const eduLines = doc.splitTextToSize(String(education || '-'), textWidth * 0.45);
-      let eduY = y;
-      eduLines.forEach(line => { doc.text(line, M + textWidth * 0.55, eduY); eduY += 4.5; });
-
-      y = Math.max(y, eduY, hasPhoto ? (photoY + photoH) : y);
-      y += 6;
-      doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 6;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(30, 58, 138);
+      doc.text('PSIKOGRAM', M, y); y += 5;
+      doc.setDrawColor(30, 58, 138); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
     } else {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30, 58, 138);
       doc.text('HASIL PSIKOGRAM', M, y); y += 5;
@@ -575,14 +559,68 @@
       doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
     }
 
-    doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241);
-    doc.rect(M, y, CW, 14, 'FD');
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(67, 56, 202);
-    doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 5.00', M + 4, y + 5);
-    doc.setFontSize(9.5);
-    doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 11);
-    y += 18;
+    /* ---- COMPACT INFO KANDIDAT (½ tinggi) ---- */
+    const age = opts.age;
+    const address = opts.address;
+    const photoDataUrl = opts.photoDataUrl;
+    const hasPhoto = !!(photoDataUrl && String(photoDataUrl).length > 50);
 
+    const photoW = 25, photoH = 33;
+    const photoX = PW - M - photoW;
+    const photoY = y;
+    const textRightEdge = hasPhoto ? (photoX - 5) : (PW - M);
+    const textWidth = textRightEdge - M;
+
+    /* Photo */
+    if (hasPhoto) {
+      try {
+        const imgType = /^data:image\/png/i.test(photoDataUrl) ? 'PNG' : 'JPEG';
+        doc.addImage(photoDataUrl, imgType, photoX, photoY, photoW, photoH);
+        doc.setDrawColor(200); doc.setLineWidth(0.3);
+        doc.rect(photoX, photoY, photoW, photoH, 'S');
+      } catch (e) { console.warn('[PSIKO] Photo add failed:', e.message); }
+    }
+
+    /* Row 1: POSITION | AGE */
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+    doc.text('POSITION', M, y);
+    doc.text('AGE', M + textWidth * 0.55, y);
+    y += 3.5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
+    doc.text(String(position || '-'), M, y);
+    doc.text(age ? String(age) : '-', M + textWidth * 0.55, y);
+    y += 6.5;
+
+    /* Row 2: NAME */
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+    doc.text('NAME', M, y); y += 4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(30, 41, 59);
+    const nameLines = doc.splitTextToSize(String(candidateName || '-'), textWidth);
+    nameLines.forEach(line => { doc.text(line, M, y); y += 6; });
+    y += 1;
+
+    /* Row 3: ADDRESS */
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(100, 116, 139);
+    doc.text('ADDRESS', M, y); y += 4;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
+    const addrLines = doc.splitTextToSize(String(address || '-'), textWidth);
+    addrLines.forEach(line => { doc.text(line, M, y); y += 4.2; });
+
+    /* Align header bottom with photo */
+    y = Math.max(y, hasPhoto ? (photoY + photoH + 2) : y);
+    y += 4;
+    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
+
+    /* ---- SUMMARY BOX ---- */
+    doc.setFillColor(238, 242, 255); doc.setDrawColor(99, 102, 241);
+    doc.rect(M, y, CW, 12, 'FD');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(67, 56, 202);
+    doc.text('RATA-RATA: ' + avg.toFixed(2) + ' / 5.00', M + 4, y + 5);
+    doc.setFontSize(9);
+    doc.text('KATEGORI: ' + avgKet.label, M + 4, y + 10);
+    y += 15;
+
+    /* ---- TABLE ---- */
     const colNO = 15, colASPEK = 85, colSKOR = 25, colKATEGORI = 55;
     const xNO = M, xASPEK = M + colNO, xSKOR = xASPEK + colASPEK, xKATEGORI = xSKOR + colSKOR;
 
@@ -611,60 +649,67 @@
       doc.text(ket.label, xKATEGORI + colKATEGORI - 3, y + 4.5, { align: 'right' });
       y += rowH;
     });
-    y += 8;
-
-    __ensurePage(30);
-    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 58, 138);
-    doc.text('KESIMPULAN', M, y); y += 6;
-    const conclusionText = opts.conclusion || __buildAutoConclusion(computed, position, avg, avgKet.label);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
-    const conclusionLines = doc.splitTextToSize(conclusionText, CW);
-    conclusionLines.forEach(function(line) {
-      if (y + 5 > PH - 20) { doc.addPage(); y = M; }
-      doc.text(line, M, y); y += 4.5;
-    });
     y += 6;
 
+    /* ---- KESIMPULAN ---- */
+    __ensurePage(25);
+    doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 4;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(30, 58, 138);
+    doc.text('KESIMPULAN', M, y); y += 5;
+    const conclusionText = opts.conclusion || __buildAutoConclusion(computed, position, avg, avgKet.label);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
+    const conclusionLines = doc.splitTextToSize(conclusionText, CW);
+    conclusionLines.forEach(function(line) {
+      if (y + 4.5 > PH - 20) { doc.addPage(); y = M; }
+      doc.text(line, M, y); y += 4.2;
+    });
+    y += 4;
+
+    /* ---- AREA SECTIONS ---- */
     function __renderArea(title, items, color) {
       if (items.length === 0 && title !== 'KEKURANGAN/AREA RISIKO') return;
-      __ensurePage(20);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      __ensurePage(15);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
       doc.setTextColor(color[0], color[1], color[2]);
-      doc.text(title, M, y); y += 5;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(30, 41, 59);
+      doc.text(title, M, y); y += 4.5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(30, 41, 59);
       if (items.length === 0) {
-        doc.text('- Tidak terdapat aspek pada kategori ini.', M + 2, y); y += 5; return;
+        doc.text('- Tidak terdapat aspek pada kategori ini.', M + 2, y); y += 4.5; return;
       }
       items.forEach(function(item) {
-        if (y + 5 > PH - 20) { doc.addPage(); y = M; }
+        if (y + 4.5 > PH - 20) { doc.addPage(); y = M; }
         const scoreText = item.finalScore !== null ? ' (' + Number(item.finalScore).toFixed(2) + ')' : '';
         const line = '- ' + (item.aspect.label || '-') + scoreText;
         const wrapped = doc.splitTextToSize(line, CW - 4);
         wrapped.forEach(function(w) {
-          if (y + 5 > PH - 20) { doc.addPage(); y = M; }
-          doc.text(w, M + 2, y); y += 4.5;
+          if (y + 4.5 > PH - 20) { doc.addPage(); y = M; }
+          doc.text(w, M + 2, y); y += 4.2;
         });
       });
-      y += 3;
+      y += 2;
     }
     __renderArea('AREA YANG MASIH PERLU DIPERKUAT', classes.penguatan, [161, 98, 7]);
     __renderArea('AREA YANG MENJADI MODAL KANDIDAT', classes.modal, [22, 101, 52]);
     __renderArea('KEKURANGAN/AREA RISIKO', classes.risiko, [185, 28, 28]);
 
-    if (!opts.contentOnly) {
+    /* ---- SIGNATURE ---- */
+    const showSig = !opts.contentOnly || opts.showSignature === true;
+    if (showSig) {
       __ensurePage(45);
-      y = Math.max(y, PH - 60);
+      y = Math.max(y + 6, PH - 55);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
-      doc.text('Asesor,', PW - M - 70, y); y += 22;
+      doc.text('Asesor,', PW - M - 65, y); y += 22;
       doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(148, 163, 184);
-      doc.text('ttd', PW - M - 70, y); y += 12;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
-      doc.text('Human Capital Recruitment Staff', PW - M - 70, y); y += 5;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139);
-      doc.text('Sugar Group Schools', PW - M - 70, y);
+      doc.text('ttd', PW - M - 65, y); y += 10;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(30, 41, 59);
+      doc.text('Deni Pragas S.P., S.Psi.', PW - M - 65, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80, 95, 115);
+      doc.text('Human Capital Recruitment Staff', PW - M - 65, y); y += 4.5;
+      doc.setFontSize(8.5); doc.setTextColor(100, 116, 139);
+      doc.text('Sugar Group Schools', PW - M - 65, y);
     }
 
+    /* ---- FOOTER ---- */
     if (!opts.contentOnly) {
       doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
       doc.text('Dibuat: ' + new Date().toLocaleString('id-ID'), M, PH - 10);
@@ -674,7 +719,7 @@
     return doc;
   }
 
-  async function downloadPsikogramPDF(slug, candidateName, position) {
+    async function downloadPsikogramPDF(slug, candidateName, position) {
     await __ensurePsikogramConfigLoaded();
     const [raw, overrides, customWeights, extras] = await Promise.all([
       fetchRawData(slug), loadOverrides(slug), loadWeights(slug),
@@ -684,7 +729,7 @@
     const computed = computeAll(raw, overrides, customWeights, __cat);
     const doc = await generatePsikogramPDF(candidateName, position, computed, {
       age: extras.age,
-      education: extras.education,
+      address: extras.address,
       photoDataUrl: extras.photoDataUrl,
       conclusion: extras.conclusion
     });

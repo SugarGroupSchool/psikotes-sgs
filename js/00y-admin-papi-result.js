@@ -392,35 +392,48 @@
       doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
     }
 
-    /* Per grup */
-    PAPI_GROUPS.forEach(gr => {
+       /* Per grup — 🆕 fix overlap: proper row height + label wrapping + spacing */
+    PAPI_GROUPS.forEach(function(gr) {
       if (y > PH - 30) { doc.addPage(); y = M; }
       doc.setFillColor(59, 130, 246); doc.rect(M, y, CW, 7, 'F');
       doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       doc.text(gr.name.toUpperCase(), M + 4, y + 5);
-      y += 7;
+      y += 10;
 
-      gr.codes.forEach(c => {
-        if (y > PH - 25) { doc.addPage(); y = M; }
+      gr.codes.forEach(function(c) {
         const v = Number(scores[c] || 0);
-        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(9);
-        doc.text(c, M + 4, y + 5);
-        doc.setFont('helvetica', 'normal');
         const label = PAPI_LABELS[c] || c;
-        doc.text(label, M + 16, y + 5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(v + '/9', M + CW - 4, y + 5, { align: 'right' });
-        y += 6;
-
         const interp = (typeof getInterpretasiPAPI === 'function') ? getInterpretasiPAPI(c, v) : '-';
+
+        /* Wrap label & interp */
+        const labelLines = doc.splitTextToSize(String(label), CW - 30);
+        const interpLines = doc.splitTextToSize(String(interp), CW - 6);
+
+        /* Row height */
+        const labelH = Math.max(7, labelLines.length * 4.5 + 4);
+        const interpH = interpLines.length * 3.8;
+        const totalH = labelH + interpH + 4;
+
+        if (y + totalH > PH - 20) { doc.addPage(); y = M; }
+
+        /* Row header: kode | label (wrapped) | skor */
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(9);
+        doc.text(c, M + 4, y + 4);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+        let labelY = y + 4;
+        labelLines.forEach(function(line) { doc.text(line, M + 14, labelY); labelY += 4.5; });
+        doc.setFont('helvetica', 'bold');
+        doc.text(v + '/9', M + CW - 4, y + 4, { align: 'right' });
+        y += labelH;
+
+        /* Interpretation */
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(71, 85, 105);
-        const lines = doc.splitTextToSize(interp, CW - 6);
-        lines.forEach(l => {
-          if (y > PH - 15) { doc.addPage(); y = M; }
-          doc.text(l, M + 6, y);
-          y += 3.5;
+        interpLines.forEach(function(line) {
+          if (y + 4 > PH - 15) { doc.addPage(); y = M; }
+          doc.text(line, M + 6, y);
+          y += 3.8;
         });
-        y += 2;
+        y += 4;
       });
       y += 3;
     });
