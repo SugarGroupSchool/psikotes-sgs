@@ -282,16 +282,16 @@
     doc.text('terhadap kandidat bersangkutan. Seluruh data yang tercantum bersifat rahasia', M, y); y += 6;
     doc.text('dan hanya dipergunakan untuk keperluan seleksi di lingkungan Sugar Group Schools.', M, y); y += 25;
 
-    /* TTD */
+       /* TTD */
     y = PH - 75;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30, 41, 59);
-    doc.text('Disahkan oleh,', PW - 85, y); y += 22;
+    doc.text('Asesor,', PW - 85, y); y += 22;
     doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(148, 163, 184);
     doc.text('ttd', PW - 85, y); y += 12;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
-    doc.text('Deni Pragas Septian Pratama', PW - 85, y); y += 5;
+    doc.text('Human Capital Recruitment Staff', PW - 85, y); y += 5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139);
-    doc.text('(Grafis Interpreter)', PW - 85, y);
+    doc.text('Sugar Group Schools', PW - 85, y);
 
     /* Tanggal */
     const tanggal = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
