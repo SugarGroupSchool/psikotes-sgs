@@ -92,12 +92,10 @@
         const key     = __normalizeFbArray(d.KRAEPLIN_key);
 
         /* Diagnostic — bantu debug kalau masih gagal */
-        if (!answers || answers.length === 0) {
-          console.warn('[KRAEPLIN] ' + s + ': KRAEPLIN_answers kosong/invalid (type=' + typeof d.KRAEPLIN_answers + ')');
+               if (!answers || answers.length === 0) {
           continue;
         }
         if (!key || key.length === 0) {
-          console.warn('[KRAEPLIN] ' + s + ': KRAEPLIN_key kosong/invalid (type=' + typeof d.KRAEPLIN_key + ')');
           continue;
         }
 
