@@ -269,7 +269,7 @@
     __renderContent();
   }
 
-  function __renderTabs() {
+    function __renderTabs() {
     const bar = document.getElementById('pgcfgTabs');
     if (!bar) return;
     bar.innerHTML = POSITIONS.map(p => {
@@ -277,11 +277,18 @@
       return `<button class="pgcfg-tab${active ? ' active' : ''}" data-cat="${p.key}">${p.icon} ${esc(p.label)}</button>`;
     }).join('');
     bar.querySelectorAll('.pgcfg-tab').forEach(btn => {
-      btn.onclick = () => {
+      btn.onclick = async () => { // 🆕 Tambahkan async
         if (__state.dirty) {
           if (!confirm('Ada perubahan yang belum disimpan. Ganti tab dan buang perubahan?')) return;
         }
-        __loadCategory(btn.getAttribute('data-cat'));
+        
+        // 🆕 Tampilkan loading agar tidak terasa "ngelag"
+        const content = document.getElementById('pgcfgContent');
+        if (content) content.innerHTML = `<div style="padding: 60px 20px; text-align: center; color: #0ea5e9; font-size: 14px; font-weight: 800;"><div class="spinner" style="width:30px;height:30px;border:3px solid #bae6fd;border-top-color:#0ea5e9;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px;"></div>Memuat Aspek & Sinkronisasi Grafis...</div>`;
+        
+        const cat = btn.getAttribute('data-cat');
+        await __loadCategory(cat); // 🆕 Tunggu data Grafis selesai diambil
+        
         __renderTabs();
         __renderBanner();
         __renderContent();
