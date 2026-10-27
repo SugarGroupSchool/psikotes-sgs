@@ -13,7 +13,8 @@
   const SOURCES = ['IST', 'PAPI', 'BigFive', 'Wawancara', 'FGD', 'Grafis', 'SubjectTest', 'Excel', 'Typing', 'TechnicalTest'];
   const IST_SUBTES = ['SE','WA','AN','GE','ME','RA','ZR','FA','WU'];
   const PAPI_DIMS = ['A','N','G','T','V','W','F','C','L','P','I','E','K','O','S','B','X','Z','D','R'];
-  const BIGFIVE_DIMS = ['O','C','E','A','N'];
+    const BIGFIVE_DIMS = ['O','C','E','A','N'];
+  const KRAEPLIN_DIMS = ['PANKER', 'TIANKER', 'JANKER', 'HANKER'];
 
   const POSITIONS = window.MASTER_POSITIONS || [
     { key: 'guru',         label: 'Guru / Dosen',   icon: '📚' },
@@ -126,7 +127,8 @@
       weights: a.weights || {},
       ist: Array.isArray(a.ist) ? a.ist : [],
       papi: Array.isArray(a.papi) ? a.papi : [],
-      bigfive: Array.isArray(a.bigfive) ? a.bigfive : [],
+            bigfive: Array.isArray(a.bigfive) ? a.bigfive : [],
+      kraeplin: Array.isArray(a.kraeplin) ? a.kraeplin : [],
       grafisCat: String(a.label || '').trim(),
       subjectTest: !!a.subjectTest
     }));
@@ -320,7 +322,8 @@
 
     a.ist = Array.isArray(a.ist) ? a.ist : [];
     a.papi = Array.isArray(a.papi) ? a.papi : [];
-    a.bigfive = Array.isArray(a.bigfive) ? a.bigfive : [];
+        a.bigfive = Array.isArray(a.bigfive) ? a.bigfive : [];
+    a.kraeplin = Array.isArray(a.kraeplin) ? a.kraeplin : [];
     a.weights = (a.weights && typeof a.weights === 'object') ? a.weights : {};
     a.grafisCat = String(a.grafisCat || '');
     a.subjectTest = !!a.subjectTest;
@@ -366,19 +369,19 @@
 
       const __istArr = Array.isArray(a.ist) ? a.ist : (a.ist = []);
       const __papiArr = Array.isArray(a.papi) ? a.papi : (a.papi = []);
-      const __bfArr = Array.isArray(a.bigfive) ? a.bigfive : (a.bigfive = []);
+            const __bfArr = Array.isArray(a.bigfive) ? a.bigfive : (a.bigfive = []);
+      const __kpArr = Array.isArray(a.kraeplin) ? a.kraeplin : (a.kraeplin = []);
 
       const totalW = __totalWeight(a);
       const totalColor = totalW === 100 ? '#059669' : '#dc2626';
       
-      // Filter Sumber Berdasarkan Posisi
-      const POS_SRC = {
-        guru:         ['IST', 'PAPI', 'BigFive', 'Wawancara', 'FGD', 'Grafis', 'SubjectTest'],
-        admin:        ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis', 'Excel', 'Typing'],
-        it:           ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis', 'TechnicalTest'],
-        welder:       ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis', 'TechnicalTest'],
-        technical:    ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis', 'TechnicalTest'],
-        housekeeping: ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis', 'TechnicalTest']
+            const POS_SRC = {
+        guru:         ['IST', 'PAPI', 'BigFive', 'KRAEPLIN', 'Wawancara', 'FGD', 'Grafis', 'SubjectTest', 'Excel', 'Typing'],
+        admin:        ['PAPI', 'KRAEPLIN', 'Wawancara', 'Grafis', 'Excel', 'Typing'],
+        it:           ['IST', 'PAPI', 'KRAEPLIN', 'Wawancara', 'Grafis', 'TechnicalTest'],
+        welder:       ['PAPI', 'KRAEPLIN', 'Wawancara', 'Grafis', 'TechnicalTest'],
+        technical:    ['PAPI', 'KRAEPLIN', 'Wawancara', 'Grafis', 'TechnicalTest'],
+        housekeeping: ['PAPI', 'KRAEPLIN', 'Wawancara', 'Grafis', 'TechnicalTest'],
       };
       const relevantSources = POS_SRC[__state.category] || ['IST', 'PAPI', 'BigFive', 'Wawancara', 'Grafis'];
       const isSyncedGrafis = !!a.grafisCat;
@@ -436,7 +439,7 @@
             `).join('')}
           </div>
         </div>
-        <div style="margin-bottom:16px;">
+               <div style="margin-bottom:16px;">
           <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">
             DIMENSI BIG FIVE
             <span style="font-size:10px;color:#9ca3af;font-weight:600;">— N (Neuroticism) otomatis di-reverse</span>
@@ -445,6 +448,16 @@
             ${BIGFIVE_DIMS.map(s => `
               <label class="pgcfg-chk ${(__bfArr.includes(s) || __bfArr.includes(s + '_rev')) ? 'checked' : ''}" data-group="bigfive" data-val="${s}">
                 <input type="checkbox" ${(__bfArr.includes(s) || __bfArr.includes(s + '_rev')) ? 'checked' : ''}> ${s}
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:11px;font-weight:800;color:#4b5563;letter-spacing:.5px;margin-bottom:8px;">DIMENSI KRAEPLIN</label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;">
+            ${KRAEPLIN_DIMS.map(s => `
+              <label class="pgcfg-chk ${(__kpArr.includes(s)) ? 'checked' : ''}" data-group="kraeplin" data-val="${s}">
+                <input type="checkbox" ${(__kpArr.includes(s)) ? 'checked' : ''}> ${s}
               </label>
             `).join('')}
           </div>

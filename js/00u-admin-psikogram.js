@@ -76,7 +76,42 @@
   function normGrafis(s){ return typeof s==='number' ? clamp05(s * 1.25) : null; }
   function normPAPI(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?9-s:s)/9)*5); }
   function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?100-s:s)/100)*5); }
-  function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
+    function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
+  function normTyping(wpm){ return typeof wpm === 'number' ? clamp05((wpm / 50) * 5) : null; }
+  function normExcel(score){ return typeof score === 'number' ? clamp05((score / 100) * 5) : null; }
+  function normKraeplin(rawKP, dim) {
+    if (!rawKP || !Array.isArray(rawKP.answers) || !Array.isArray(rawKP.key)) return null;
+    const ans = rawKP.answers, key = rawKP.key;
+    let totalIsi = 0, totalSalah = 0;
+    let isiPerKolom = [];
+    for (let i = 0; i < key.length; i++) {
+       let isi = 0, salah = 0;
+       const colAns = Array.isArray(ans[i]) ? ans[i] : [];
+       const colKey = Array.isArray(key[i]) ? key[i] : [];
+       for (let j = 0; j < Math.min(colAns.length, colKey.length); j++) {
+          if (typeof colAns[j] === 'number' && colAns[j] >= 0) {
+             isi++;
+             if (colAns[j] !== colKey[j]) salah++;
+          }
+       }
+       totalIsi += isi; totalSalah += salah; isiPerKolom.push(isi);
+    }
+    const kolomDikerjakan = isiPerKolom.filter(v => v > 0).length || 1;
+    const panker = totalIsi / kolomDikerjakan;
+    let jDif = [];
+    for (let i = 1; i < isiPerKolom.length; i++) {
+      if (isiPerKolom[i] > 0 || isiPerKolom[i - 1] > 0) jDif.push(Math.abs(isiPerKolom[i] - isiPerKolom[i - 1]));
+    }
+    const janker = jDif.length ? jDif.reduce((a, b) => a + b, 0) / jDif.length : 0;
+    const lastIdx = Math.min(50, isiPerKolom.length) - 1;
+    const hanker = lastIdx >= 0 ? (isiPerKolom[lastIdx] - isiPerKolom[0]) : 0;
+    const d = String(dim).toUpperCase();
+    if (d === 'PANKER') return Math.max(0, Math.min(5, (panker - 5) / 5));
+    if (d === 'TIANKER') return Math.max(0, Math.min(5, 5 - (totalSalah / 4)));
+    if (d === 'JANKER') return Math.max(0, Math.min(5, 5 - janker));
+    if (d === 'HANKER') return Math.max(0, Math.min(5, 2.5 + (hanker / 2)));
+    return null;
+  }
 
      function detectCategory(p) {
     if (!p) return null;
@@ -162,8 +197,14 @@
         if (!raw._sources.IST && d.IST && Object.keys(d.IST).length) { raw.IST = d.IST; raw._sources.IST = true; }
         if (!raw._sources.PAPI && d.PAPI && Object.keys(d.PAPI).length) { raw.PAPI = d.PAPI; raw._sources.PAPI = true; }
         if (!raw._sources.BigFive && d.BigFive && Object.keys(d.BigFive).length) { raw.BigFive = d.BigFive; raw._sources.BigFive = true; }
-        if (!raw._sources.Subject) { const subVal = Number(d.Subject ?? d.SUBJECT ?? d.subject); if (subVal > 0) { raw.Subject = subVal; raw._sources.Subject = true; } }
+               if (!raw._sources.Subject) { const subVal = Number(d.Subject ?? d.SUBJECT ?? d.subject); if (subVal > 0) { raw.Subject = subVal; raw._sources.Subject = true; } }
+        if (d.TYPING && typeof d.TYPING === 'object' && typeof d.TYPING.wpm === 'number') { raw.TYPING = d.TYPING; raw._sources.TYPING = true; }
+        if (d.KRAEPLIN_answers && d.KRAEPLIN_key) { raw.KRAEPLIN = { answers: d.KRAEPLIN_answers, key: d.KRAEPLIN_key }; raw._sources.KRAEPLIN = true; }
       }
+    } catch (e) {}
+    try {
+      const d = await _fetchFirst('sgs_excel_assessments');
+      if (d && d.assessments && d.assessments.ADMIN) { raw.EXCEL = d.assessments.ADMIN; raw._sources.EXCEL = true; }
     } catch (e) {}
     try { const d = await _fetchFirst('sgs_interviews'); if (d) { raw.WawancaraDetails = {}; let totalAvg = 0, count = 0; for (const iv of Object.keys(d)) { const item = d[iv]; if (item.scores) { for (const [kriteria, skor] of Object.entries(item.scores)) { const key = String(kriteria).toUpperCase().trim(); if (!raw.WawancaraDetails[key]) raw.WawancaraDetails[key] = []; raw.WawancaraDetails[key].push(Number(skor)); } } if (item.average) { totalAvg += Number(item.average); count++; } } for (const key in raw.WawancaraDetails) { const arr = raw.WawancaraDetails[key]; raw.WawancaraDetails[key] = arr.reduce((a,b)=>a+b,0)/arr.length; } if (count > 0) { raw.Wawancara = totalAvg / count; raw._sources.Wawancara = true; } } } catch (e) {}
     try { const d = await _fetchFirst('sgs_fgd'); if (d) { const avgs = Object.values(d).map(x => x && Number(x.average)).filter(v => !isNaN(v) && v > 0); if (avgs.length) { raw.FGD = avgs.reduce((a,b)=>a+b,0)/avgs.length; raw._sources.FGD = true; } } } catch (e) {}
@@ -234,9 +275,21 @@
         if (v !== null) parts.push({ src:'Grafis', val: v, w: W.Grafis });
       }
     }
-    if (aspect.subjectTest && raw._sources.Subject && W.SubjectTest) {
+       if (aspect.subjectTest && raw._sources.Subject && W.SubjectTest) {
       const v = normSubject(raw.Subject);
       if (v !== null) { const srcLabel = raw._subjectSource === 'korektor' ? `SubjectTest (${raw._subjectCount} korektor)` : 'SubjectTest (admin)'; parts.push({ src: srcLabel, val: v, w: W.SubjectTest }); }
+    }
+    if (aspect.kraeplin && aspect.kraeplin.length && raw._sources.KRAEPLIN && W.KRAEPLIN) {
+      const vals = aspect.kraeplin.map(d => normKraeplin(raw.KRAEPLIN, d)).filter(v => v !== null);
+      if (vals.length) parts.push({ src: 'KRAEPLIN', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.KRAEPLIN });
+    }
+    if (raw._sources.TYPING && W.TYPING) {
+      const v = normTyping(raw.TYPING.wpm);
+      if (v !== null) parts.push({ src:'TYPING', val: v, w: W.TYPING });
+    }
+    if (raw._sources.EXCEL && W.EXCEL) {
+      const v = normExcel(raw.EXCEL.finalScore);
+      if (v !== null) parts.push({ src:'EXCEL', val: v, w: W.EXCEL });
     }
     const totalW = parts.reduce((a,p)=>a+p.w, 0);
     if (totalW === 0) return { score: null, parts };
