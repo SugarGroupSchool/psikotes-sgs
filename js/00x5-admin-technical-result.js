@@ -66,8 +66,11 @@
 
   function renderTechnicalSectionHTML(data, slug, name, position) {
     if (!data) return '';
-    const assessors = getAssessorList(data.assessments);
-    const images = getCandidateImages(data.images);
+       const assessors = getAssessorList(data.assessments);
+    const images = [];
+    assessors.forEach(a => {
+      if (Array.isArray(a.photoUrls)) a.photoUrls.forEach(u => { if (!images.includes(u)) images.push(u); });
+    });
 
     if (assessors.length === 0 && images.length === 0) {
       return `
@@ -134,8 +137,13 @@
     overlay.id = 'technicalResultModal';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.92);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
-    const assessors = data ? getAssessorList(data.assessments) : [];
-    const images = data ? getCandidateImages(data.images) : [];
+       const assessors = data ? getAssessorList(data.assessments) : [];
+    const images = [];
+    if (data && data.assessments) {
+      assessors.forEach(a => {
+        if (Array.isArray(a.photoUrls)) a.photoUrls.forEach(u => { if (!images.includes(u)) images.push(u); });
+      });
+    }
 
     if (assessors.length === 0) {
       overlay.innerHTML = '<div style="width:min(440px,100%);background:linear-gradient(180deg,#1e293b,#0f172a);border:1.5px solid rgba(99,102,241,.4);border-radius:18px;padding:32px;text-align:center;color:#e2e8f0;box-shadow:0 30px 90px rgba(0,0,0,.65);">'
@@ -262,8 +270,11 @@
     opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
-    const assessors = getAssessorList(data.assessments);
-    const images = getCandidateImages(data.images);
+        const assessors = getAssessorList(data.assessments);
+    const images = [];
+    assessors.forEach(a => {
+      if (Array.isArray(a.photoUrls)) a.photoUrls.forEach(u => { if (!images.includes(u)) images.push(u); });
+    });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
     const PW = doc.internal.pageSize.getWidth();
@@ -302,17 +313,37 @@
       y += 20;
     }
 
-    if (images.length > 0) {
+        if (images.length > 0) {
       if (y > PH - 80) { doc.addPage(); y = M; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30, 41, 59);
-      doc.text('FOTO JAWABAN KANDIDAT', M, y); y += 6;
+      doc.text('FOTO HASIL PRAKTEK KANDIDAT', M, y); y += 6;
       const imgW = (CW - 4) / 2, imgH = 90;
       let xPos = M, rowCount = 0;
       for (let i = 0; i < images.length; i++) {
-        if (y + imgH > PH - 20) { doc.addPage(); y = M; rowCount = 0; xPos = M; }
-        if (rowCount === 2) { y += imgH + 6; xPos = M; rowCount = 0; }
-        try { doc.addImage(images[i], 'JPEG', xPos, y, imgW, imgH, undefined, 'MEDIUM'); } catch (e) {}
-        xPos += imgW + 4; rowCount++;
+        const url = images[i];
+        const fileIdMatch = String(url).match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const fileId = fileIdMatch ? fileIdMatch[1] : null;
+        if (!fileId) continue;
+        
+        try {
+          let blob;
+          if (typeof window.__fetchViaGASProxy === 'function') {
+            blob = await window.__fetchViaGASProxy(fileId);
+          } else {
+            const res = await fetch('https://drive.google.com/uc?export=download&id=' + fileId);
+            blob = await res.blob();
+          }
+          const base64Img = await new Promise((res) => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); });
+          
+          if (y + imgH > PH - 20) { doc.addPage(); y = M; rowCount = 0; xPos = M; }
+          if (rowCount === 2) { y += imgH + 6; xPos = M; rowCount = 0; }
+          
+          doc.addImage(base64Img, 'JPEG', xPos, y, imgW, imgH, undefined, 'MEDIUM');
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+          doc.text('Halaman ' + (i + 1), xPos + imgW / 2, y + imgH + 4, { align: 'center' });
+          
+          xPos += imgW + 4; rowCount++;
+        } catch (e) { console.warn('[TECHNICAL-PDF] Gagal load gambar:', url); }
       }
       y += imgH + 8;
     }

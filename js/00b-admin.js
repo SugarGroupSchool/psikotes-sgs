@@ -1,41 +1,13 @@
 /* ============================================================
    js/00b-admin.js — SECURED + REAL-TIME SIGNAL
    ------------------------------------------------------------
-   🆕 REALTIME FIX [2026-09-22]:
-   - R1: startSignalListeners() dengar sgs_state/lastUpload & lastDelete
-   - R2: deleteResultFile() kirim sinyal lastDelete ke admin lain
-   - R3: startSignalListeners() dipanggil di renderAdminPanel()
-   - R4: stopSignalListeners() dipanggil di adminLogout() + close button
-
-   🆕 GRAFIS + ZIP [2026-09-23]:
-   - G1: __detectFileKind() deteksi file 'grafis'
-   - G2: __extractAssessorGrafis() — extract nama assessor
-   - G3: __renderGrafisBox() — box hijau glowing
-   - G4: __renderWawancaraBox() — box kuning glowing
-   - G5: Tombol 📦 ZIP per kandidat
-   - G6: __candidateFilesMap — map file per kandidat
-   - G7: downloadCandidateZip() — download semua file jadi .zip
-
-   ✅ FIX [2026-10-05]:
-   - A: approveAccessRequest() → pesan "password USED"
-   - B: approveAccessRequest() → auto-cleanup 5 menit
-   - C: rejectAccessRequest() → auto-cleanup 1 menit
-   - D: renderAccessRequestsHTML() → badge reason
-
-   🆕 FOLDER VIEW [2026-10-15]:
-   - __renderResultPageContent() → grid folder arsip
-   - Klik folder → OVERLAY responsif
-   - __openCandidateFolder() → modal overlay
-
-   🆕 IST SECTION [2026-10-15]:
-   - Section IST dipindah dari action bar ke area "Hasil Tes"
-   - Placeholder .rf-ist-section → async fill dari window.renderISTSectionHTML
-   - Action bar kembali 6 tombol
-
-   🆕 [2026-10-27] POSITION GATING & ACTION BAR CLEANUP:
-   - FGD & Subjek hanya muncul untuk Guru/Dosen.
-   - Nilai Excel hanya muncul untuk Admin/Staff.
-   - ZIP & Arsip dihapus dari bawah, dipindah ke atas (sebagian).
+   ✅ [2026-10-27] POSITION GATING FINAL:
+   - Grafis untuk semua posisi.
+   - FGD & Subjek hanya untuk Guru/Dosen.
+   - Excel & Typing hanya untuk Admin/Staff (non-Guru, non-Tech).
+   - Teknis hanya untuk Technical/Welder/HK/IT.
+   - Pengumuman dipindah ke bawah (full-width).
+   - Cleanup FGD defensive jika terinjeksi script lain.
    ============================================================ */
 
 const ADMIN_SESSION_KEY = '_sgs_admin_logged_in';
@@ -848,7 +820,7 @@ async function fetchResultFiles(forceRefresh = false) {
 
         if (data && data.success) {
           const allFiles = data.files || [];
-                    const filtered = allFiles.filter(f => {
+          const filtered = allFiles.filter(f => {
             if (window.__recentlyDeletedFileIds.has(f.id)) return false;
             const n = String(f.name || '');
             if (n.startsWith('SubjectNote-') || n === '-' || n === '') return false;
@@ -1117,7 +1089,6 @@ function __renderInterviewStatsHTML(stats) {
       ${rowsHTML}
     </div>`;
 }
-
 
 /* ============================================================
    Render box Wawancara
@@ -1561,7 +1532,7 @@ function renderResultFilesHTML(files) {
     return `<div style="padding: 20px 14px; text-align: center; color: #94a3b8; font-size: 12px; background: #fff; border-radius: 10px;">📭 Belum ada PDF yang dikirim kandidat</div>`;
   }
 
-    const groups = new Map();
+  const groups = new Map();
   files.forEach(f => {
     const n = String(f.name || '');
     if (n.startsWith('SubjectNote-') || n === '-' || n === '') return;
@@ -2657,8 +2628,9 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
-    const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
-    const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
+  /* 🆕 GATING LOGIC FINAL */
+  const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
+  const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
   const isAdmin = !isTechnical && !isGuru && /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
 
   const contentHTML = `
@@ -2670,14 +2642,15 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
     ${isGuru ? `<div class="rf-fgd-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
-        <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    ${isGuru ? `<div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
+    
     ${isTechnical ? `<div class="rf-technical-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
     
-       ${wawancara.length > 0 ? `
-  <div class="js-wawancara-unified-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
-` : ''}
-    <div class="rf-typing-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
-    <div class="rf-excel-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    ${wawancara.length > 0 ? `<div class="js-wawancara-unified-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
+    
+    ${isAdmin ? `<div class="rf-typing-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
+    ${isAdmin ? `<div class="rf-excel-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
+    
     ${others.map(f => fileRow(f, 'other')).join('')}
     <div class="rf-psikogram-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
   `;
@@ -2709,7 +2682,7 @@ window.__openCandidateFolder = function(candidateKey) {
     </button>
     ` : ''}
 
-        ${isAdmin ? `
+    ${isAdmin ? `
     <button class="js-excel-score" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.5); color: #86efac; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">📊</span>
       <span class="rf-folder-overlay-btn-label">NILAI EXCEL</span>
@@ -2723,7 +2696,7 @@ window.__openCandidateFolder = function(candidateKey) {
     </button>
     ` : ''}
 
-       <button class="js-pengumuman-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="grid-column: 1 / -1; padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #16a34a, #059669); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(22,163,74,.3);">
+    <button class="js-pengumuman-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="grid-column: 1 / -1; padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #16a34a, #059669); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(22,163,74,.3);">
       <span style="font-size: 18px;">📢</span>
       <span class="rf-folder-overlay-btn-label">PENGUMUMAN</span>
     </button>
@@ -2819,7 +2792,7 @@ window.__openCandidateFolder = function(candidateKey) {
     overlay.remove();
   };
 
-    /* 🆕 Cleanup FGD button untuk posisi non-guru (defensive — apapun sumbernya) */
+  /* 🆕 Cleanup FGD button untuk posisi non-guru (defensive) */
   if (!isGuru) {
     const actionBar = overlay.querySelector('.rf-folder-actions');
     if (actionBar) {
@@ -2921,12 +2894,9 @@ window.__openCandidateFolder = function(candidateKey) {
     } catch (e) { console.warn('[FGD-SECTION] render gagal:', e.message); }
   })();
 
-    (async () => {
+  (async () => {
     const section = overlay.querySelector('.rf-subject-result-section');
     if (!section) return;
-    const isGuru = /guru|dosen|teacher|pengajar/i.test(position || '');
-    if (!isGuru) return; // Hanya muncul untuk Guru
-
     try {
       if (typeof window.__attachSubjectRealtime === 'function') {
         window.__attachSubjectRealtime(slug, section, name, position);
@@ -2983,9 +2953,6 @@ window.__openCandidateFolder = function(candidateKey) {
     (async () => {
     const section = overlay.querySelector('.rf-typing-section');
     if (!section) return;
-       const __isTech = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
-    const isAdmin = !__isTech && /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
-    if (!isAdmin) return; // Hanya muncul untuk Admin
 
     try {
       const typingData = await window.__fetchTYPINGData(slug);
@@ -3001,9 +2968,6 @@ window.__openCandidateFolder = function(candidateKey) {
     (async () => {
     const section = overlay.querySelector('.rf-excel-section');
     if (!section) return;
-    const __isTech = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
-    const isAdmin = !__isTech && /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
-    if (!isAdmin) return; // Hanya muncul untuk Admin
 
     try {
       const excelData = await window.__fetchEXCELData(slug);

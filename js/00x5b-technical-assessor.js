@@ -25,7 +25,8 @@
   function slugify(name) {
     return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
   }
-  const slug = slugify(candidateName);
+    const slug = slugify(candidateName);
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzsdy_aGU5vN6mrkXvNbKBO4nHym6xIGhDNT0u_Urz3qQ2w3jFjwMzjfv0ipQxmqyBG/exec';
 
   function hideDefaultUI() {
     const app = document.getElementById('app');
@@ -63,11 +64,9 @@
     ov.id = 'techAssessorRoot';
     ov.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%);overflow-y:auto;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
-    const imgsHTML = state.images.length
-      ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">'
-        + state.images.map((url, i) => '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;cursor:zoom-in;" onclick="window.open(\'' + url + '\',\'_blank\')"><img src="' + url + '" style="width:100%;height:160px;object-fit:contain;background:#f8fafc;"><div style="padding:6px;text-align:center;font-size:11px;font-weight:700;color:#64748b;">📄 Hal. ' + (i + 1) + '</div></div>').join('')
-        + '</div>'
-      : '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;">Belum ada foto jawaban dari kandidat.</div>';
+        const imgsHTML =
+      '<input type="file" id="techPhotos" multiple accept="image/*" style="width:100%;padding:10px;border:2px dashed #cbd5e1;border-radius:10px;font-size:13px;background:#f8fafc;color:#1e293b;">'
+      + '<div id="techPhotosPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>';
 
     const ratingOpts = [1,2,3,4].map(val => {
       const label = {1:'Not Recommended',2:'Fairly',3:'Recommended',4:'Highly Recommended'}[val];
@@ -110,18 +109,71 @@
       });
     });
 
-    ov.querySelector('#techNotes').addEventListener('input', e => { state.notes = e.target.value; });
+        ov.querySelector('#techNotes').addEventListener('input', e => { state.notes = e.target.value; });
+    
+    ov.querySelector('#techPhotos').addEventListener('change', (e) => {
+      const preview = ov.querySelector('#techPhotosPreview');
+      preview.innerHTML = '';
+      Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = document.createElement('img');
+          img.src = ev.target.result;
+          img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;';
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
     ov.querySelector('#techCloseBtn').onclick = () => ov.remove();
-    ov.querySelector('#techSubmitBtn').onclick = async () => {
+        ov.querySelector('#techSubmitBtn').onclick = async () => {
       if (!state.rating) { alert('Pilih rating dulu'); return; }
       const btn = ov.querySelector('#techSubmitBtn');
       btn.disabled = true; btn.textContent = '⏳ Mengirim...';
       try {
         if (typeof firebase === 'undefined' || !firebase.apps.length) throw new Error('Firebase belum siap');
+        
+        const fileInput = ov.querySelector('#techPhotos');
+        const files = fileInput.files;
+        const photoUrls = [];
+        
+        if (files.length > 0) {
+          btn.textContent = '⏳ Upload foto...';
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const base64 = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result.split(',')[1]);
+              reader.readAsDataURL(file);
+            });
+            const res = await fetch(GAS_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({
+                action: 'upload_subject_note_photo',
+                slug: slug,
+                kode: assessorKode,
+                base64: base64,
+                mimeType: file.type || 'image/jpeg',
+                fileName: file.name,
+                candidateName: candidateName,
+                candidatePosition: candidatePosition
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              photoUrls.push(data.fileUrl);
+            }
+          }
+        }
+        
+        btn.textContent = '⏳ Menyimpan...';
         await firebase.database().ref('sgs_technical_assessments/' + slug + '/assessments/' + assessorKode).set({
           assessorName: assessorKode,
           rating: state.rating,
           notes: state.notes || '',
+          photoUrls: photoUrls,
           ts: firebase.database.ServerValue.TIMESTAMP
         });
         await firebase.database().ref('sgs_technical_assessments/' + slug).update({
