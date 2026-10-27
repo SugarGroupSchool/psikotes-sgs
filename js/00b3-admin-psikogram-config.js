@@ -748,7 +748,7 @@
       right: 0;
       bottom: 0;
       left: ${__getSidebarOffset()}px;
-      z-index: 100001;
+      z-index: 2147483645;
       background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
       display: flex;
       flex-direction: column;
