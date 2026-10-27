@@ -105,20 +105,23 @@
       __state.isOverride = false;
     }
     
-    // 🆕 AUTO-SYNC DARI GRAFIS CONFIG
+       // 🆕 AUTO-SYNC DARI GRAFIS CONFIG (SINKRONISASI NAMA PERSIS)
     try {
       if (fbReady()) {
         const snap = await firebase.database().ref('sgs_config/grafis_config/' + category).once('value');
         const gData = snap.val();
         if (gData && Array.isArray(gData.aspects)) {
           gData.aspects.forEach(gAsp => {
-            if (!__state.aspects.find(a => a.label === gAsp.label)) {
+            const gLabel = String(gAsp.label || '').trim();
+            // Cek apakah aspek dengan nama ini sudah ada di Psikogram
+            const exists = __state.aspects.some(a => String(a.label).trim().toUpperCase() === gLabel.toUpperCase());
+            if (!exists && gLabel) {
               __state.aspects.push({
-                id: gAsp.id || _slugFromLabel(gAsp.label),
-                label: gAsp.label,
-                weights: {},
+                id: gAsp.id || _slugFromLabel(gLabel),
+                label: gLabel,
+                weights: { Grafis: 100 }, // Set bobot default 100% Grafis (bisa diubah admin)
                 ist: [], papi: [], bigfive: [],
-                grafisCat: gAsp.label, // Auto-set
+                grafisCat: gLabel, // Harus sama persis dengan label Grafis
                 subjectTest: false
               });
             }
@@ -150,7 +153,7 @@
       ist: Array.isArray(a.ist) ? a.ist : [],
       papi: Array.isArray(a.papi) ? a.papi : [],
       bigfive: Array.isArray(a.bigfive) ? a.bigfive : [],
-       grafisCat: String(a.label || '').trim(),
+      grafisCat: String(a.label || '').trim(),
       subjectTest: !!a.subjectTest
     }));
     await firebase.database().ref('sgs_config/psikogram_config/' + __state.category).update({

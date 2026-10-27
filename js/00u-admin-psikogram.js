@@ -225,7 +225,21 @@
 }).filter(v => v !== null); if (vals.length) parts.push({ src:'BigFive', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.BigFive }); }
     if (raw._sources.Wawancara && W.Wawancara) { let valToUse = raw.Wawancara; if (raw.WawancaraDetails) { const searchKey = aspect.label.toUpperCase().trim(); if (raw.WawancaraDetails[searchKey] !== undefined) { valToUse = raw.WawancaraDetails[searchKey]; } else { for (const key in raw.WawancaraDetails) { if (key.includes(searchKey) || searchKey.includes(key)) { valToUse = raw.WawancaraDetails[key]; break; } } } } const v = normWawancara(valToUse); if (v !== null) parts.push({ src:'Wawancara', val: v, w: W.Wawancara }); }
     if (raw._sources.FGD && W.FGD) { const v = normFGD(raw.FGD); if (v !== null) parts.push({ src:'FGD', val: v, w: W.FGD }); }
-    if (aspect.grafisCat && raw._sources.Grafis && raw.Grafis[aspect.grafisCat] !== undefined && W.Grafis) { const v = normGrafis(raw.Grafis[aspect.grafisCat]); if (v !== null) parts.push({ src:'Grafis', val: v, w: W.Grafis }); }
+        if (aspect.grafisCat && raw._sources.Grafis && W.Grafis) {
+      // Pencocokan pintar: cari key di raw.Grafis yang mirip dengan aspect.grafisCat
+      const normalizeStr = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const targetKey = normalizeStr(aspect.grafisCat);
+      
+      let foundVal = null;
+      for (const [rawKey, rawVal] of Object.entries(raw.Grafis)) {
+        if (normalizeStr(rawKey) === targetKey) { foundVal = rawVal; break; }
+      }
+      
+      if (foundVal !== null) {
+        const v = normGrafis(foundVal);
+        if (v !== null) parts.push({ src:'Grafis', val: v, w: W.Grafis });
+      }
+    }
     if (aspect.subjectTest && raw._sources.Subject && W.SubjectTest) {
       const v = normSubject(raw.Subject);
       if (v !== null) { const srcLabel = raw._subjectSource === 'korektor' ? `SubjectTest (${raw._subjectCount} korektor)` : 'SubjectTest (admin)'; parts.push({ src: srcLabel, val: v, w: W.SubjectTest }); }
