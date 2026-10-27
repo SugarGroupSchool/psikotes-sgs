@@ -4353,11 +4353,6 @@ window.addEventListener('beforeunload', () => {
    ============================================================ */
 window.openSubjectLink = function (candidateName, candidatePosition) {
   const base = window.location.origin + window.location.pathname;
-  let assessorList = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
-  if (typeof window.ASSESSORS !== 'undefined') {
-    const list = window.ASSESSORS.getList('subject');
-    if (list && list.length > 0) assessorList = list;
-  }
 
   const old = document.getElementById('subjLinkModal');
   if (old) old.remove();
@@ -4367,7 +4362,7 @@ window.openSubjectLink = function (candidateName, candidatePosition) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
   modal.innerHTML = `
-    <div style="width:min(560px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+    <div style="width:min(480px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
       <div style="padding:24px 26px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;">
         <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KOREKSI SUBJECT · ADMIN ONLY</div>
         <div style="font-size:20px;font-weight:900;">📚 Kirim Link ke Korektor</div>
@@ -4378,49 +4373,68 @@ window.openSubjectLink = function (candidateName, candidatePosition) {
           <div style="font-size:14px;font-weight:800;color:#1e293b;">${__adminEscape(candidateName)}</div>
           <div style="font-size:12px;color:#64748b;margin-top:2px;">💼 ${__adminEscape(candidatePosition || '(tanpa posisi)')}</div>
         </div>
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px;">KLIK KODE → LINK OTOMATIS TERSALIN</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:18px;">
-          ${assessorList.map(kode => `
-            <button class="subj-copy-btn" data-kode="${__adminEscape(kode)}"
-              style="padding:12px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;
-                color:#1e293b;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s ease;">
-              ${__adminEscape(kode)}
-            </button>
-          `).join('')}
+        
+        <div style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:800;color:#475569;display:block;margin-bottom:8px;">MASUKKAN NAMA / KODE KOREKTOR</label>
+          <input type="text" id="subjAssessorName" placeholder="Contoh: Budi atau NUG" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none;transition:all .15s ease;">
         </div>
-        <button id="subjLinkClose" style="width:100%;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+
+        <div style="display:flex;gap:10px;">
+          <button id="subjGenBtn" style="flex:2;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;">🔗 Generate Link</button>
+          <button id="subjLinkClose" style="flex:1;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+        </div>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+
+  const input = modal.querySelector('#subjAssessorName');
+  setTimeout(() => input.focus(), 100);
+  
+  input.addEventListener('focus', () => { input.style.borderColor = '#0d9488'; input.style.boxShadow = '0 0 0 3px rgba(13,148,136,.15)'; });
+  input.addEventListener('blur', () => { input.style.borderColor = '#e2e8f0'; input.style.boxShadow = 'none'; });
+
   document.getElementById('subjLinkClose').onclick = () => modal.remove();
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 
-  modal.querySelectorAll('.subj-copy-btn').forEach(btn => {
-    btn.onclick = async () => {
-      const kode = btn.getAttribute('data-kode');
-      // ✅ PASTIKAN &kode= (sesuai 00x-subject-assessor.js)
-      const url = base + '?subjectdo=1&n=' + encodeURIComponent(candidateName)
-                + '&p=' + encodeURIComponent(candidatePosition)
-                + '&kode=' + encodeURIComponent(kode);
-      try {
-        if (navigator.clipboard) await navigator.clipboard.writeText(url);
-        else prompt('Copy link manual:', url);
-        const prev = btn.innerHTML;
-        btn.style.background = '#dcfce7';
-        btn.style.borderColor = '#86efac';
-        btn.style.color = '#166534';
-        btn.innerHTML = '✅ Tersalin';
-        setTimeout(() => {
-          btn.style.background = '#fff';
-          btn.style.borderColor = '#e2e8f0';
-          btn.style.color = '#1e293b';
-          btn.innerHTML = prev;
-        }, 1500);
-      } catch (e) { prompt('Copy link manual:', url); }
-    };
-  });
+  const genBtn = document.getElementById('subjGenBtn');
+  
+  const generateLink = async () => {
+    const kode = (input.value || '').trim();
+    if (!kode) {
+      input.style.borderColor = '#ef4444';
+      input.focus();
+      return;
+    }
+    
+    const url = base + '?subjectdo=1&n=' + encodeURIComponent(candidateName)
+              + '&p=' + encodeURIComponent(candidatePosition)
+              + '&kode=' + encodeURIComponent(kode);
+    
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(url);
+      else prompt('Copy link manual:', url);
+      
+      const prev = genBtn.innerHTML;
+      genBtn.style.background = '#dcfce7';
+      genBtn.style.color = '#166534';
+      genBtn.innerHTML = '✅ Link Tersalin!';
+      
+      setTimeout(() => {
+        genBtn.style.background = 'linear-gradient(135deg,#0d9488,#14b8a6)';
+        genBtn.style.color = '#fff';
+        genBtn.innerHTML = prev;
+        input.value = ''; // reset input
+        input.focus();
+      }, 2000);
+    } catch (e) {
+      prompt('Copy link manual:', url);
+    }
+  };
+
+  genBtn.onclick = generateLink;
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') generateLink(); });
 };
 
 /* ============================================================
@@ -4483,11 +4497,6 @@ window.__openSubjectImagesModal = async function (slug, candidateName) {
    ============================================================ */
 window.openTechnicalLink = function (candidateName, candidatePosition) {
   const base = window.location.origin + window.location.pathname;
-  let assessorList = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
-  if (typeof window.ASSESSORS !== 'undefined') {
-    const list = window.ASSESSORS.getList('subject');
-    if (list && list.length > 0) assessorList = list;
-  }
 
   const old = document.getElementById('techLinkModal');
   if (old) old.remove();
@@ -4497,7 +4506,7 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
   modal.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
 
   modal.innerHTML = `
-    <div style="width:min(560px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+    <div style="width:min(480px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
       <div style="padding:24px 26px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;">
         <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KEMAMPUAN TEKNIS · ADMIN ONLY</div>
         <div style="font-size:20px;font-weight:900;">🔧 Kirim Link ke Assessor</div>
@@ -4508,48 +4517,68 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
           <div style="font-size:14px;font-weight:800;color:#1e293b;">${__adminEscape(candidateName)}</div>
           <div style="font-size:12px;color:#64748b;margin-top:2px;">💼 ${__adminEscape(candidatePosition || '(tanpa posisi)')}</div>
         </div>
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px;">KLIK KODE → LINK OTOMATIS TERSALIN</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:18px;">
-          ${assessorList.map(kode => `
-            <button class="tech-copy-btn" data-kode="${__adminEscape(kode)}"
-              style="padding:12px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;
-                color:#1e293b;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s ease;">
-              ${__adminEscape(kode)}
-            </button>
-          `).join('')}
+        
+        <div style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:800;color:#475569;display:block;margin-bottom:8px;">MASUKKAN NAMA / KODE ASSESSOR</label>
+          <input type="text" id="techAssessorName" placeholder="Contoh: Budi atau NUG" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none;transition:all .15s ease;">
         </div>
-        <button id="techLinkClose" style="width:100%;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+
+        <div style="display:flex;gap:10px;">
+          <button id="techGenBtn" style="flex:2;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;">🔗 Generate Link</button>
+          <button id="techLinkClose" style="flex:1;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+        </div>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+
+  const input = modal.querySelector('#techAssessorName');
+  setTimeout(() => input.focus(), 100);
+  
+  input.addEventListener('focus', () => { input.style.borderColor = '#6366f1'; input.style.boxShadow = '0 0 0 3px rgba(99,102,241,.15)'; });
+  input.addEventListener('blur', () => { input.style.borderColor = '#e2e8f0'; input.style.boxShadow = 'none'; });
+
   document.getElementById('techLinkClose').onclick = () => modal.remove();
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
 
-  modal.querySelectorAll('.tech-copy-btn').forEach(btn => {
-    btn.onclick = async () => {
-      const kode = btn.getAttribute('data-kode');
-      const url = base + '?technicaldo=1&n=' + encodeURIComponent(candidateName)
-                + '&p=' + encodeURIComponent(candidatePosition)
-                + '&kode=' + encodeURIComponent(kode);
-      try {
-        if (navigator.clipboard) await navigator.clipboard.writeText(url);
-        else prompt('Copy link manual:', url);
-        const prev = btn.innerHTML;
-        btn.style.background = '#dcfce7';
-        btn.style.borderColor = '#86efac';
-        btn.style.color = '#166534';
-        btn.innerHTML = '✅ Tersalin';
-        setTimeout(() => {
-          btn.style.background = '#fff';
-          btn.style.borderColor = '#e2e8f0';
-          btn.style.color = '#1e293b';
-          btn.innerHTML = prev;
-        }, 1500);
-      } catch (e) { prompt('Copy link manual:', url); }
-    };
-  });
+  const genBtn = document.getElementById('techGenBtn');
+  
+  const generateLink = async () => {
+    const kode = (input.value || '').trim();
+    if (!kode) {
+      input.style.borderColor = '#ef4444';
+      input.focus();
+      return;
+    }
+    
+    const url = base + '?technicaldo=1&n=' + encodeURIComponent(candidateName)
+              + '&p=' + encodeURIComponent(candidatePosition)
+              + '&kode=' + encodeURIComponent(kode);
+    
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(url);
+      else prompt('Copy link manual:', url);
+      
+      const prev = genBtn.innerHTML;
+      genBtn.style.background = '#dcfce7';
+      genBtn.style.color = '#166534';
+      genBtn.innerHTML = '✅ Link Tersalin!';
+      
+      setTimeout(() => {
+        genBtn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+        genBtn.style.color = '#fff';
+        genBtn.innerHTML = prev;
+        input.value = ''; // reset input
+        input.focus();
+      }, 2000);
+    } catch (e) {
+      prompt('Copy link manual:', url);
+    }
+  };
+
+  genBtn.onclick = generateLink;
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') generateLink(); });
 };
 
 console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT + TECHNICAL');
