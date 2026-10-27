@@ -276,11 +276,18 @@
         function(d) { return window.generateSubjectPDF(name, position, d, { contentOnly: true }); });
     }
 
-    /* 9. Typing */
+       /* 9. Typing */
     if (typeof window.__fetchTYPINGData === 'function' && typeof window.generateTYPINGPDF === 'function') {
       await tryAdd('typing', 'Hasil Tes Mengetik',
         function() { return window.__fetchTYPINGData(slug); },
         function(d) { return window.generateTYPINGPDF(name, position, d, { contentOnly: true }); });
+    }
+
+    /* 9b. Technical Test */
+    if (typeof window.fetchTechnicalData === 'function' && typeof window.generateTechnicalPDF === 'function') {
+      await tryAdd('technical', 'Hasil Tes Kemampuan Teknis',
+        function() { return window.fetchTechnicalData(slug); },
+        function(d) { return window.generateTechnicalPDF(name, position, d, { contentOnly: true }); });
     }
 
     /* 10. Wawancara */

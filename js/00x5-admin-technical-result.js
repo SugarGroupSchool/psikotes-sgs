@@ -258,7 +258,8 @@
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
   };
 
-  window.generateTechnicalPDF = async function (name, position, data) {
+  window.generateTechnicalPDF = async function (name, position, data, opts) {
+    opts = opts || {};
     if (typeof window.loadPdfLibs === 'function') await window.loadPdfLibs();
     if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF tidak tersedia');
     const assessors = getAssessorList(data.assessments);
@@ -270,6 +271,7 @@
     const M = 15, CW = PW - 2 * M;
     let y = M;
 
+        if (!opts.contentOnly) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(79, 70, 229);
     doc.text('HASIL TES KEMAMPUAN TEKNIS', PW / 2, y, { align: 'center' }); y += 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100, 116, 139);
@@ -281,7 +283,13 @@
       doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); doc.setFontSize(10);
       doc.text(k + ' :', M, y); doc.setFont('helvetica', 'normal'); doc.text(String(v), M + 35, y); y += 5.5;
     });
-    y += 3;
+        y += 3;
+    } else {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(79, 70, 229);
+      doc.text('HASIL TES KEMAMPUAN TEKNIS', M, y); y += 5;
+      doc.setDrawColor(79, 70, 229); doc.setLineWidth(0.6);
+      doc.line(M, y, M + 60, y); doc.setLineWidth(0.2); y += 6;
+    }
 
     if (assessors.length > 0) {
       const avg = assessors.reduce((s, a) => s + a.rating, 0) / assessors.length;
@@ -325,11 +333,13 @@
       y += 5;
     }
 
+       if (!opts.contentOnly) {
     if (y > PH - 15) { doc.addPage(); y = M; }
     doc.setDrawColor(200); doc.line(M, y, PW - M, y); y += 5;
     doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120);
     doc.text('Dicetak: ' + new Date().toLocaleString('id-ID'), M, y);
     doc.text('Halaman ' + doc.internal.getNumberOfPages(), PW - M, y, { align: 'right' });
+    }
     return doc;
   };
 

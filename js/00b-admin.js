@@ -2658,8 +2658,8 @@ window.__openCandidateFolder = function(candidateKey) {
   }
 
     const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
-  const isAdmin = /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
-  const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
+    const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
+  const isAdmin = !isTechnical && !isGuru && /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
 
   const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2962,7 +2962,8 @@ window.__openCandidateFolder = function(candidateKey) {
     (async () => {
     const section = overlay.querySelector('.rf-typing-section');
     if (!section) return;
-    const isAdmin = /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+       const __isTech = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
+    const isAdmin = !__isTech && /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
     if (!isAdmin) return; // Hanya muncul untuk Admin
 
     try {
@@ -2979,7 +2980,8 @@ window.__openCandidateFolder = function(candidateKey) {
     (async () => {
     const section = overlay.querySelector('.rf-excel-section');
     if (!section) return;
-    const isAdmin = /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+    const __isTech = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
+    const isAdmin = !__isTech && /admin|staff|sekretaris|klerk|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
     if (!isAdmin) return; // Hanya muncul untuk Admin
 
     try {
