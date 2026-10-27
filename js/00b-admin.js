@@ -2160,6 +2160,17 @@ async function loadResultFilesForPage() {
 async function __fetchAllCandidateStatus() {
   if (typeof firebase === 'undefined' || !firebase.apps.length) return {};
   try {
+    // 🆕 Tunggu sampai Firebase Auth selesai loading (maksimal 3 detik)
+    let waited = 0;
+    while (!firebase.auth().currentUser && waited < 30) {
+      await new Promise(r => setTimeout(r, 100));
+      waited++;
+    }
+    if (!firebase.auth().currentUser) {
+      console.warn('[STATUS] User belum login — skip fetch.');
+      return {};
+    }
+
     const snap = await firebase.database().ref('sgs_candidate_status').once('value');
     window.__candidateStatusMap = snap.val() || {};
     return window.__candidateStatusMap;
