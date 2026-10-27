@@ -4471,7 +4471,6 @@ window.__openSubjectImagesModal = async function (slug, candidateName) {
    ============================================================ */
 window.openTechnicalLink = function (candidateName, candidatePosition) {
   const base = window.location.origin + window.location.pathname;
-  const url = base + '?technicaldo=1&n=' + encodeURIComponent(candidateName) + '&p=' + encodeURIComponent(candidatePosition);
 
   const old = document.getElementById('techLinkModal');
   if (old) old.remove();
@@ -4483,8 +4482,8 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
   modal.innerHTML = `
     <div style="width:min(480px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
       <div style="padding:24px 26px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;">
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KEMAMPUAN TEKNIS · LINK UMUM</div>
-        <div style="font-size:20px;font-weight:900;">🔧 Link Asesor Teknis</div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KEMAMPUAN TEKNIS · ADMIN ONLY</div>
+        <div style="font-size:20px;font-weight:900;">🔧 Kirim Link ke Assessor</div>
       </div>
       <div style="padding:22px 26px;">
         <div style="padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;">
@@ -4492,11 +4491,14 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
           <div style="font-size:14px;font-weight:800;color:#1e293b;">${__adminEscape(candidateName)}</div>
           <div style="font-size:12px;color:#64748b;margin-top:2px;">💼 ${__adminEscape(candidatePosition || '(tanpa posisi)')}</div>
         </div>
-        <div style="margin-bottom:18px;font-size:12px;color:#475569;line-height:1.6;">
-          Bagikan link ini ke grup asesor. Saat dibuka, mereka akan diminta <b>memilih nama mereka sendiri</b> dari daftar.
+        
+        <div style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:800;color:#475569;display:block;margin-bottom:8px;">MASUKKAN NAMA ASSESSOR</label>
+          <input type="text" id="techAssessorName" placeholder="Contoh: Budi atau NUG" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none;transition:all .15s ease;">
         </div>
+
         <div style="display:flex;gap:10px;">
-          <button id="techGenBtn" style="flex:2;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;">📋 Copy Link</button>
+          <button id="techGenBtn" style="flex:2;padding:14px;border:0;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;">🔗 Generate Link</button>
           <button id="techLinkClose" style="flex:1;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
         </div>
       </div>
@@ -4504,19 +4506,53 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
   `;
 
   document.body.appendChild(modal);
-  document.getElementById('techLinkClose').onclick = () => modal.remove();
 
-  document.getElementById('techGenBtn').onclick = async () => {
+  const input = modal.querySelector('#techAssessorName');
+  setTimeout(() => input.focus(), 100);
+  
+  input.addEventListener('focus', () => { input.style.borderColor = '#6366f1'; input.style.boxShadow = '0 0 0 3px rgba(99,102,241,.15)'; });
+  input.addEventListener('blur', () => { input.style.borderColor = '#e2e8f0'; input.style.boxShadow = 'none'; });
+
+  document.getElementById('techLinkClose').onclick = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+  const genBtn = document.getElementById('techGenBtn');
+  
+  const generateLink = async () => {
+    const kode = (input.value || '').trim();
+    if (!kode) {
+      input.style.borderColor = '#ef4444';
+      input.focus();
+      return;
+    }
+    
+    const url = base + '?technicaldo=1&n=' + encodeURIComponent(candidateName)
+              + '&p=' + encodeURIComponent(candidatePosition)
+              + '&kode=' + encodeURIComponent(kode);
+    
     try {
       if (navigator.clipboard) await navigator.clipboard.writeText(url);
       else prompt('Copy link manual:', url);
-      const btn = document.getElementById('techGenBtn');
-      btn.innerHTML = '✅ Tersalin!';
-      btn.style.background = '#dcfce7';
-      btn.style.color = '#166534';
-      setTimeout(() => { btn.innerHTML = '📋 Copy Link'; btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)'; btn.style.color = '#fff'; }, 2000);
-    } catch (e) { prompt('Copy link manual:', url); }
+      
+      const prev = genBtn.innerHTML;
+      genBtn.style.background = '#dcfce7';
+      genBtn.style.color = '#166534';
+      genBtn.innerHTML = '✅ Link Tersalin!';
+      
+      setTimeout(() => {
+        genBtn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+        genBtn.style.color = '#fff';
+        genBtn.innerHTML = prev;
+        input.value = ''; 
+        input.focus();
+      }, 2000);
+    } catch (e) {
+      prompt('Copy link manual:', url);
+    }
   };
+
+  genBtn.onclick = generateLink;
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') generateLink(); });
 };
 
 console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT + TECHNICAL');
