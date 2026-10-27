@@ -31,22 +31,18 @@
     if (!fbReady()) return null;
     const dashed = slugifyDashed(slug);
     const candidates = [slug, dashed].filter((v, i, a) => v && a.indexOf(v) === i);
-    let assessments = null, images = null;
+        let assessments = null;
     for (const s of candidates) {
       try {
         if (!assessments) {
           const snap = await firebase.database().ref('sgs_technical_assessments/' + s).once('value');
           if (snap.exists()) assessments = snap.val();
         }
-        if (!images) {
-          const snap = await firebase.database().ref('sgs_technical_images/' + s).once('value');
-          if (snap.exists()) images = snap.val();
-        }
       } catch (e) {}
-      if (assessments && images) break;
+      if (assessments) break;
     }
-    if (!assessments && !images) return null;
-    return { assessments: assessments || {}, images: images || {} };
+    if (!assessments) return null;
+    return { assessments: assessments || {} };
   }
 
   function getAssessorList(assessmentsObj) {
@@ -452,9 +448,4 @@
   window.renderTechnicalSectionHTML = renderTechnicalSectionHTML;
   window.fetchTechnicalData = fetchTechnicalData;
   window.openTechnicalModal = openTechnicalModal;
-  window.__detachTechnicalRealtime = function(slug) {
-    const old = __technicalRealtimeListeners.get(slug);
-    if (old) { try { old.ref.off(); } catch (e) {} __technicalRealtimeListeners.delete(slug); }
-  };
-  console.log('[TECHNICAL-RESULT-ADMIN] ✓ Loaded');
-})();
+   console.log('[TECHNICAL-RESULT-ADMIN] ✓ Loaded');
