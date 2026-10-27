@@ -4494,7 +4494,7 @@ window.openTechnicalLink = function (candidateName, candidatePosition) {
         
         <div style="margin-bottom:18px;">
           <label style="font-size:12px;font-weight:800;color:#475569;display:block;margin-bottom:8px;">MASUKKAN NAMA ASSESSOR</label>
-          <input type="text" id="techAssessorName" placeholder="Contoh: Budi atau NUG" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none;transition:all .15s ease;">
+          <input type="text" id="techAssessorName" placeholder="Contoh: Deni Pragas" autocomplete="off" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;box-sizing:border-box;outline:none;transition:all .15s ease;">
         </div>
 
         <div style="display:flex;gap:10px;">
