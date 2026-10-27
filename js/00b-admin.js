@@ -2657,8 +2657,9 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
-  const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
+    const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
   const isAdmin = /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+  const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
 
   const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2669,7 +2670,8 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
     ${isGuru ? `<div class="rf-fgd-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
-    <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+        <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+    ${isTechnical ? `<div class="rf-technical-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
     
        ${wawancara.length > 0 ? `
   <div class="js-wawancara-unified-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2707,10 +2709,17 @@ window.__openCandidateFolder = function(candidateKey) {
     </button>
     ` : ''}
 
-    ${isAdmin ? `
+        ${isAdmin ? `
     <button class="js-excel-score" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.5); color: #86efac; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">📊</span>
       <span class="rf-folder-overlay-btn-label">NILAI EXCEL</span>
+    </button>
+    ` : ''}
+
+    ${isTechnical ? `
+    <button class="js-technical-link" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.5); color: #c7d2fe; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <span style="font-size: 20px;">🔧</span>
+      <span class="rf-folder-overlay-btn-label">TEKNIS</span>
     </button>
     ` : ''}
 
@@ -2907,6 +2916,22 @@ window.__openCandidateFolder = function(candidateKey) {
         }, 800);
       }
     } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
+  })();
+
+   /* 🆕 Technical Section */
+  (async () => {
+    const section = overlay.querySelector('.rf-technical-result-section');
+    if (!section) return;
+    try {
+      if (typeof window.__attachTechnicalRealtime === 'function') {
+        window.__attachTechnicalRealtime(slug, section, name, position);
+        setTimeout(() => {
+          if (section.innerHTML.trim() === '') {
+            section.innerHTML = `<div style="padding:12px;background:rgba(99,102,241,.08);border:1px dashed rgba(99,102,241,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#c7d2fe;">🔧 Belum mengerjakan Kemampuan Teknis. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`;
+          }
+        }, 800);
+      }
+    } catch (e) { console.warn('[TECHNICAL-SECTION] render gagal:', e.message); }
   })();
 
  /* 🆕 Wawancara unified card */
@@ -4265,6 +4290,18 @@ window.__openSubjectDetailModal = async function (slug, name, position) {
       return;
     }
 
+       /* 🆕 Technical Link */
+    const technicalLinkBtn = e.target.closest('.js-technical-link');
+    if (technicalLinkBtn) {
+      e.preventDefault(); e.stopPropagation();
+      const name = technicalLinkBtn.getAttribute('data-name');
+      const position = technicalLinkBtn.getAttribute('data-position');
+      if (name && typeof window.openTechnicalLink === 'function') {
+        window.openTechnicalLink(name, position);
+      }
+      return;
+    }
+
     /* 🆕 Subject Link */
     const subjectLinkBtn = e.target.closest('.js-subject-link');
     if (subjectLinkBtn) {
@@ -4594,4 +4631,79 @@ window.__openSubjectImagesModal = async function (slug, candidateName) {
   document.getElementById('subjImgClose').onclick = () => ov.remove();
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
 };
-console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT ASSESSMENTS');
+
+/* ============================================================
+   🆕 MODAL KIRIM LINK TEKNIS
+   ============================================================ */
+window.openTechnicalLink = function (candidateName, candidatePosition) {
+  const base = window.location.origin + window.location.pathname;
+  let assessorList = ['NUG', 'GUN', 'DED', 'DEF', 'NET', 'YAC', 'ALF'];
+  if (typeof window.ASSESSORS !== 'undefined') {
+    const list = window.ASSESSORS.getList('subject');
+    if (list && list.length > 0) assessorList = list;
+  }
+
+  const old = document.getElementById('techLinkModal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'techLinkModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(10,20,35,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;';
+
+  modal.innerHTML = `
+    <div style="width:min(560px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.5);">
+      <div style="padding:24px 26px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;opacity:.85;margin-bottom:6px;">KEMAMPUAN TEKNIS · ADMIN ONLY</div>
+        <div style="font-size:20px;font-weight:900;">🔧 Kirim Link ke Assessor</div>
+      </div>
+      <div style="padding:22px 26px;">
+        <div style="padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:6px;">KANDIDAT</div>
+          <div style="font-size:14px;font-weight:800;color:#1e293b;">${__adminEscape(candidateName)}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">💼 ${__adminEscape(candidatePosition || '(tanpa posisi)')}</div>
+        </div>
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px;">KLIK KODE → LINK OTOMATIS TERSALIN</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:18px;">
+          ${assessorList.map(kode => `
+            <button class="tech-copy-btn" data-kode="${__adminEscape(kode)}"
+              style="padding:12px 10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;
+                color:#1e293b;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s ease;">
+              ${__adminEscape(kode)}
+            </button>
+          `).join('')}
+        </div>
+        <button id="techLinkClose" style="width:100%;padding:14px;border:0;border-radius:12px;background:#f1f5f9;color:#475569;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;">Tutup</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  document.getElementById('techLinkClose').onclick = () => modal.remove();
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+  modal.querySelectorAll('.tech-copy-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const kode = btn.getAttribute('data-kode');
+      const url = base + '?technicaldo=1&n=' + encodeURIComponent(candidateName)
+                + '&p=' + encodeURIComponent(candidatePosition)
+                + '&kode=' + encodeURIComponent(kode);
+      try {
+        if (navigator.clipboard) await navigator.clipboard.writeText(url);
+        else prompt('Copy link manual:', url);
+        const prev = btn.innerHTML;
+        btn.style.background = '#dcfce7';
+        btn.style.borderColor = '#86efac';
+        btn.style.color = '#166534';
+        btn.innerHTML = '✅ Tersalin';
+        setTimeout(() => {
+          btn.style.background = '#fff';
+          btn.style.borderColor = '#e2e8f0';
+          btn.style.color = '#1e293b';
+          btn.innerHTML = prev;
+        }, 1500);
+      } catch (e) { prompt('Copy link manual:', url); }
+    };
+  });
+};
+
+console.log('[ADMIN] ✓ Loaded — SECURED + REAL-TIME SIGNAL + GRAFIS + ZIP + FOLDER OVERLAY + IST SECTION + SUBJECT + TECHNICAL');
