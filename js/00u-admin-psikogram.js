@@ -198,8 +198,28 @@
         if (!raw._sources.PAPI && d.PAPI && Object.keys(d.PAPI).length) { raw.PAPI = d.PAPI; raw._sources.PAPI = true; }
         if (!raw._sources.BigFive && d.BigFive && Object.keys(d.BigFive).length) { raw.BigFive = d.BigFive; raw._sources.BigFive = true; }
                if (!raw._sources.Subject) { const subVal = Number(d.Subject ?? d.SUBJECT ?? d.subject); if (subVal > 0) { raw.Subject = subVal; raw._sources.Subject = true; } }
-        if (d.TYPING && typeof d.TYPING === 'object' && typeof d.TYPING.wpm === 'number') { raw.TYPING = d.TYPING; raw._sources.TYPING = true; }
-        if (d.KRAEPLIN_answers && d.KRAEPLIN_key) { raw.KRAEPLIN = { answers: d.KRAEPLIN_answers, key: d.KRAEPLIN_key }; raw._sources.KRAEPLIN = true; }
+               if (d.TYPING && typeof d.TYPING === 'object' && typeof d.TYPING.wpm === 'number') { raw.TYPING = d.TYPING; raw._sources.TYPING = true; }
+        
+        // 🆕 FIX KRAEPLIN: Normalisasi Object Firebase menjadi Array Murni
+        if (d.KRAEPLIN_answers && d.KRAEPLIN_key) { 
+          const normArr = (v) => {
+            if (Array.isArray(v)) return v;
+            if (v && typeof v === 'object') {
+              const keys = Object.keys(v).filter(k => /^\d+$/.test(k)).map(Number).sort((a,b)=>a-b);
+              if (!keys.length) return null;
+              const out = new Array(keys[keys.length - 1] + 1).fill(null);
+              keys.forEach(k => out[k] = v[k]);
+              return out;
+            }
+            return null;
+          };
+          const ansArr = normArr(d.KRAEPLIN_answers);
+          const keyArr = normArr(d.KRAEPLIN_key);
+          if (ansArr && keyArr) {
+            raw.KRAEPLIN = { answers: ansArr, key: keyArr }; 
+            raw._sources.KRAEPLIN = true; 
+          }
+        }
       }
     } catch (e) {}
     try {
@@ -279,8 +299,10 @@
       const v = normSubject(raw.Subject);
       if (v !== null) { const srcLabel = raw._subjectSource === 'korektor' ? `SubjectTest (${raw._subjectCount} korektor)` : 'SubjectTest (admin)'; parts.push({ src: srcLabel, val: v, w: W.SubjectTest }); }
     }
-    if (aspect.kraeplin && aspect.kraeplin.length && raw._sources.KRAEPLIN && W.KRAEPLIN) {
+        if (aspect.kraeplin && aspect.kraeplin.length && raw._sources.KRAEPLIN && W.KRAEPLIN) {
+      console.log('[KRAEPLIN-DEBUG] Memproses aspek:', aspect.label, '| Dimensi:', aspect.kraeplin, '| Bobot:', W.KRAEPLIN);
       const vals = aspect.kraeplin.map(d => normKraeplin(raw.KRAEPLIN, d)).filter(v => v !== null);
+      console.log('[KRAEPLIN-DEBUG] Hasil konversi nilai:', vals);
       if (vals.length) parts.push({ src: 'KRAEPLIN', val: vals.reduce((a,b)=>a+b,0)/vals.length, w: W.KRAEPLIN });
     }
     if (raw._sources.TYPING && W.TYPING) {
