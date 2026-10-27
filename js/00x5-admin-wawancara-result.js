@@ -111,7 +111,18 @@
         '📄 PDF</button>';
     }
 
-    return '<div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(250,204,21,.12),rgba(245,158,11,.08));border:1.5px solid rgba(250,204,21,.45);border-radius:12px;box-shadow:0 0 0 1px rgba(250,204,21,.1),0 0 20px rgba(250,204,21,.12);">' +
+        return '<div class="js-waw-card-hover" ' +
+      'style="margin-bottom:12px;padding:14px 16px;' +
+        'background:linear-gradient(135deg,rgba(250,204,21,.12),rgba(245,158,11,.08));' +
+        'border:1.5px solid rgba(250,204,21,.45);border-radius:12px;' +
+        'box-shadow:0 0 0 1px rgba(250,204,21,.1),0 0 20px rgba(250,204,21,.12);' +
+        'transition:all .25s cubic-bezier(.2,.8,.2,1);cursor:default;" ' +
+      'onmouseover="this.style.transform=\'translateY(-3px)\';' +
+        'this.style.borderColor=\'rgba(250,204,21,.75)\';' +
+        'this.style.boxShadow=\'0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(250,204,21,.35), 0 0 28px rgba(250,204,21,.25)\';" ' +
+      'onmouseout="this.style.transform=\'translateY(0)\';' +
+        'this.style.borderColor=\'rgba(250,204,21,.45)\';' +
+        'this.style.boxShadow=\'0 0 0 1px rgba(250,204,21,.1), 0 0 20px rgba(250,204,21,.12)\';">' +
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">' +
         '<div style="width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:10px;font-size:20px;box-shadow:0 4px 12px rgba(245,158,11,.35);">🎤</div>' +
         '<div style="flex:1;min-width:0;">' +
