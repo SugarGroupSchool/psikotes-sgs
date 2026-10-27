@@ -374,7 +374,7 @@
     return doc;
   };
 
-  const __technicalRealtimeListeners = new Map();
+    const __technicalRealtimeListeners = new Map();
   window.__attachTechnicalRealtime = function (slug, wrapper, name, position) {
     const old = __technicalRealtimeListeners.get(slug);
     if (old) { try { old.ref.off(); } catch (e) {} __technicalRealtimeListeners.delete(slug); }
@@ -386,28 +386,30 @@
     }
     const safeSlug = slugifyDashed(slug);
     const refAssess = firebase.database().ref('sgs_technical_assessments/' + safeSlug);
-    const refImages = firebase.database().ref('sgs_technical_images/' + safeSlug);
-    let assessData = null, imgData = null;
+    let assessData = null;
 
     const render = () => {
       if (!wrapper.isConnected) {
         try { refAssess.off(); } catch (e) {}
-        try { refImages.off(); } catch (e) {}
         __technicalRealtimeListeners.delete(slug);
         return;
       }
       try {
         wrapper.innerHTML = renderTechnicalSectionHTML(
-          { assessments: assessData || {}, images: imgData || {} },
+          { assessments: assessData || {} },
           slug, name, position
         );
       } catch (e) { console.warn('[TECHNICAL-REALTIME] render error:', e.message); }
     };
     refAssess.on('value', snap => { assessData = snap.val(); render(); });
-    refImages.on('value', snap => { imgData = snap.val(); render(); });
     __technicalRealtimeListeners.set(slug, {
-      ref: { off: () => { try { refAssess.off(); } catch (e) {} try { refImages.off(); } catch (e) {} } }
+      ref: { off: () => { try { refAssess.off(); } catch (e) {} } }
     });
+  };
+
+  window.__detachTechnicalRealtime = function(slug) {
+    const old = __technicalRealtimeListeners.get(slug);
+    if (old) { try { old.ref.off(); } catch (e) {} __technicalRealtimeListeners.delete(slug); }
   };
 
   if (!window.__technicalResultDelegationAttached) {

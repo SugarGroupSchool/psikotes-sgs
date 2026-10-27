@@ -2787,8 +2787,10 @@ window.__openCandidateFolder = function(candidateKey) {
    document.body.appendChild(overlay);
 
   /* 🔑 Cleanup listener saat close */
-  const closeOverlay = () => {
+    const closeOverlay = () => {
     try { __detachSubjectRealtime(slug); } catch (e) {}
+    try { if (typeof __detachFGDRealtime === 'function') __detachFGDRealtime(slug); } catch (e) {}
+    try { if (typeof __detachTechnicalRealtime === 'function') __detachTechnicalRealtime(slug); } catch (e) {}
     overlay.remove();
   };
 
@@ -2819,166 +2821,45 @@ window.__openCandidateFolder = function(candidateKey) {
     if (e.target === overlay) closeOverlay();
   });
 
-  /* Async renders */
-  (async () => {
-    const section = overlay.querySelector('.rf-ist-section');
-    if (!section) return;
-    try {
-      if (typeof window.__fetchISTData !== 'function' || typeof window.renderISTSectionHTML !== 'function') return;
-      const istData = await window.__fetchISTData(slug);
-      section.innerHTML = window.renderISTSectionHTML(istData, slug, name, position);
-    } catch (e) { console.warn('[IST-SECTION] render gagal:', e.message); }
-  })();
+  /* Async renders — Antrean (Queue) untuk mencegah lag */
+  const __sectionTasks = [
+    { selector: '.rf-ist-section', fn: async (s) => { if(typeof window.__fetchISTData==='function'&&typeof window.renderISTSectionHTML==='function'){ const d = await window.__fetchISTData(slug); s.innerHTML = window.renderISTSectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-disc-section', fn: async (s) => { if(typeof window.__fetchDISCData==='function'&&typeof window.renderDISCSectionHTML==='function'){ const d = await window.__fetchDISCData(slug); s.innerHTML = window.renderDISCSectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-kraeplin-section', fn: async (s) => { if(typeof window.__fetchKRAEPLINData==='function'&&typeof window.renderKRAEPLINSectionHTML==='function'){ const d = await window.__fetchKRAEPLINData(slug); s.innerHTML = window.renderKRAEPLINSectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-papi-section', fn: async (s) => { if(typeof window.__fetchPAPIData==='function'&&typeof window.renderPAPISectionHTML==='function'){ const d = await window.__fetchPAPIData(slug); s.innerHTML = window.renderPAPISectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-bigfive-section', fn: async (s) => { if(typeof window.__fetchBIGFIVEData==='function'&&typeof window.renderBIGFIVESectionHTML==='function'){ const d = await window.__fetchBIGFIVEData(slug); s.innerHTML = window.renderBIGFIVESectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-grafis-result-section', fn: async (s) => { if(typeof window.__attachGrafisRealtime==='function'){ window.__attachGrafisRealtime(slug, name, position, s, overlay); } else if(typeof window.__fetchGrafisData==='function'&&typeof window.renderGrafisSectionHTML==='function'){ const d = await window.__fetchGrafisData(slug); s.innerHTML = window.renderGrafisSectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-fgd-result-section', fn: async (s) => { if(typeof window.__attachFGDRealtime==='function'){ window.__attachFGDRealtime(slug, s, files); } } },
+    { selector: '.rf-subject-result-section', fn: async (s) => { if(typeof window.__attachSubjectRealtime==='function'){ window.__attachSubjectRealtime(slug, s, name, position); setTimeout(() => { if (s.innerHTML.trim() === '') s.innerHTML = `<div style="padding:12px;background:rgba(13,148,136,.08);border:1px dashed rgba(13,148,136,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#5eead4;">📚 Belum mengerjakan Subject Test. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`; }, 800); } } },
+    { selector: '.rf-technical-result-section', fn: async (s) => { if(typeof window.__attachTechnicalRealtime==='function'){ window.__attachTechnicalRealtime(slug, s, name, position); setTimeout(() => { if (s.innerHTML.trim() === '') s.innerHTML = `<div style="padding:12px;background:rgba(99,102,241,.08);border:1px dashed rgba(99,102,241,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#c7d2fe;">🔧 Belum mengerjakan Kemampuan Teknis. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`; }, 800); } } },
+    { selector: '.js-wawancara-unified-section', fn: async (s) => { if(typeof window.__attachWawancaraUnified==='function'){ await window.__attachWawancaraUnified(slug, name, position, wawancara, s); } } },
+    { selector: '.rf-psikogram-section', fn: async (s) => { if(typeof window.renderPsikogramBox==='function'){ const html = await window.renderPsikogramBox(slug, name, position); s.innerHTML = html || ''; } } },
+    { selector: '.rf-typing-section', fn: async (s) => { if(typeof window.__fetchTYPINGData==='function'){ const d = await window.__fetchTYPINGData(slug); if (!d) { s.innerHTML = `<div style="padding:12px;background:rgba(14,165,233,.08);border:1px dashed rgba(14,165,233,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#7dd3fc;">⌨️ Belum mengerjakan Tes Mengetik. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum menyelesaikan tes mengetik.</span></div>`; return; } s.innerHTML = window.renderTYPINGSectionHTML(d, slug, name, position); } } },
+    { selector: '.rf-excel-section', fn: async (s) => { if(typeof window.__fetchEXCELData==='function'){ const d = await window.__fetchEXCELData(slug); const excelFile = files.filter(f => __detectFileKind(f) === 'excel')[0] || null; if (!d && !excelFile) { s.innerHTML = `<div style="padding:12px;background:rgba(34,197,94,.08);border:1px dashed rgba(34,197,94,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#86efac;">📊 Belum mengerjakan Tes Excel. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan file atau belum dinilai.</span></div>`; return; } s.innerHTML = window.renderEXCELSectionHTML(d, slug, name, position, excelFile); } } }
+  ];
 
-  (async () => {
-    const section = overlay.querySelector('.rf-disc-section');
-    if (!section) return;
-    try {
-      if (typeof window.__fetchDISCData !== 'function' || typeof window.renderDISCSectionHTML !== 'function') return;
-      const discData = await window.__fetchDISCData(slug);
-      section.innerHTML = window.renderDISCSectionHTML(discData, slug, name, position);
-    } catch (e) { console.warn('[DISC-SECTION] render gagal:', e.message); }
-  })();
-
-  (async () => {
-    const section = overlay.querySelector('.rf-kraeplin-section');
-    if (!section) return;
-    try {
-      if (typeof window.__fetchKRAEPLINData !== 'function' || typeof window.renderKRAEPLINSectionHTML !== 'function') return;
-      const kpData = await window.__fetchKRAEPLINData(slug);
-      section.innerHTML = window.renderKRAEPLINSectionHTML(kpData, slug, name, position);
-    } catch (e) { console.warn('[KRAEPLIN-SECTION] render gagal:', e.message); }
-  })();
-
-  (async () => {
-    const section = overlay.querySelector('.rf-papi-section');
-    if (!section) return;
-    try {
-      if (typeof window.__fetchPAPIData !== 'function' || typeof window.renderPAPISectionHTML !== 'function') return;
-      const papiData = await window.__fetchPAPIData(slug);
-      section.innerHTML = window.renderPAPISectionHTML(papiData, slug, name, position);
-    } catch (e) { console.warn('[PAPI-SECTION] render gagal:', e.message); }
-  })();
-
-  (async () => {
-    const section = overlay.querySelector('.rf-bigfive-section');
-    if (!section) return;
-    try {
-      if (typeof window.__fetchBIGFIVEData !== 'function' || typeof window.renderBIGFIVESectionHTML !== 'function') return;
-      const bfData = await window.__fetchBIGFIVEData(slug);
-      section.innerHTML = window.renderBIGFIVESectionHTML(bfData, slug, name, position);
-    } catch (e) { console.warn('[BIGFIVE-SECTION] render gagal:', e.message); }
-  })();
-
-  (async () => {
-    const section = overlay.querySelector('.rf-grafis-result-section');
-    if (!section) return;
-    try {
-      if (typeof window.__attachGrafisRealtime === 'function') {
-        window.__attachGrafisRealtime(slug, name, position, section, overlay);
-      } else if (typeof window.__fetchGrafisData === 'function' && typeof window.renderGrafisSectionHTML === 'function') {
-        const graData = await window.__fetchGrafisData(slug);
-        section.innerHTML = window.renderGrafisSectionHTML(graData, slug, name, position);
-      }
-    } catch (e) { console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message); }
-  })();
-
-  /* 🆕 FGD Section */
-  (async () => {
-    const section = overlay.querySelector('.rf-fgd-result-section');
-    if (!section) return;
-    try {
-      if (typeof window.__attachFGDRealtime === 'function') {
-        window.__attachFGDRealtime(slug, section, files);
-      }
-    } catch (e) { console.warn('[FGD-SECTION] render gagal:', e.message); }
-  })();
-
-  (async () => {
-    const section = overlay.querySelector('.rf-subject-result-section');
-    if (!section) return;
-    try {
-      if (typeof window.__attachSubjectRealtime === 'function') {
-        window.__attachSubjectRealtime(slug, section, name, position);
-        setTimeout(() => {
-          if (section.innerHTML.trim() === '') {
-             section.innerHTML = `<div style="padding:12px;background:rgba(13,148,136,.08);border:1px dashed rgba(13,148,136,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#5eead4;">📚 Belum mengerjakan Subject Test. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`;
-          }
-        }, 800);
-      }
-    } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
-  })();
-
-   /* 🆕 Technical Section */
-  (async () => {
-    const section = overlay.querySelector('.rf-technical-result-section');
-    if (!section) return;
-    try {
-      if (typeof window.__attachTechnicalRealtime === 'function') {
-        window.__attachTechnicalRealtime(slug, section, name, position);
-        setTimeout(() => {
-          if (section.innerHTML.trim() === '') {
-            section.innerHTML = `<div style="padding:12px;background:rgba(99,102,241,.08);border:1px dashed rgba(99,102,241,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#c7d2fe;">🔧 Belum mengerjakan Kemampuan Teknis. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`;
-          }
-        }, 800);
-      }
-    } catch (e) { console.warn('[TECHNICAL-SECTION] render gagal:', e.message); }
-  })();
-
- /* 🆕 Wawancara unified card */
-(async () => {
-  const section = overlay.querySelector('.js-wawancara-unified-section');
-  if (!section) return;
-  try {
-    if (typeof window.__attachWawancaraUnified === 'function') {
-      await window.__attachWawancaraUnified(slug, name, position, wawancara, section);
+  let __taskIndex = 0;
+  function __processNextTask() {
+    if (__taskIndex >= __sectionTasks.length) return;
+    if (!document.body.contains(overlay)) return; // Stop jika overlay sudah ditutup
+    
+    const task = __sectionTasks[__taskIndex++];
+    const sectionEl = overlay.querySelector(task.selector);
+    
+    if (sectionEl) {
+      Promise.resolve()
+        .then(() => task.fn(sectionEl))
+        .catch(e => console.warn(`[${task.selector}] render gagal:`, e.message))
+        .finally(() => {
+          // Jeda 15ms agar browser bisa 'bernapas' dan nge-paint UI
+          setTimeout(__processNextTask, 15);
+        });
+    } else {
+      __processNextTask();
     }
-  } catch (e) {
-    console.warn('[WAWANCARA-SECTION] render gagal:', e.message);
   }
-})();
+  __processNextTask();
 
-
-  (async () => {
-    const section = overlay.querySelector('.rf-psikogram-section');
-    if (!section) return;
-    try {
-      if (typeof window.renderPsikogramBox !== 'function') return;
-      const html = await window.renderPsikogramBox(slug, name, position);
-      section.innerHTML = html || '';
-    } catch (e) { console.warn('[PSIKOGRAM-SECTION] render gagal:', e.message); }
-  })();
-
-  /* 🆕 Typing section render */
-    (async () => {
-    const section = overlay.querySelector('.rf-typing-section');
-    if (!section) return;
-
-    try {
-      const typingData = await window.__fetchTYPINGData(slug);
-      if (!typingData) {
-        section.innerHTML = `<div style="padding:12px;background:rgba(14,165,233,.08);border:1px dashed rgba(14,165,233,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#7dd3fc;">⌨️ Belum mengerjakan Tes Mengetik. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum menyelesaikan tes mengetik.</span></div>`;
-        return;
-      }
-      section.innerHTML = window.renderTYPINGSectionHTML(typingData, slug, name, position);
-    } catch (e) { console.warn('[TYPING-SECTION] render gagal:', e.message); }
-  })();
-
-  /* 🆕 Excel section render */
-    (async () => {
-    const section = overlay.querySelector('.rf-excel-section');
-    if (!section) return;
-
-    try {
-      const excelData = await window.__fetchEXCELData(slug);
-      const excelFile = files.filter(f => __detectFileKind(f) === 'excel')[0] || null;
-      if (!excelData && !excelFile) {
-        section.innerHTML = `<div style="padding:12px;background:rgba(34,197,94,.08);border:1px dashed rgba(34,197,94,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#86efac;">📊 Belum mengerjakan Tes Excel. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan file atau belum dinilai.</span></div>`;
-        return;
-      }
-      section.innerHTML = window.renderEXCELSectionHTML(excelData, slug, name, position, excelFile);
-    } catch (e) { console.warn('[EXCEL-SECTION] render gagal:', e.message); }
-  })();
 
   /* Delete button */
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
