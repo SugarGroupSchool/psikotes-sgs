@@ -78,15 +78,14 @@
   function normBigFive(s, inv){ if(typeof s!=='number')return null; return clamp05(((inv?100-s:s)/100)*5); }
   function normSubject(s){ if(typeof s!=='number'||s<=0)return null; return clamp05(s * 1.25); }
 
-    function detectCategory(p) {
+     function detectCategory(p) {
     if (!p) return null;
     const s = String(p).toLowerCase().trim();
     const jsCfg = window.PSIKOGRAM_CONFIG || {};
     const fbCfg = __psikoConfigCache || {};
     const allKeys = new Set([...Object.keys(jsCfg), ...Object.keys(fbCfg)]);
 
-    /* 🆕 Fallback keywords (dipakai kalau matchKeywords tidak di-set di JS config) */
-        const FALLBACK_KW = {
+    const FALLBACK_KW = {
       guru:         ['guru', 'dosen', 'teacher', 'pengajar', 'lecturer', 'pendidik'],
       admin:        ['admin', 'administrator', 'sekretaris', 'tata usaha', 'office', 'klerk', 'administrasi'],
       it:           ['it staff', 'it support', 'programmer', 'developer', 'software', 'network', 'staff it'],
@@ -99,11 +98,6 @@
 
     for (const key of allKeys) {
       const jsPos = jsCfg[key] || {};
-      const fbPos = fbCfg[key] || {};
-      const fbAspects = Array.isArray(fbPos.aspects) ? fbPos.aspects : [];
-      const jsAspects = Array.isArray(jsPos.aspects) ? jsPos.aspects : [];
-      const effectiveAspects = fbAspects.length > 0 ? fbAspects : jsAspects;
-      if (effectiveAspects.length === 0) continue;
 
       /* Priority 1: explicit matchKeywords */
       const kws = Array.isArray(jsPos.matchKeywords) ? jsPos.matchKeywords : [];
