@@ -445,7 +445,14 @@
     }, true);
   }
 
-  window.renderTechnicalSectionHTML = renderTechnicalSectionHTML;
+   window.renderTechnicalSectionHTML = renderTechnicalSectionHTML;
   window.fetchTechnicalData = fetchTechnicalData;
   window.openTechnicalModal = openTechnicalModal;
-   console.log('[TECHNICAL-RESULT-ADMIN] ✓ Loaded');
+
+  window.__detachTechnicalRealtime = function(slug) {
+    const old = __technicalRealtimeListeners.get(slug);
+    if (old) { try { old.ref.off(); } catch (e) {} __technicalRealtimeListeners.delete(slug); }
+  };
+
+  console.log('[TECHNICAL-RESULT-ADMIN] ✓ Loaded');
+})();
