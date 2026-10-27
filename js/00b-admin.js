@@ -2662,10 +2662,9 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
     
-        ${wawancara.length > 0 ? `
-      <div class="js-iv-stats-section" data-slug="${__adminEscape(slug)}"></div>
-      ${__renderWawancaraBox(wawancara)}
-    ` : ''}
+       ${wawancara.length > 0 ? `
+  <div class="js-wawancara-unified-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
+` : ''}
     <div class="rf-typing-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-excel-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     ${others.map(f => fileRow(f, 'other')).join('')}
@@ -2998,19 +2997,18 @@ window.__openCandidateFolder = function(candidateKey) {
     } catch (e) { console.warn('[SUBJECT-RESULT-SECTION] render gagal:', e.message); }
   })();
 
-  /* 🆕 Wawancara stats — overall + per interviewer */
-  (async () => {
-    const section = overlay.querySelector('.js-iv-stats-section');
-    if (!section) return;
-    try {
-      const stats = await __fetchInterviewStats(slug);
-      if (stats) {
-        section.innerHTML = __renderInterviewStatsHTML(stats);
-      }
-    } catch (e) {
-      console.warn('[IV-STATS] Render gagal:', e.message);
+ /* 🆕 Wawancara unified card */
+(async () => {
+  const section = overlay.querySelector('.js-wawancara-unified-section');
+  if (!section) return;
+  try {
+    if (typeof window.__attachWawancaraUnified === 'function') {
+      await window.__attachWawancaraUnified(slug, name, position, wawancara, section);
     }
-  })();
+  } catch (e) {
+    console.warn('[WAWANCARA-SECTION] render gagal:', e.message);
+  }
+})();
 
 
   (async () => {
