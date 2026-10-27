@@ -2511,7 +2511,7 @@ window.__openCandidateFolder = function(candidateKey) {
     return;
   }
 
-   let name = candidateKey;
+  let name = candidateKey;
   let position = '';
   for (const f of files) {
     const _info = __extractCandidateInfo(f);
@@ -2628,7 +2628,6 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
-  /* 🆕 GATING LOGIC FINAL */
   const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
   const isTechnical = /technical|teknisi|welder|\blas\b|housekeeping|kebersihan|gardener|kebun|\bit\b|programmer|developer|software|network/i.test(position || '');
   const isAdmin = !isTechnical && !isGuru && /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
@@ -2708,6 +2707,10 @@ window.__openCandidateFolder = function(candidateKey) {
   `;
 
   overlay.innerHTML = `
+    <style>
+      /* 🆕 Fix Mutlak: Sembunyikan FGD via CSS agar tidak infinite loop */
+      #rfFolderOverlay .js-fgd-link { display: ${isGuru ? 'flex' : 'none'} !important; }
+    </style>
     <div class="rf-folder-overlay-card" style="
       width: min(820px, 100%);
       max-height: calc(100vh - 32px);
@@ -2761,7 +2764,7 @@ window.__openCandidateFolder = function(candidateKey) {
         ">✕</button>
       </div>
 
-           <div class="rf-folder-actions" style="
+      <div class="rf-folder-actions" style="
         padding: 14px 20px;
         background: rgba(0,0,0,.3);
         border-bottom: 1px solid rgba(255,255,255,.08);
@@ -2784,36 +2787,14 @@ window.__openCandidateFolder = function(candidateKey) {
     </div>
   `;
 
-   document.body.appendChild(overlay);
+  document.body.appendChild(overlay);
 
-  /* 🔑 Cleanup listener saat close */
-    const closeOverlay = () => {
+  const closeOverlay = () => {
     try { __detachSubjectRealtime(slug); } catch (e) {}
     try { if (typeof __detachFGDRealtime === 'function') __detachFGDRealtime(slug); } catch (e) {}
     try { if (typeof __detachTechnicalRealtime === 'function') __detachTechnicalRealtime(slug); } catch (e) {}
     overlay.remove();
   };
-
-  /* 🆕 Cleanup FGD button untuk posisi non-guru (defensive) */
-  if (!isGuru) {
-    const actionBar = overlay.querySelector('.rf-folder-actions');
-    if (actionBar) {
-      const killFgd = () => {
-        actionBar.querySelectorAll('.js-fgd-link').forEach(el => el.remove());
-      };
-      killFgd();
-      const fgdMO = new MutationObserver(killFgd);
-      fgdMO.observe(actionBar, { childList: true });
-      // Auto-disconnect saat overlay ditutup
-      const closeMO = new MutationObserver(() => {
-        if (!document.getElementById('rfFolderOverlay')) {
-          fgdMO.disconnect();
-          closeMO.disconnect();
-        }
-      });
-      closeMO.observe(document.body, { childList: true });
-    }
-  }
 
   const closeBtn = document.getElementById('rfFolderCloseBtn');
   if (closeBtn) closeBtn.onclick = closeOverlay;
@@ -2821,7 +2802,6 @@ window.__openCandidateFolder = function(candidateKey) {
     if (e.target === overlay) closeOverlay();
   });
 
-  /* Async renders — Antrean (Queue) untuk mencegah lag */
   const __sectionTasks = [
     { selector: '.rf-ist-section', fn: async (s) => { if(typeof window.__fetchISTData==='function'&&typeof window.renderISTSectionHTML==='function'){ const d = await window.__fetchISTData(slug); s.innerHTML = window.renderISTSectionHTML(d, slug, name, position); } } },
     { selector: '.rf-disc-section', fn: async (s) => { if(typeof window.__fetchDISCData==='function'&&typeof window.renderDISCSectionHTML==='function'){ const d = await window.__fetchDISCData(slug); s.innerHTML = window.renderDISCSectionHTML(d, slug, name, position); } } },
@@ -2841,7 +2821,7 @@ window.__openCandidateFolder = function(candidateKey) {
   let __taskIndex = 0;
   function __processNextTask() {
     if (__taskIndex >= __sectionTasks.length) return;
-    if (!document.body.contains(overlay)) return; // Stop jika overlay sudah ditutup
+    if (!document.body.contains(overlay)) return;
     
     const task = __sectionTasks[__taskIndex++];
     const sectionEl = overlay.querySelector(task.selector);
@@ -2851,15 +2831,13 @@ window.__openCandidateFolder = function(candidateKey) {
         .then(() => task.fn(sectionEl))
         .catch(e => console.warn(`[${task.selector}] render gagal:`, e.message))
         .finally(() => {
-          // Jeda 15ms agar browser bisa 'bernapas' dan nge-paint UI
           setTimeout(__processNextTask, 15);
         });
     } else {
-      __processNextTask();
+      setTimeout(__processNextTask, 0);
     }
   }
   __processNextTask();
-
 
   /* Delete button */
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
