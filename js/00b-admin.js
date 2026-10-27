@@ -2695,14 +2695,14 @@ window.__openCandidateFolder = function(candidateKey) {
     </button>
     ` : ''}
 
-    <button class="js-pengumuman-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="grid-column: 1 / -1; padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #16a34a, #059669); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(22,163,74,.3);">
-      <span style="font-size: 18px;">📢</span>
-      <span class="rf-folder-overlay-btn-label">PENGUMUMAN</span>
-    </button>
-    
-    <button id="rfFolderDeleteBtn" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(220,38,38,.35);">
+        <button id="rfFolderDeleteBtn" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(220,38,38,.35);">
       <span style="font-size: 20px;">🗑️</span>
       <span class="rf-folder-overlay-btn-label">HAPUS</span>
+    </button>
+
+    <button class="js-pengumuman-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #16a34a, #059669); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(22,163,74,.3);">
+      <span style="font-size: 20px;">📢</span>
+      <span class="rf-folder-overlay-btn-label">PENGUMUMAN</span>
     </button>
   `;
 
