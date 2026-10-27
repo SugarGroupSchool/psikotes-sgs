@@ -86,12 +86,12 @@
     const allKeys = new Set([...Object.keys(jsCfg), ...Object.keys(fbCfg)]);
 
     /* 🆕 Fallback keywords (dipakai kalau matchKeywords tidak di-set di JS config) */
-    const FALLBACK_KW = {
+        const FALLBACK_KW = {
       guru:         ['guru', 'dosen', 'teacher', 'pengajar', 'lecturer', 'pendidik'],
-      admin:        ['admin', 'administrator', 'staff', 'sekretaris', 'tata usaha', 'office', 'klerk', 'administrasi'],
+      admin:        ['admin', 'administrator', 'sekretaris', 'tata usaha', 'office', 'klerk', 'administrasi'],
       it:           ['it staff', 'it support', 'programmer', 'developer', 'software', 'network', 'staff it'],
       welder:       ['welder', 'welding', ' las '],
-      technical:    ['technical', 'teknis', 'teknisi', 'operator', 'maintenance', 'baker', 'wood'],
+      technical:    ['technical', 'technical staff', 'teknis', 'teknisi', 'operator', 'maintenance', 'baker', 'wood'],
       housekeeping: ['housekeeping', 'cleaning', 'kebersihan', 'gardener', 'kebun'],
       security:     ['security', 'satpam', 'keamanan'],
       driver:       ['driver', 'pengemudi', 'sopir']
