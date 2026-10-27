@@ -72,7 +72,13 @@
     const combined = (files || []).find(f => /-wawancara-combined\.pdf$/i.test(f.name || ''));
     const individual = (files || []).filter(f => !/-wawancara-combined\.pdf$/i.test(f.name || ''));
 
-    if (!stats && individual.length === 0 && !combined) return '';
+    if (!stats && individual.length === 0 && !combined) {
+  return '<div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(250,204,21,.08),rgba(245,158,11,.05));border:1.5px dashed rgba(250,204,21,.3);border-radius:12px;text-align:center;">' +
+    '<div style="font-size:24px;margin-bottom:6px;">🎤</div>' +
+    '<div style="font-size:12px;font-weight:900;color:#fde047;">Belum ada wawancara</div>' +
+    '<div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Kandidat belum diwawancarai.</div>' +
+  '</div>';
+}
 
     const safeSlug = escHtml(slug);
     const safeName = escHtml(name);

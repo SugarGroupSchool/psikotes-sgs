@@ -75,7 +75,14 @@
     if (!data) return '';
     const assessors = getAssessorList(data.assessments);
     const images = getCandidateImages(data.images);
-    if (assessors.length === 0 && images.length === 0) return '';
+    if (assessors.length === 0 && images.length === 0) {
+  return `
+    <div style="margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(13,148,136,.08),rgba(20,184,166,.05));border:1.5px dashed rgba(13,148,136,.3);border-radius:12px;text-align:center;">
+      <div style="font-size:24px;margin-bottom:6px;">📚</div>
+      <div style="font-size:12px;font-weight:900;color:#5eead4;">Belum mengerjakan Subject Test</div>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</div>
+    </div>`;
+}
 
     const avgRating = assessors.length
       ? (assessors.reduce((s, a) => s + a.rating, 0) / assessors.length)

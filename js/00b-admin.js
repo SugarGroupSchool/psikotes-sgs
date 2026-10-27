@@ -31,6 +31,11 @@
    - Section IST dipindah dari action bar ke area "Hasil Tes"
    - Placeholder .rf-ist-section → async fill dari window.renderISTSectionHTML
    - Action bar kembali 6 tombol
+
+   🆕 [2026-10-27] POSITION GATING & ACTION BAR CLEANUP:
+   - FGD & Subjek hanya muncul untuk Guru/Dosen.
+   - Nilai Excel hanya muncul untuk Admin/Staff.
+   - ZIP & Arsip dihapus dari bawah, dipindah ke atas (sebagian).
    ============================================================ */
 
 const ADMIN_SESSION_KEY = '_sgs_admin_logged_in';
@@ -2652,6 +2657,9 @@ window.__openCandidateFolder = function(candidateKey) {
       </div>`;
   }
 
+  const isGuru = /guru|dosen|teacher|pengajar|lecturer/i.test(position || '');
+  const isAdmin = /admin|staff|sekretaris|office|kantor|tata\s*usaha|administrasi/i.test(position || '');
+
   const contentHTML = `
     <div class="rf-ist-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-disc-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2659,8 +2667,9 @@ window.__openCandidateFolder = function(candidateKey) {
     <div class="rf-papi-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-bigfive-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     <div class="rf-grafis-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
-    <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
+    ${isGuru ? `<div class="rf-fgd-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>` : ''}
+    <div class="rf-subject-result-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
     
        ${wawancara.length > 0 ? `
   <div class="js-wawancara-unified-section" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}"></div>
@@ -2672,145 +2681,47 @@ window.__openCandidateFolder = function(candidateKey) {
   `;
 
   const topActionsHTML = `
-    <button class="js-retake-open"
-      data-slug="${__adminEscape(slug)}"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: linear-gradient(135deg, #3b82f6, #1e40af);
-        border: 0; color: #fff; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        box-shadow: 0 4px 12px rgba(59,130,246,.3);">
+    <button class="js-retake-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #1e40af); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(59,130,246,.3);">
       <span style="font-size: 20px;">📤</span>
       <span class="rf-folder-overlay-btn-label">KIRIM LINK TES</span>
     </button>
 
-    <button class="js-interview-link"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(250,204,21,.15);
-        border: 1px solid rgba(250,204,21,.5);
-        color: #fde047; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <button class="js-interview-link" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(250,204,21,.15); border: 1px solid rgba(250,204,21,.5); color: #fde047; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">🎤</span>
       <span class="rf-folder-overlay-btn-label">WAWANCARA</span>
     </button>
 
-    <button class="js-grafindo-link"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(168,85,247,.15);
-        border: 1px solid rgba(168,85,247,.5);
-        color: #d8b4fe; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <button class="js-grafindo-link" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.5); color: #d8b4fe; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">✍</span>
       <span class="rf-folder-overlay-btn-label">GRAFIS</span>
     </button>
 
-    <button class="js-fgd-link"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(139,92,246,.15);
-        border: 1px solid rgba(139,92,246,.5);
-        color: #c4b5fd; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    ${isGuru ? `
+    <button class="js-fgd-link" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.5); color: #c4b5fd; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">🎯</span>
       <span class="rf-folder-overlay-btn-label">FGD</span>
     </button>
-
-    <button class="js-subject-link"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(13,148,136,.15);
-        border: 1px solid rgba(13,148,136,.5);
-        color: #5eead4; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <button class="js-subject-link" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(13,148,136,.15); border: 1px solid rgba(13,148,136,.5); color: #5eead4; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">📚</span>
       <span class="rf-folder-overlay-btn-label">SUBJEK</span>
     </button>
-    <button class="js-excel-score"
-      data-slug="${__adminEscape(slug)}"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: rgba(34,197,94,.15);
-        border: 1px solid rgba(34,197,94,.5);
-        color: #86efac; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    ` : ''}
+
+    ${isAdmin ? `
+    <button class="js-excel-score" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.5); color: #86efac; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px;">
       <span style="font-size: 20px;">📊</span>
       <span class="rf-folder-overlay-btn-label">NILAI EXCEL</span>
     </button>
-  `;
+    ` : ''}
 
-  const isArchived = statusData._archived === true || statusData.status === 'tidak_lolos';
-
-  const bottomActionsHTML = `
-    <button class="js-download-zip"
-      data-candidate-key="${__adminEscape(slug)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: linear-gradient(135deg, rgba(16,185,129,.2), rgba(6,182,212,.15));
-        border: 1px solid rgba(16,185,129,.55);
-        color: #6ee7b7; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
-      <span style="font-size: 20px;">📦</span>
-      <span class="rf-folder-overlay-btn-label">ZIP (${files.length})</span>
-    </button>
-
-    <button class="js-pengumuman-open"
-      data-slug="${__adminEscape(slug)}"
-      data-name="${__adminEscape(name)}"
-      data-position="${__adminEscape(position)}"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: linear-gradient(135deg, #16a34a, #059669);
-        border: 0; color: #fff; font-family: inherit;
-        font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        box-shadow: 0 4px 12px rgba(22,163,74,.3);">
+    <button class="js-pengumuman-open" data-slug="${__adminEscape(slug)}" data-name="${__adminEscape(name)}" data-position="${__adminEscape(position)}" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #16a34a, #059669); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(22,163,74,.3);">
       <span style="font-size: 20px;">📢</span>
       <span class="rf-folder-overlay-btn-label">PENGUMUMAN</span>
     </button>
-
-    <button id="rfFolderArchiveBtn"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: ${isArchived ? 'rgba(34,197,94,.15)' : 'rgba(220,38,38,.15)'};
-        border: 1px solid ${isArchived ? 'rgba(34,197,94,.5)' : 'rgba(220,38,38,.5)'};
-        color: ${isArchived ? '#86efac' : '#fca5a5'};
-        font-family: inherit; font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;">
-      <span style="font-size: 20px;">${isArchived ? '📤' : '📦'}</span>
-      <span class="rf-folder-overlay-btn-label">${isArchived ? 'KELUAR ARSIP' : 'ARSIPKAN'}</span>
-    </button>
-
-    <button id="rfFolderDeleteBtn"
-      style="padding: 12px 8px; border-radius: 10px;
-        background: linear-gradient(135deg, #dc2626, #991b1b);
-        border: 0; color: #fff;
-        font-family: inherit; font-size: 11.5px; font-weight: 800;
-        cursor: pointer; white-space: nowrap;
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        box-shadow: 0 4px 12px rgba(220,38,38,.35);">
+    
+    <button id="rfFolderDeleteBtn" style="padding: 12px 8px; border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); border: 0; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(220,38,38,.35);">
       <span style="font-size: 20px;">🗑️</span>
-      <span class="rf-folder-overlay-btn-label">HAPUS TOTAL</span>
+      <span class="rf-folder-overlay-btn-label">HAPUS</span>
     </button>
   `;
 
@@ -2888,16 +2799,6 @@ window.__openCandidateFolder = function(candidateKey) {
         ${contentHTML}
       </div>
 
-      <div style="
-        padding: 12px 20px;
-        background: rgba(0,0,0,.35);
-        border-top: 1px solid rgba(255,255,255,.08);
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-      ">
-        ${bottomActionsHTML}
-      </div>
     </div>
   `;
 
@@ -2979,6 +2880,17 @@ window.__openCandidateFolder = function(candidateKey) {
     } catch (e) { console.warn('[GRAFIS-RESULT-SECTION] render gagal:', e.message); }
   })();
 
+  /* 🆕 FGD Section */
+  (async () => {
+    const section = overlay.querySelector('.rf-fgd-result-section');
+    if (!section) return;
+    try {
+      if (typeof window.__attachFGDRealtime === 'function') {
+        window.__attachFGDRealtime(slug, section, files);
+      }
+    } catch (e) { console.warn('[FGD-SECTION] render gagal:', e.message); }
+  })();
+
     (async () => {
     const section = overlay.querySelector('.rf-subject-result-section');
     if (!section) return;
@@ -2990,7 +2902,7 @@ window.__openCandidateFolder = function(candidateKey) {
         window.__attachSubjectRealtime(slug, section, name, position);
         setTimeout(() => {
           if (section.innerHTML.trim() === '') {
-             section.innerHTML = `<div style="padding:12px;background:rgba(13,148,136,.08);border:1px dashed rgba(13,148,136,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#5eead4;">📚 Belum ada penilaian Subjek. <br><span style="font-size:10px;color:#94a3b8;">Klik "SUBJEK" di atas untuk mengisi.</span></div>`;
+             section.innerHTML = `<div style="padding:12px;background:rgba(13,148,136,.08);border:1px dashed rgba(13,148,136,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#5eead4;">📚 Belum mengerjakan Subject Test. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan jawaban atau belum dinilai.</span></div>`;
           }
         }, 800);
       }
@@ -3031,7 +2943,7 @@ window.__openCandidateFolder = function(candidateKey) {
     try {
       const typingData = await window.__fetchTYPINGData(slug);
       if (!typingData) {
-        section.innerHTML = `<div style="padding:12px;background:rgba(14,165,233,.08);border:1px dashed rgba(14,165,233,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#7dd3fc;">⌨️ Belum ada penilaian Mengetik. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengerjakan tes mengetik.</span></div>`;
+        section.innerHTML = `<div style="padding:12px;background:rgba(14,165,233,.08);border:1px dashed rgba(14,165,233,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#7dd3fc;">⌨️ Belum mengerjakan Tes Mengetik. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum menyelesaikan tes mengetik.</span></div>`;
         return;
       }
       section.innerHTML = window.renderTYPINGSectionHTML(typingData, slug, name, position);
@@ -3049,24 +2961,12 @@ window.__openCandidateFolder = function(candidateKey) {
       const excelData = await window.__fetchEXCELData(slug);
       const excelFile = files.filter(f => __detectFileKind(f) === 'excel')[0] || null;
       if (!excelData && !excelFile) {
-        section.innerHTML = `<div style="padding:12px;background:rgba(34,197,94,.08);border:1px dashed rgba(34,197,94,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#86efac;">📊 Belum ada penilaian Excel. <br><span style="font-size:10px;color:#94a3b8;">Klik "NILAI EXCEL" di atas untuk mengisi.</span></div>`;
+        section.innerHTML = `<div style="padding:12px;background:rgba(34,197,94,.08);border:1px dashed rgba(34,197,94,.3);border-radius:11px;text-align:center;font-size:11.5px;color:#86efac;">📊 Belum mengerjakan Tes Excel. <br><span style="font-size:10px;color:#94a3b8;">Kandidat belum mengumpulkan file atau belum dinilai.</span></div>`;
         return;
       }
       section.innerHTML = window.renderEXCELSectionHTML(excelData, slug, name, position, excelFile);
     } catch (e) { console.warn('[EXCEL-SECTION] render gagal:', e.message); }
   })();
-
-  /* Archive button */
-  const archiveBtn = document.getElementById('rfFolderArchiveBtn');
-  if (archiveBtn) {
-    archiveBtn.onclick = () => {
-      if (isArchived) {
-        window.__unarchiveCandidate(slug, overlay);
-      } else {
-        window.__archiveCandidate(slug, overlay);
-      }
-    };
-  }
 
   /* Delete button */
   const deleteBtn = document.getElementById('rfFolderDeleteBtn');
