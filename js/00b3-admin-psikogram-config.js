@@ -156,8 +156,11 @@
       grafisCat: String(a.label || '').trim(),
       subjectTest: !!a.subjectTest
     }));
+        // 🆕 TRIK: Jika array kosong, kirim {} agar Firebase tidak menganggapnya delete
+    const payloadAspects = clean.length > 0 ? clean : {};
+    
     await firebase.database().ref('sgs_config/psikogram_config/' + __state.category).update({
-      aspects: clean,
+      aspects: payloadAspects,
       label: (window.PSIKOGRAM_CONFIG && window.PSIKOGRAM_CONFIG[__state.category] && window.PSIKOGRAM_CONFIG[__state.category].label) || __state.category,
       updatedAt: firebase.database.ServerValue.TIMESTAMP,
       updatedBy: 'admin'

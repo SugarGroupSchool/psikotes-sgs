@@ -110,8 +110,11 @@
       label: String(a.label || '').trim(),
       description: String(a.description || '').trim()
     }));
+       // 🆕 TRIK: Jika array kosong, kirim {} agar Firebase tidak menganggapnya delete
+    const payloadAspects = clean.length > 0 ? clean : {};
+    
     await firebase.database().ref('sgs_config/grafis_config/' + __state.position).update({
-      aspects: clean,
+      aspects: payloadAspects,
       label: (window.GRAFIS_CONFIG && window.GRAFIS_CONFIG[__state.position] && window.GRAFIS_CONFIG[__state.position].label) || __state.position,
       updatedAt: firebase.database.ServerValue.TIMESTAMP,
       updatedBy: 'admin'
